@@ -335,8 +335,9 @@ function displayPersonaBreakdownInline(stats) {
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
     
+    // CHANGE 2: Update title from "Fixed Persona Breakdown - No Overlaps"
     const title = document.createElement('h1');
-    title.textContent = 'Fixed Persona Breakdown - No Overlaps';
+    title.textContent = 'Persona Breakdown';
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
@@ -535,7 +536,8 @@ function createWidget(targetContainer = null) {
     
     const title = document.createElement('h3');
     title.style.margin = '0';
-    title.textContent = 'Enhanced QDA - Fixed Personas';
+    // CHANGE 1: Update title from "Enhanced QDA - Fixed Personas"
+    title.textContent = 'dub User Analysis'; 
     header.appendChild(title);
     
     // Content
