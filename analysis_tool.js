@@ -1,1188 +1,814 @@
-// Enhanced Quantitative Driver Analysis - FIXED Persona Logic
-'use strict';
-
-// --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
-const ALL_VARIABLES = [
-    'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
-    'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
-    'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
-    'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
-    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
-    'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
-    'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
-    'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
-    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps'
-];
-
-// Section-specific exclusions for display only
-const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalDepositCount'],
-    'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies']
-};
-
-// Inject styles
-const styles = `
-    .qda-inline-widget {
-        background: white; border: 2px solid #007bff; border-radius: 10px;
-        font-family: Arial, sans-serif; font-size: 14px; max-width: 1200px;
-        margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    .qda-header {
-        background: #007bff; color: white; padding: 15px;
-        border-radius: 8px 8px 0 0; text-align: center;
-    }
-    .qda-content { padding: 20px; background: white; }
-    .qda-upload-section {
-        border: 2px dashed #007bff; border-radius: 8px; padding: 20px;
-        margin-bottom: 40px; background: #f8f9fa;
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-    }
-    .qda-upload-column {
-        display: flex; flex-direction: column; align-items: center;
-        text-align: center; padding: 15px; background: white;
-        border-radius: 8px; border: 1px solid #dee2e6;
-    }
-    .qda-file-label {
-        font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;
-    }
-    .qda-file-input {
-        padding: 8px; border: 1px solid #ddd; border-radius: 4px;
-        width: 100%; margin-bottom: 8px;
-    }
-    .qda-file-description {
-        font-size: 12px; color: #666; margin-top: 5px; line-height: 1.3;
-    }
-    .qda-btn {
-        background: #007bff; color: white; padding: 8px 20px;
-        border: none; border-radius: 5px; cursor: pointer;
-        font-size: 14px; white-space: nowrap;
-    }
-    .qda-btn:hover { background: #0056b3; }
-    .qda-btn:disabled { background: #ccc; cursor: not-allowed; }
-    .qda-analyze-row {
-        margin-top: 20px; text-align: center; grid-column: 1 / -1;
-    }
-    .qda-analysis-results { display: none; background: white; }
-    .qda-result-section { margin: 30px 0; position: relative; }
-    .qda-result-section h1 {
-        margin: 0 0 20px 0; padding: 10px 0 10px 15px;
-        border-left: 4px solid #007bff; font-size: 28px; font-weight: bold;
-    }
-    .qda-result-section h4 {
-        font-size: 18px; font-weight: bold; margin: 20px 0 15px 0; color: #333;
-    }
-    .qda-export-btn {
-        position: absolute; top: 0; right: 0; background: #007bff;
-        color: white; border: none; padding: 8px 12px;
-        border-radius: 4px; cursor: pointer; font-size: 12px;
-    }
-    .qda-export-btn:hover { background: #0056b3; }
-    .qda-regression-table {
-        width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 12px;
-    }
-    .qda-regression-table th, .qda-regression-table td {
-        border: 1px solid #ddd; padding: 6px; text-align: left;
-    }
-    .qda-regression-table th { background-color: #f2f2f2; font-weight: bold; }
-    .qda-metric-summary {
-        display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 10px; margin: 20px 0;
-    }
-    .qda-metric-card {
-        background: white; border: 1px solid #ddd; border-radius: 5px;
-        padding: 10px; text-align: center; font-size: 12px;
-    }
-    .qda-strength-very-weak { background-color: #D9D9D9; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-weak { background-color: #E8E5A3; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-weak-moderate { background-color: #F6F16E; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-moderate { background-color: #FFE787; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-moderate-strong { background-color: #B3E4A1; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-strong { background-color: #66E1BB; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .qda-strength-very-strong { background-color: #00CF84; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-`;
-
-// Inject styles only once
-if (!document.getElementById('qda-styles')) {
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'qda-styles';
-    styleSheet.textContent = styles;
-    document.head.appendChild(styleSheet);
-}
-
-// === DISPLAY FUNCTIONS (Moved to Global Scope) ===
-function createMetricCard(title, content, size = null) {
-    const card = document.createElement('div');
-    card.className = 'qda-metric-card';
-    
-    const titleEl = document.createElement('strong');
-    titleEl.textContent = title;
-    card.appendChild(titleEl);
-    
-    card.appendChild(document.createElement('br'));
-    
-    const contentEl = document.createElement('span');
-    if (size) {
-        contentEl.style.fontSize = size;
-        contentEl.style.fontWeight = 'bold';
-    }
-    contentEl.textContent = content;
-    card.appendChild(contentEl);
-    
-    return card;
-}
-
-function createTableRow(data) {
-    const row = document.createElement('tr');
-    
-    data.forEach(cellData => {
-        const cell = document.createElement('td');
-        if (typeof cellData === 'object' && cellData.html) {
-            const span = document.createElement('span');
-            span.className = cellData.className || '';
-            span.textContent = cellData.text;
-            cell.appendChild(span);
-        } else {
-            cell.textContent = cellData;
-        }
-        row.appendChild(cell);
-    });
-    
-    return row;
-}
-
-function getVariableLabel(variable) {
-    const variableLabels = {
-        'totalCopies': 'Total Copies',
-        'totalDeposits': 'Total Deposits',
-        'totalSubscriptions': 'Total Subscriptions',
-        'hasLinkedBank': 'Has Linked Bank',
-        'availableCopyCredits': 'Available Copy Credits',
-        'buyingPower': 'Buying Power',
-        'totalDepositCount': 'Total Deposit Count',
-        'totalWithdrawals': 'Total Withdrawals',
-        'totalWithdrawalCount': 'Total Withdrawal Count',
-        'activeCreatedPortfolios': 'Active Created Portfolios',
-        'lifetimeCreatedPortfolios': 'Lifetime Created Portfolios',
-        'totalBuys': 'Total Buys',
-        'totalSells': 'Total Sells',
-        'totalTrades': 'Total Trades',
-        'totalCopyStarts': 'Total Copy Starts',
-        'totalRegularCopies': 'Total Regular Copies',
-        'uniqueCreatorsInteracted': 'Unique Creators Interacted',
-        'uniquePortfoliosInteracted': 'Unique Portfolios Interacted',
-        'regularPDPViews': 'Regular PDP Views',
-        'premiumPDPViews': 'Premium PDP Views',
-        'paywallViews': 'Paywall Views',
-        'totalStripeViews': 'Total Stripe Views',
-        'regularCreatorProfileViews': 'Regular Creator Profile Views',
-        'premiumCreatorProfileViews': 'Premium Creator Profile Views',
-        'appSessions': 'App Sessions',
-        'discoverTabViews': 'Discover Tab Views',
-        'leaderboardViews': 'Leaderboard Views',
-        'premiumTabViews': 'Premium Tab Views',
-        'totalOfUserProfiles': 'Total User Profiles',
-        'subscribedWithin7Days': 'Subscribed Within 7 Days',
-        'timeToFirstCopy': 'Time To First Copy',
-        'timeToDeposit': 'Time To Deposit',
-        'timeToLinkedBank': 'Time To Linked Bank',
-        'creatorCardTaps': 'Creator Card Taps',
-        'portfolioCardTaps': 'Portfolio Card Taps',
-        'incomeEnum': 'Income Level',
-        'netWorthEnum': 'Net Worth Level',
-        'income': 'Income',
-        'netWorth': 'Net Worth',
-        'investingExperienceYears': 'Investing Experience Years',
-        'investingActivity': 'Investing Activity',
-        'investingObjective': 'Investing Objective',
-        'investmentType': 'Investment Type'
-    };
-    
-    return variableLabels[variable] || variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-}
-
-function calculateRelativeStrengths(dataArray, valueKey) {
-    const sortedValues = dataArray.map(item => Math.abs(item[valueKey])).sort((a, b) => a - b);
-    const total = sortedValues.length;
-    
-    const veryWeakThreshold = sortedValues[Math.floor(total * 0.143)];
-    const weakThreshold = sortedValues[Math.floor(total * 0.286)];
-    const weakModerateThreshold = sortedValues[Math.floor(total * 0.429)];
-    const moderateThreshold = sortedValues[Math.floor(total * 0.571)];
-    const moderateStrongThreshold = sortedValues[Math.floor(total * 0.714)];
-    const strongThreshold = sortedValues[Math.floor(total * 0.857)];
-    
-    return {
-        veryWeakThreshold, weakThreshold, weakModerateThreshold,
-        moderateThreshold, moderateStrongThreshold, strongThreshold
-    };
-}
-
-function displaySummaryStatsInline(stats) {
-    const container = document.getElementById('qdaSummaryStatsInline');
-    container.textContent = '';
-    
-    const resultSection = document.createElement('div');
-    resultSection.className = 'qda-result-section';
-    
-    const title = document.createElement('h1');
-    title.textContent = 'Summary Statistics';
-    resultSection.appendChild(title);
-    
-    const metricSummary = document.createElement('div');
-    metricSummary.className = 'qda-metric-summary';
-    
-    const metrics = [
-        ['Total Users', stats.totalUsers.toLocaleString(), '18px'],
-        ['Link Bank Rate', `${stats.linkBankConversion.toFixed(1)}%`, '18px'],
-        ['Copy Rate', `${stats.firstCopyConversion.toFixed(1)}%`, '18px'],
-        ['Deposit Rate', `${stats.depositConversion.toFixed(1)}%`, '18px'],
-        ['Subscription Rate', `${stats.subscriptionConversion.toFixed(1)}%`, '18px']
-    ];
-    
-    metrics.forEach(([title, content, size]) => {
-        metricSummary.appendChild(createMetricCard(title, content, size));
-    });
-    
-    resultSection.appendChild(metricSummary);
-    container.appendChild(resultSection);
-}
-
-function displayDemographicBreakdownInline(stats) {
-    const container = document.getElementById('qdaDemographicBreakdownInline');
-    container.textContent = '';
-    
-    const resultSection = document.createElement('div');
-    resultSection.className = 'qda-result-section';
-    
-    const title = document.createElement('h1');
-    title.textContent = 'Demographic Breakdown';
-    resultSection.appendChild(title);
-
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;';
-
-    const createBreakdownTable = (titleText, data, totalResponses) => {
-        const tableContainer = document.createElement('div');
-        tableContainer.style.maxWidth = '320px';
-        
-        const tableTitle = document.createElement('h4');
-        tableTitle.textContent = titleText;
-        tableTitle.style.cssText = 'margin: 0 0 10px 0; font-size: 14px;';
-        tableContainer.appendChild(tableTitle);
-
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-        table.style.fontSize = '12px';
-        table.style.width = '100%';
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        ['Category', 'Percentage'].forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-
-        let dataArray = Object.keys(data)
-            .filter(k => k.trim() !== '')
-            .map(category => ({
-                category,
-                count: data[category],
-                percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
-            }));
-
-        dataArray.sort((a, b) => b.percentage - a.percentage);
-
-        dataArray.forEach(item => {
-            const percentageFormatted = item.percentage.toFixed(1) + '%';
-            tbody.appendChild(createTableRow([item.category, percentageFormatted]));
-        });
-        
-        table.appendChild(tbody);
-        tableContainer.appendChild(table);
-        grid.appendChild(tableContainer);
-    };
-
-    const demographicConfigs = [
-        { key: 'income', title: 'Income' },
-        { key: 'netWorth', title: 'Net Worth' },
-        { key: 'investingExperienceYears', title: 'Investing Experience Years' },
-        { key: 'investingActivity', title: 'Investing Activity' },
-        { key: 'investmentType', title: 'Investment Type' },
-        { key: 'investingObjective', title: 'Investing Objective' }
-    ];
-
-    demographicConfigs.forEach(config => {
-        createBreakdownTable(
-            config.title,
-            stats[config.key + 'Breakdown'],
-            stats[config.key + 'TotalResponses']
-        );
-    });
-    
-    resultSection.appendChild(grid);
-    container.appendChild(resultSection);
-}
-
-function displayPersonaBreakdownInline(stats) {
-    const container = document.getElementById('qdaPersonaBreakdownInline');
-    container.textContent = '';
-    
-    const resultSection = document.createElement('div');
-    resultSection.className = 'qda-result-section';
-    
-    // CHANGE 2: Update title from "Fixed Persona Breakdown - No Overlaps"
-    const title = document.createElement('h1');
-    title.textContent = 'Persona Breakdown';
-    resultSection.appendChild(title);
-
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;';
-
-    const personas = [
-        {
-            name: 'Premium',
-            subtitle: 'Active subscriptions - highest revenue users',
-            data: stats.personaStats.premium,
-            priority: 1
-        },
-        {
-            name: 'Aspiring Premium',
-            subtitle: '$1000+ deposits, copies, higher income - premium conversion targets',
-            data: stats.personaStats.aspiringPremium,
-            priority: 2
-        },
-        {
-            name: 'Core',
-            subtitle: '$200-1000 deposits with banking OR active engagement - main user base',
-            data: stats.personaStats.core,
-            priority: 3
-        },
-        {
-            name: 'Activation Targets',
-            subtitle: 'Higher income prospects browsing creators but not converting',
-            data: stats.personaStats.activationTargets,
-            priority: 4
-        },
-        {
-            name: 'Lower Income',
-            subtitle: '≤$200 deposits, lower demographics, minimal engagement',
-            data: stats.personaStats.lowerIncome,
-            priority: 5
-        },
-        {
-            name: 'Non-activated',
-            subtitle: 'Zero banking, deposits, and platform engagement',
-            data: stats.personaStats.nonActivated,
-            priority: 6
-        }
-    ];
-
-    personas.forEach(p => {
-        const card = document.createElement('div');
-        card.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
-        
-        const nameEl = document.createElement('div');
-        nameEl.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 5px; font-size: 16px;';
-        nameEl.textContent = `${p.priority}. ${p.name}`;
-        card.appendChild(nameEl);
-
-        const subtitleEl = document.createElement('div');
-        subtitleEl.style.cssText = 'font-size: 12px; color: #6c757d; margin-bottom: 10px;';
-        subtitleEl.textContent = p.subtitle;
-        card.appendChild(subtitleEl);
-
-        const percentageEl = document.createElement('div');
-        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px;';
-        percentageEl.textContent = `${p.data.percentage.toFixed(1)}%`;
-        card.appendChild(percentageEl);
-
-        const countEl = document.createElement('div');
-        countEl.style.cssText = 'font-size: 13px; color: #333;';
-        countEl.textContent = `(N=${p.data.count.toLocaleString()})`;
-        card.appendChild(countEl);
-
-        grid.appendChild(card);
-    });
-    
-    resultSection.appendChild(grid);
-    container.appendChild(resultSection);
-}
-
-function displayCombinedAnalysisInline(correlationResults, regressionResults, cleanData) {
-    const container = document.getElementById('qdaCombinedResultsInline');
-    container.textContent = '';
-    
-    const resultSection = document.createElement('div');
-    resultSection.className = 'qda-result-section';
-    
-    const title = document.createElement('h1');
-    title.textContent = 'Behavioral Analysis';
-    resultSection.appendChild(title);
-
-    const orderedOutcomes = [
-        { outcome: 'totalDeposits', label: 'Deposit Funds' },
-        { outcome: 'totalCopies', label: 'Portfolio Copies' },
-        { outcome: 'totalSubscriptions', label: 'Subscriptions' }
-    ];
-    
-    orderedOutcomes.forEach((config) => {
-        const outcome = config.outcome;
-        const outcomeLabel = config.label;
-        
-        const outcomeTitle = document.createElement('h4');
-        outcomeTitle.textContent = outcomeLabel;
-        resultSection.appendChild(outcomeTitle);
-        
-        const allVariables = Object.keys(correlationResults[outcome]);
-        const regressionData = regressionResults[outcome.replace('total', '').toLowerCase()];
-        
-        const excludedVars = SECTION_EXCLUSIONS[outcome] || [];
-        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
-        
-        const combinedData = filteredVariables.map(variable => {
-            const correlation = correlationResults[outcome][variable];
-            const regressionItem = regressionData.find(item => item.variable === variable);
-            const tippingPoint = calculateTippingPoint(cleanData, variable, outcome);
-            
-            return {
-                variable: variable,
-                correlation: correlation,
-                tStat: regressionItem ? regressionItem.tStat : 0,
-                tippingPoint: tippingPoint
-            };
-        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-        
-        const tStatThresholds = calculateRelativeStrengths(combinedData, 'tStat');
-        
-        combinedData.forEach(item => {
-            const absTStat = Math.abs(item.tStat);
-            
-            if (absTStat >= tStatThresholds.strongThreshold) {
-                item.predictiveStrength = 'Very Strong';
-                item.predictiveClass = 'qda-strength-very-strong';
-            } else if (absTStat >= tStatThresholds.moderateStrongThreshold) {
-                item.predictiveStrength = 'Strong';
-                item.predictiveClass = 'qda-strength-strong';
-            } else if (absTStat >= tStatThresholds.moderateThreshold) {
-                item.predictiveStrength = 'Moderate - Strong';
-                item.predictiveClass = 'qda-strength-moderate-strong';
-            } else if (absTStat >= tStatThresholds.weakModerateThreshold) {
-                item.predictiveStrength = 'Moderate';
-                item.predictiveClass = 'qda-strength-moderate';
-            } else if (absTStat >= tStatThresholds.weakThreshold) {
-                item.predictiveStrength = 'Weak - Moderate';
-                item.predictiveClass = 'qda-strength-weak-moderate';
-            } else if (absTStat >= tStatThresholds.veryWeakThreshold) {
-                item.predictiveStrength = 'Weak';
-                item.predictiveClass = 'qda-strength-weak';
-            } else {
-                item.predictiveStrength = 'Very Weak';
-                item.predictiveClass = 'qda-strength-very-weak';
-            }
-        });
-        
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-        
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength', 'Tipping Point'].forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-        
-        const tbody = document.createElement('tbody');
-        combinedData.slice(0, 25).forEach(item => {
-            const rowData = [
-                getVariableLabel(item.variable),
-                item.correlation.toFixed(3),
-                item.tStat.toFixed(3),
-                { text: item.predictiveStrength, className: item.predictiveClass, html: true },
-                item.tippingPoint !== 'N/A' ?
-                    (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
-                    'N/A'
-            ];
-            tbody.appendChild(createTableRow(rowData));
-        });
-        table.appendChild(tbody);
-        
-        resultSection.appendChild(table);
-    });
-    
-    container.appendChild(resultSection);
-}
-
-// Main widget creation function
-function createWidget(targetContainer = null) {
-    const widget = document.createElement('div');
-    
-    if (targetContainer) {
-        widget.className = 'qda-inline-widget';
-    } else {
-        widget.className = 'qda-widget';
+// Fixed Data Merger - Inline Version
+function createInlineDataMerger(targetContainer) {
+  targetContainer.innerHTML = '';
+  
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = `
+    background: white; border: 2px solid #17a2b8; border-radius: 8px; 
+    padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    font-family: Arial, sans-serif; font-size: 13px; max-width: 800px; margin: 0 auto;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = 'Comprehensive CSV Processor';
+  title.style.cssText = 'margin: 0 0 15px 0; color: #17a2b8; text-align: center;';
+  wrapper.appendChild(title);
+  
+  const description = document.createElement('p');
+  description.textContent = 'Upload all 7 CSV files at once (hold Ctrl/Cmd to select multiple files)';
+  description.style.cssText = 'margin: 0 0 15px 0; font-size: 12px; color: #666; text-align: center;';
+  wrapper.appendChild(description);
+  
+  // File upload section
+  const uploadDiv = document.createElement('div');
+  uploadDiv.style.cssText = 'border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa; text-align: center;';
+  
+  const uploadLabel = document.createElement('label');
+  uploadLabel.textContent = 'Select all 7 CSV files:';
+  uploadLabel.style.cssText = 'display: block; margin-bottom: 10px; font-weight: bold; color: #333;';
+  
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv';
+  fileInput.multiple = true;
+  fileInput.style.cssText = 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;';
+  
+  const fileRequirements = document.createElement('div');
+  fileRequirements.style.cssText = 'margin-top: 10px; font-size: 10px; color: #666; text-align: left;';
+  
+  const requirementsTitle = document.createElement('strong');
+  requirementsTitle.textContent = 'Smart file detection: ';
+  fileRequirements.appendChild(requirementsTitle);
+  
+  const requirementsText = document.createTextNode('Files will be automatically identified by their column structure.');
+  fileRequirements.appendChild(requirementsText);
+  
+  fileRequirements.appendChild(document.createElement('br'));
+  
+  const expectedTitle = document.createElement('em');
+  expectedTitle.textContent = 'Expected file types: ';
+  const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
+  fileRequirements.appendChild(expectedTitle);
+  fileRequirements.appendChild(expectedText);
+  
+  uploadDiv.appendChild(uploadLabel);
+  uploadDiv.appendChild(fileInput);
+  uploadDiv.appendChild(fileRequirements);
+  wrapper.appendChild(uploadDiv);
+  
+  const processBtn = document.createElement('button');
+  processBtn.textContent = 'Process All Files';
+  processBtn.style.cssText = `
+    width: 100%; padding: 12px; background: #17a2b8; color: white; 
+    border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
+  `;
+  
+  processBtn.onclick = async () => {
+    const files = Array.from(fileInput.files);
+    if (files.length !== 7) {
+      alert(`Please select exactly 7 CSV files. You selected ${files.length} files.`);
+      return;
     }
     
-    // Header
-    const header = document.createElement('div');
-    header.className = 'qda-header';
-    
-    const title = document.createElement('h3');
-    title.style.margin = '0';
-    // CHANGE 1: Update title from "Enhanced QDA - Fixed Personas"
-    title.textContent = 'dub User Analysis'; 
-    header.appendChild(title);
-    
-    // Content
-    const content = document.createElement('div');
-    content.className = 'qda-content';
-    
-    const description = document.createElement('p');
-    description.textContent = 'Upload your CSV file to perform comprehensive statistical analysis with FIXED persona logic (no overlaps).';
-    content.appendChild(description);
-    
-    // Upload section with 3 columns
-    const uploadSection = document.createElement('div');
-    uploadSection.className = 'qda-upload-section';
-    
-    // Main Analysis File (required)
-    const mainColumn = document.createElement('div');
-    mainColumn.className = 'qda-upload-column';
-    
-    const mainLabel = document.createElement('div');
-    mainLabel.className = 'qda-file-label';
-    mainLabel.textContent = 'Main Analysis File';
-    mainColumn.appendChild(mainLabel);
-    
-    const mainFileInput = document.createElement('input');
-    mainFileInput.type = 'file';
-    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
-    mainFileInput.accept = '.csv';
-    mainFileInput.className = 'qda-file-input';
-    mainColumn.appendChild(mainFileInput);
-    
-    const mainDesc = document.createElement('div');
-    mainDesc.className = 'qda-file-description';
-    mainDesc.textContent = 'Required: User behavior, demographics, and conversion data';
-    mainColumn.appendChild(mainDesc);
-    
-    // Portfolio Detail File (optional)
-    const portfolioColumn = document.createElement('div');
-    portfolioColumn.className = 'qda-upload-column';
-    
-    const portfolioLabel = document.createElement('div');
-    portfolioLabel.className = 'qda-file-label';
-    portfolioLabel.textContent = 'Portfolio Detail File';
-    portfolioColumn.appendChild(portfolioLabel);
-    
-    const portfolioFileInput = document.createElement('input');
-    portfolioFileInput.type = 'file';
-    portfolioFileInput.id = targetContainer ? 'qdaPortfolioFileInline' : 'qdaPortfolioFile';
-    portfolioFileInput.accept = '.csv';
-    portfolioFileInput.className = 'qda-file-input';
-    portfolioColumn.appendChild(portfolioFileInput);
-    
-    const portfolioDesc = document.createElement('div');
-    portfolioDesc.className = 'qda-file-description';
-    portfolioDesc.textContent = 'Optional: Portfolio views, copy starts, and performance metrics';
-    portfolioColumn.appendChild(portfolioDesc);
-    
-    // Creator Detail File (optional)
-    const creatorColumn = document.createElement('div');
-    creatorColumn.className = 'qda-upload-column';
-    
-    const creatorLabel = document.createElement('div');
-    creatorLabel.className = 'qda-file-label';
-    creatorLabel.textContent = 'Creator Detail File';
-    creatorColumn.appendChild(creatorLabel);
-    
-    const creatorFileInput = document.createElement('input');
-    creatorFileInput.type = 'file';
-    creatorFileInput.id = targetContainer ? 'qdaCreatorFileInline' : 'qdaCreatorFile';
-    creatorFileInput.accept = '.csv';
-    creatorFileInput.className = 'qda-file-input';
-    creatorColumn.appendChild(creatorFileInput);
-    
-    const creatorDesc = document.createElement('div');
-    creatorDesc.className = 'qda-file-description';
-    creatorDesc.textContent = 'Optional: Creator paywall views, subscriptions, and monetization data';
-    creatorColumn.appendChild(creatorDesc);
-    
-    uploadSection.appendChild(mainColumn);
-    uploadSection.appendChild(portfolioColumn);
-    uploadSection.appendChild(creatorColumn);
-    
-    const analyzeRow = document.createElement('div');
-    analyzeRow.className = 'qda-analyze-row';
-    
-    const analyzeBtn = document.createElement('button');
-    analyzeBtn.className = 'qda-btn';
-    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
-    analyzeBtn.textContent = 'Analyze Data';
-    
-    if (targetContainer) {
-        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
-    } else {
-        analyzeBtn.addEventListener('click', analyzeData);
-    }
-    
-    analyzeRow.appendChild(analyzeBtn);
-    uploadSection.appendChild(analyzeRow);
-    content.appendChild(uploadSection);
-    
-    // Results containers
-    const resultsDiv = document.createElement('div');
-    resultsDiv.id = targetContainer ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
-    resultsDiv.className = 'qda-analysis-results';
-    
-    const summaryDiv = document.createElement('div');
-    summaryDiv.id = targetContainer ? 'qdaSummaryStatsInline' : 'qdaSummaryStats';
-    resultsDiv.appendChild(summaryDiv);
-    
-    const demographicDiv = document.createElement('div');
-    demographicDiv.id = targetContainer ? 'qdaDemographicBreakdownInline' : 'qdaDemographicBreakdown';
-    resultsDiv.appendChild(demographicDiv);
-    
-    const personaDiv = document.createElement('div');
-    personaDiv.id = targetContainer ? 'qdaPersonaBreakdownInline' : 'qdaPersonaBreakdown';
-    resultsDiv.appendChild(personaDiv);
-    
-    const combinedDiv = document.createElement('div');
-    combinedDiv.id = targetContainer ? 'qdaCombinedResultsInline' : 'qdaCombinedResults';
-    resultsDiv.appendChild(combinedDiv);
-    
-    const portfolioDiv = document.createElement('div');
-    portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
-    resultsDiv.appendChild(portfolioDiv);
-    
-    const creatorDiv = document.createElement('div');
-    creatorDiv.id = targetContainer ? 'qdaCreatorResultsInline' : 'qdaCreatorResults';
-    resultsDiv.appendChild(creatorDiv);
-    
-    const crossAnalysisDiv = document.createElement('div');
-    crossAnalysisDiv.id = targetContainer ? 'qdaCrossAnalysisResultsInline' : 'qdaCrossAnalysisResults';
-    resultsDiv.appendChild(crossAnalysisDiv);
-    
-    content.appendChild(resultsDiv);
-    widget.appendChild(header);
-    widget.appendChild(content);
-    
-    if (targetContainer) {
-        targetContainer.innerHTML = '';
-        targetContainer.appendChild(widget);
-    } else {
-        document.body.appendChild(widget);
-        makeDraggable(widget);
-    }
-}
-
-// Analysis functions
-async function analyzeDataInline(widget) {
-    const mainFileInput = document.getElementById('qdaMainFileInline');
-    const portfolioFileInput = document.getElementById('qdaPortfolioFileInline');
-    const creatorFileInput = document.getElementById('qdaCreatorFileInline');
-    
-    if (!mainFileInput.files[0]) {
-        alert('Please select the Main Analysis CSV file');
-        return;
-    }
-
-    const analyzeBtn = document.getElementById('qdaAnalyzeBtnInline');
-    analyzeBtn.textContent = 'Analyzing...';
-    analyzeBtn.disabled = true;
-
     try {
-        const mainCsvText = await readFile(mainFileInput.files[0]);
-        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
-        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
+      processBtn.textContent = 'Processing...';
+      processBtn.disabled = true;
+      
+      console.log('Intelligently identifying file types...');
+      const matchedFiles = await matchFilesByName(files);
+      
+      if (!matchedFiles.success) {
+        const missingTypes = [];
+        if (!matchedFiles.files[0]) missingTypes.push('Demo/breakdown file');
+        if (!matchedFiles.files[1]) missingTypes.push('Time to first copy file'); 
+        if (!matchedFiles.files[2]) missingTypes.push('Time to funded account file');
+        if (!matchedFiles.files[3]) missingTypes.push('Time to linked bank file');
+        if (!matchedFiles.files[4]) missingTypes.push('Premium subscription file');
+        if (!matchedFiles.files[5]) missingTypes.push('Creator-level copy file');
+        if (!matchedFiles.files[6]) missingTypes.push('Portfolio-level copy file');
         
-        console.log('Starting analysis...');
-        const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
-        
-        // Store results
-        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        
-        // Display all results using inline display functions
-        displaySummaryStatsInline(results.summaryStats);
-        displayDemographicBreakdownInline(results.summaryStats);
-        displayPersonaBreakdownInline(results.summaryStats);
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
-        
-        // FIX: Make the results container visible
-        document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
-
+        throw new Error(`Could not identify ${7 - matchedFiles.foundCount} file types. Missing: ${missingTypes.join(', ')}. Please check that your files contain the expected column structures.`);
+      }
+      
+      console.log('Reading all files...');
+      const contents = await Promise.all(matchedFiles.files.map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file: ' + file.name));
+          reader.readAsText(file);
+        });
+      }));
+      
+      console.log('Processing comprehensive merge...');
+      const results = processComprehensiveData(contents);
+      
+      console.log('Creating downloads...');
+      createMultipleDownloads(results);
+      
+      processBtn.textContent = 'Success! Check downloads';
+      processBtn.style.background = '#28a745';
+      
+      // Show results summary
+      const summary = document.createElement('div');
+      summary.style.cssText = 'margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 11px;';
+      
+      const summaryTitle = document.createElement('strong');
+      summaryTitle.textContent = 'Files Created:';
+      summary.appendChild(summaryTitle);
+      summary.appendChild(document.createElement('br'));
+      
+      const mainFileInfo = document.createElement('div');
+      mainFileInfo.textContent = `• Main Analysis: ${results.mainFile.length} users`;
+      summary.appendChild(mainFileInfo);
+      
+      const creatorFileInfo = document.createElement('div');
+      creatorFileInfo.textContent = `• Creator Details: ${results.creatorFile.length} records`;
+      summary.appendChild(creatorFileInfo);
+      
+      const portfolioFileInfo = document.createElement('div');
+      portfolioFileInfo.textContent = `• Portfolio Details: ${results.portfolioFile.length} records`;
+      summary.appendChild(portfolioFileInfo);
+      
+      wrapper.appendChild(summary);
+      
     } catch (error) {
-        alert('Error analyzing data: ' + error.message);
-        console.error('Full error:', error);
-    } finally {
-        analyzeBtn.textContent = 'Analyze Data';
-        analyzeBtn.disabled = false;
+      console.error('Error:', error);
+      alert('Error: ' + error.message);
+      processBtn.textContent = 'Process All Files';
+      processBtn.style.background = '#17a2b8';
+      processBtn.disabled = false;
     }
+  };
+  
+  wrapper.appendChild(processBtn);
+  targetContainer.appendChild(wrapper);
 }
 
-async function analyzeData() {
-    const mainFileInput = document.getElementById('qdaMainFile');
-    const portfolioFileInput = document.getElementById('qdaPortfolioFile');
-    const creatorFileInput = document.getElementById('qdaCreatorFile');
+// Keep original function for backwards compatibility
+function createComprehensiveCSVProcessor() {
+  // Remove any existing tool
+  const existing = document.getElementById('comprehensiveCSVTool');
+  if (existing) existing.remove();
+  
+  const container = document.createElement('div');
+  container.id = 'comprehensiveCSVTool';
+  container.style.cssText = `
+    position: fixed; top: 50px; right: 20px; width: 380px; 
+    background: white; border: 2px solid #007bff; border-radius: 8px; 
+    padding: 20px; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: Arial, sans-serif; font-size: 13px; max-height: 85vh; overflow-y: auto;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = 'Comprehensive CSV Processor';
+  title.style.cssText = 'margin: 0 0 15px 0; color: #007bff; text-align: center;';
+  container.appendChild(title);
+  
+  const description = document.createElement('p');
+  description.textContent = 'Upload all 7 CSV files at once (hold Ctrl/Cmd to select multiple files)';
+  description.style.cssText = 'margin: 0 0 15px 0; font-size: 12px; color: #666; text-align: center;';
+  container.appendChild(description);
+  
+  // File upload section
+  const uploadDiv = document.createElement('div');
+  uploadDiv.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa; text-align: center;';
+  
+  const uploadLabel = document.createElement('label');
+  uploadLabel.textContent = 'Select all 7 CSV files:';
+  uploadLabel.style.cssText = 'display: block; margin-bottom: 10px; font-weight: bold; color: #333;';
+  
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv';
+  fileInput.multiple = true;
+  fileInput.style.cssText = 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;';
+  
+  const fileRequirements = document.createElement('div');
+  fileRequirements.style.cssText = 'margin-top: 10px; font-size: 10px; color: #666; text-align: left;';
+  
+  const requirementsTitle = document.createElement('strong');
+  requirementsTitle.textContent = 'Smart file detection: ';
+  fileRequirements.appendChild(requirementsTitle);
+  
+  const requirementsText = document.createTextNode('Files will be automatically identified by their column structure.');
+  fileRequirements.appendChild(requirementsText);
+  
+  fileRequirements.appendChild(document.createElement('br'));
+  
+  const expectedTitle = document.createElement('em');
+  expectedTitle.textContent = 'Expected file types: ';
+  const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
+  fileRequirements.appendChild(expectedTitle);
+  fileRequirements.appendChild(expectedText);
+  
+  uploadDiv.appendChild(uploadLabel);
+  uploadDiv.appendChild(fileInput);
+  uploadDiv.appendChild(fileRequirements);
+  container.appendChild(uploadDiv);
+  
+  const processBtn = document.createElement('button');
+  processBtn.textContent = 'Process All Files';
+  processBtn.style.cssText = `
+    width: 100%; padding: 12px; background: #007bff; color: white; 
+    border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
+  `;
+  
+  processBtn.onclick = async () => {
+    const files = Array.from(fileInput.files);
+    if (files.length !== 7) {
+      alert(`Please select exactly 7 CSV files. You selected ${files.length} files.`);
+      return;
+    }
     
-    if (!mainFileInput.files[0]) {
-        alert('Please select the Main Analysis CSV file');
-        return;
-    }
-
-    const analyzeBtn = document.getElementById('qdaAnalyzeBtn');
-    analyzeBtn.textContent = 'Analyzing...';
-    analyzeBtn.disabled = true;
-
     try {
-        const mainCsvText = await readFile(mainFileInput.files[0]);
-        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
-        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
+      processBtn.textContent = 'Processing...';
+      processBtn.disabled = true;
+      
+      console.log('Intelligently identifying file types...');
+      const matchedFiles = await matchFilesByName(files);
+      
+      if (!matchedFiles.success) {
+        const missingTypes = [];
+        if (!matchedFiles.files[0]) missingTypes.push('Demo/breakdown file');
+        if (!matchedFiles.files[1]) missingTypes.push('Time to first copy file'); 
+        if (!matchedFiles.files[2]) missingTypes.push('Time to funded account file');
+        if (!matchedFiles.files[3]) missingTypes.push('Time to linked bank file');
+        if (!matchedFiles.files[4]) missingTypes.push('Premium subscription file');
+        if (!matchedFiles.files[5]) missingTypes.push('Creator-level copy file');
+        if (!matchedFiles.files[6]) missingTypes.push('Portfolio-level copy file');
         
-        console.log('Starting analysis...');
-        const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
-        
-        // Store results
-        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        
-        // Display results - placeholder for now
-        document.getElementById('qdaAnalysisResults').style.display = 'block';
-        document.getElementById('qdaAnalysisResults').innerHTML = '<h2>Analysis Complete!</h2><p>Results would be displayed here.</p>';
-        
-        console.log('Analysis completed successfully!');
+        throw new Error(`Could not identify ${7 - matchedFiles.foundCount} file types. Missing: ${missingTypes.join(', ')}. Please check that your files contain the expected column structures.`);
+      }
+      
+      console.log('Reading all files...');
+      const contents = await Promise.all(matchedFiles.files.map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file: ' + file.name));
+          reader.readAsText(file);
+        });
+      }));
+      
+      console.log('Processing comprehensive merge...');
+      const results = processComprehensiveData(contents);
+      
+      console.log('Creating downloads...');
+      createMultipleDownloads(results);
+      
+      processBtn.textContent = 'Success! Check downloads';
+      processBtn.style.background = '#28a745';
+      
+      // Show results summary
+      const summary = document.createElement('div');
+      summary.style.cssText = 'margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 11px;';
+      
+      const summaryTitle = document.createElement('strong');
+      summaryTitle.textContent = 'Files Created:';
+      summary.appendChild(summaryTitle);
+      summary.appendChild(document.createElement('br'));
+      
+      const mainFileInfo = document.createElement('div');
+      mainFileInfo.textContent = `• Main Analysis: ${results.mainFile.length} users`;
+      summary.appendChild(mainFileInfo);
+      
+      const creatorFileInfo = document.createElement('div');
+      creatorFileInfo.textContent = `• Creator Details: ${results.creatorFile.length} records`;
+      summary.appendChild(creatorFileInfo);
+      
+      const portfolioFileInfo = document.createElement('div');
+      portfolioFileInfo.textContent = `• Portfolio Details: ${results.portfolioFile.length} records`;
+      summary.appendChild(portfolioFileInfo);
+      
+      container.appendChild(summary);
+      
     } catch (error) {
-        alert('Error analyzing data: ' + error.message);
-        console.error('Full error:', error);
-    } finally {
-        analyzeBtn.textContent = 'Analyze Data';
-        analyzeBtn.disabled = false;
+      console.error('Error:', error);
+      alert('Error: ' + error.message);
+      processBtn.textContent = 'Process All Files';
+      processBtn.style.background = '#007bff';
+      processBtn.disabled = false;
     }
+  };
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = `
+    width: 100%; padding: 5px; background: #dc3545; color: white; 
+    border: none; border-radius: 3px; cursor: pointer; margin-top: 10px;
+  `;
+  closeBtn.onclick = () => container.remove();
+  
+  container.appendChild(processBtn);
+  container.appendChild(closeBtn);
+  document.body.appendChild(container);
 }
 
-// Helper functions
-function readFile(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => resolve(e.target.result);
-        reader.onerror = reject;
-        reader.readAsText(file);
+async function matchFilesByName(files) {
+  const requiredFiles = {
+    demo: null,
+    firstCopy: null,
+    fundedAccount: null,
+    linkedBank: null,
+    premiumSub: null,
+    creatorCopy: null,
+    portfolioCopy: null
+  };
+  
+  console.log('Analyzing file structures to identify file types...');
+  
+  // Read first few lines of each file to analyze structure
+  const fileAnalyses = await Promise.all(files.map(async file => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        const lines = content.split('\n').slice(0, 3); // First 3 lines
+        const headers = lines[0] ? lines[0].split(',').map(h => h.trim().replace(/"/g, '')) : [];
+        
+        resolve({
+          file: file,
+          headers: headers,
+          headerString: headers.join('|').toLowerCase(),
+          filename: file.name.toLowerCase()
+        });
+      };
+      reader.readAsText(file);
     });
+  }));
+  
+  // Smart matching based on file content structure
+  fileAnalyses.forEach(analysis => {
+    const { file, headers, headerString, filename } = analysis;
+    
+    console.log(`Analyzing ${file.name}:`, headers);
+    
+    // Demo breakdown file: has income, netWorth, and multiple demographic columns
+    // UPDATED: Now checks for trading columns (Total Buys, Total Sells, Total Trades) and new subscriber insights columns
+    if (headerString.includes('income') && headerString.includes('networth') && 
+        (headerString.includes('total deposits') || headerString.includes('b. total deposits')) && 
+        (headerString.includes('total subscriptions') || headerString.includes('m. total subscriptions') || 
+         headerString.includes('d. subscribed within 7 days')) &&
+        (headerString.includes('total buys') || headerString.includes('total sells') || 
+         headerString.includes('total trades') || headerString.includes('s. creator card taps'))) {
+      if (!requiredFiles.demo) {
+        requiredFiles.demo = file;
+        console.log(`✓ Identified DEMO file: ${file.name}`);
+      }
+    }
+    
+    // Time files: have "Funnel" and "Distinct ID" with a date range column
+    else if (headerString.includes('funnel') && headerString.includes('distinct id') && headers.length === 3) {
+      // Distinguish between the three time files by filename keywords
+      if ((filename.includes('first') && filename.includes('copy')) || 
+          filename.includes('portfolio')) {
+        if (!requiredFiles.firstCopy) {
+          requiredFiles.firstCopy = file;
+          console.log(`✓ Identified FIRST COPY time file: ${file.name}`);
+        }
+      }
+      else if (filename.includes('fund') || filename.includes('deposit')) {
+        if (!requiredFiles.fundedAccount) {
+          requiredFiles.fundedAccount = file;
+          console.log(`✓ Identified FUNDED ACCOUNT time file: ${file.name}`);
+        }
+      }
+      else if (filename.includes('bank') || filename.includes('link')) {
+        if (!requiredFiles.linkedBank) {
+          requiredFiles.linkedBank = file;
+          console.log(`✓ Identified LINKED BANK time file: ${file.name}`);
+        }
+      }
+    }
+    
+    // Premium subscription: has creatorUsername and viewed creator paywall
+    else if (headerString.includes('creatorusername') && 
+             headerString.includes('viewed creator paywall') && 
+             headerString.includes('viewed stripe modal')) {
+      if (!requiredFiles.premiumSub) {
+        requiredFiles.premiumSub = file;
+        console.log(`✓ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
+      }
+    }
+    
+    // Creator copy: has creatorUsername and portfolio details columns (but NOT portfolioTicker)
+    else if (headerString.includes('creatorusername') && 
+             headerString.includes('viewed portfolio details') && 
+             !headerString.includes('portfolioticker')) {
+      if (!requiredFiles.creatorCopy) {
+        requiredFiles.creatorCopy = file;
+        console.log(`✓ Identified CREATOR COPY file: ${file.name}`);
+      }
+    }
+    
+    // Portfolio copy: has portfolioTicker and portfolio details columns  
+    else if (headerString.includes('portfolioticker') && 
+             headerString.includes('viewed portfolio details')) {
+      if (!requiredFiles.portfolioCopy) {
+        requiredFiles.portfolioCopy = file;
+        console.log(`✓ Identified PORTFOLIO COPY file: ${file.name}`);
+      }
+    }
+  });
+  
+  // Fallback: use filename patterns for any unidentified files
+  const unidentifiedTypes = Object.keys(requiredFiles).filter(key => !requiredFiles[key]);
+  
+  if (unidentifiedTypes.length > 0) {
+    console.log('Using filename fallback for:', unidentifiedTypes);
+    
+    const patterns = [
+      { key: 'demo', pattern: /(demo|breakdown|subscriber)/i },
+      { key: 'firstCopy', pattern: /(first.*copy|copy.*first|time.*copy)/i },
+      { key: 'fundedAccount', pattern: /(fund|deposit|account)/i },
+      { key: 'linkedBank', pattern: /(link|bank)/i },
+      { key: 'premiumSub', pattern: /(premium|subscription|paywall)/i },
+      { key: 'creatorCopy', pattern: /(creator.*copy|creatorlevel)/i },
+      { key: 'portfolioCopy', pattern: /(portfolio.*copy|portfoliolevel)/i }
+    ];
+    
+    fileAnalyses.forEach(analysis => {
+      if (requiredFiles.demo && requiredFiles.firstCopy && requiredFiles.fundedAccount && 
+          requiredFiles.linkedBank && requiredFiles.premiumSub && requiredFiles.creatorCopy && 
+          requiredFiles.portfolioCopy) return;
+          
+      patterns.forEach(({ key, pattern }) => {
+        if (!requiredFiles[key] && pattern.test(analysis.filename)) {
+          requiredFiles[key] = analysis.file;
+          console.log(`✓ Fallback matched ${key}: ${analysis.file.name}`);
+        }
+      });
+    });
+  }
+  
+  const allFilesFound = Object.values(requiredFiles).every(file => file !== null);
+  const foundCount = Object.values(requiredFiles).filter(file => file !== null).length;
+  
+  console.log(`File identification complete: ${foundCount}/7 files identified`);
+  console.log('Final matches:', {
+    demo: requiredFiles.demo?.name || 'NOT FOUND',
+    firstCopy: requiredFiles.firstCopy?.name || 'NOT FOUND',
+    fundedAccount: requiredFiles.fundedAccount?.name || 'NOT FOUND', 
+    linkedBank: requiredFiles.linkedBank?.name || 'NOT FOUND',
+    premiumSub: requiredFiles.premiumSub?.name || 'NOT FOUND',
+    creatorCopy: requiredFiles.creatorCopy?.name || 'NOT FOUND',
+    portfolioCopy: requiredFiles.portfolioCopy?.name || 'NOT FOUND'
+  });
+  
+  return {
+    success: allFilesFound,
+    foundCount: foundCount,
+    files: [
+      requiredFiles.demo,
+      requiredFiles.firstCopy,
+      requiredFiles.fundedAccount,
+      requiredFiles.linkedBank,
+      requiredFiles.premiumSub,
+      requiredFiles.creatorCopy,
+      requiredFiles.portfolioCopy
+    ]
+  };
 }
 
-// === ADVANCED DATA PROCESSING ===
-function parseCSV(text) {
-    const lines = text.split('\n');
+function processComprehensiveData(contents) {
+  // Helper function to clean column names
+  function cleanColumnName(name) {
+    return name
+      .replace(/^[A-Z]\.\s*/, '') // Remove "A. ", "B. " etc.
+      .replace(/\s*\(\$?\)\s*/, '') // Remove empty parentheses like " ($)" or " ()"
+      .replace(/([a-z])([A-Z])/g, '$1 $2') // Add spaces in camelCase
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Handle sequences like "ID" -> "I D"
+      .replace(/\b\w/g, l => l.toUpperCase()) // Title case
+      .replace(/\bI D\b/g, 'ID'); // Fix "I D" back to "ID"
+  }
+  
+  // Helper function to clean data values
+  function cleanValue(value) {
+    if (value === 'undefined' || value === '$non_numeric_values' || value === null || value === undefined) {
+      return '';
+    }
+    return value;
+  }
+  
+  // Parse CSV function
+  function parseCSV(text) {
+    const lines = text.split('\n').filter(l => l.trim());
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const data = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim()) {
-            const values = lines[i].split(',');
-            const row = {};
-            headers.forEach((header, index) => {
-                let value = values[index] ? values[index].trim().replace(/"/g, '') : '';
-                if (value === 'TRUE' || value === 'true') value = true;
-                else if (value === 'FALSE' || value === 'false') value = false;
-                else if (!isNaN(value) && value !== '') value = parseFloat(value);
-                row[header] = value;
-            });
-            data.push(row);
-        }
-    }
-    
-    return { data };
-}
-
-function cleanNumeric(value) {
-    if (value === null || value === undefined || value === '' || isNaN(value)) return 0;
-    return parseFloat(value) || 0;
-}
-
-function convertIncomeToEnum(income) {
-    const incomeMap = {
-        'Less than $25,000': 1, '$25,000-$49,999': 2, '$50,000-$74,999': 3,
-        '$75,000-$99,999': 4, '$100,000-$149,999': 5, '$150,000-$199,999': 6, '$200,000+': 7
-    };
-    return incomeMap[income] || 0;
-}
-
-function convertNetWorthToEnum(netWorth) {
-    const netWorthMap = {
-        'Less than $10,000': 1, '$10,000-$49,999': 2, '$50,000-$99,999': 3,
-        '$100,000-$249,999': 4, '$250,000-$499,999': 5, '$500,000-$999,999': 6, '$1,000,000+': 7
-    };
-    return netWorthMap[netWorth] || 0;
-}
-
-// === STATISTICAL ANALYSIS FUNCTIONS ===
-function calculateCorrelation(x, y) {
-    const n = x.length;
-    const sumX = x.reduce((a, b) => a + b, 0);
-    const sumY = y.reduce((a, b) => a + b, 0);
-    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
-
-    const numerator = n * sumXY - sumX * sumY;
-    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-    
-    return denominator === 0 ? 0 : numerator / denominator;
-}
-
-function calculateCorrelations(data) {
-    const variables = ALL_VARIABLES;
-    const correlations = {};
-    
-    ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
-        correlations[outcome] = {};
-        variables.forEach(variable => {
-            if (variable !== outcome) {
-                correlations[outcome][variable] = calculateCorrelation(
-                    data.map(d => d[outcome]),
-                    data.map(d => d[variable])
-                );
-            }
-        });
+    const data = lines.slice(1).map(line => {
+      const values = line.split(',');
+      const row = {};
+      headers.forEach((h, i) => row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '');
+      return row;
     });
-
-    return correlations;
-}
-
-function performRegression(data, outcome) {
-    const predictors = ALL_VARIABLES;
-
-    const results = predictors.filter(predictor => predictor !== outcome).map(predictor => {
-        const correlation = calculateCorrelation(
-            data.map(d => d[outcome]),
-            data.map(d => d[predictor])
-        );
-        
-        const n = data.length;
-        let tStat = 0;
-        if (Math.abs(correlation) > 0.001 && n > 2) {
-            const denominator = 1 - (correlation * correlation);
-            if (denominator > 0.001) {
-                tStat = correlation * Math.sqrt((n - 2) / denominator);
-            }
-        }
-
-        return {
-            variable: predictor,
-            correlation: correlation,
-            tStat: tStat,
-            significant: Math.abs(tStat) > 1.96
-        };
-    });
-
-    return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-}
-
-// === TIPPING POINT ANALYSIS ===
-function calculateTippingPoint(data, variable, outcome) {
-    const groups = {};
-    data.forEach(user => {
-        const value = Math.floor(user[variable]) || 0;
-        const converted = user[outcome] > 0 ? 1 : 0;
-        
-        if (!groups[value]) {
-            groups[value] = { total: 0, converted: 0 };
-        }
-        groups[value].total++;
-        groups[value].converted += converted;
-    });
+    return { headers, data };
+  }
+  
+  console.log('Parsing all CSV files...');
+  const [
+    demoData,
+    firstCopyData, 
+    fundedAccountData,
+    linkedBankData,
+    premiumSubData,
+    creatorCopyData,
+    portfolioCopyData
+  ] = contents.map(parseCSV);
+  
+  console.log('Data loaded:', {
+    demo: demoData.data.length,
+    firstCopy: firstCopyData.data.length,
+    fundedAccount: fundedAccountData.data.length,
+    linkedBank: linkedBankData.data.length,
+    premiumSub: premiumSubData.data.length,
+    creatorCopy: creatorCopyData.data.length,
+    portfolioCopy: portfolioCopyData.data.length
+  });
+  
+  // Normalize distinct_id keys
+  function normalizeId(row) {
+    return row['Distinct ID'] || row['$distinct_id'];
+  }
+  
+  // Create time mappings
+  const timeToFirstCopyMap = {};
+  const timeToDepositMap = {};
+  const timeToLinkedBankMap = {};
+  
+  firstCopyData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (id) timeToFirstCopyMap[id] = row[firstCopyData.headers[2]];
+  });
+  
+  fundedAccountData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (id) timeToDepositMap[id] = row[fundedAccountData.headers[2]];
+  });
+  
+  linkedBankData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (id) timeToLinkedBankMap[id] = row[linkedBankData.headers[2]];
+  });
+  
+  // Create aggregated conversion metrics by distinct_id
+  const conversionAggregates = {};
+  
+  // Process premium subscription data
+  premiumSubData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (!id) return;
     
-    const conversionRates = Object.keys(groups)
-        .map(value => ({
-            value: parseInt(value),
-            rate: groups[value].converted / groups[value].total,
-            total: groups[value].total
-        }))
-        .filter(item => item.total >= 10)
-        .sort((a, b) => a.value - b.value);
-    
-    if (conversionRates.length < 2) return 'N/A';
-    
-    let maxIncrease = 0;
-    let tippingPoint = 'N/A';
-    
-    for (let i = 1; i < conversionRates.length; i++) {
-        const increase = conversionRates[i].rate - conversionRates[i-1].rate;
-        if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
-            maxIncrease = increase;
-            tippingPoint = conversionRates[i].value;
-        }
+    if (!conversionAggregates[id]) {
+      conversionAggregates[id] = {
+        total_paywall_views: 0,
+        total_stripe_views: 0, 
+        total_subscriptions: 0,
+        total_creator_portfolio_views: 0,
+        total_creator_copy_starts: 0,
+        total_creator_copies: 0,
+        unique_creators_interacted: new Set()
+      };
     }
     
-    return tippingPoint;
-}
-
-// === PERSONA CLASSIFICATION LOGIC ===
-function classifyPersona(user) {
-    function isLowerOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '$25,000-$49,999', '$50,000-$74,999'];
-        return !income || income.trim() === '' || lowerIncomes.includes(income);
+    conversionAggregates[id].total_paywall_views += parseInt(row['(1) Viewed Creator Paywall'] || 0);
+    conversionAggregates[id].total_stripe_views += parseInt(row['(2) Viewed Stripe Modal'] || 0);
+    conversionAggregates[id].total_subscriptions += parseInt(row['(3) Subscribed to Creator'] || 0);
+    if (row['creatorUsername']) {
+      conversionAggregates[id].unique_creators_interacted.add(row['creatorUsername']);
+    }
+  });
+  
+  // Process creator-level copy data
+  creatorCopyData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (!id) return;
+    
+    if (!conversionAggregates[id]) {
+      conversionAggregates[id] = {
+        total_paywall_views: 0,
+        total_stripe_views: 0,
+        total_subscriptions: 0,
+        total_creator_portfolio_views: 0,
+        total_creator_copy_starts: 0,
+        total_creator_copies: 0,
+        unique_creators_interacted: new Set()
+      };
     }
     
-    function isLowerOrUnknownNetWorth(netWorth) {
-        // Assuming '<100k' from the internal logic corresponds to the first 3 or 4 categories
-        const lowerNetWorths = ['Less than $10,000', '$10,000-$49,999', '$50,000-$99,999'];
-        return !netWorth || netWorth.trim() === '' || lowerNetWorths.includes(netWorth);
+    conversionAggregates[id].total_creator_portfolio_views += parseInt(row['(1) Viewed Portfolio Details'] || 0);
+    conversionAggregates[id].total_creator_copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
+    conversionAggregates[id].total_creator_copies += parseInt(row['(3) Copied Portfolio'] || 0);
+    if (row['creatorUsername']) {
+      conversionAggregates[id].unique_creators_interacted.add(row['creatorUsername']);
+    }
+  });
+  
+  // Aggregate portfolio-level data and combine with creator copy starts
+  const portfolioAggregates = {};
+  portfolioCopyData.data.forEach(row => {
+    const id = normalizeId(row);
+    if (!id) return;
+    
+    if (!portfolioAggregates[id]) {
+      portfolioAggregates[id] = {
+        total_portfolio_copy_starts: 0,
+        unique_portfolios_interacted: new Set()
+      };
     }
     
-    function isHigherOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '$25,000-$49,999', '$50,000-$74,999'];
-        // Returns true if income is not one of the lower incomes (i.e., higher or missing)
-        return !income || income.trim() === '' || !lowerIncomes.includes(income);
+    portfolioAggregates[id].total_portfolio_copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
+    if (row['portfolioTicker']) {
+      portfolioAggregates[id].unique_portfolios_interacted.add(row['portfolioTicker']);
     }
+  });
+  
+  // Helper function for time conversion
+  function secondsToDays(seconds) {
+    if (!seconds || isNaN(seconds)) return '';
+    return Math.round((seconds / 86400) * 100) / 100;
+  }
+  
+  // NEW: Define all columns that should be preserved from subscribers insights (including the new trading columns)
+  const subscribersInsightColumns = [
+    'income', 'netWorth', 'availableCopyCredits', 'buyingPower',
+    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 
+    'totalBuys', 'totalSells', 'totalTrades', // Explicitly include new trading columns
+    'totalWithdrawalCount', 'totalWithdrawals', 
+    'investingActivity', 'investingExperienceYears',
+    'investingObjective', 'investmentType', 'acquisitionSurvey',
+    'A. Linked Bank Account', 'B. Total Deposits ($)', 'C. Total Deposit Count',
+    'D. Subscribed within 7 days', 'E. Total Copies', 'F. Total Regular Copies', 'G. Total Premium Copies',
+    'H. Regular PDP Views', 'I. Premium PDP Views', 'J. Paywall Views',
+    'K. Regular Creator Profile Views', 'L. Premium Creator Profile Views', 'M. Total Subscriptions',
+    'N. App Sessions', 'O. Discover Tab Views', 'P. Leaderboard Tab Views', 'Q. Premium Tab Views',
+    'R. Stripe Modal Views', 'S. Creator Card Taps', 'T. Portfolio Card Taps'
+  ];
+  
+  // Create main analysis file
+  const mainAnalysisData = demoData.data.map(row => {
+    const id = normalizeId(row);
+    const clean = {};
     
-    const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
-    const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
-    const hasCopied = user.totalCopies >= 1;
-    
-    // HIERARCHICAL PRIORITY ORDER
-    if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
-        return 'premium';
-    }
-    
-    if (user.totalSubscriptions === 0 &&
-        hasCopied &&
-        isHigherOrUnknownIncome(user.income) &&
-        user.totalDeposits >= 1000) {
-        return 'aspiringPremium';
-    }
-    
-    if (user.totalSubscriptions === 0) {
-        const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1);
-        const engagementQualifies = (hasCopied || totalPDPViews >= 2);
-        
-        if (depositQualifies || engagementQualifies) {
-            return 'core';
-        }
-    }
-    
-    if (isHigherOrUnknownIncome(user.income) &&
-        user.hasLinkedBank === 0 &&
-        user.totalDeposits === 0 &&
-        user.totalCopies === 0 &&
-        totalCreatorViews > 0 &&
-        totalPDPViews < 2) {
-        return 'activationTargets';
-    }
-    
-    const hasEngagement = hasCopied || totalPDPViews >= 1;
-    if (user.totalDeposits <= 200 &&
-        isLowerOrUnknownIncome(user.income) &&
-        isLowerOrUnknownNetWorth(user.netWorth) &&
-        user.totalSubscriptions === 0 &&
-        user.hasLinkedBank === 1 &&
-        !hasEngagement) {
-        return 'lowerIncome';
-    }
-    
-    if (user.hasLinkedBank === 0 &&
-        user.totalDeposits === 0 &&
-        totalPDPViews === 0 &&
-        totalCreatorViews === 0) {
-        return 'nonActivated';
-    }
-    
-    return 'unclassified';
-}
-
-function calculateDemographicBreakdown(data, key) {
-    let totalResponses = 0;
-    const counts = data.reduce((acc, d) => {
-        const value = d[key];
-        if (value && typeof value === 'string' && value.trim() !== '') {
-            acc[value] = (acc[value] || 0) + 1;
-            totalResponses++;
-        }
-        return acc;
-    }, {});
-    return { counts, totalResponses };
-}
-
-function calculateSummaryStats(data) {
-    const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
-    const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
-    const usersWithDeposits = data.filter(d => d.totalDeposits > 0).length;
-    const usersWithSubscriptions = data.filter(d => d.totalSubscriptions > 0).length;
-    
-    const demographicKeys = [
-        'income', 'netWorth', 'investingExperienceYears',
-        'investingActivity', 'investmentType', 'investingObjective'
-    ];
-
-    const demographics = {};
-    demographicKeys.forEach(key => {
-        const breakdown = calculateDemographicBreakdown(data, key);
-        demographics[key + 'Breakdown'] = breakdown.counts;
-        demographics[key + 'TotalResponses'] = breakdown.totalResponses;
-    });
-
-    const totalUsers = data.length;
-    const personaCounts = {
-        premium: 0, aspiringPremium: 0, core: 0, activationTargets: 0,
-        lowerIncome: 0, nonActivated: 0, unclassified: 0
-    };
-    
-    data.forEach(user => {
-        const persona = classifyPersona(user);
-        personaCounts[persona] = (personaCounts[persona] || 0) + 1;
+    // Clean original columns with normalized names - PRESERVE ALL EXISTING COLUMNS
+    Object.keys(row).forEach(k => {
+      const cleanedName = cleanColumnName(k);
+      clean[cleanedName] = cleanValue(row[k]);
     });
     
-    const personaStats = {
-        premium: {
-            count: personaCounts.premium,
-            percentage: totalUsers > 0 ? (personaCounts.premium / totalUsers) * 100 : 0
-        },
-        aspiringPremium: {
-            count: personaCounts.aspiringPremium,
-            percentage: totalUsers > 0 ? (personaCounts.aspiringPremium / totalUsers) * 100 : 0
-        },
-        core: {
-            count: personaCounts.core,
-            percentage: totalUsers > 0 ? (personaCounts.core / totalUsers) * 100 : 0
-        },
-        activationTargets: {
-            count: personaCounts.activationTargets,
-            percentage: totalUsers > 0 ? (personaCounts.activationTargets / totalUsers) * 100 : 0
-        },
-        lowerIncome: {
-            count: personaCounts.lowerIncome,
-            percentage: totalUsers > 0 ? (personaCounts.lowerIncome / totalUsers) * 100 : 0
-        },
-        nonActivated: {
-            count: personaCounts.nonActivated,
-            percentage: totalUsers > 0 ? (personaCounts.nonActivated / totalUsers) * 100 : 0
-        }
-    };
+    // NEW: Add any additional subscribers insights columns that weren't in the original demo file
+    subscribersInsightColumns.forEach(column => {
+      // NOTE: This logic relies on the original column name format (e.g. 'income' vs 'Income')
+      // If the original row does not have the column, ensure the cleaned name is added as empty.
+      const cleanedName = cleanColumnName(column);
+      if (row[column] === undefined && clean[cleanedName] === undefined) { 
+        clean[cleanedName] = '';
+      }
+    });
     
-    return {
-        totalUsers: totalUsers,
-        linkBankConversion: (usersWithLinkedBank / totalUsers) * 100,
-        firstCopyConversion: (usersWithCopies / totalUsers) * 100,
-        depositConversion: (usersWithDeposits / totalUsers) * 100,
-        subscriptionConversion: (usersWithSubscriptions / totalUsers) * 100,
-        ...demographics,
-        personaStats
+    // Add time columns with consistent naming (EXISTING FUNCTIONALITY PRESERVED)
+    clean['Time To First Copy'] = secondsToDays(timeToFirstCopyMap[id]);
+    clean['Time To Deposit'] = secondsToDays(timeToDepositMap[id]);
+    clean['Time To Linked Bank'] = secondsToDays(timeToLinkedBankMap[id]);
+    
+    // Add aggregated conversion metrics (EXISTING FUNCTIONALITY PRESERVED)
+    const conv = conversionAggregates[id] || {};
+    const port = portfolioAggregates[id] || {};
+    
+    // Combine copy starts from both creator-level and portfolio-level data
+    const totalCopyStarts = (conv.total_creator_copy_starts || 0) + (port.total_portfolio_copy_starts || 0);
+    
+    clean['Total Stripe Views'] = conv.total_stripe_views || 0;
+    clean['Total Copy Starts'] = totalCopyStarts;
+    clean['Unique Creators Interacted'] = conv.unique_creators_interacted ? conv.unique_creators_interacted.size : 0;
+    clean['Unique Portfolios Interacted'] = port.unique_portfolios_interacted ? port.unique_portfolios_interacted.size : 0;
+    
+    return clean;
+  });
+  
+  // Create creator detail file (merge premium + creator copy data) - UNCHANGED
+  const creatorDetailMap = {};
+  
+  // Add premium subscription data
+  premiumSubData.data.forEach(row => {
+    const id = normalizeId(row);
+    const creator = row['creatorUsername'];
+    if (!id || !creator) return;
+    
+    const key = `${id}_${creator}`;
+    creatorDetailMap[key] = {
+      distinct_id: id,
+      creatorUsername: creator,
+      paywall_views: parseInt(row['(1) Viewed Creator Paywall'] || 0),
+      stripe_views: parseInt(row['(2) Viewed Stripe Modal'] || 0),
+      subscriptions: parseInt(row['(3) Subscribed to Creator'] || 0),
+      portfolio_views: 0,
+      copy_starts: 0,
+      copies: 0
     };
+  });
+  
+  // Add creator copy data
+  creatorCopyData.data.forEach(row => {
+    const id = normalizeId(row);
+    const creator = row['creatorUsername'];
+    if (!id || !creator) return;
+    
+    const key = `${id}_${creator}`;
+    if (!creatorDetailMap[key]) {
+      creatorDetailMap[key] = {
+        distinct_id: id,
+        creatorUsername: creator,
+        paywall_views: 0,
+        stripe_views: 0,
+        subscriptions: 0,
+        portfolio_views: 0,
+        copy_starts: 0,
+        copies: 0
+      };
+    }
+    
+    creatorDetailMap[key].portfolio_views += parseInt(row['(1) Viewed Portfolio Details'] || 0);
+    creatorDetailMap[key].copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
+    creatorDetailMap[key].copies += parseInt(row['(3) Copied Portfolio'] || 0);
+  });
+  
+  const creatorDetailData = Object.values(creatorDetailMap);
+  
+  // Create portfolio detail file - UNCHANGED
+  const portfolioDetailData = portfolioCopyData.data.map(row => ({
+    distinct_id: normalizeId(row),
+    portfolioTicker: row['portfolioTicker'],
+    portfolio_views: parseInt(row['(1) Viewed Portfolio Details'] || 0),
+    copy_starts: parseInt(row['(2) Started Copy Portfolio'] || 0),
+    copies: parseInt(row['(3) Copied Portfolio'] || 0)
+  })).filter(row => row.distinct_id);
+  
+  console.log('Processing complete:', {
+    mainFile: mainAnalysisData.length,
+    creatorFile: creatorDetailData.length,
+    portfolioFile: portfolioDetailData.length
+  });
+  
+  return {
+    mainFile: mainAnalysisData,
+    creatorFile: creatorDetailData,
+    portfolioFile: portfolioDetailData
+  };
 }
 
-function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
-    const parsed = parseCSV(csvText);
-    const data = parsed.data;
-
-    const cleanData = data.map(row => ({
-        totalCopies: cleanNumeric(row['Total Copies'] || row['E. Total Copies']),
-        totalDeposits: cleanNumeric(row['Total Deposits'] || row['B. Total Deposits ($)']),
-        totalSubscriptions: cleanNumeric(row['Total Subscriptions'] || row['M. Total Subscriptions']),
-        
-        hasLinkedBank: (row['Has Linked Bank'] === true || row['Has Linked Bank'] === 'true' || 
-                        row['Has Linked Bank'] === 1 || row['Has Linked Bank'] === '1' ||
-                        row['A. Linked Bank Account'] === 1) ? 1 : 0,
-        availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
-        buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
-        totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
-        totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
-        totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
-        
-        activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios'] || row['activeCreatedPortfolios']),
-        lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios'] || row['lifetimeCreatedPortfolios']),
-        totalBuys: cleanNumeric(row['Total Buys'] || row['totalBuys']),
-        totalSells: cleanNumeric(row['Total Sells'] || row['totalSells']),
-        totalTrades: cleanNumeric(row['Total Trades'] || row['totalTrades']),
-        
-        totalCopyStarts: cleanNumeric(row['Total Copy Starts']),
-        totalRegularCopies: cleanNumeric(row['Total Regular Copies'] || row['F. Total Regular Copies']),
-        uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
-        uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
-        
-        regularPDPViews: cleanNumeric(row['Regular PDP Views'] || row['H. Regular PDP Views']),
-        premiumPDPViews: cleanNumeric(row['Premium PDP Views'] || row['I. Premium PDP Views']),
-        paywallViews: cleanNumeric(row['Paywall Views'] || row['J. Paywall Views']),
-        totalStripeViews: cleanNumeric(row['Total Stripe Views'] || row['R. Stripe Modal Views']),
-        regularCreatorProfileViews: cleanNumeric(row['Regular Creator Profile Views'] || row['K. Regular Creator Profile Views']),
-        premiumCreatorProfileViews: cleanNumeric(row['Premium Creator Profile Views'] || row['L. Premium Creator Profile Views']),
-        
-        appSessions: cleanNumeric(row['App Sessions'] || row['N. App Sessions']),
-        discoverTabViews: cleanNumeric(row['Discover Tab Views'] || row['O. Discover Tab Views']),
-        leaderboardViews: cleanNumeric(row['Leaderboard Views'] || row['P. Leaderboard Tab Views']),
-        premiumTabViews: cleanNumeric(row['Premium Tab Views'] || row['Q. Premium Tab Views']),
-        totalOfUserProfiles: cleanNumeric(row['Total Of User Profiles']),
-        
-        subscribedWithin7Days: cleanNumeric(row['Subscribed Within 7 Days'] || row['D. Subscribed within 7 days']),
-        
-        timeToFirstCopy: cleanNumeric(row['Time To First Copy']),
-        timeToDeposit: cleanNumeric(row['Time To Deposit']),
-        timeToLinkedBank: cleanNumeric(row['Time To Linked Bank']),
-        
-        // Updated to handle new column format
-        creatorCardTaps: cleanNumeric(row['Creator Card Taps'] || row['S. Creator Card Taps']),
-        portfolioCardTaps: cleanNumeric(row['Portfolio Card Taps'] || row['T. Portfolio Card Taps']),
-        
-        income: row['Income'] || row['income'] || '',
-        netWorth: row['Net Worth'] || row['netWorth'] || '',
-        incomeEnum: convertIncomeToEnum(row['Income'] || row['income'] || ''),
-        netWorthEnum: convertNetWorthToEnum(row['Net Worth'] || row['netWorth'] || ''),
-        investingExperienceYears: row['Investing Experience Years'] || row['investingExperienceYears'] || '',
-        investingActivity: row['Investing Activity'] || row['investingActivity'] || '',
-        investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
-        investmentType: row['Investment Type'] || row['investmentType'] || ''
-    }));
-
-    const summaryStats = calculateSummaryStats(cleanData);
-    const correlationResults = calculateCorrelations(cleanData);
-    const regressionResults = {
-        copies: performRegression(cleanData, 'totalCopies'),
-        deposits: performRegression(cleanData, 'totalDeposits'),
-        subscriptions: performRegression(cleanData, 'totalSubscriptions')
-    };
+function createMultipleDownloads(results) {
+  // Create main analysis file
+  const mainHeaders = Object.keys(results.mainFile[0]);
+  const mainCSV = [
+    mainHeaders.join(','),
+    ...results.mainFile.map(row => mainHeaders.map(h => {
+      const value = row[h] || '';
+      // Properly escape values that contain commas or quotes
+      if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    }).join(','))
+  ].join('\n');
+  
+  // Create creator detail file
+  const creatorHeaders = ['distinct_id', 'creatorUsername', 'paywall_views', 'stripe_views', 'subscriptions', 'portfolio_views', 'copy_starts', 'copies'];
+  const creatorCSV = [
+    creatorHeaders.join(','),
+    ...results.creatorFile.map(row => creatorHeaders.map(h => row[h] || '').join(','))
+  ].join('\n');
+  
+  // Create portfolio detail file
+  const portfolioHeaders = ['distinct_id', 'portfolioTicker', 'portfolio_views', 'copy_starts', 'copies'];
+  const portfolioCSV = [
+    portfolioHeaders.join(','),
+    ...results.portfolioFile.map(row => portfolioHeaders.map(h => row[h] || '').join(','))
+  ].join('\n');
+  
+  // Create download links
+  const downloads = [
+    { name: 'Main_Analysis_File.csv', content: mainCSV, color: '#28a745' },
+    { name: 'Creator_Detail_File.csv', content: creatorCSV, color: '#17a2b8' },
+    { name: 'Portfolio_Detail_File.csv', content: portfolioCSV, color: '#ffc107' }
+  ];
+  
+  downloads.forEach((download, index) => {
+    const blob = new Blob([download.content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = download.name;
+    link.style.cssText = `
+      position: fixed; top: ${20 + (index * 60)}px; left: 20px; padding: 12px 16px; 
+      background: ${download.color}; color: white; text-decoration: none; 
+      border-radius: 6px; z-index: 100000; font-weight: bold; font-size: 13px;
+    `;
+    link.textContent = `Download ${download.name}`;
+    document.body.appendChild(link);
     
-    return {
-        summaryStats,
-        correlationResults,
-        regressionResults,
-        cleanData
-    };
+    // Auto-remove after 60 seconds
+    setTimeout(() => link.remove(), 60000);
+  });
+  
+  console.log('Download links created for all 3 files');
 }
-
-function makeDraggable(element) {
-    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-    const header = element.querySelector('.qda-header');
-    
-    header.onmousedown = function(e) {
-        e = e || window.event;
-        e.preventDefault();
-        pos3 = e.clientX;
-        pos4 = e.clientY;
-        document.onmouseup = function() {
-            document.onmouseup = null;
-            document.onmousemove = null;
-        };
-        document.onmousemove = function(e) {
-            e = e || window.event;
-            e.preventDefault();
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            element.style.top = (element.offsetTop - pos2) + "px";
-            element.style.left = (element.offsetLeft - pos1) + "px";
-            element.style.right = 'auto';
-        };
-    };
-}
-
-console.log('Enhanced QDA Tool loaded successfully!');
