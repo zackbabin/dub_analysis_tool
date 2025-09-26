@@ -299,11 +299,419 @@ async function analyzeDataInline(widget) {
         sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
         sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
         
-        // Display results - placeholder for now
-        document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
-        document.getElementById('qdaAnalysisResultsInline').innerHTML = '<h2>Analysis Complete!</h2><p>Results would be displayed here.</p>';
+        // Display all results using inline display functions
+        displaySummaryStatsInline(results.summaryStats);
+        displayDemographicBreakdownInline(results.summaryStats);
+        displayPersonaBreakdownInline(results.summaryStats);
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
         
-        console.log('Analysis completed successfully!');
+// === DISPLAY FUNCTIONS ===
+function createMetricCard(title, content, size = null) {
+    const card = document.createElement('div');
+    card.className = 'qda-metric-card';
+    
+    const titleEl = document.createElement('strong');
+    titleEl.textContent = title;
+    card.appendChild(titleEl);
+    
+    card.appendChild(document.createElement('br'));
+    
+    const contentEl = document.createElement('span');
+    if (size) {
+        contentEl.style.fontSize = size;
+        contentEl.style.fontWeight = 'bold';
+    }
+    contentEl.textContent = content;
+    card.appendChild(contentEl);
+    
+    return card;
+}
+
+function createTableRow(data) {
+    const row = document.createElement('tr');
+    
+    data.forEach(cellData => {
+        const cell = document.createElement('td');
+        if (typeof cellData === 'object' && cellData.html) {
+            const span = document.createElement('span');
+            span.className = cellData.className || '';
+            span.textContent = cellData.text;
+            cell.appendChild(span);
+        } else {
+            cell.textContent = cellData;
+        }
+        row.appendChild(cell);
+    });
+    
+    return row;
+}
+
+function getVariableLabel(variable) {
+    const variableLabels = {
+        'totalCopies': 'Total Copies',
+        'totalDeposits': 'Total Deposits',
+        'totalSubscriptions': 'Total Subscriptions',
+        'hasLinkedBank': 'Has Linked Bank',
+        'availableCopyCredits': 'Available Copy Credits',
+        'buyingPower': 'Buying Power',
+        'totalDepositCount': 'Total Deposit Count',
+        'totalWithdrawals': 'Total Withdrawals',
+        'totalWithdrawalCount': 'Total Withdrawal Count',
+        'activeCreatedPortfolios': 'Active Created Portfolios',
+        'lifetimeCreatedPortfolios': 'Lifetime Created Portfolios',
+        'totalBuys': 'Total Buys',
+        'totalSells': 'Total Sells',
+        'totalTrades': 'Total Trades',
+        'totalCopyStarts': 'Total Copy Starts',
+        'totalRegularCopies': 'Total Regular Copies',
+        'uniqueCreatorsInteracted': 'Unique Creators Interacted',
+        'uniquePortfoliosInteracted': 'Unique Portfolios Interacted',
+        'regularPDPViews': 'Regular PDP Views',
+        'premiumPDPViews': 'Premium PDP Views',
+        'paywallViews': 'Paywall Views',
+        'totalStripeViews': 'Total Stripe Views',
+        'regularCreatorProfileViews': 'Regular Creator Profile Views',
+        'premiumCreatorProfileViews': 'Premium Creator Profile Views',
+        'appSessions': 'App Sessions',
+        'discoverTabViews': 'Discover Tab Views',
+        'leaderboardViews': 'Leaderboard Views',
+        'premiumTabViews': 'Premium Tab Views',
+        'totalOfUserProfiles': 'Total User Profiles',
+        'subscribedWithin7Days': 'Subscribed Within 7 Days',
+        'timeToFirstCopy': 'Time To First Copy',
+        'timeToDeposit': 'Time To Deposit',
+        'timeToLinkedBank': 'Time To Linked Bank',
+        'incomeEnum': 'Income Level',
+        'netWorthEnum': 'Net Worth Level',
+        'income': 'Income',
+        'netWorth': 'Net Worth',
+        'investingExperienceYears': 'Investing Experience Years',
+        'investingActivity': 'Investing Activity',
+        'investingObjective': 'Investing Objective',
+        'investmentType': 'Investment Type'
+    };
+    
+    return variableLabels[variable] || variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+}
+
+function calculateRelativeStrengths(dataArray, valueKey) {
+    const sortedValues = dataArray.map(item => Math.abs(item[valueKey])).sort((a, b) => a - b);
+    const total = sortedValues.length;
+    
+    const veryWeakThreshold = sortedValues[Math.floor(total * 0.143)];
+    const weakThreshold = sortedValues[Math.floor(total * 0.286)];
+    const weakModerateThreshold = sortedValues[Math.floor(total * 0.429)];
+    const moderateThreshold = sortedValues[Math.floor(total * 0.571)];
+    const moderateStrongThreshold = sortedValues[Math.floor(total * 0.714)];
+    const strongThreshold = sortedValues[Math.floor(total * 0.857)];
+    
+    return {
+        veryWeakThreshold, weakThreshold, weakModerateThreshold,
+        moderateThreshold, moderateStrongThreshold, strongThreshold
+    };
+}
+
+function displaySummaryStatsInline(stats) {
+    const container = document.getElementById('qdaSummaryStatsInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Summary Statistics';
+    resultSection.appendChild(title);
+    
+    const metricSummary = document.createElement('div');
+    metricSummary.className = 'qda-metric-summary';
+    
+    const metrics = [
+        ['Total Users', stats.totalUsers.toLocaleString(), '18px'],
+        ['Link Bank Rate', `${stats.linkBankConversion.toFixed(1)}%`, '18px'],
+        ['Copy Rate', `${stats.firstCopyConversion.toFixed(1)}%`, '18px'],
+        ['Deposit Rate', `${stats.depositConversion.toFixed(1)}%`, '18px'],
+        ['Subscription Rate', `${stats.subscriptionConversion.toFixed(1)}%`, '18px']
+    ];
+    
+    metrics.forEach(([title, content, size]) => {
+        metricSummary.appendChild(createMetricCard(title, content, size));
+    });
+    
+    resultSection.appendChild(metricSummary);
+    container.appendChild(resultSection);
+}
+
+function displayDemographicBreakdownInline(stats) {
+    const container = document.getElementById('qdaDemographicBreakdownInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Demographic Breakdown';
+    resultSection.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;';
+
+    const createBreakdownTable = (titleText, data, totalResponses) => {
+        const tableContainer = document.createElement('div');
+        tableContainer.style.maxWidth = '320px';
+        
+        const tableTitle = document.createElement('h4');
+        tableTitle.textContent = titleText;
+        tableTitle.style.cssText = 'margin: 0 0 10px 0; font-size: 14px;';
+        tableContainer.appendChild(tableTitle);
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+        table.style.fontSize = '12px';
+        table.style.width = '100%';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Category', 'Percentage'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        let dataArray = Object.keys(data)
+            .filter(k => k.trim() !== '')
+            .map(category => ({
+                category,
+                count: data[category],
+                percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
+            }));
+
+        dataArray.sort((a, b) => b.percentage - a.percentage);
+
+        dataArray.forEach(item => {
+            const percentageFormatted = item.percentage.toFixed(1) + '%';
+            tbody.appendChild(createTableRow([item.category, percentageFormatted]));
+        });
+        
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+        grid.appendChild(tableContainer);
+    };
+
+    const demographicConfigs = [
+        { key: 'income', title: 'Income' },
+        { key: 'netWorth', title: 'Net Worth' },
+        { key: 'investingExperienceYears', title: 'Investing Experience Years' },
+        { key: 'investingActivity', title: 'Investing Activity' },
+        { key: 'investmentType', title: 'Investment Type' },
+        { key: 'investingObjective', title: 'Investing Objective' }
+    ];
+
+    demographicConfigs.forEach(config => {
+        createBreakdownTable(
+            config.title,
+            stats[config.key + 'Breakdown'],
+            stats[config.key + 'TotalResponses']
+        );
+    });
+    
+    resultSection.appendChild(grid);
+    container.appendChild(resultSection);
+}
+
+function displayPersonaBreakdownInline(stats) {
+    const container = document.getElementById('qdaPersonaBreakdownInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Fixed Persona Breakdown - No Overlaps';
+    resultSection.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;';
+
+    const personas = [
+        {
+            name: 'Premium',
+            subtitle: 'Active subscriptions - highest revenue users',
+            data: stats.personaStats.premium,
+            priority: 1
+        },
+        {
+            name: 'Aspiring Premium',
+            subtitle: '$1000+ deposits, copies, higher income - premium conversion targets',
+            data: stats.personaStats.aspiringPremium,
+            priority: 2
+        },
+        {
+            name: 'Core',
+            subtitle: '$200-1000 deposits with banking OR active engagement - main user base',
+            data: stats.personaStats.core,
+            priority: 3
+        },
+        {
+            name: 'Activation Targets',
+            subtitle: 'Higher income prospects browsing creators but not converting',
+            data: stats.personaStats.activationTargets,
+            priority: 4
+        },
+        {
+            name: 'Lower Income',
+            subtitle: '≤$200 deposits, lower demographics, minimal engagement',
+            data: stats.personaStats.lowerIncome,
+            priority: 5
+        },
+        {
+            name: 'Non-activated',
+            subtitle: 'Zero banking, deposits, and platform engagement',
+            data: stats.personaStats.nonActivated,
+            priority: 6
+        }
+    ];
+
+    personas.forEach(p => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 5px; font-size: 16px;';
+        nameEl.textContent = `${p.priority}. ${p.name}`;
+        card.appendChild(nameEl);
+
+        const subtitleEl = document.createElement('div');
+        subtitleEl.style.cssText = 'font-size: 12px; color: #6c757d; margin-bottom: 10px;';
+        subtitleEl.textContent = p.subtitle;
+        card.appendChild(subtitleEl);
+
+        const percentageEl = document.createElement('div');
+        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px;';
+        percentageEl.textContent = `${p.data.percentage.toFixed(1)}%`;
+        card.appendChild(percentageEl);
+
+        const countEl = document.createElement('div');
+        countEl.style.cssText = 'font-size: 13px; color: #333;';
+        countEl.textContent = `(N=${p.data.count.toLocaleString()})`;
+        card.appendChild(countEl);
+
+        grid.appendChild(card);
+    });
+    
+    resultSection.appendChild(grid);
+    container.appendChild(resultSection);
+}
+
+function displayCombinedAnalysisInline(correlationResults, regressionResults, cleanData) {
+    const container = document.getElementById('qdaCombinedResultsInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Behavioral Analysis';
+    resultSection.appendChild(title);
+
+    const orderedOutcomes = [
+        { outcome: 'totalDeposits', label: 'Deposit Funds' },
+        { outcome: 'totalCopies', label: 'Portfolio Copies' },
+        { outcome: 'totalSubscriptions', label: 'Subscriptions' }
+    ];
+    
+    orderedOutcomes.forEach((config) => {
+        const outcome = config.outcome;
+        const outcomeLabel = config.label;
+        
+        const outcomeTitle = document.createElement('h4');
+        outcomeTitle.textContent = outcomeLabel;
+        resultSection.appendChild(outcomeTitle);
+        
+        const allVariables = Object.keys(correlationResults[outcome]);
+        const regressionData = regressionResults[outcome.replace('total', '').toLowerCase()];
+        
+        const excludedVars = SECTION_EXCLUSIONS[outcome] || [];
+        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
+        
+        const combinedData = filteredVariables.map(variable => {
+            const correlation = correlationResults[outcome][variable];
+            const regressionItem = regressionData.find(item => item.variable === variable);
+            const tippingPoint = calculateTippingPoint(cleanData, variable, outcome);
+            
+            return {
+                variable: variable,
+                correlation: correlation,
+                tStat: regressionItem ? regressionItem.tStat : 0,
+                tippingPoint: tippingPoint
+            };
+        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+        
+        const tStatThresholds = calculateRelativeStrengths(combinedData, 'tStat');
+        
+        combinedData.forEach(item => {
+            const absTStat = Math.abs(item.tStat);
+            
+            if (absTStat >= tStatThresholds.strongThreshold) {
+                item.predictiveStrength = 'Very Strong';
+                item.predictiveClass = 'qda-strength-very-strong';
+            } else if (absTStat >= tStatThresholds.moderateStrongThreshold) {
+                item.predictiveStrength = 'Strong';
+                item.predictiveClass = 'qda-strength-strong';
+            } else if (absTStat >= tStatThresholds.moderateThreshold) {
+                item.predictiveStrength = 'Moderate - Strong';
+                item.predictiveClass = 'qda-strength-moderate-strong';
+            } else if (absTStat >= tStatThresholds.weakModerateThreshold) {
+                item.predictiveStrength = 'Moderate';
+                item.predictiveClass = 'qda-strength-moderate';
+            } else if (absTStat >= tStatThresholds.weakThreshold) {
+                item.predictiveStrength = 'Weak - Moderate';
+                item.predictiveClass = 'qda-strength-weak-moderate';
+            } else if (absTStat >= tStatThresholds.veryWeakThreshold) {
+                item.predictiveStrength = 'Weak';
+                item.predictiveClass = 'qda-strength-weak';
+            } else {
+                item.predictiveStrength = 'Very Weak';
+                item.predictiveClass = 'qda-strength-very-weak';
+            }
+        });
+        
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength', 'Tipping Point'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        combinedData.slice(0, 25).forEach(item => {
+            const rowData = [
+                getVariableLabel(item.variable),
+                item.correlation.toFixed(3),
+                item.tStat.toFixed(3),
+                { text: item.predictiveStrength, className: item.predictiveClass, html: true },
+                item.tippingPoint !== 'N/A' ?
+                    (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
+                    'N/A'
+            ];
+            tbody.appendChild(createTableRow(rowData));
+        });
+        table.appendChild(tbody);
+        
+        resultSection.appendChild(table);
+    });
+    
+    container.appendChild(resultSection);
+}
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
         console.error('Full error:', error);
@@ -364,21 +772,374 @@ function readFile(file) {
     });
 }
 
-function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
-    // Basic parsing for now
-    const lines = csvText.split('\n');
-    const headers = lines[0].split(',').map(h => h.trim());
+// === ADVANCED DATA PROCESSING ===
+function parseCSV(text) {
+    const lines = text.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const data = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim()) {
+            const values = lines[i].split(',');
+            const row = {};
+            headers.forEach((header, index) => {
+                let value = values[index] ? values[index].trim().replace(/"/g, '') : '';
+                if (value === 'TRUE' || value === 'true') value = true;
+                else if (value === 'FALSE' || value === 'false') value = false;
+                else if (!isNaN(value) && value !== '') value = parseFloat(value);
+                row[header] = value;
+            });
+            data.push(row);
+        }
+    }
+    
+    return { data };
+}
+
+function cleanNumeric(value) {
+    if (value === null || value === undefined || value === '' || isNaN(value)) return 0;
+    return parseFloat(value) || 0;
+}
+
+function convertIncomeToEnum(income) {
+    const incomeMap = {
+        'Less than $25,000': 1, '$25,000-$49,999': 2, '$50,000-$74,999': 3,
+        '$75,000-$99,999': 4, '$100,000-$149,999': 5, '$150,000-$199,999': 6, '$200,000+': 7
+    };
+    return incomeMap[income] || 0;
+}
+
+function convertNetWorthToEnum(netWorth) {
+    const netWorthMap = {
+        'Less than $10,000': 1, '$10,000-$49,999': 2, '$50,000-$99,999': 3,
+        '$100,000-$249,999': 4, '$250,000-$499,999': 5, '$500,000-$999,999': 6, '$1,000,000+': 7
+    };
+    return netWorthMap[netWorth] || 0;
+}
+
+// === STATISTICAL ANALYSIS FUNCTIONS ===
+function calculateCorrelation(x, y) {
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+    
+    return denominator === 0 ? 0 : numerator / denominator;
+}
+
+function calculateCorrelations(data) {
+    const variables = ALL_VARIABLES;
+    const correlations = {};
+    
+    ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
+        correlations[outcome] = {};
+        variables.forEach(variable => {
+            if (variable !== outcome) {
+                correlations[outcome][variable] = calculateCorrelation(
+                    data.map(d => d[outcome]),
+                    data.map(d => d[variable])
+                );
+            }
+        });
+    });
+
+    return correlations;
+}
+
+function performRegression(data, outcome) {
+    const predictors = ALL_VARIABLES;
+
+    const results = predictors.filter(predictor => predictor !== outcome).map(predictor => {
+        const correlation = calculateCorrelation(
+            data.map(d => d[outcome]),
+            data.map(d => d[predictor])
+        );
+        
+        const n = data.length;
+        let tStat = 0;
+        if (Math.abs(correlation) > 0.001 && n > 2) {
+            const denominator = 1 - (correlation * correlation);
+            if (denominator > 0.001) {
+                tStat = correlation * Math.sqrt((n - 2) / denominator);
+            }
+        }
+
+        return {
+            variable: predictor,
+            correlation: correlation,
+            tStat: tStat,
+            significant: Math.abs(tStat) > 1.96
+        };
+    });
+
+    return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+}
+
+// === TIPPING POINT ANALYSIS ===
+function calculateTippingPoint(data, variable, outcome) {
+    const groups = {};
+    data.forEach(user => {
+        const value = Math.floor(user[variable]) || 0;
+        const converted = user[outcome] > 0 ? 1 : 0;
+        
+        if (!groups[value]) {
+            groups[value] = { total: 0, converted: 0 };
+        }
+        groups[value].total++;
+        groups[value].converted += converted;
+    });
+    
+    const conversionRates = Object.keys(groups)
+        .map(value => ({
+            value: parseInt(value),
+            rate: groups[value].converted / groups[value].total,
+            total: groups[value].total
+        }))
+        .filter(item => item.total >= 10)
+        .sort((a, b) => a.value - b.value);
+    
+    if (conversionRates.length < 2) return 'N/A';
+    
+    let maxIncrease = 0;
+    let tippingPoint = 'N/A';
+    
+    for (let i = 1; i < conversionRates.length; i++) {
+        const increase = conversionRates[i].rate - conversionRates[i-1].rate;
+        if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
+            maxIncrease = increase;
+            tippingPoint = conversionRates[i].value;
+        }
+    }
+    
+    return tippingPoint;
+}
+
+// === PERSONA CLASSIFICATION LOGIC ===
+function classifyPersona(user) {
+    function isLowerOrUnknownIncome(income) {
+        const lowerIncomes = ['<25k', '25k—50k', '50k—100k'];
+        return !income || income.trim() === '' || lowerIncomes.includes(income);
+    }
+    
+    function isLowerOrUnknownNetWorth(netWorth) {
+        return !netWorth || netWorth.trim() === '' || netWorth === '<100k';
+    }
+    
+    function isHigherOrUnknownIncome(income) {
+        const lowerIncomes = ['<25k', '25k—50k', '50k—100k'];
+        return !income || income.trim() === '' || !lowerIncomes.includes(income);
+    }
+    
+    const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
+    const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
+    const hasCopied = user.totalCopies >= 1;
+    
+    // HIERARCHICAL PRIORITY ORDER
+    if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
+        return 'premium';
+    }
+    
+    if (user.totalSubscriptions === 0 &&
+        hasCopied &&
+        isHigherOrUnknownIncome(user.income) &&
+        user.totalDeposits >= 1000) {
+        return 'aspiringPremium';
+    }
+    
+    if (user.totalSubscriptions === 0) {
+        const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1);
+        const engagementQualifies = (hasCopied || totalPDPViews >= 2);
+        
+        if (depositQualifies || engagementQualifies) {
+            return 'core';
+        }
+    }
+    
+    if (isHigherOrUnknownIncome(user.income) &&
+        user.hasLinkedBank === 0 &&
+        user.totalDeposits === 0 &&
+        user.totalCopies === 0 &&
+        totalCreatorViews > 0 &&
+        totalPDPViews < 2) {
+        return 'activationTargets';
+    }
+    
+    const hasEngagement = hasCopied || totalPDPViews >= 1;
+    if (user.totalDeposits <= 200 &&
+        isLowerOrUnknownIncome(user.income) &&
+        isLowerOrUnknownNetWorth(user.netWorth) &&
+        user.totalSubscriptions === 0 &&
+        user.hasLinkedBank === 1 &&
+        !hasEngagement) {
+        return 'lowerIncome';
+    }
+    
+    if (user.hasLinkedBank === 0 &&
+        user.totalDeposits === 0 &&
+        totalPDPViews === 0 &&
+        totalCreatorViews === 0) {
+        return 'nonActivated';
+    }
+    
+    return 'unclassified';
+}
+
+function calculateDemographicBreakdown(data, key) {
+    let totalResponses = 0;
+    const counts = data.reduce((acc, d) => {
+        const value = d[key];
+        if (value && typeof value === 'string' && value.trim() !== '') {
+            acc[value] = (acc[value] || 0) + 1;
+            totalResponses++;
+        }
+        return acc;
+    }, {});
+    return { counts, totalResponses };
+}
+
+function calculateSummaryStats(data) {
+    const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
+    const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
+    const usersWithDeposits = data.filter(d => d.totalDeposits > 0).length;
+    const usersWithSubscriptions = data.filter(d => d.totalSubscriptions > 0).length;
+    
+    const demographicKeys = [
+        'income', 'netWorth', 'investingExperienceYears',
+        'investingActivity', 'investmentType', 'investingObjective'
+    ];
+
+    const demographics = {};
+    demographicKeys.forEach(key => {
+        const breakdown = calculateDemographicBreakdown(data, key);
+        demographics[key + 'Breakdown'] = breakdown.counts;
+        demographics[key + 'TotalResponses'] = breakdown.totalResponses;
+    });
+
+    const totalUsers = data.length;
+    const personaCounts = {
+        premium: 0, aspiringPremium: 0, core: 0, activationTargets: 0,
+        lowerIncome: 0, nonActivated: 0, unclassified: 0
+    };
+    
+    data.forEach(user => {
+        const persona = classifyPersona(user);
+        personaCounts[persona] = (personaCounts[persona] || 0) + 1;
+    });
+    
+    const personaStats = {
+        premium: {
+            count: personaCounts.premium,
+            percentage: totalUsers > 0 ? (personaCounts.premium / totalUsers) * 100 : 0
+        },
+        aspiringPremium: {
+            count: personaCounts.aspiringPremium,
+            percentage: totalUsers > 0 ? (personaCounts.aspiringPremium / totalUsers) * 100 : 0
+        },
+        core: {
+            count: personaCounts.core,
+            percentage: totalUsers > 0 ? (personaCounts.core / totalUsers) * 100 : 0
+        },
+        activationTargets: {
+            count: personaCounts.activationTargets,
+            percentage: totalUsers > 0 ? (personaCounts.activationTargets / totalUsers) * 100 : 0
+        },
+        lowerIncome: {
+            count: personaCounts.lowerIncome,
+            percentage: totalUsers > 0 ? (personaCounts.lowerIncome / totalUsers) * 100 : 0
+        },
+        nonActivated: {
+            count: personaCounts.nonActivated,
+            percentage: totalUsers > 0 ? (personaCounts.nonActivated / totalUsers) * 100 : 0
+        }
+    };
     
     return {
-        summaryStats: {
-            totalUsers: lines.length - 1,
-            linkBankConversion: 50.0,
-            firstCopyConversion: 25.0,
-            depositConversion: 75.0,
-            subscriptionConversion: 10.0
-        },
-        correlationResults: {},
-        regressionResults: {}
+        totalUsers: totalUsers,
+        linkBankConversion: (usersWithLinkedBank / totalUsers) * 100,
+        firstCopyConversion: (usersWithCopies / totalUsers) * 100,
+        depositConversion: (usersWithDeposits / totalUsers) * 100,
+        subscriptionConversion: (usersWithSubscriptions / totalUsers) * 100,
+        ...demographics,
+        personaStats
+    };
+}
+
+function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
+    const parsed = parseCSV(csvText);
+    const data = parsed.data;
+
+    const cleanData = data.map(row => ({
+        totalCopies: cleanNumeric(row['Total Copies']),
+        totalDeposits: cleanNumeric(row['Total Deposits']),
+        totalSubscriptions: cleanNumeric(row['Total Subscriptions']),
+        
+        hasLinkedBank: (row['Has Linked Bank'] === true || row['Has Linked Bank'] === 'true' || 
+                        row['Has Linked Bank'] === 1 || row['Has Linked Bank'] === '1' ||
+                        row['Linked Bank Account'] === 1) ? 1 : 0,
+        availableCopyCredits: cleanNumeric(row['Available Copy Credits']),
+        buyingPower: cleanNumeric(row['Buying Power']),
+        totalDepositCount: cleanNumeric(row['Total Deposit Count']),
+        totalWithdrawals: cleanNumeric(row['Total Withdrawals']),
+        totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count']),
+        
+        activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios']),
+        lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios']),
+        totalBuys: cleanNumeric(row['Total Buys']),
+        totalSells: cleanNumeric(row['Total Sells']),
+        totalTrades: cleanNumeric(row['Total Trades']),
+        
+        totalCopyStarts: cleanNumeric(row['Total Copy Starts']),
+        totalRegularCopies: cleanNumeric(row['Total Regular Copies']),
+        uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
+        uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
+        
+        regularPDPViews: cleanNumeric(row['Regular PDP Views']),
+        premiumPDPViews: cleanNumeric(row['Premium PDP Views']),
+        paywallViews: cleanNumeric(row['Paywall Views']),
+        totalStripeViews: cleanNumeric(row['Total Stripe Views']),
+        regularCreatorProfileViews: cleanNumeric(row['Regular Creator Profile Views']),
+        premiumCreatorProfileViews: cleanNumeric(row['Premium Creator Profile Views']),
+        
+        appSessions: cleanNumeric(row['App Sessions']),
+        discoverTabViews: cleanNumeric(row['Discover Tab Views']),
+        leaderboardViews: cleanNumeric(row['Leaderboard Views']),
+        premiumTabViews: cleanNumeric(row['Premium Tab Views']),
+        totalOfUserProfiles: cleanNumeric(row['Total Of User Profiles']),
+        
+        subscribedWithin7Days: cleanNumeric(row['Subscribed Within 7 Days']),
+        
+        timeToFirstCopy: cleanNumeric(row['Time To First Copy']),
+        timeToDeposit: cleanNumeric(row['Time To Deposit']),
+        timeToLinkedBank: cleanNumeric(row['Time To Linked Bank']),
+        
+        income: row['Income'] || '',
+        netWorth: row['Net Worth'] || '',
+        incomeEnum: convertIncomeToEnum(row['Income'] || ''),
+        netWorthEnum: convertNetWorthToEnum(row['Net Worth'] || ''),
+        investingExperienceYears: row['Investing Experience Years'] || '',
+        investingActivity: row['Investing Activity'] || '',
+        investingObjective: row['Investing Objective'] || '',
+        investmentType: row['Investment Type'] || ''
+    }));
+
+    const summaryStats = calculateSummaryStats(cleanData);
+    const correlationResults = calculateCorrelations(cleanData);
+    const regressionResults = {
+        copies: performRegression(cleanData, 'totalCopies'),
+        deposits: performRegression(cleanData, 'totalDeposits'),
+        subscriptions: performRegression(cleanData, 'totalSubscriptions')
+    };
+    
+    return {
+        summaryStats,
+        correlationResults,
+        regressionResults,
+        cleanData
     };
 }
 
