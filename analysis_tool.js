@@ -1,4 +1,759 @@
-// Enhanced Quantitative Driver Analysis - FIXED Persona Logic
+// Widget creation using DOM methods for inline display
+function createInlineAnalysisTool(container) {
+    const widget = document.createElement('div');
+    widget.className = 'qda-inline-widget';
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'qda-header';
+    
+    const title = document.createElement('h3');
+    title.style.margin = '0';
+    title.textContent = 'Enhanced QDA - Fixed Personas';
+    header.appendChild(title);
+    
+    // Content
+    const content = document.createElement('div');
+    content.className = 'qda-content';
+    
+    const description = document.createElement('p');
+    description.textContent = 'Upload your CSV file to perform comprehensive statistical analysis with FIXED persona logic (no overlaps).';
+    content.appendChild(description);
+    
+    // Upload section with 3 columns
+    const uploadSection = document.createElement('div');
+    uploadSection.className = 'qda-upload-section';
+    
+    // Main Analysis File (required)
+    const mainColumn = document.createElement('div');
+    mainColumn.className = 'qda-upload-column';
+    
+    const mainLabel = document.createElement('div');
+    mainLabel.className = 'qda-file-label';
+    mainLabel.textContent = 'Main Analysis File';
+    mainColumn.appendChild(mainLabel);
+    
+    const mainFileInput = document.createElement('input');
+    mainFileInput.type = 'file';
+    mainFileInput.id = 'qdaMainFileInline';
+    mainFileInput.accept = '.csv';
+    mainFileInput.className = 'qda-file-input';
+    mainColumn.appendChild(mainFileInput);
+    
+    const mainDesc = document.createElement('div');
+    mainDesc.className = 'qda-file-description';
+    mainDesc.textContent = 'Required: User behavior, demographics, and conversion data';
+    mainColumn.appendChild(mainDesc);
+    
+    // Portfolio Detail File (optional)
+    const portfolioColumn = document.createElement('div');
+    portfolioColumn.className = 'qda-upload-column';
+    
+    const portfolioLabel = document.createElement('div');
+    portfolioLabel.className = 'qda-file-label';
+    portfolioLabel.textContent = 'Portfolio Detail File';
+    portfolioColumn.appendChild(portfolioLabel);
+    
+    const portfolioFileInput = document.createElement('input');
+    portfolioFileInput.type = 'file';
+    portfolioFileInput.id = 'qdaPortfolioFileInline';
+    portfolioFileInput.accept = '.csv';
+    portfolioFileInput.className = 'qda-file-input';
+    portfolioColumn.appendChild(portfolioFileInput);
+    
+    const portfolioDesc = document.createElement('div');
+    portfolioDesc.className = 'qda-file-description';
+    portfolioDesc.textContent = 'Optional: Portfolio views, copy starts, and performance metrics';
+    portfolioColumn.appendChild(portfolioDesc);
+    
+    // Creator Detail File (optional)
+    const creatorColumn = document.createElement('div');
+    creatorColumn.className = 'qda-upload-column';
+    
+    const creatorLabel = document.createElement('div');
+    creatorLabel.className = 'qda-file-label';
+    creatorLabel.textContent = 'Creator Detail File';
+    creatorColumn.appendChild(creatorLabel);
+    
+    const creatorFileInput = document.createElement('input');
+    creatorFileInput.type = 'file';
+    creatorFileInput.id = 'qdaCreatorFileInline';
+    creatorFileInput.accept = '.csv';
+    creatorFileInput.className = 'qda-file-input';
+    creatorColumn.appendChild(creatorFileInput);
+    
+    const creatorDesc = document.createElement('div');
+    creatorDesc.className = 'qda-file-description';
+    creatorDesc.textContent = 'Optional: Creator paywall views, subscriptions, and monetization data';
+    creatorColumn.appendChild(creatorDesc);
+    
+    uploadSection.appendChild(mainColumn);
+    uploadSection.appendChild(portfolioColumn);
+    uploadSection.appendChild(creatorColumn);
+    
+    const analyzeRow = document.createElement('div');
+    analyzeRow.className = 'qda-analyze-row';
+    
+    const analyzeBtn = document.createElement('button');
+    analyzeBtn.className = 'qda-btn';
+    analyzeBtn.id = 'qdaAnalyzeBtnInline';
+    analyzeBtn.textContent = 'Analyze Data';
+    analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
+    
+    analyzeRow.appendChild(analyzeBtn);
+    uploadSection.appendChild(analyzeRow);
+    content.appendChild(uploadSection);
+    
+    // Results
+    const resultsDiv = document.createElement('div');
+    resultsDiv.id = 'qdaAnalysisResultsInline';
+    resultsDiv.className = 'qda-analysis-results';
+    
+    const summaryDiv = document.createElement('div');
+    summaryDiv.id = 'qdaSummaryStatsInline';
+    resultsDiv.appendChild(summaryDiv);
+
+    // Demographic Breakdown Section
+    const demographicDiv = document.createElement('div');
+    demographicDiv.id = 'qdaDemographicBreakdownInline';
+    resultsDiv.appendChild(demographicDiv);
+    
+    // Persona Breakdown Section
+    const personaDiv = document.createElement('div');
+    personaDiv.id = 'qdaPersonaBreakdownInline';
+    resultsDiv.appendChild(personaDiv);
+    
+    const combinedDiv = document.createElement('div');
+    combinedDiv.id = 'qdaCombinedResultsInline';
+    resultsDiv.appendChild(combinedDiv);
+    
+    const portfolioDiv = document.createElement('div');
+    portfolioDiv.id = 'qdaPortfolioResultsInline';
+    resultsDiv.appendChild(portfolioDiv);
+    
+    const creatorDiv = document.createElement('div');
+    creatorDiv.id = 'qdaCreatorResultsInline';
+    resultsDiv.appendChild(creatorDiv);
+    
+    const crossAnalysisDiv = document.createElement('div');
+    crossAnalysisDiv.id = 'qdaCrossAnalysisResultsInline';
+    resultsDiv.appendChild(crossAnalysisDiv);
+    
+    content.appendChild(resultsDiv);
+    
+    widget.appendChild(header);
+    widget.appendChild(content);
+    
+    container.appendChild(widget);
+}
+
+async function analyzeDataInline(widget) {
+    const mainFileInput = document.getElementById('qdaMainFileInline');
+    const portfolioFileInput = document.getElementById('qdaPortfolioFileInline');
+    const creatorFileInput = document.getElementById('qdaCreatorFileInline');
+    
+    if (!mainFileInput.files[0]) {
+        alert('Please select the Main Analysis CSV file');
+        return;
+    }
+
+    const analyzeBtn = document.getElementById('qdaAnalyzeBtnInline');
+    analyzeBtn.textContent = 'Analyzing...';
+    analyzeBtn.disabled = true;
+
+    try {
+        const mainCsvText = await readFile(mainFileInput.files[0]);
+        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
+        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
+        
+        console.log('Starting FIXED persona analysis with no overlaps...');
+        const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
+        
+        // Store ALL results for export - including behavioral analysis
+        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
+        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
+        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
+        
+        if (results.portfolioAnalysis) {
+            sessionStorage.setItem('qdaPortfolioAnalysis', JSON.stringify(results.portfolioAnalysis));
+        }
+        if (results.creatorAnalysis) {
+            sessionStorage.setItem('qdaCreatorAnalysis', JSON.stringify(results.creatorAnalysis));
+        }
+        if (results.crossAnalysis) {
+            sessionStorage.setItem('qdaCrossAnalysis', JSON.stringify(results.crossAnalysis));
+        }
+        
+        // Display all results using inline versions
+        displaySummaryStatsInline(results.summaryStats);
+        displayDemographicBreakdownInline(results.summaryStats);
+        displayPersonaBreakdownInline(results.summaryStats);
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
+        
+        // Display enhanced sections if data available
+        if (results.portfolioAnalysis) {
+            displayPortfolioAnalysisInline(results.portfolioAnalysis);
+        }
+        if (results.creatorAnalysis) {
+            displayCreatorAnalysisInline(results.creatorAnalysis);
+        }
+        if (results.crossAnalysis) {
+            displayCrossAnalysisInline(results.crossAnalysis);
+        }
+        
+        document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
+        console.log('FIXED Quantitative Driver Analysis completed - No persona overlaps!');
+    } catch (error) {
+        alert('Error analyzing data: ' + error.message);
+        console.error('Full error:', error);
+    } finally {
+        analyzeBtn.textContent = 'Analyze Data';
+        analyzeBtn.disabled = false;
+    }
+}
+
+// Inline display functions (modified from original functions)
+function displaySummaryStatsInline(stats) {
+    const container = document.getElementById('qdaSummaryStatsInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Summary Statistics';
+    resultSection.appendChild(title);
+    
+    // Export button positioned in top right
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'qda-export-btn';
+    exportBtn.textContent = 'Export PDF';
+    exportBtn.addEventListener('click', exportReport);
+    resultSection.appendChild(exportBtn);
+    
+    const metricSummary = document.createElement('div');
+    metricSummary.className = 'qda-metric-summary';
+    
+    const metrics = [
+        ['Total Users', stats.totalUsers.toLocaleString(), '18px'],
+        ['Link Bank Rate', `${stats.linkBankConversion.toFixed(1)}%`, '18px'],
+        ['Copy Rate', `${stats.firstCopyConversion.toFixed(1)}%`, '18px'],
+        ['Deposit Rate', `${stats.depositConversion.toFixed(1)}%`, '18px'],
+        ['Subscription Rate', `${stats.subscriptionConversion.toFixed(1)}%`, '18px']
+    ];
+    
+    metrics.forEach(([title, content, size]) => {
+        metricSummary.appendChild(createMetricCard(title, content, size));
+    });
+    
+    resultSection.appendChild(metricSummary);
+    container.appendChild(resultSection);
+}
+
+function displayDemographicBreakdownInline(stats) {
+    const container = document.getElementById('qdaDemographicBreakdownInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Demographic Breakdown';    
+    resultSection.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;';
+
+    // Helper function to create a breakdown table
+    const createBreakdownTable = (titleText, data, totalResponses) => {
+        const tableContainer = document.createElement('div');
+        tableContainer.style.maxWidth = '320px';    
+        const tableTitle = document.createElement('h4');
+        tableTitle.textContent = titleText;
+        tableTitle.style.cssText = 'margin: 0 0 10px 0; font-size: 14px;';
+        tableContainer.appendChild(tableTitle);
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+        table.style.fontSize = '12px';
+        table.style.width = '100%';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Category', 'Percentage'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        // Convert to array of objects for easier sorting
+        let dataArray = Object.keys(data)
+            .filter(k => k.trim() !== '')
+            .map(category => ({
+                category,
+                count: data[category],
+                percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
+            }));
+
+        // Sort by percentage descending
+        dataArray.sort((a, b) => b.percentage - a.percentage);
+
+        dataArray.forEach(item => {
+            const percentageFormatted = item.percentage.toFixed(1) + '%';
+            tbody.appendChild(createTableRow([item.category, percentageFormatted]));
+        });
+        
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+        grid.appendChild(tableContainer);
+    };
+
+    const demographicConfigs = [
+        { key: 'income', title: 'Income' },
+        { key: 'netWorth', title: 'Net Worth' },
+        { key: 'investingExperienceYears', title: 'Investing Experience Years' },
+        { key: 'investingActivity', title: 'Investing Activity' },
+        { key: 'investmentType', title: 'Investment Type' },
+        { key: 'investingObjective', title: 'Investing Objective' }
+    ];
+
+    demographicConfigs.forEach(config => {
+        createBreakdownTable(
+            config.title,    
+            stats[config.key + 'Breakdown'],    
+            stats[config.key + 'TotalResponses']
+        );
+    });
+    
+    resultSection.appendChild(grid);
+    container.appendChild(resultSection);
+}
+
+function displayPersonaBreakdownInline(stats) {
+    const container = document.getElementById('qdaPersonaBreakdownInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Fixed Persona Breakdown - No Overlaps';
+    resultSection.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;';
+
+    // FIXED PERSONA ORDER (by business priority)
+    const personas = [
+        {
+            name: 'Premium',
+            subtitle: 'Active subscriptions - highest revenue users',
+            data: stats.personaStats.premium,
+            priority: 1
+        },
+        {
+            name: 'Aspiring Premium',
+            subtitle: '$1000+ deposits, copies, higher income - premium conversion targets',
+            data: stats.personaStats.aspiringPremium,
+            priority: 2
+        },
+        {
+            name: 'Core',
+            subtitle: '$200-1000 deposits with banking OR active engagement - main user base',
+            data: stats.personaStats.core,
+            priority: 3
+        },
+        {
+            name: 'Activation Targets',
+            subtitle: 'Higher income prospects browsing creators but not converting',
+            data: stats.personaStats.activationTargets,
+            priority: 4
+        },
+        {
+            name: 'Lower Income',
+            subtitle: '≤$200 deposits, lower demographics, minimal engagement',
+            data: stats.personaStats.lowerIncome,
+            priority: 5
+        },
+        {
+            name: 'Non-activated',
+            subtitle: 'Zero banking, deposits, and platform engagement',
+            data: stats.personaStats.nonActivated,
+            priority: 6
+        }
+    ];
+
+    personas.forEach(p => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        const nameEl = document.createElement('div');
+        nameEl.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 5px; font-size: 16px;';
+        nameEl.textContent = `${p.priority}. ${p.name}`;
+        card.appendChild(nameEl);
+
+        const subtitleEl = document.createElement('div');
+        subtitleEl.style.cssText = 'font-size: 12px; color: #6c757d; margin-bottom: 10px;';
+        subtitleEl.textContent = p.subtitle;
+        card.appendChild(subtitleEl);
+
+        const percentageEl = document.createElement('div');
+        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px;';
+        percentageEl.textContent = `${p.data.percentage.toFixed(1)}%`;
+        card.appendChild(percentageEl);
+
+        const countEl = document.createElement('div');
+        countEl.style.cssText = 'font-size: 13px; color: #333;';
+        countEl.textContent = `(N=${p.data.count.toLocaleString()})`;
+        card.appendChild(countEl);
+
+        grid.appendChild(card);
+    });
+    
+    resultSection.appendChild(grid);
+    container.appendChild(resultSection);
+}
+
+function displayCombinedAnalysisInline(correlationResults, regressionResults, cleanData) {
+    const container = document.getElementById('qdaCombinedResultsInline');
+    container.textContent = '';
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Behavioral Analysis';
+    resultSection.appendChild(title);
+
+    // Define the custom order of subsections
+    const orderedOutcomes = [
+        { outcome: 'totalDeposits', label: 'Deposit Funds' },
+        { outcome: 'totalCopies', label: 'Portfolio Copies' },
+        { outcome: 'totalSubscriptions', label: 'Subscriptions' }
+    ];
+    
+    orderedOutcomes.forEach((config) => {
+        const outcome = config.outcome;
+        const outcomeLabel = config.label;
+        
+        const outcomeTitle = document.createElement('h4');
+        outcomeTitle.textContent = outcomeLabel;
+        resultSection.appendChild(outcomeTitle);
+        
+        const allVariables = Object.keys(correlationResults[outcome]);
+        const regressionData = regressionResults[outcome.replace('total', '').toLowerCase()];
+        
+        // Apply section-specific exclusions
+        const excludedVars = SECTION_EXCLUSIONS[outcome] || [];
+        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
+        
+        const combinedData = filteredVariables.map(variable => {
+            const correlation = correlationResults[outcome][variable];
+            const regressionItem = regressionData.find(item => item.variable === variable);
+            const tippingPoint = calculateTippingPoint(cleanData, variable, outcome);
+            
+            return {
+                variable: variable,
+                correlation: correlation,
+                tStat: regressionItem ? regressionItem.tStat : 0,
+                tippingPoint: tippingPoint
+            };
+        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+        
+        // Calculate relative thresholds for T-statistics only
+        const tStatThresholds = calculateRelativeStrengths(combinedData, 'tStat');
+        
+        // Apply relative strengths
+        combinedData.forEach(item => {
+            const absTStat = Math.abs(item.tStat);
+            
+            // Predictive strength (relative with 7 categories)
+            if (absTStat >= tStatThresholds.strongThreshold) {
+                item.predictiveStrength = 'Very Strong';
+                item.predictiveClass = 'qda-strength-very-strong';
+            } else if (absTStat >= tStatThresholds.moderateStrongThreshold) {
+                item.predictiveStrength = 'Strong';
+                item.predictiveClass = 'qda-strength-strong';
+            } else if (absTStat >= tStatThresholds.moderateThreshold) {
+                item.predictiveStrength = 'Moderate - Strong';
+                item.predictiveClass = 'qda-strength-moderate-strong';
+            } else if (absTStat >= tStatThresholds.weakModerateThreshold) {
+                item.predictiveStrength = 'Moderate';
+                item.predictiveClass = 'qda-strength-moderate';
+            } else if (absTStat >= tStatThresholds.weakThreshold) {
+                item.predictiveStrength = 'Weak - Moderate';
+                item.predictiveClass = 'qda-strength-weak-moderate';
+            } else if (absTStat >= tStatThresholds.veryWeakThreshold) {
+                item.predictiveStrength = 'Weak';
+                item.predictiveClass = 'qda-strength-weak';
+            } else {
+                item.predictiveStrength = 'Very Weak';
+                item.predictiveClass = 'qda-strength-very-weak';
+            }
+        });
+        
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+        
+        // Create header with 5 columns (removed Correlation Strength)
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength', 'Tipping Point'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Create body - show top 25 variables (increased from 20)
+        const tbody = document.createElement('tbody');
+        combinedData.slice(0, 25).forEach(item => {
+            const rowData = [
+                getVariableLabel(item.variable),
+                item.correlation.toFixed(3),
+                item.tStat.toFixed(3),
+                { text: item.predictiveStrength, className: item.predictiveClass, html: true },
+                item.tippingPoint !== 'N/A' ?    
+                    (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
+                    'N/A'
+            ];
+            tbody.appendChild(createTableRow(rowData));
+        });
+        table.appendChild(tbody);
+        
+        resultSection.appendChild(table);
+    });
+    
+    container.appendChild(resultSection);
+}
+
+function displayPortfolioAnalysisInline(portfolioAnalysis) {
+    const container = document.getElementById('qdaPortfolioResultsInline');
+    container.textContent = '';
+    
+    if (!portfolioAnalysis) return;
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Portfolio Performance Analysis';
+    resultSection.appendChild(title);
+    
+    // Summary metrics
+    const summaryGrid = document.createElement('div');
+    summaryGrid.className = 'qda-metric-summary';
+    
+    summaryGrid.appendChild(createMetricCard('Total Portfolios', portfolioAnalysis.totalPortfolios.toLocaleString(), '16px'));
+    summaryGrid.appendChild(createMetricCard('Avg View-to-Copy Rate', `${portfolioAnalysis.avgViewToCopyRate.toFixed(2)}%`, '16px'));
+    
+    resultSection.appendChild(summaryGrid);
+    
+    // Top performing portfolios
+    const performanceTitle = document.createElement('h4');
+    performanceTitle.textContent = 'Top Performing Portfolios';
+    resultSection.appendChild(performanceTitle);
+    
+    const performanceGrid = document.createElement('div');
+    performanceGrid.className = 'qda-performance-grid';
+    performanceGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;';
+    
+    portfolioAnalysis.topPerformers.slice(0, 6).forEach(portfolio => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px;';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.style.cssText = 'font-weight: bold; margin-bottom: 8px; color: #007bff;';
+        titleDiv.textContent = portfolio.ticker;
+        card.appendChild(titleDiv);
+        
+        const metrics = [
+            `Total Copies: ${portfolio.totalCopies}`,
+            `Views: ${portfolio.totalViews.toLocaleString()}`,
+            `Conversion: ${portfolio.viewToCopyRate.toFixed(2)}%`,
+            `Unique Users: ${portfolio.uniqueUsers}`
+        ];
+        
+        metrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 4px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            card.appendChild(metricDiv);
+        });
+        
+        performanceGrid.appendChild(card);
+    });
+    
+    resultSection.appendChild(performanceGrid);
+    container.appendChild(resultSection);
+}
+
+function displayCreatorAnalysisInline(creatorAnalysis) {
+    const container = document.getElementById('qdaCreatorResultsInline');
+    container.textContent = '';
+    
+    if (!creatorAnalysis) return;
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Creator Performance Analysis';
+    resultSection.appendChild(title);
+    
+    // Summary metrics
+    const summaryGrid = document.createElement('div');
+    summaryGrid.className = 'qda-metric-summary';
+    
+    summaryGrid.appendChild(createMetricCard('Total Creators', creatorAnalysis.totalCreators.toLocaleString(), '16px'));
+    summaryGrid.appendChild(createMetricCard('Avg Subscription Rate', `${creatorAnalysis.avgSubscriptionRate.toFixed(2)}%`, '16px'));
+    
+    resultSection.appendChild(summaryGrid);
+    
+    // Top performing creators
+    const performanceTitle = document.createElement('h4');
+    performanceTitle.textContent = 'Top Performing Creators';
+    resultSection.appendChild(performanceTitle);
+    
+    const performanceGrid = document.createElement('div');
+    performanceGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;';
+    
+    creatorAnalysis.topPerformers.slice(0, 6).forEach(creator => {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px;';
+        
+        const titleDiv = document.createElement('div');
+        titleDiv.style.cssText = 'font-weight: bold; margin-bottom: 8px; color: #007bff;';
+        titleDiv.textContent = creator.username;
+        card.appendChild(titleDiv);
+        
+        const metrics = [
+            `Subscriptions: ${creator.totalSubscriptions}`,
+            `Paywall Views: ${creator.totalPaywallViews.toLocaleString()}`,
+            `Sub Rate: ${creator.subscriptionConversionRate.toFixed(2)}%`,
+            `Portfolio Views: ${creator.totalPortfolioViews.toLocaleString()}`
+        ];
+        
+        metrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 4px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            card.appendChild(metricDiv);
+        });
+        
+        performanceGrid.appendChild(card);
+    });
+    
+    resultSection.appendChild(performanceGrid);
+    container.appendChild(resultSection);
+}
+
+function displayCrossAnalysisInline(crossAnalysis) {
+    const container = document.getElementById('qdaCrossAnalysisResultsInline');
+    container.textContent = '';
+    
+    if (!crossAnalysis) return;
+    
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    
+    const title = document.createElement('h1');
+    title.textContent = 'Additional Analysis';
+    resultSection.appendChild(title);
+    
+    const analysisGrid = document.createElement('div');
+    analysisGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0;';
+    
+    // Portfolio diversity analysis
+    if (crossAnalysis.portfolioDiversity) {
+        const portfolioCard = document.createElement('div');
+        portfolioCard.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        const portfolioTitle = document.createElement('div');
+        portfolioTitle.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 10px;';
+        portfolioTitle.textContent = 'Portfolio Diversity';
+        portfolioCard.appendChild(portfolioTitle);
+        
+        const portfolioMetrics = [
+            `Avg portfolios per user: ${crossAnalysis.portfolioDiversity.avgPortfoliosPerUser.toFixed(1)}`,
+            `Multi-portfolio users: ${crossAnalysis.portfolioDiversity.usersWithMultiplePortfolios.toLocaleString()}`
+        ];
+        
+        portfolioMetrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 6px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            portfolioCard.appendChild(metricDiv);
+        });
+        
+        analysisGrid.appendChild(portfolioCard);
+    }
+    
+    // Creator diversity analysis
+    if (crossAnalysis.creatorDiversity) {
+        const creatorCard = document.createElement('div');
+        creatorCard.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        creatorTitle.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 10px;';
+        creatorTitle.textContent = 'Creator Engagement';
+        creatorCard.appendChild(creatorTitle);
+        
+        const creatorMetrics = [
+            `Avg creators per user: ${crossAnalysis.creatorDiversity.avgCreatorsPerUser.toFixed(1)}`,
+            `Multi-creator users: ${crossAnalysis.creatorDiversity.usersWithMultipleCreators.toLocaleString()}`
+        ];
+        
+        creatorMetrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 6px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            creatorCard.appendChild(metricDiv);
+        });
+        
+        analysisGrid.appendChild(creatorCard);
+    }
+    
+    if (crossAnalysis.powerUserSegment) {
+        const powerUserCard = document.createElement('div');
+        powerUserCard.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        const powerUserTitle = document.createElement('div');
+        powerUserTitle.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 10px;';
+        powerUserTitle.textContent = 'Power Users';
+        powerUserCard.appendChild(powerUserTitle);
+        
+        const powerUserMetrics = [
+            `Count: ${crossAnalysis.powerUserSegment.count.toLocaleString()}`,
+            `Percentage: ${crossAnalysis.powerUserSegment.percentage.toFixed(1)}%`
+        ];
+        
+        powerUserMetrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 6px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            powerUserCard.appendChild(metricDiv);
+        });
+        
+        // Add help text definition
+        const helpText = document.createElement('div');
+        helpText.style.cssText = 'margin-top: 10px; font-size: 11px; color: #6c757d; font-style: italic;';
+        helpText.textContent = 'Defined as $1,000+ deposits, 1+ subscription or 2+ copies';
+        powerUserCard.appendChild(helpText);
+        
+        analysisGrid.appendChild(powerUserCard);
+    }
+    
+    resultSection.appendChild(analysisGrid);
+    container.appendChild(resultSection);
+}
+
+// Keep original floating widget functions for backwards compatibility
+function createWidget() {// Enhanced Quantitative Driver Analysis - FIXED Persona Logic
 'use strict';
 
 // --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
@@ -21,49 +776,29 @@ const SECTION_EXCLUSIONS = {
     'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies'] // Remove from Portfolio Copies section
 };
 
-// Create and inject CSS styles
+// Updated styles for inline display
 const styles = `
-    .qda-widget {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 900px;
-        max-height: 85vh;
+    .qda-inline-widget {
         background: white;
         border: 2px solid #007bff;
         border-radius: 10px;
-        z-index: 10000;
         font-family: Arial, sans-serif;
         font-size: 14px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
+        max-width: 1200px;
+        margin: 0 auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     
     .qda-header {
         background: #007bff;
         color: white;
         padding: 15px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .qda-close {
-        background: none;
-        border: none;
-        color: white;
-        font-size: 20px;
-        cursor: pointer;
-        padding: 0;
-        width: 25px;
-        height: 25px;
+        border-radius: 8px 8px 0 0;
+        text-align: center;
     }
     
     .qda-content {
         padding: 20px;
-        overflow-y: auto;
-        flex: 1;
         background: white;
     }
     
