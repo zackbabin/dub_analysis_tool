@@ -142,22 +142,10 @@ function createInlineDataMerger(container) {
   };
   
   wrapper.appendChild(processBtn);
-  // Remove any existing tool
-  const existing = document.getElementById('comprehensiveCSVTool');
-  if (existing) existing.remove();
-  
-  const container = document.createElement('div');
-  container.id = 'comprehensiveCSVTool';
-  container.style.cssText = `
-    position: fixed; top: 50px; right: 20px; width: 380px; 
-    background: white; border: 2px solid #007bff; border-radius: 8px; 
-    padding: 20px; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    font-family: Arial, sans-serif; font-size: 13px; max-height: 85vh; overflow-y: auto;
-  `;
   
   const title = document.createElement('h3');
   title.textContent = 'Comprehensive CSV Processor';
-  title.style.cssText = 'margin: 0 0 15px 0; color: #007bff; text-align: center;';
+  title.style.cssText = 'margin: 0 0 15px 0; color: #17a2b8; text-align: center;';
   container.appendChild(title);
   
   const description = document.createElement('p');
@@ -167,7 +155,7 @@ function createInlineDataMerger(container) {
   
   // File upload section
   const uploadDiv = document.createElement('div');
-  uploadDiv.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa; text-align: center;';
+  uploadDiv.style.cssText = 'border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa; text-align: center;';
   
   const uploadLabel = document.createElement('label');
   uploadLabel.textContent = 'Select all 7 CSV files:';
@@ -206,7 +194,7 @@ function createInlineDataMerger(container) {
   const processBtn = document.createElement('button');
   processBtn.textContent = 'Process All Files';
   processBtn.style.cssText = `
-    width: 100%; padding: 12px; background: #007bff; color: white; 
+    width: 100%; padding: 12px; background: #17a2b8; color: white; 
     border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
   `;
   
@@ -283,22 +271,33 @@ function createInlineDataMerger(container) {
       console.error('Error:', error);
       alert('Error: ' + error.message);
       processBtn.textContent = 'Process All Files';
-      processBtn.style.background = '#007bff';
+      processBtn.style.background = '#17a2b8';
       processBtn.disabled = false;
     }
   };
   
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = 'Close';
-  closeBtn.style.cssText = `
-    width: 100%; padding: 5px; background: #dc3545; color: white; 
-    border: none; border-radius: 3px; cursor: pointer; margin-top: 10px;
-  `;
-  closeBtn.onclick = () => container.remove();
-  
   container.appendChild(processBtn);
-  container.appendChild(closeBtn);
-  document.body.appendChild(container);
+  
+  // Only add close button for floating version
+  if (!targetContainer) {
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = `
+      width: 100%; padding: 5px; background: #dc3545; color: white; 
+      border: none; border-radius: 3px; cursor: pointer; margin-top: 10px;
+    `;
+    closeBtn.onclick = () => container.remove();
+    container.appendChild(closeBtn);
+  }
+  
+  if (targetContainer) {
+    // Clear container and append inline
+    targetContainer.innerHTML = '';
+    targetContainer.appendChild(container);
+  } else {
+    // Original floating behavior
+    document.body.appendChild(container);
+  }
 }
 
 // Keep original function for backwards compatibility
