@@ -108,10 +108,9 @@
             // Show data merger
             const container = document.getElementById('dataMergerContainer');
             container.classList.add('active');
-            container.innerHTML = '';
             
-            // Create the merger tool inline
-            createInlineDataMerger(container);
+            // Use existing function but modify where it goes
+            createComprehensiveCSVProcessor(container);
         }
         
         function showAnalysisTool() {
@@ -121,10 +120,9 @@
             // Show analysis tool
             const container = document.getElementById('analysisToolContainer');
             container.classList.add('active');
-            container.innerHTML = '';
             
-            // Create the analysis tool inline
-            createInlineAnalysisTool(container);
+            // Use existing function but modify where it goes
+            createWidget(container);
         }
     </script>
 </body>
