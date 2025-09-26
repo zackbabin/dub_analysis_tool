@@ -64,6 +64,15 @@
             color: #666;
             margin: 5px 0;
         }
+        
+        .tool-container {
+            margin: 30px 0;
+            display: none;
+        }
+        
+        .tool-container.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -74,27 +83,48 @@
     </div>
     
     <div class="launcher">
-        <button class="launch-btn merge-btn" onclick="launchDataMerger()">
+        <button class="launch-btn merge-btn" onclick="showDataMerger()">
             Launch Data Merger<br>
             <small>(7 files → 3 files)</small>
         </button>
         
-        <button class="launch-btn analysis-btn" onclick="launchAnalysisTool()">
+        <button class="launch-btn analysis-btn" onclick="showAnalysisTool()">
             Launch Analysis Tool<br>
             <small>(Analyze 3 files)</small>
         </button>
     </div>
 
+    <div id="dataMergerContainer" class="tool-container"></div>
+    <div id="analysisToolContainer" class="tool-container"></div>
+
     <script src="data_merger.js"></script>
     <script src="analysis_tool.js"></script>
     
     <script>
-        function launchDataMerger() {
-            createComprehensiveCSVProcessor();
+        function showDataMerger() {
+            // Hide analysis tool
+            document.getElementById('analysisToolContainer').classList.remove('active');
+            
+            // Show data merger
+            const container = document.getElementById('dataMergerContainer');
+            container.classList.add('active');
+            container.innerHTML = '';
+            
+            // Create the merger tool inline
+            createInlineDataMerger(container);
         }
         
-        function launchAnalysisTool() {
-            createWidget();
+        function showAnalysisTool() {
+            // Hide data merger
+            document.getElementById('dataMergerContainer').classList.remove('active');
+            
+            // Show analysis tool
+            const container = document.getElementById('analysisToolContainer');
+            container.classList.add('active');
+            container.innerHTML = '';
+            
+            // Create the analysis tool inline
+            createInlineAnalysisTool(container);
         }
     </script>
 </body>
