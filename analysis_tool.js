@@ -109,203 +109,7 @@ if (!document.getElementById('qda-styles')) {
     document.head.appendChild(styleSheet);
 }
 
-// Main widget creation function
-function createWidget(targetContainer = null) {
-    const widget = document.createElement('div');
-    
-    if (targetContainer) {
-        widget.className = 'qda-inline-widget';
-    } else {
-        widget.className = 'qda-widget';
-    }
-    
-    // Header
-    const header = document.createElement('div');
-    header.className = 'qda-header';
-    
-    const title = document.createElement('h3');
-    title.style.margin = '0';
-    title.textContent = 'Enhanced QDA - Fixed Personas';
-    header.appendChild(title);
-    
-    // Content
-    const content = document.createElement('div');
-    content.className = 'qda-content';
-    
-    const description = document.createElement('p');
-    description.textContent = 'Upload your CSV file to perform comprehensive statistical analysis with FIXED persona logic (no overlaps).';
-    content.appendChild(description);
-    
-    // Upload section with 3 columns
-    const uploadSection = document.createElement('div');
-    uploadSection.className = 'qda-upload-section';
-    
-    // Main Analysis File (required)
-    const mainColumn = document.createElement('div');
-    mainColumn.className = 'qda-upload-column';
-    
-    const mainLabel = document.createElement('div');
-    mainLabel.className = 'qda-file-label';
-    mainLabel.textContent = 'Main Analysis File';
-    mainColumn.appendChild(mainLabel);
-    
-    const mainFileInput = document.createElement('input');
-    mainFileInput.type = 'file';
-    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
-    mainFileInput.accept = '.csv';
-    mainFileInput.className = 'qda-file-input';
-    mainColumn.appendChild(mainFileInput);
-    
-    const mainDesc = document.createElement('div');
-    mainDesc.className = 'qda-file-description';
-    mainDesc.textContent = 'Required: User behavior, demographics, and conversion data';
-    mainColumn.appendChild(mainDesc);
-    
-    // Portfolio Detail File (optional)
-    const portfolioColumn = document.createElement('div');
-    portfolioColumn.className = 'qda-upload-column';
-    
-    const portfolioLabel = document.createElement('div');
-    portfolioLabel.className = 'qda-file-label';
-    portfolioLabel.textContent = 'Portfolio Detail File';
-    portfolioColumn.appendChild(portfolioLabel);
-    
-    const portfolioFileInput = document.createElement('input');
-    portfolioFileInput.type = 'file';
-    portfolioFileInput.id = targetContainer ? 'qdaPortfolioFileInline' : 'qdaPortfolioFile';
-    portfolioFileInput.accept = '.csv';
-    portfolioFileInput.className = 'qda-file-input';
-    portfolioColumn.appendChild(portfolioFileInput);
-    
-    const portfolioDesc = document.createElement('div');
-    portfolioDesc.className = 'qda-file-description';
-    portfolioDesc.textContent = 'Optional: Portfolio views, copy starts, and performance metrics';
-    portfolioColumn.appendChild(portfolioDesc);
-    
-    // Creator Detail File (optional)
-    const creatorColumn = document.createElement('div');
-    creatorColumn.className = 'qda-upload-column';
-    
-    const creatorLabel = document.createElement('div');
-    creatorLabel.className = 'qda-file-label';
-    creatorLabel.textContent = 'Creator Detail File';
-    creatorColumn.appendChild(creatorLabel);
-    
-    const creatorFileInput = document.createElement('input');
-    creatorFileInput.type = 'file';
-    creatorFileInput.id = targetContainer ? 'qdaCreatorFileInline' : 'qdaCreatorFile';
-    creatorFileInput.accept = '.csv';
-    creatorFileInput.className = 'qda-file-input';
-    creatorColumn.appendChild(creatorFileInput);
-    
-    const creatorDesc = document.createElement('div');
-    creatorDesc.className = 'qda-file-description';
-    creatorDesc.textContent = 'Optional: Creator paywall views, subscriptions, and monetization data';
-    creatorColumn.appendChild(creatorDesc);
-    
-    uploadSection.appendChild(mainColumn);
-    uploadSection.appendChild(portfolioColumn);
-    uploadSection.appendChild(creatorColumn);
-    
-    const analyzeRow = document.createElement('div');
-    analyzeRow.className = 'qda-analyze-row';
-    
-    const analyzeBtn = document.createElement('button');
-    analyzeBtn.className = 'qda-btn';
-    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
-    analyzeBtn.textContent = 'Analyze Data';
-    
-    if (targetContainer) {
-        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
-    } else {
-        analyzeBtn.addEventListener('click', analyzeData);
-    }
-    
-    analyzeRow.appendChild(analyzeBtn);
-    uploadSection.appendChild(analyzeRow);
-    content.appendChild(uploadSection);
-    
-    // Results containers
-    const resultsDiv = document.createElement('div');
-    resultsDiv.id = targetContainer ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
-    resultsDiv.className = 'qda-analysis-results';
-    
-    const summaryDiv = document.createElement('div');
-    summaryDiv.id = targetContainer ? 'qdaSummaryStatsInline' : 'qdaSummaryStats';
-    resultsDiv.appendChild(summaryDiv);
-    
-    const demographicDiv = document.createElement('div');
-    demographicDiv.id = targetContainer ? 'qdaDemographicBreakdownInline' : 'qdaDemographicBreakdown';
-    resultsDiv.appendChild(demographicDiv);
-    
-    const personaDiv = document.createElement('div');
-    personaDiv.id = targetContainer ? 'qdaPersonaBreakdownInline' : 'qdaPersonaBreakdown';
-    resultsDiv.appendChild(personaDiv);
-    
-    const combinedDiv = document.createElement('div');
-    combinedDiv.id = targetContainer ? 'qdaCombinedResultsInline' : 'qdaCombinedResults';
-    resultsDiv.appendChild(combinedDiv);
-    
-    const portfolioDiv = document.createElement('div');
-    portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
-    resultsDiv.appendChild(portfolioDiv);
-    
-    const creatorDiv = document.createElement('div');
-    creatorDiv.id = targetContainer ? 'qdaCreatorResultsInline' : 'qdaCreatorResults';
-    resultsDiv.appendChild(creatorDiv);
-    
-    const crossAnalysisDiv = document.createElement('div');
-    crossAnalysisDiv.id = targetContainer ? 'qdaCrossAnalysisResultsInline' : 'qdaCrossAnalysisResults';
-    resultsDiv.appendChild(crossAnalysisDiv);
-    
-    content.appendChild(resultsDiv);
-    widget.appendChild(header);
-    widget.appendChild(content);
-    
-    if (targetContainer) {
-        targetContainer.innerHTML = '';
-        targetContainer.appendChild(widget);
-    } else {
-        document.body.appendChild(widget);
-        makeDraggable(widget);
-    }
-}
-
-// Analysis functions
-async function analyzeDataInline(widget) {
-    const mainFileInput = document.getElementById('qdaMainFileInline');
-    const portfolioFileInput = document.getElementById('qdaPortfolioFileInline');
-    const creatorFileInput = document.getElementById('qdaCreatorFileInline');
-    
-    if (!mainFileInput.files[0]) {
-        alert('Please select the Main Analysis CSV file');
-        return;
-    }
-
-    const analyzeBtn = document.getElementById('qdaAnalyzeBtnInline');
-    analyzeBtn.textContent = 'Analyzing...';
-    analyzeBtn.disabled = true;
-
-    try {
-        const mainCsvText = await readFile(mainFileInput.files[0]);
-        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
-        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
-        
-        console.log('Starting analysis...');
-        const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
-        
-        // Store results
-        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        
-        // Display all results using inline display functions
-        displaySummaryStatsInline(results.summaryStats);
-        displayDemographicBreakdownInline(results.summaryStats);
-        displayPersonaBreakdownInline(results.summaryStats);
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
-        
-// === DISPLAY FUNCTIONS ===
+// === DISPLAY FUNCTIONS (Moved to Global Scope) ===
 function createMetricCard(title, content, size = null) {
     const card = document.createElement('div');
     card.className = 'qda-metric-card';
@@ -714,6 +518,206 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
     
     container.appendChild(resultSection);
 }
+
+// Main widget creation function
+function createWidget(targetContainer = null) {
+    const widget = document.createElement('div');
+    
+    if (targetContainer) {
+        widget.className = 'qda-inline-widget';
+    } else {
+        widget.className = 'qda-widget';
+    }
+    
+    // Header
+    const header = document.createElement('div');
+    header.className = 'qda-header';
+    
+    const title = document.createElement('h3');
+    title.style.margin = '0';
+    title.textContent = 'Enhanced QDA - Fixed Personas';
+    header.appendChild(title);
+    
+    // Content
+    const content = document.createElement('div');
+    content.className = 'qda-content';
+    
+    const description = document.createElement('p');
+    description.textContent = 'Upload your CSV file to perform comprehensive statistical analysis with FIXED persona logic (no overlaps).';
+    content.appendChild(description);
+    
+    // Upload section with 3 columns
+    const uploadSection = document.createElement('div');
+    uploadSection.className = 'qda-upload-section';
+    
+    // Main Analysis File (required)
+    const mainColumn = document.createElement('div');
+    mainColumn.className = 'qda-upload-column';
+    
+    const mainLabel = document.createElement('div');
+    mainLabel.className = 'qda-file-label';
+    mainLabel.textContent = 'Main Analysis File';
+    mainColumn.appendChild(mainLabel);
+    
+    const mainFileInput = document.createElement('input');
+    mainFileInput.type = 'file';
+    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
+    mainFileInput.accept = '.csv';
+    mainFileInput.className = 'qda-file-input';
+    mainColumn.appendChild(mainFileInput);
+    
+    const mainDesc = document.createElement('div');
+    mainDesc.className = 'qda-file-description';
+    mainDesc.textContent = 'Required: User behavior, demographics, and conversion data';
+    mainColumn.appendChild(mainDesc);
+    
+    // Portfolio Detail File (optional)
+    const portfolioColumn = document.createElement('div');
+    portfolioColumn.className = 'qda-upload-column';
+    
+    const portfolioLabel = document.createElement('div');
+    portfolioLabel.className = 'qda-file-label';
+    portfolioLabel.textContent = 'Portfolio Detail File';
+    portfolioColumn.appendChild(portfolioLabel);
+    
+    const portfolioFileInput = document.createElement('input');
+    portfolioFileInput.type = 'file';
+    portfolioFileInput.id = targetContainer ? 'qdaPortfolioFileInline' : 'qdaPortfolioFile';
+    portfolioFileInput.accept = '.csv';
+    portfolioFileInput.className = 'qda-file-input';
+    portfolioColumn.appendChild(portfolioFileInput);
+    
+    const portfolioDesc = document.createElement('div');
+    portfolioDesc.className = 'qda-file-description';
+    portfolioDesc.textContent = 'Optional: Portfolio views, copy starts, and performance metrics';
+    portfolioColumn.appendChild(portfolioDesc);
+    
+    // Creator Detail File (optional)
+    const creatorColumn = document.createElement('div');
+    creatorColumn.className = 'qda-upload-column';
+    
+    const creatorLabel = document.createElement('div');
+    creatorLabel.className = 'qda-file-label';
+    creatorLabel.textContent = 'Creator Detail File';
+    creatorColumn.appendChild(creatorLabel);
+    
+    const creatorFileInput = document.createElement('input');
+    creatorFileInput.type = 'file';
+    creatorFileInput.id = targetContainer ? 'qdaCreatorFileInline' : 'qdaCreatorFile';
+    creatorFileInput.accept = '.csv';
+    creatorFileInput.className = 'qda-file-input';
+    creatorColumn.appendChild(creatorFileInput);
+    
+    const creatorDesc = document.createElement('div');
+    creatorDesc.className = 'qda-file-description';
+    creatorDesc.textContent = 'Optional: Creator paywall views, subscriptions, and monetization data';
+    creatorColumn.appendChild(creatorDesc);
+    
+    uploadSection.appendChild(mainColumn);
+    uploadSection.appendChild(portfolioColumn);
+    uploadSection.appendChild(creatorColumn);
+    
+    const analyzeRow = document.createElement('div');
+    analyzeRow.className = 'qda-analyze-row';
+    
+    const analyzeBtn = document.createElement('button');
+    analyzeBtn.className = 'qda-btn';
+    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
+    analyzeBtn.textContent = 'Analyze Data';
+    
+    if (targetContainer) {
+        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
+    } else {
+        analyzeBtn.addEventListener('click', analyzeData);
+    }
+    
+    analyzeRow.appendChild(analyzeBtn);
+    uploadSection.appendChild(analyzeRow);
+    content.appendChild(uploadSection);
+    
+    // Results containers
+    const resultsDiv = document.createElement('div');
+    resultsDiv.id = targetContainer ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
+    resultsDiv.className = 'qda-analysis-results';
+    
+    const summaryDiv = document.createElement('div');
+    summaryDiv.id = targetContainer ? 'qdaSummaryStatsInline' : 'qdaSummaryStats';
+    resultsDiv.appendChild(summaryDiv);
+    
+    const demographicDiv = document.createElement('div');
+    demographicDiv.id = targetContainer ? 'qdaDemographicBreakdownInline' : 'qdaDemographicBreakdown';
+    resultsDiv.appendChild(demographicDiv);
+    
+    const personaDiv = document.createElement('div');
+    personaDiv.id = targetContainer ? 'qdaPersonaBreakdownInline' : 'qdaPersonaBreakdown';
+    resultsDiv.appendChild(personaDiv);
+    
+    const combinedDiv = document.createElement('div');
+    combinedDiv.id = targetContainer ? 'qdaCombinedResultsInline' : 'qdaCombinedResults';
+    resultsDiv.appendChild(combinedDiv);
+    
+    const portfolioDiv = document.createElement('div');
+    portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
+    resultsDiv.appendChild(portfolioDiv);
+    
+    const creatorDiv = document.createElement('div');
+    creatorDiv.id = targetContainer ? 'qdaCreatorResultsInline' : 'qdaCreatorResults';
+    resultsDiv.appendChild(creatorDiv);
+    
+    const crossAnalysisDiv = document.createElement('div');
+    crossAnalysisDiv.id = targetContainer ? 'qdaCrossAnalysisResultsInline' : 'qdaCrossAnalysisResults';
+    resultsDiv.appendChild(crossAnalysisDiv);
+    
+    content.appendChild(resultsDiv);
+    widget.appendChild(header);
+    widget.appendChild(content);
+    
+    if (targetContainer) {
+        targetContainer.innerHTML = '';
+        targetContainer.appendChild(widget);
+    } else {
+        document.body.appendChild(widget);
+        makeDraggable(widget);
+    }
+}
+
+// Analysis functions
+async function analyzeDataInline(widget) {
+    const mainFileInput = document.getElementById('qdaMainFileInline');
+    const portfolioFileInput = document.getElementById('qdaPortfolioFileInline');
+    const creatorFileInput = document.getElementById('qdaCreatorFileInline');
+    
+    if (!mainFileInput.files[0]) {
+        alert('Please select the Main Analysis CSV file');
+        return;
+    }
+
+    const analyzeBtn = document.getElementById('qdaAnalyzeBtnInline');
+    analyzeBtn.textContent = 'Analyzing...';
+    analyzeBtn.disabled = true;
+
+    try {
+        const mainCsvText = await readFile(mainFileInput.files[0]);
+        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
+        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
+        
+        console.log('Starting analysis...');
+        const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
+        
+        // Store results
+        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
+        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
+        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
+        
+        // Display all results using inline display functions
+        displaySummaryStatsInline(results.summaryStats);
+        displayDemographicBreakdownInline(results.summaryStats);
+        displayPersonaBreakdownInline(results.summaryStats);
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
+        
+        // FIX: Make the results container visible
+        document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
+
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
         console.error('Full error:', error);
@@ -924,16 +928,19 @@ function calculateTippingPoint(data, variable, outcome) {
 // === PERSONA CLASSIFICATION LOGIC ===
 function classifyPersona(user) {
     function isLowerOrUnknownIncome(income) {
-        const lowerIncomes = ['<25k', '25k—50k', '50k—100k'];
+        const lowerIncomes = ['Less than $25,000', '$25,000-$49,999', '$50,000-$74,999'];
         return !income || income.trim() === '' || lowerIncomes.includes(income);
     }
     
     function isLowerOrUnknownNetWorth(netWorth) {
-        return !netWorth || netWorth.trim() === '' || netWorth === '<100k';
+        // Assuming '<100k' from the internal logic corresponds to the first 3 or 4 categories
+        const lowerNetWorths = ['Less than $10,000', '$10,000-$49,999', '$50,000-$99,999'];
+        return !netWorth || netWorth.trim() === '' || lowerNetWorths.includes(netWorth);
     }
     
     function isHigherOrUnknownIncome(income) {
-        const lowerIncomes = ['<25k', '25k—50k', '50k—100k'];
+        const lowerIncomes = ['Less than $25,000', '$25,000-$49,999', '$50,000-$74,999'];
+        // Returns true if income is not one of the lower incomes (i.e., higher or missing)
         return !income || income.trim() === '' || !lowerIncomes.includes(income);
     }
     
