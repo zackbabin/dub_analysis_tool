@@ -47,9 +47,8 @@ function createInlineDataMerger(targetContainer) {
   
   const expectedTitle = document.createElement('em');
   expectedTitle.textContent = 'Expected file types: ';
-  fileRequirements.appendChild(expectedTitle);
-  
   const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
+  fileRequirements.appendChild(expectedTitle);
   fileRequirements.appendChild(expectedText);
   
   uploadDiv.appendChild(uploadLabel);
@@ -199,9 +198,8 @@ function createComprehensiveCSVProcessor() {
   
   const expectedTitle = document.createElement('em');
   expectedTitle.textContent = 'Expected file types: ';
-  fileRequirements.appendChild(expectedTitle);
-  
   const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
+  fileRequirements.appendChild(expectedTitle);
   fileRequirements.appendChild(expectedText);
   
   uploadDiv.appendChild(uploadLabel);
@@ -346,14 +344,10 @@ async function matchFilesByName(files) {
     
     console.log(`Analyzing ${file.name}:`, headers);
     
-    // Demo breakdown file: has income, netWorth, and multiple demographic columns
-    // UPDATED: Now also checks for the new subscribers insights columns including Creator Card Taps and Portfolio Card Taps
+    // FIX: Demo breakdown file identification - Simplifed check to rely on most unique demographic and insight columns.
     if (headerString.includes('income') && headerString.includes('networth') && 
-        (headerString.includes('total deposits') || headerString.includes('b. total deposits')) && 
-        (headerString.includes('total subscriptions') || headerString.includes('m. total subscriptions') || 
-         headerString.includes('d. subscribed within 7 days')) &&
-        (headerString.includes('s. creator card taps') || headerString.includes('t. portfolio card taps') || 
-         headerString.includes('creator card taps') || headerString.includes('portfolio card taps'))) {
+        (headerString.includes('a. linked bank account') || headerString.includes('linked bank account')) && 
+        (headerString.includes('s. creator card taps') || headerString.includes('creator card taps'))) {
       if (!requiredFiles.demo) {
         requiredFiles.demo = file;
         console.log(`✓ Identified DEMO file: ${file.name}`);
@@ -657,10 +651,10 @@ function processComprehensiveData(contents) {
     
     // NEW: Add any additional subscribers insights columns that weren't in the original demo file
     subscribersInsightColumns.forEach(column => {
-      if (!row[column] && row[column] !== 0) {
-        // If column doesn't exist in original data, add it as empty
-        // This ensures compatibility with future files that might have these columns
-        clean[cleanColumnName(column)] = '';
+      // If the original row does not have the column, ensure the cleaned name is added as empty
+      const cleanedName = cleanColumnName(column);
+      if (row[column] === undefined && clean[cleanedName] === undefined) { 
+        clean[cleanedName] = '';
       }
     });
     
