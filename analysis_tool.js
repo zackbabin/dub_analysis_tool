@@ -1,7 +1,14 @@
-// Widget creation using DOM methods for inline display
-function createInlineAnalysisTool(container) {
+// Widget creation using DOM methods - supports both inline and floating display
+function createWidget(targetContainer = null) {
     const widget = document.createElement('div');
-    widget.className = 'qda-inline-widget';
+    
+    if (targetContainer) {
+        // Inline display
+        widget.className = 'qda-inline-widget';
+    } else {
+        // Original floating display
+        widget.className = 'qda-widget';
+    }
     
     // Header
     const header = document.createElement('div');
@@ -144,7 +151,16 @@ function createInlineAnalysisTool(container) {
     widget.appendChild(header);
     widget.appendChild(content);
     
-    container.appendChild(widget);
+    if (targetContainer) {
+        // Clear container and append widget inline
+        targetContainer.innerHTML = '';
+        targetContainer.appendChild(widget);
+    } else {
+        // Original floating behavior
+        document.body.appendChild(widget);
+        // Make draggable only for floating version
+        makeDraggable(widget);
+    }
 }
 
 async function analyzeDataInline(widget) {
