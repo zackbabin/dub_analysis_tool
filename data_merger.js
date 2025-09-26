@@ -347,11 +347,13 @@ async function matchFilesByName(files) {
     console.log(`Analyzing ${file.name}:`, headers);
     
     // Demo breakdown file: has income, netWorth, and multiple demographic columns
-    // UPDATED: Now also checks for the new subscribers insights columns
+    // UPDATED: Now also checks for the new subscribers insights columns including Creator Card Taps and Portfolio Card Taps
     if (headerString.includes('income') && headerString.includes('networth') && 
         (headerString.includes('total deposits') || headerString.includes('b. total deposits')) && 
         (headerString.includes('total subscriptions') || headerString.includes('m. total subscriptions') || 
-         headerString.includes('d. total subscriptions'))) {
+         headerString.includes('d. subscribed within 7 days')) &&
+        (headerString.includes('s. creator card taps') || headerString.includes('t. portfolio card taps') || 
+         headerString.includes('creator card taps') || headerString.includes('portfolio card taps'))) {
       if (!requiredFiles.demo) {
         requiredFiles.demo = file;
         console.log(`✓ Identified DEMO file: ${file.name}`);
@@ -639,7 +641,7 @@ function processComprehensiveData(contents) {
     'H. Regular PDP Views', 'I. Premium PDP Views', 'J. Paywall Views',
     'K. Regular Creator Profile Views', 'L. Premium Creator Profile Views', 'M. Total Subscriptions',
     'N. App Sessions', 'O. Discover Tab Views', 'P. Leaderboard Tab Views', 'Q. Premium Tab Views',
-    'R. Stripe Modal Views', 'S. Total Events of Tapped Creator Card', 'T. Total Events of Tapped Portfolio Card'
+    'R. Stripe Modal Views', 'S. Creator Card Taps', 'T. Portfolio Card Taps'
   ];
   
   // Create main analysis file
