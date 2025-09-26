@@ -11,7 +11,7 @@ const ALL_VARIABLES = [
     'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
     'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
     'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
-    'discoverTabViews', 'leaderboardViews', 'premiumTabViews'
+    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps'
 ];
 
 // Section-specific exclusions for display only
@@ -381,6 +381,8 @@ function getVariableLabel(variable) {
         'timeToFirstCopy': 'Time To First Copy',
         'timeToDeposit': 'Time To Deposit',
         'timeToLinkedBank': 'Time To Linked Bank',
+        'creatorCardTaps': 'Creator Card Taps',
+        'portfolioCardTaps': 'Portfolio Card Taps',
         'incomeEnum': 'Income Level',
         'netWorthEnum': 'Net Worth Level',
         'income': 'Income',
@@ -1074,57 +1076,61 @@ function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCs
     const data = parsed.data;
 
     const cleanData = data.map(row => ({
-        totalCopies: cleanNumeric(row['Total Copies']),
-        totalDeposits: cleanNumeric(row['Total Deposits']),
-        totalSubscriptions: cleanNumeric(row['Total Subscriptions']),
+        totalCopies: cleanNumeric(row['Total Copies'] || row['E. Total Copies']),
+        totalDeposits: cleanNumeric(row['Total Deposits'] || row['B. Total Deposits ($)']),
+        totalSubscriptions: cleanNumeric(row['Total Subscriptions'] || row['M. Total Subscriptions']),
         
         hasLinkedBank: (row['Has Linked Bank'] === true || row['Has Linked Bank'] === 'true' || 
                         row['Has Linked Bank'] === 1 || row['Has Linked Bank'] === '1' ||
-                        row['Linked Bank Account'] === 1) ? 1 : 0,
-        availableCopyCredits: cleanNumeric(row['Available Copy Credits']),
-        buyingPower: cleanNumeric(row['Buying Power']),
-        totalDepositCount: cleanNumeric(row['Total Deposit Count']),
-        totalWithdrawals: cleanNumeric(row['Total Withdrawals']),
-        totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count']),
+                        row['A. Linked Bank Account'] === 1) ? 1 : 0,
+        availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
+        buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
+        totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
+        totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
+        totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
         
-        activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios']),
-        lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios']),
-        totalBuys: cleanNumeric(row['Total Buys']),
-        totalSells: cleanNumeric(row['Total Sells']),
-        totalTrades: cleanNumeric(row['Total Trades']),
+        activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios'] || row['activeCreatedPortfolios']),
+        lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios'] || row['lifetimeCreatedPortfolios']),
+        totalBuys: cleanNumeric(row['Total Buys'] || row['totalBuys']),
+        totalSells: cleanNumeric(row['Total Sells'] || row['totalSells']),
+        totalTrades: cleanNumeric(row['Total Trades'] || row['totalTrades']),
         
         totalCopyStarts: cleanNumeric(row['Total Copy Starts']),
-        totalRegularCopies: cleanNumeric(row['Total Regular Copies']),
+        totalRegularCopies: cleanNumeric(row['Total Regular Copies'] || row['F. Total Regular Copies']),
         uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
         uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
         
-        regularPDPViews: cleanNumeric(row['Regular PDP Views']),
-        premiumPDPViews: cleanNumeric(row['Premium PDP Views']),
-        paywallViews: cleanNumeric(row['Paywall Views']),
-        totalStripeViews: cleanNumeric(row['Total Stripe Views']),
-        regularCreatorProfileViews: cleanNumeric(row['Regular Creator Profile Views']),
-        premiumCreatorProfileViews: cleanNumeric(row['Premium Creator Profile Views']),
+        regularPDPViews: cleanNumeric(row['Regular PDP Views'] || row['H. Regular PDP Views']),
+        premiumPDPViews: cleanNumeric(row['Premium PDP Views'] || row['I. Premium PDP Views']),
+        paywallViews: cleanNumeric(row['Paywall Views'] || row['J. Paywall Views']),
+        totalStripeViews: cleanNumeric(row['Total Stripe Views'] || row['R. Stripe Modal Views']),
+        regularCreatorProfileViews: cleanNumeric(row['Regular Creator Profile Views'] || row['K. Regular Creator Profile Views']),
+        premiumCreatorProfileViews: cleanNumeric(row['Premium Creator Profile Views'] || row['L. Premium Creator Profile Views']),
         
-        appSessions: cleanNumeric(row['App Sessions']),
-        discoverTabViews: cleanNumeric(row['Discover Tab Views']),
-        leaderboardViews: cleanNumeric(row['Leaderboard Views']),
-        premiumTabViews: cleanNumeric(row['Premium Tab Views']),
+        appSessions: cleanNumeric(row['App Sessions'] || row['N. App Sessions']),
+        discoverTabViews: cleanNumeric(row['Discover Tab Views'] || row['O. Discover Tab Views']),
+        leaderboardViews: cleanNumeric(row['Leaderboard Views'] || row['P. Leaderboard Tab Views']),
+        premiumTabViews: cleanNumeric(row['Premium Tab Views'] || row['Q. Premium Tab Views']),
         totalOfUserProfiles: cleanNumeric(row['Total Of User Profiles']),
         
-        subscribedWithin7Days: cleanNumeric(row['Subscribed Within 7 Days']),
+        subscribedWithin7Days: cleanNumeric(row['Subscribed Within 7 Days'] || row['D. Subscribed within 7 days']),
         
         timeToFirstCopy: cleanNumeric(row['Time To First Copy']),
         timeToDeposit: cleanNumeric(row['Time To Deposit']),
         timeToLinkedBank: cleanNumeric(row['Time To Linked Bank']),
         
-        income: row['Income'] || '',
-        netWorth: row['Net Worth'] || '',
-        incomeEnum: convertIncomeToEnum(row['Income'] || ''),
-        netWorthEnum: convertNetWorthToEnum(row['Net Worth'] || ''),
-        investingExperienceYears: row['Investing Experience Years'] || '',
-        investingActivity: row['Investing Activity'] || '',
-        investingObjective: row['Investing Objective'] || '',
-        investmentType: row['Investment Type'] || ''
+        // Updated to handle new column format
+        creatorCardTaps: cleanNumeric(row['Creator Card Taps'] || row['S. Creator Card Taps']),
+        portfolioCardTaps: cleanNumeric(row['Portfolio Card Taps'] || row['T. Portfolio Card Taps']),
+        
+        income: row['Income'] || row['income'] || '',
+        netWorth: row['Net Worth'] || row['netWorth'] || '',
+        incomeEnum: convertIncomeToEnum(row['Income'] || row['income'] || ''),
+        netWorthEnum: convertNetWorthToEnum(row['Net Worth'] || row['netWorth'] || ''),
+        investingExperienceYears: row['Investing Experience Years'] || row['investingExperienceYears'] || '',
+        investingActivity: row['Investing Activity'] || row['investingActivity'] || '',
+        investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
+        investmentType: row['Investment Type'] || row['investmentType'] || ''
     }));
 
     const summaryStats = calculateSummaryStats(cleanData);
