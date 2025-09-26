@@ -2088,6 +2088,5 @@ function readFile(file) {
     });
 }
 
-// Initialize
-createWidget();
+// Widget is ready to be launched manually
 console.log('Enhanced Quantitative Driver Analysis widget loaded - FIXED personas with hierarchical priority!');
