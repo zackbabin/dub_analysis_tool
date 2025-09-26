@@ -32,15 +32,17 @@ const styles = `
         border-radius: 8px 8px 0 0; text-align: center;
     }
     .qda-content { padding: 20px; background: white; }
+    /* UPDATED: Simplified grid for a single column centered layout */
     .qda-upload-section {
         border: 2px dashed #007bff; border-radius: 8px; padding: 20px;
         margin-bottom: 40px; background: #f8f9fa;
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+        display: flex; justify-content: center; align-items: center; 
     }
     .qda-upload-column {
         display: flex; flex-direction: column; align-items: center;
         text-align: center; padding: 15px; background: white;
         border-radius: 8px; border: 1px solid #dee2e6;
+        max-width: 350px; /* Constrain the size of the single upload box */
     }
     .qda-file-label {
         font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;
@@ -49,9 +51,7 @@ const styles = `
         padding: 8px; border: 1px solid #ddd; border-radius: 4px;
         width: 100%; margin-bottom: 8px;
     }
-    .qda-file-description {
-        font-size: 12px; color: #666; margin-top: 5px; line-height: 1.3;
-    }
+    /* REMOVED: .qda-file-description CSS */
     .qda-btn {
         background: #007bff; color: white; padding: 8px 20px;
         border: none; border-radius: 5px; cursor: pointer;
@@ -60,7 +60,7 @@ const styles = `
     .qda-btn:hover { background: #0056b3; }
     .qda-btn:disabled { background: #ccc; cursor: not-allowed; }
     .qda-analyze-row {
-        margin-top: 20px; text-align: center; grid-column: 1 / -1;
+        margin-top: 20px; text-align: center; width: 100%;
     }
     .qda-analysis-results { display: none; background: white; }
     .qda-result-section { margin: 30px 0; position: relative; }
@@ -544,21 +544,21 @@ function createWidget(targetContainer = null) {
     const content = document.createElement('div');
     content.className = 'qda-content';
     
-    const description = document.createElement('p');
-    description.textContent = 'Upload your CSV file to perform comprehensive statistical analysis with FIXED persona logic (no overlaps).';
-    content.appendChild(description);
+    // REMOVED: descriptive paragraph text as requested
     
-    // Upload section with 3 columns
+    // Upload section (now 1 column, centered)
     const uploadSection = document.createElement('div');
     uploadSection.className = 'qda-upload-section';
+    uploadSection.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin-bottom: 40px; background: #f8f9fa; display: flex; justify-content: center;';
     
     // Main Analysis File (required)
     const mainColumn = document.createElement('div');
     mainColumn.className = 'qda-upload-column';
+    mainColumn.style.maxWidth = '350px';
     
     const mainLabel = document.createElement('div');
     mainLabel.className = 'qda-file-label';
-    mainLabel.textContent = 'Main Analysis File';
+    mainLabel.textContent = 'Select Main Analysis CSV File';
     mainColumn.appendChild(mainLabel);
     
     const mainFileInput = document.createElement('input');
@@ -568,56 +568,12 @@ function createWidget(targetContainer = null) {
     mainFileInput.className = 'qda-file-input';
     mainColumn.appendChild(mainFileInput);
     
-    const mainDesc = document.createElement('div');
-    mainDesc.className = 'qda-file-description';
-    mainDesc.textContent = 'Required: User behavior, demographics, and conversion data';
-    mainColumn.appendChild(mainDesc);
+    // REMOVED: mainDesc (small text description)
     
-    // Portfolio Detail File (optional)
-    const portfolioColumn = document.createElement('div');
-    portfolioColumn.className = 'qda-upload-column';
-    
-    const portfolioLabel = document.createElement('div');
-    portfolioLabel.className = 'qda-file-label';
-    portfolioLabel.textContent = 'Portfolio Detail File';
-    portfolioColumn.appendChild(portfolioLabel);
-    
-    const portfolioFileInput = document.createElement('input');
-    portfolioFileInput.type = 'file';
-    portfolioFileInput.id = targetContainer ? 'qdaPortfolioFileInline' : 'qdaPortfolioFile';
-    portfolioFileInput.accept = '.csv';
-    portfolioFileInput.className = 'qda-file-input';
-    portfolioColumn.appendChild(portfolioFileInput);
-    
-    const portfolioDesc = document.createElement('div');
-    portfolioDesc.className = 'qda-file-description';
-    portfolioDesc.textContent = 'Optional: Portfolio views, copy starts, and performance metrics';
-    portfolioColumn.appendChild(portfolioDesc);
-    
-    // Creator Detail File (optional)
-    const creatorColumn = document.createElement('div');
-    creatorColumn.className = 'qda-upload-column';
-    
-    const creatorLabel = document.createElement('div');
-    creatorLabel.className = 'qda-file-label';
-    creatorLabel.textContent = 'Creator Detail File';
-    creatorColumn.appendChild(creatorLabel);
-    
-    const creatorFileInput = document.createElement('input');
-    creatorFileInput.type = 'file';
-    creatorFileInput.id = targetContainer ? 'qdaCreatorFileInline' : 'qdaCreatorFile';
-    creatorFileInput.accept = '.csv';
-    creatorFileInput.className = 'qda-file-input';
-    creatorColumn.appendChild(creatorFileInput);
-    
-    const creatorDesc = document.createElement('div');
-    creatorDesc.className = 'qda-file-description';
-    creatorDesc.textContent = 'Optional: Creator paywall views, subscriptions, and monetization data';
-    creatorColumn.appendChild(creatorDesc);
+    // REMOVED: Portfolio Detail File Column
+    // REMOVED: Creator Detail File Column
     
     uploadSection.appendChild(mainColumn);
-    uploadSection.appendChild(portfolioColumn);
-    uploadSection.appendChild(creatorColumn);
     
     const analyzeRow = document.createElement('div');
     analyzeRow.className = 'qda-analyze-row';
@@ -660,6 +616,7 @@ function createWidget(targetContainer = null) {
     
     const portfolioDiv = document.createElement('div');
     portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
+    // Kept the container elements themselves, though they won't be explicitly populated by the current logic
     resultsDiv.appendChild(portfolioDiv);
     
     const creatorDiv = document.createElement('div');
@@ -686,8 +643,6 @@ function createWidget(targetContainer = null) {
 // Analysis functions
 async function analyzeDataInline(widget) {
     const mainFileInput = document.getElementById('qdaMainFileInline');
-    const portfolioFileInput = document.getElementById('qdaPortfolioFileInline');
-    const creatorFileInput = document.getElementById('qdaCreatorFileInline');
     
     if (!mainFileInput.files[0]) {
         alert('Please select the Main Analysis CSV file');
@@ -697,13 +652,16 @@ async function analyzeDataInline(widget) {
     const analyzeBtn = document.getElementById('qdaAnalyzeBtnInline');
     analyzeBtn.textContent = 'Analyzing...';
     analyzeBtn.disabled = true;
+    
+    // Simplified function arguments after removing file inputs
+    const portfolioCsvText = null; 
+    const creatorCsvText = null;
 
     try {
         const mainCsvText = await readFile(mainFileInput.files[0]);
-        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
-        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
         
         console.log('Starting analysis...');
+        // Pass null for the removed optional files
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
         // Store results
@@ -731,8 +689,6 @@ async function analyzeDataInline(widget) {
 
 async function analyzeData() {
     const mainFileInput = document.getElementById('qdaMainFile');
-    const portfolioFileInput = document.getElementById('qdaPortfolioFile');
-    const creatorFileInput = document.getElementById('qdaCreatorFile');
     
     if (!mainFileInput.files[0]) {
         alert('Please select the Main Analysis CSV file');
@@ -743,12 +699,15 @@ async function analyzeData() {
     analyzeBtn.textContent = 'Analyzing...';
     analyzeBtn.disabled = true;
 
+    // Simplified function arguments after removing file inputs
+    const portfolioCsvText = null; 
+    const creatorCsvText = null;
+
     try {
         const mainCsvText = await readFile(mainFileInput.files[0]);
-        const portfolioCsvText = portfolioFileInput.files[0] ? await readFile(portfolioFileInput.files[0]) : null;
-        const creatorCsvText = creatorFileInput.files[0] ? await readFile(creatorFileInput.files[0]) : null;
         
         console.log('Starting analysis...');
+        // Pass null for the removed optional files
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
         // Store results
