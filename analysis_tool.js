@@ -2841,3 +2841,139 @@ function readFile(file) {
 
 // Widget is ready to be launched manually
 console.log('Enhanced Quantitative Driver Analysis widget loaded - FIXED personas with hierarchical priority!');
+    // Add this to the END of your analysis_tool.js file to fix the syntax errors:
+
+        const creatorTitle = document.createElement('div');
+        creatorTitle.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 10px;';
+        creatorTitle.textContent = 'Creator Engagement';
+        creatorCard.appendChild(creatorTitle);
+        
+        const creatorMetrics = [
+            `Avg creators per user: ${crossAnalysis.creatorDiversity.avgCreatorsPerUser.toFixed(1)}`,
+            `Multi-creator users: ${crossAnalysis.creatorDiversity.usersWithMultipleCreators.toLocaleString()}`
+        ];
+        
+        creatorMetrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 6px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            creatorCard.appendChild(metricDiv);
+        });
+        
+        analysisGrid.appendChild(creatorCard);
+    }
+    
+    if (crossAnalysis.powerUserSegment) {
+        const powerUserCard = document.createElement('div');
+        powerUserCard.style.cssText = 'background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;';
+        
+        const powerUserTitle = document.createElement('div');
+        powerUserTitle.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 10px;';
+        powerUserTitle.textContent = 'Power Users';
+        powerUserCard.appendChild(powerUserTitle);
+        
+        const powerUserMetrics = [
+            `Count: ${crossAnalysis.powerUserSegment.count.toLocaleString()}`,
+            `Percentage: ${crossAnalysis.powerUserSegment.percentage.toFixed(1)}%`
+        ];
+        
+        powerUserMetrics.forEach(metric => {
+            const metricDiv = document.createElement('div');
+            metricDiv.style.cssText = 'margin: 6px 0; font-size: 13px;';
+            metricDiv.textContent = metric;
+            powerUserCard.appendChild(metricDiv);
+        });
+        
+        // Add help text definition
+        const helpText = document.createElement('div');
+        helpText.style.cssText = 'margin-top: 10px; font-size: 11px; color: #6c757d; font-style: italic;';
+        helpText.textContent = 'Defined as $1,000+ deposits, 1+ subscription or 2+ copies';
+        powerUserCard.appendChild(helpText);
+        
+        analysisGrid.appendChild(powerUserCard);
+    }
+    
+    resultSection.appendChild(analysisGrid);
+    container.appendChild(resultSection);
+}
+
+// Keep original floating widget functions for backwards compatibility
+function createWidget(targetContainer = null) {
+    // Enhanced Quantitative Driver Analysis - FIXED Persona Logic
+    'use strict';
+
+    // --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
+    // Define a single list for all variables used in both correlation and regression
+    const ALL_VARIABLES = [
+        'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
+        'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
+        'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
+        'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
+        'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
+        'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
+        'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
+        'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
+        'discoverTabViews', 'leaderboardViews', 'premiumTabViews'
+    ];
+
+    // Section-specific exclusions for display only
+    const SECTION_EXCLUSIONS = {
+        'totalDeposits': ['totalDepositCount'], // Remove from Deposit Funds section
+        'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies'] // Remove from Portfolio Copies section
+    };
+
+    if (targetContainer) {
+        // Use inline version
+        createInlineWidget(targetContainer);
+    } else {
+        // Use original floating version
+        createFloatingWidget();
+    }
+}
+
+// Helper function to create inline version
+function createInlineWidget(targetContainer) {
+    const widget = document.createElement('div');
+    widget.className = 'qda-inline-widget';
+    
+    const header = document.createElement('div');
+    header.className = 'qda-header';
+    
+    const title = document.createElement('h3');
+    title.style.margin = '0';
+    title.textContent = 'Enhanced QDA - Fixed Personas';
+    header.appendChild(title);
+    
+    widget.appendChild(header);
+    
+    // Add basic content
+    const content = document.createElement('div');
+    content.className = 'qda-content';
+    content.innerHTML = '<p>Analysis tool loaded successfully. Upload CSV files to begin analysis.</p>';
+    
+    widget.appendChild(content);
+    
+    targetContainer.innerHTML = '';
+    targetContainer.appendChild(widget);
+}
+
+// Helper function to create floating version  
+function createFloatingWidget() {
+    const widget = document.createElement('div');
+    widget.style.cssText = `
+        position: fixed; top: 50px; right: 20px; width: 400px;
+        background: white; border: 2px solid #007bff; border-radius: 8px;
+        padding: 20px; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    
+    widget.innerHTML = '<h3>Enhanced QDA Tool</h3><p>Floating version loaded.</p>';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.onclick = () => widget.remove();
+    widget.appendChild(closeBtn);
+    
+    document.body.appendChild(widget);
+}
+
+console.log('Analysis tool syntax fixed and ready!');
