@@ -111,21 +111,21 @@
             const container = document.getElementById('dataMergerContainer');
             container.classList.add('active');
             
-            // Use existing function but modify where it goes
-            createComprehensiveCSVProcessor(container);
+            // Call the inline version function that expects a target container
+            createInlineDataMerger(container);
         }
         
         function showAnalysisTool() {
             console.log('showAnalysisTool called');
             
-            // Hide data merger
+            // Hide data merger  
             document.getElementById('dataMergerContainer').classList.remove('active');
             
             // Show analysis tool
             const container = document.getElementById('analysisToolContainer');
             container.classList.add('active');
             
-            // Use existing function but modify where it goes
+            // Call the inline version that expects a target container
             createWidget(container);
         }
     </script>
