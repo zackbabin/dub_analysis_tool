@@ -282,8 +282,6 @@ class UnifiedAnalysisTool {
         this.updateProgress(70, 'Data merged...');
         this.addStatusMessage('✅ Data merged successfully', 'success');
         this.addStatusMessage(`   - Main file: ${mergedData.mainFile.length} records`, 'info');
-        this.addStatusMessage(`   - Creator file: ${mergedData.creatorFile.length} records`, 'info');
-        this.addStatusMessage(`   - Portfolio file: ${mergedData.portfolioFile.length} records`, 'info');
 
         // Step 2: Skip download creation for unified workflow
         // (Files are already saved to GitHub by the workflow)
@@ -299,11 +297,11 @@ class UnifiedAnalysisTool {
         this.updateProgress(90, 'Displaying results...');
         this.addStatusMessage('✅ Analysis complete', 'success');
 
-        // Step 4: Save results to localStorage
+        // Step 4: Save results to localStorage (skip cleanData - it's too large)
         localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
         localStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
         localStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        localStorage.setItem('qdaCleanData', JSON.stringify(results.cleanData));
+        // Note: Not storing cleanData to avoid quota issues
 
         const now = new Date();
         const timestamp = now.toLocaleString('en-US', {
@@ -367,7 +365,8 @@ class UnifiedAnalysisTool {
         window.displaySummaryStatsInline(results.summaryStats);
         window.displayDemographicBreakdownInline(results.summaryStats);
         window.displayPersonaBreakdownInline(results.summaryStats);
-        window.displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
+        // Pass null for cleanData to skip tipping point calculations (data too large for localStorage)
+        window.displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null);
 
         resultsDiv.style.display = 'block';
     }

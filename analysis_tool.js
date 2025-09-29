@@ -591,8 +591,8 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         const combinedData = filteredVariables.map(variable => {
             const correlation = correlationResults[outcome][variable];
             const regressionItem = regressionData.find(item => item.variable === variable);
-            const tippingPoint = calculateTippingPoint(cleanData, variable, outcome);
-            
+            const tippingPoint = cleanData ? calculateTippingPoint(cleanData, variable, outcome) : 'N/A';
+
             return {
                 variable: variable,
                 correlation: correlation,
