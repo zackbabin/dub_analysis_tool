@@ -19,8 +19,6 @@ function createInlineDataMerger(targetContainer) {
   const content = document.createElement('div');
   content.className = 'qda-content';
   
-  // REMOVED: descriptive paragraph text for full uniformity.
-  
   // File upload section - Using analysis_tool's UI classes for consistency and styling
   const uploadDiv = document.createElement('div');
   uploadDiv.className = 'qda-upload-section'; 
