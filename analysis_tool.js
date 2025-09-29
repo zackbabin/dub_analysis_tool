@@ -30,7 +30,7 @@ const SECTION_EXCLUSIONS = {
 
 // Inject styles
 const styles = `
-    /* UI FIX: Remove max-width here to let it shrink to fit the upload section, then reapply for results */
+    /* UI FIX: Remove max-width here to let it shrink to fit the upload section, then reapply for wide results */
     .qda-inline-widget {
         background: white; border: 2px solid #007bff; border-radius: 10px;
         font-family: Arial, sans-serif; font-size: 14px; 
@@ -140,13 +140,17 @@ function clearAnalysisStorage() {
 }
 
 /**
- * Checks localStorage for previous analysis results and displays them if found.
- * @param {HTMLElement} container The target container element (or null for the main body).
+ * Renders the persistent results into the designated output container.
+ * @param {HTMLElement} outputContainer The container below the upload widgets.
  * @returns {boolean} True if results were loaded, false otherwise.
  */
-function loadPersistedResults(container) {
+function loadPersistedResults(outputContainer) {
     // FIX: Switched from sessionStorage to localStorage
     const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
+    
+    // Clear old content in the output container before loading new/persisted data
+    outputContainer.innerHTML = ''; 
+
     if (!summaryStatsText) return false;
 
     try {
@@ -157,6 +161,23 @@ function loadPersistedResults(container) {
             cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
         };
         
+        // Recreate the result div structure needed by the display functions
+        const resultsDiv = document.createElement('div');
+        resultsDiv.id = 'qdaAnalysisResultsInline';
+        resultsDiv.className = 'qda-analysis-results';
+        outputContainer.appendChild(resultsDiv);
+
+        // Recreate sub-containers inside resultsDiv (REQUIRED for display functions)
+        resultsDiv.innerHTML = `
+            <div id="qdaSummaryStatsInline"></div>
+            <div id="qdaDemographicBreakdownInline"></div>
+            <div id="qdaPersonaBreakdownInline"></div>
+            <div id="qdaCombinedResultsInline"></div>
+            <div id="qdaPortfolioResultsInline"></div>
+            <div id="qdaCreatorResultsInline"></div>
+            <div id="qdaCrossAnalysisResultsInline"></div>
+        `;
+        
         // Display results
         displaySummaryStatsInline(results.summaryStats);
         displayDemographicBreakdownInline(results.summaryStats);
@@ -164,8 +185,7 @@ function loadPersistedResults(container) {
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
 
         // Make the results visible
-        const resultsContainerId = container ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
-        document.getElementById(resultsContainerId).style.display = 'block';
+        resultsDiv.style.display = 'block';
 
         return true;
     } catch (e) {
@@ -589,91 +609,31 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 }
 
 // Main widget creation function
-function createWidget(targetContainer = null) {
+// Now accepts two containers: uploadContainer (for the side-by-side UI) and outputContainer (for results below)
+function createWidget(uploadContainer, outputContainer) {
     const widget = document.createElement('div');
     
-    if (targetContainer) {
-        // Apply inline widget class and max-width if results are displayed, 
-        // but let the initial width be determined by its content.
-        widget.className = 'qda-inline-widget';
-        widget.style.maxWidth = '1200px'; 
-    } else {
-        widget.className = 'qda-widget';
-    }
-    
-    // Header
+    // The main widget container (in the side-by-side section) should be styled for inline use
+    widget.className = 'qda-inline-widget';
+    widget.style.maxWidth = '1200px'; 
+
+    // Header (Always created inside the upload container widget)
     const header = document.createElement('div');
     header.className = 'qda-header';
     
     const title = document.createElement('h3');
     title.style.margin = '0';
-    // Title Update
     title.textContent = 'dub User Analysis'; 
     header.appendChild(title);
     
-    // Content
+    // Content (holds upload section)
     const content = document.createElement('div');
     content.className = 'qda-content';
     
-    // Results containers
-    const resultsDiv = document.createElement('div');
-    resultsDiv.id = targetContainer ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
-    resultsDiv.className = 'qda-analysis-results';
-    
-    const summaryDiv = document.createElement('div');
-    summaryDiv.id = targetContainer ? 'qdaSummaryStatsInline' : 'qdaSummaryStats';
-    resultsDiv.appendChild(summaryDiv);
-    
-    const demographicDiv = document.createElement('div');
-    demographicDiv.id = targetContainer ? 'qdaDemographicBreakdownInline' : 'qdaDemographicBreakdown';
-    resultsDiv.appendChild(demographicDiv);
-    
-    const personaDiv = document.createElement('div');
-    personaDiv.id = targetContainer ? 'qdaPersonaBreakdownInline' : 'qdaPersonaBreakdown';
-    resultsDiv.appendChild(personaDiv);
-    
-    const combinedDiv = document.createElement('div');
-    combinedDiv.id = targetContainer ? 'qdaCombinedResultsInline' : 'qdaCombinedResults';
-    resultsDiv.appendChild(combinedDiv);
-    
-    const portfolioDiv = document.createElement('div');
-    portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
-    resultsDiv.appendChild(portfolioDiv);
-    
-    const creatorDiv = document.createElement('div');
-    creatorDiv.id = targetContainer ? 'qdaCreatorResultsInline' : 'qdaCreatorResults';
-    resultsDiv.appendChild(creatorDiv);
-    
-    const crossAnalysisDiv = document.createElement('div');
-    crossAnalysisDiv.id = targetContainer ? 'qdaCrossAnalysisResultsInline' : 'qdaCrossAnalysisResults';
-    resultsDiv.appendChild(crossAnalysisDiv);
-    
-    content.appendChild(resultsDiv);
-
-    // --- PERSISTENCE CHECK ---
-    const resultsLoaded = loadPersistedResults(targetContainer);
-
-    // Upload section (only displayed if no results were loaded)
+    // Upload section (The core UI component)
     const uploadSection = document.createElement('div');
     uploadSection.className = 'qda-upload-section';
     
-    if (resultsLoaded) {
-        uploadSection.style.display = 'none';
-        // Add a button to hide results and show upload form
-        const resetBtn = document.createElement('button');
-        resetBtn.className = 'qda-btn';
-        resetBtn.textContent = 'Clear Results & Start New Analysis';
-        resetBtn.style.cssText = 'margin-bottom: 20px;';
-        resetBtn.onclick = () => {
-            clearAnalysisStorage();
-            resultsDiv.style.display = 'none';
-            uploadSection.style.display = 'flex';
-            const existingResetBtn = content.querySelector('button');
-            if (existingResetBtn) existingResetBtn.remove();
-        };
-        content.insertBefore(resetBtn, resultsDiv);
-    }
-
     // Main Analysis File (required)
     const mainColumn = document.createElement('div');
     mainColumn.className = 'qda-upload-column';
@@ -685,7 +645,7 @@ function createWidget(targetContainer = null) {
     
     const mainFileInput = document.createElement('input');
     mainFileInput.type = 'file';
-    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
+    mainFileInput.id = 'qdaMainFileInline'; 
     mainFileInput.accept = '.csv';
     mainFileInput.className = 'qda-file-input';
     mainColumn.appendChild(mainFileInput);
@@ -697,34 +657,32 @@ function createWidget(targetContainer = null) {
     
     const analyzeBtn = document.createElement('button');
     analyzeBtn.className = 'qda-btn';
-    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
+    analyzeBtn.id = 'qdaAnalyzeBtnInline';
     analyzeBtn.textContent = 'Analyze Data';
     
-    if (targetContainer) {
-        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
-    } else {
-        analyzeBtn.addEventListener('click', analyzeData);
-    }
+    // Pass the outputContainer ID to the analysis function for result placement
+    analyzeBtn.addEventListener('click', () => analyzeDataInline(uploadContainer, outputContainer.id));
     
     analyzeRow.appendChild(analyzeBtn);
     uploadSection.appendChild(analyzeRow);
-    content.insertBefore(uploadSection, resultsDiv); // Insert before results
-
-    widget.appendChild(header);
-    widget.appendChild(content);
     
-    if (targetContainer) {
-        targetContainer.innerHTML = '';
-        targetContainer.appendChild(widget);
-    } else {
-        document.body.appendChild(widget);
-        makeDraggable(widget);
-    }
+    content.appendChild(header);
+    content.appendChild(uploadSection);
+
+    widget.appendChild(content);
+
+    // Final placement: The widget with the header/upload form goes into its dedicated container
+    uploadContainer.innerHTML = '';
+    uploadContainer.appendChild(widget);
+    
+    // --- PERSISTENCE CHECK: Load results into the separate output container ---
+    loadPersistedResults(outputContainer);
 }
 
 // Analysis functions
-async function analyzeDataInline(widget) {
-    // STATE RESET: Clear storage before starting new analysis
+// Now accepts the upload container (widget) and the results container ID
+async function analyzeDataInline(uploadContainer, outputContainerId) {
+    // 1. Clear storage before starting new analysis
     clearAnalysisStorage();
 
     const mainFileInput = document.getElementById('qdaMainFileInline');
@@ -747,50 +705,23 @@ async function analyzeDataInline(widget) {
         console.log('Starting analysis...');
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
-        // DATA STORAGE: Store results to localStorage
+        // 2. DATA STORAGE: Store results to localStorage
         localStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
         localStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
         localStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
         localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
         
-        // Display all results using inline display functions
-        displaySummaryStatsInline(results.summaryStats);
-        displayDemographicBreakdownInline(results.summaryStats);
-        displayPersonaBreakdownInline(results.summaryStats);
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
-        
-        // Make the results visible
-        document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
-        
-        // Hide upload section after success
-        const uploadSection = widget.querySelector('.qda-upload-section');
-        if (uploadSection) uploadSection.style.display = 'none';
-
-        // Add 'Clear Results' button to display next time
-        let resetBtn = widget.querySelector('button[data-reset="true"]');
-        if (!resetBtn) {
-            resetBtn = document.createElement('button');
-            resetBtn.className = 'qda-btn';
-            resetBtn.textContent = 'Clear Results & Start New Analysis';
-            resetBtn.style.cssText = 'margin-bottom: 20px;';
-            resetBtn.setAttribute('data-reset', 'true');
-            resetBtn.onclick = () => {
-                clearAnalysisStorage();
-                document.getElementById('qdaAnalysisResultsInline').style.display = 'none';
-                uploadSection.style.display = 'flex';
-                resetBtn.remove();
-            };
-            const content = widget.querySelector('.qda-content');
-            const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
-            if (content && resultsDiv) {
-                content.insertBefore(resetBtn, resultsDiv);
-            }
+        // 3. RENDER RESULTS: Manually call the loading function to re-render in the persistent container
+        const outputContainer = document.getElementById(outputContainerId);
+        if (outputContainer) {
+            loadPersistedResults(outputContainer); 
         }
-
 
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
         clearAnalysisStorage(); // Clear storage on failure to prevent partial loads
+        const outputContainer = document.getElementById(outputContainerId);
+        if (outputContainer) outputContainer.innerHTML = ''; // Clear results area on failure
         console.error('Full error:', error);
     } finally {
         analyzeBtn.textContent = 'Analyze Data';
@@ -799,6 +730,7 @@ async function analyzeDataInline(widget) {
 }
 
 async function analyzeData() {
+    // This desktop function is unused in the new inline flow but is kept for integrity
     // STATE RESET: Clear storage before starting new analysis
     clearAnalysisStorage();
     
@@ -843,7 +775,7 @@ async function analyzeData() {
     }
 }
 
-// Helper functions
+// Helper functions (omitted for brevity)
 function readFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -852,8 +784,6 @@ function readFile(file) {
         reader.readAsText(file);
     });
 }
-
-// === ADVANCED DATA PROCESSING ===
 function parseCSV(text) {
     const lines = text.split('\n');
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
@@ -876,12 +806,10 @@ function parseCSV(text) {
     
     return { data };
 }
-
 function cleanNumeric(value) {
     if (value === null || value === undefined || value === '' || isNaN(value)) return 0;
     return parseFloat(value) || 0;
 }
-
 // Updated to handle both long and new short-form keys (e.g., '50k–100k')
 function convertIncomeToEnum(income) {
     const incomeMap = {
@@ -895,7 +823,6 @@ function convertIncomeToEnum(income) {
     };
     return incomeMap[income] || 0;
 }
-
 // Updated to handle both long and new short-form keys (e.g., '100k–250k')
 function convertNetWorthToEnum(netWorth) {
     const netWorthMap = {
@@ -909,8 +836,6 @@ function convertNetWorthToEnum(netWorth) {
     };
     return netWorthMap[netWorth] || 0;
 }
-
-// === STATISTICAL ANALYSIS FUNCTIONS ===
 function calculateCorrelation(x, y) {
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
@@ -924,7 +849,6 @@ function calculateCorrelation(x, y) {
     
     return denominator === 0 ? 0 : numerator / denominator;
 }
-
 function calculateCorrelations(data) {
     const variables = ALL_VARIABLES;
     const correlations = {};
@@ -943,7 +867,6 @@ function calculateCorrelations(data) {
 
     return correlations;
 }
-
 function performRegression(data, outcome) {
     const predictors = ALL_VARIABLES;
 
@@ -972,8 +895,6 @@ function performRegression(data, outcome) {
 
     return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
 }
-
-// === TIPPING POINT ANALYSIS ===
 function calculateTippingPoint(data, variable, outcome) {
     const groups = {};
     data.forEach(user => {
@@ -1011,8 +932,6 @@ function calculateTippingPoint(data, variable, outcome) {
     
     return tippingPoint;
 }
-
-// === PERSONA CLASSIFICATION LOGIC ===
 function classifyPersona(user) {
     function isLowerOrUnknownIncome(income) {
         // Updated to use both long form (if present) and short form (if present)
@@ -1085,7 +1004,6 @@ function classifyPersona(user) {
     
     return 'unclassified';
 }
-
 function calculateDemographicBreakdown(data, key) {
     let totalResponses = 0;
     const counts = data.reduce((acc, d) => {
@@ -1098,7 +1016,6 @@ function calculateDemographicBreakdown(data, key) {
     }, {});
     return { counts, totalResponses };
 }
-
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
     const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
@@ -1165,7 +1082,6 @@ function calculateSummaryStats(data) {
         personaStats
     };
 }
-
 function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
     const parsed = parseCSV(csvText);
     const data = parsed.data;
@@ -1247,7 +1163,6 @@ function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCs
         cleanData
     };
 }
-
 function makeDraggable(element) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     const header = element.querySelector('.qda-header');
@@ -1274,5 +1189,4 @@ function makeDraggable(element) {
         };
     };
 }
-
 console.log('Enhanced QDA Tool loaded successfully!');

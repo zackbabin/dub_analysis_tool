@@ -11,21 +11,19 @@
             background: #f5f5f5;
         }
         
-        /* NEW: Container for side-by-side widgets */
+        /* NEW: Container for side-by-side widgets (Upload UI) */
         .main-widgets-container {
             display: flex;
             gap: 20px;
             justify-content: center;
             align-items: flex-start; /* Align tops of widgets */
-            margin: 50px 0;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
+            margin: 20px 0;
+            flex-wrap: wrap; 
         }
         
         .tool-container {
             /* Allows content width to dictate size */
         }
-        
-        /* Removed all old launcher/workflow styles */
     </style>
 </head>
 <body>
@@ -36,19 +34,24 @@
         <div id="analysisToolContainer" class="tool-container"></div>
     </div>
     
+    <div id="analysisResultsOutputContainer" style="margin-top: 40px;"></div>
+
     <script src="data_merger.js"></script>
     <script src="analysis_tool.js"></script>
     
     <script>
-        // Automatically execute both creation functions on page load
+        // Use window.onload to ensure DOM and scripts are fully loaded
         window.onload = function() {
-            // Note: The createWidget function in analysis_tool.js now automatically checks 
-            // localStorage and displays results if they exist.
+            // Data Merger: Initializes in its container
             createInlineDataMerger(document.getElementById('dataMergerContainer'));
-            createWidget(document.getElementById('analysisToolContainer'));
+            
+            // Analysis Tool: Initializes its upload UI in one container, 
+            // and directs results to the separate output container.
+            createWidget(
+                document.getElementById('analysisToolContainer'), 
+                document.getElementById('analysisResultsOutputContainer')
+            );
         };
-        
-        // Removed old showDataMerger and showAnalysisTool functions
     </script>
 </body>
 </html>
