@@ -1,4 +1,4 @@
-// Fixed Data Merger - Inline Version
+// Fixed Data Merger with Mixpanel Sync Integration - Inline Version
 function createInlineDataMerger(targetContainer) {
   targetContainer.innerHTML = '';
   
@@ -6,12 +6,12 @@ function createInlineDataMerger(targetContainer) {
   const wrapper = document.createElement('div');
   wrapper.className = 'qda-inline-widget';
   
-  // Header
+  // Header - UPDATED TITLE
   const header = document.createElement('div');
   header.className = 'qda-header';
   
   const title = document.createElement('h3');
-  title.textContent = 'Comprehensive CSV Processor';
+  title.textContent = 'Data Merge Tool'; // Updated from "Comprehensive CSV Processor"
   title.style.margin = '0';
   header.appendChild(title);
   
@@ -40,9 +40,14 @@ function createInlineDataMerger(targetContainer) {
   
   uploadSection.appendChild(uploadColumn);
   
+  // Button row with both Merge and Sync buttons
   const analyzeRow = document.createElement('div');
   analyzeRow.className = 'qda-analyze-row';
+  analyzeRow.style.display = 'flex';
+  analyzeRow.style.justifyContent = 'center';
+  analyzeRow.style.gap = '10px';
   
+  // Original Merge Files button
   const processBtn = document.createElement('button');
   processBtn.className = 'qda-btn';
   processBtn.textContent = 'Merge Files';
@@ -63,7 +68,6 @@ function createInlineDataMerger(targetContainer) {
       processBtn.textContent = 'Processing...';
       processBtn.disabled = true;
 
-      // --- START OF FILE READING AND PROCESSING (Logic from previous step) ---
       console.log('Intelligently identifying file types...');
       const matchedFiles = await matchFilesByName(files);
     
@@ -92,12 +96,18 @@ function createInlineDataMerger(targetContainer) {
       
       console.log('Processing comprehensive merge...');
       const results = processComprehensiveData(contents);
-      // --- END OF FILE READING AND PROCESSING ---
 
       createMultipleDownloads(results);
       
       processBtn.textContent = 'Success! Check downloads';
       processBtn.style.background = '#28a745';
+      
+      // Reset button after 3 seconds
+      setTimeout(() => {
+        processBtn.textContent = 'Merge Files';
+        processBtn.style.background = '#17a2b8';
+        processBtn.disabled = false;
+      }, 3000);
       
     } catch (error) {
       console.error('Error:', error);
@@ -107,13 +117,122 @@ function createInlineDataMerger(targetContainer) {
       processBtn.disabled = false;
     }
   };
+  
+  // NEW: Sync Mixpanel Data button
+  const syncBtn = document.createElement('button');
+  syncBtn.className = 'qda-btn';
+  syncBtn.textContent = 'Sync Mixpanel Data';
+  syncBtn.style.background = '#6f42c1'; // Purple to differentiate
+  
+  syncBtn.onclick = async () => {
+    // Check if MixpanelSync is available
+    if (typeof window.MixpanelSync === 'undefined') {
+      alert('Mixpanel Sync module not loaded. Please ensure mixpanel_sync.js is included.');
+      return;
+    }
+    
+    const mixpanelSync = new window.MixpanelSync();
+    
+    // Check for credentials
+    if (!mixpanelSync.hasCredentials()) {
+      // Show credentials modal
+      if (typeof window.showCredentialsModal === 'function') {
+        window.showCredentialsModal();
+      } else {
+        alert('Please configure Mixpanel credentials first.');
+      }
+      return;
+    }
+    
+    try {
+      syncBtn.textContent = 'Syncing...';
+      syncBtn.disabled = true;
+      processBtn.disabled = true; // Disable merge button during sync
+      
+      // Clear old summary text/status when starting new sync
+      const oldSummary = content.querySelector('.data-merger-summary');
+      if (oldSummary) oldSummary.remove();
+      
+      console.log('Fetching data from Mixpanel...');
+      
+      // Fetch all chart data from Mixpanel
+      const csvDataArray = await mixpanelSync.fetchAllChartData();
+      
+      console.log('Processing synced data...');
+      
+      // Process the CSV data using existing function
+      const results = processComprehensiveData(csvDataArray);
+      
+      // Create downloads
+      createMultipleDownloads(results);
+      
+      syncBtn.textContent = 'Sync Success!';
+      syncBtn.style.background = '#28a745';
+      
+      // Add summary message
+      const summaryDiv = document.createElement('div');
+      summaryDiv.className = 'data-merger-summary';
+      summaryDiv.style.cssText = 'margin-top: 15px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; text-align: center;';
+      summaryDiv.textContent = 'Data synced successfully! Check your downloads.';
+      content.appendChild(summaryDiv);
+      
+      // Reset button after 3 seconds
+      setTimeout(() => {
+        syncBtn.textContent = 'Sync Mixpanel Data';
+        syncBtn.style.background = '#6f42c1';
+        syncBtn.disabled = false;
+        processBtn.disabled = false;
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Sync error:', error);
+      
+      if (error.message.includes('credentials')) {
+        if (typeof window.showCredentialsModal === 'function') {
+          window.showCredentialsModal();
+        } else {
+          alert('Please configure valid Mixpanel credentials.');
+        }
+      } else {
+        alert('Sync failed: ' + error.message);
+      }
+      
+      syncBtn.textContent = 'Sync Mixpanel Data';
+      syncBtn.style.background = '#6f42c1';
+      syncBtn.disabled = false;
+      processBtn.disabled = false;
+    }
+  };
 
   analyzeRow.appendChild(processBtn);
+  analyzeRow.appendChild(syncBtn);
+  
+  // Add credentials status indicator
+  const credentialsStatus = document.createElement('div');
+  credentialsStatus.id = 'credentialsStatus';
+  credentialsStatus.style.cssText = 'margin-top: 10px; text-align: center; font-size: 12px;';
+  
+  // Check and display credentials status
+  if (typeof window.MixpanelSync !== 'undefined') {
+    const mixpanelSync = new window.MixpanelSync();
+    if (mixpanelSync.hasCredentials()) {
+      credentialsStatus.innerHTML = `
+        <span style="color: #28a745;">✓ Mixpanel credentials configured</span>
+        <button onclick="window.showCredentialsModal()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Update</button>
+      `;
+    } else {
+      credentialsStatus.innerHTML = `
+        <span style="color: #dc3545;">✗ Mixpanel credentials not configured</span>
+        <button onclick="window.showCredentialsModal()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; background: #6f42c1; color: white; border: none; border-radius: 3px; cursor: pointer;">Configure</button>
+      `;
+    }
+  }
   
   // Assemble the sections in the right order
   content.appendChild(header);
   content.appendChild(uploadSection);
   content.appendChild(analyzeRow);
+  content.appendChild(credentialsStatus);
   
   wrapper.appendChild(content);
   targetContainer.appendChild(wrapper);
@@ -121,7 +240,7 @@ function createInlineDataMerger(targetContainer) {
 
 // Keep original function for backwards compatibility
 function createComprehensiveCSVProcessor() {
-  // ... (omitted)
+  // ... (omitted for brevity - keep existing implementation)
 }
 
 async function matchFilesByName(files) {
@@ -173,7 +292,7 @@ async function matchFilesByName(files) {
          headerString.includes('creator card taps') || headerString.includes('portfolio card taps'))) {
       if (!requiredFiles.demo) {
         requiredFiles.demo = file;
-        console.log(`✔ Identified DEMO file: ${file.name}`);
+        console.log(`✓ Identified DEMO file: ${file.name}`);
       }
     }
     
@@ -184,19 +303,19 @@ async function matchFilesByName(files) {
           filename.includes('portfolio')) {
         if (!requiredFiles.firstCopy) {
           requiredFiles.firstCopy = file;
-          console.log(`✔ Identified FIRST COPY time file: ${file.name}`);
+          console.log(`✓ Identified FIRST COPY time file: ${file.name}`);
         }
       }
       else if (filename.includes('fund') || filename.includes('deposit')) {
         if (!requiredFiles.fundedAccount) {
           requiredFiles.fundedAccount = file;
-          console.log(`✔ Identified FUNDED ACCOUNT time file: ${file.name}`);
+          console.log(`✓ Identified FUNDED ACCOUNT time file: ${file.name}`);
         }
       }
       else if (filename.includes('bank') || filename.includes('link')) {
         if (!requiredFiles.linkedBank) {
           requiredFiles.linkedBank = file;
-          console.log(`✔ Identified LINKED BANK time file: ${file.name}`);
+          console.log(`✓ Identified LINKED BANK time file: ${file.name}`);
         }
       }
     }
@@ -207,7 +326,7 @@ async function matchFilesByName(files) {
              headerString.includes('viewed stripe modal')) {
       if (!requiredFiles.premiumSub) {
         requiredFiles.premiumSub = file;
-        console.log(`✔ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
+        console.log(`✓ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
       }
     }
     
@@ -217,7 +336,7 @@ async function matchFilesByName(files) {
              !headerString.includes('portfolioticker')) {
       if (!requiredFiles.creatorCopy) {
         requiredFiles.creatorCopy = file;
-        console.log(`✔ Identified CREATOR COPY file: ${file.name}`);
+        console.log(`✓ Identified CREATOR COPY file: ${file.name}`);
       }
     }
     
@@ -226,7 +345,7 @@ async function matchFilesByName(files) {
              headerString.includes('viewed portfolio details')) {
       if (!requiredFiles.portfolioCopy) {
         requiredFiles.portfolioCopy = file;
-        console.log(`✔ Identified PORTFOLIO COPY file: ${file.name}`);
+        console.log(`✓ Identified PORTFOLIO COPY file: ${file.name}`);
       }
     }
   });
@@ -255,7 +374,7 @@ async function matchFilesByName(files) {
       patterns.forEach(({ key, pattern }) => {
         if (!requiredFiles[key] && pattern.test(analysis.filename)) {
           requiredFiles[key] = analysis.file;
-          console.log(`✔ Fallback matched ${key}: ${analysis.file.name}`);
+          console.log(`✓ Fallback matched ${key}: ${analysis.file.name}`);
         }
       });
     });
@@ -591,20 +710,32 @@ function createMultipleDownloads(results) {
     { name: 'Portfolio_Detail_File.csv', content: portfolioCSV, color: '#ffc107' }
   ];
   
+  // Remove any existing download links
+  document.querySelectorAll('.download-link-temp').forEach(el => el.remove());
+  
   downloads.forEach((download, index) => {
     const blob = new Blob([download.content], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = download.name;
+    link.className = 'download-link-temp';
     link.style.cssText = `
       position: fixed; top: ${20 + (index * 60)}px; left: 20px; padding: 12px 16px; 
       background: ${download.color}; color: white; text-decoration: none; 
       border-radius: 6px; z-index: 100000; font-weight: bold; font-size: 13px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     `;
+    link.textContent = `📥 ${download.name}`;
     document.body.appendChild(link);
     
+    // Auto-click to trigger download
+    link.click();
+    
     // Auto-remove after 60 seconds
-    setTimeout(() => link.remove(), 60000);
+    setTimeout(() => {
+      link.remove();
+      URL.revokeObjectURL(url);
+    }, 60000);
   });
 }

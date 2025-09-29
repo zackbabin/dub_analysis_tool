@@ -676,7 +676,7 @@ function createWidget(uploadContainer, outputContainer) {
     
     const title = document.createElement('h3');
     title.style.margin = '0';
-    title.textContent = 'dub User Analysis'; 
+    title.textContent = 'User Analysis Tool'; // UPDATED FROM 'dub User Analysis'
     header.appendChild(title);
     
     // Content (holds upload section)
