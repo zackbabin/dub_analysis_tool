@@ -158,6 +158,7 @@ async function fetchInsightsData(chartId, name) {
     console.log(`Fetching ${name} insights data (ID: ${chartId})...`);
 
     const params = {
+        project_id: PROJECT_ID,
         bookmark_id: chartId,
         from_date: fromDate,
         to_date: toDate
@@ -389,17 +390,24 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
         // Collect all user IDs and their group associations
         const userDataMap = new Map(); // userId -> {groupValue, steps}
 
+        // Debug: log structure of first date
+        const firstDate = Object.keys(data.data)[0];
+        if (firstDate && data.data[firstDate]) {
+            console.log(`  Sample date structure for ${firstDate}:`, JSON.stringify(data.data[firstDate]).substring(0, 500));
+        }
+
         for (const [date, dateData] of Object.entries(data.data)) {
             if (dateData && typeof dateData === 'object') {
                 Object.entries(dateData).forEach(([key, value]) => {
                     // Skip meta keys like '$overall'
                     if (key.startsWith('$')) return;
 
-                    // The key might be the group value (e.g., creator username)
-                    // and the value contains user data
+                    // The key is the group value (e.g., "@dubAdvisors")
+                    // The value contains breakdown data
                     if (value && typeof value === 'object') {
-                        // Check if this is group data with users
+                        // Check for different possible structures
                         if (value.users && Array.isArray(value.users)) {
+                            // Structure: { users: [...] }
                             value.users.forEach(user => {
                                 const userId = user.$distinct_id || user.distinct_id;
                                 if (userId) {
@@ -409,12 +417,24 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
                                     });
                                 }
                             });
-                        } else if (value.$distinct_id || value.distinct_id) {
-                            // Single user object
-                            const userId = value.$distinct_id || value.distinct_id;
-                            userDataMap.set(userId, {
-                                groupValue: key,
-                                steps: value.steps || []
+                        } else if (value.steps || value.analysis) {
+                            // Structure: the value itself contains step/analysis data
+                            // We need to extract user IDs differently
+                            // This might be aggregate data, not user-level data
+                            console.log(`  Group ${key} has aggregate data (no user list)`);
+                        } else {
+                            // Try to find user IDs as keys within the value
+                            Object.entries(value).forEach(([innerKey, innerValue]) => {
+                                // Check if innerKey looks like a user ID
+                                if (innerKey.match(/^[A-F0-9-]+$/i) || innerKey.startsWith('$device:')) {
+                                    const userId = innerKey.replace('$device:', '');
+                                    if (innerValue && typeof innerValue === 'object') {
+                                        userDataMap.set(userId, {
+                                            groupValue: key,
+                                            steps: innerValue.steps || innerValue || []
+                                        });
+                                    }
+                                }
                             });
                         }
                     }
@@ -795,7 +815,7 @@ async function main() {
             const pageSize = 1000;
             let sessionId = null;
 
-            while (page < 5) {
+            while (page < 100) { // Allow up to 100 pages instead of fixed 5
                 const params = {
                     project_id: PROJECT_ID,
                     page_size: pageSize
@@ -819,7 +839,12 @@ async function main() {
                     page++;
                     console.log(`Fetched page ${page}, total users: ${userProfiles.results.length}`);
 
-                    if (response.results.length < pageSize) break;
+                    // Stop if we got less than a full page (means we're at the end)
+                    if (response.results.length < pageSize) {
+                        console.log(`Reached end of user list (partial page returned)`);
+                        break;
+                    }
+
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 } else {
                     break;
