@@ -3,6 +3,9 @@ name: Sync Mixpanel Data
 on:
     workflow_dispatch:
 
+permissions:
+    contents: write
+
 jobs:
     sync-mixpanel:
       runs-on: ubuntu-latest
