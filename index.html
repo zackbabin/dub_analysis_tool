@@ -11,7 +11,7 @@
             background: #f5f5f5;
         }
         
-        /* NEW: Container for side-by-side widgets (Upload UI) */
+        /* Container for side-by-side widgets (Upload UI) */
         .main-widgets-container {
             display: flex;
             gap: 20px;
@@ -45,7 +45,7 @@
             // Data Merger: Initializes in its container
             createInlineDataMerger(document.getElementById('dataMergerContainer'));
             
-            // Analysis Tool: Initializes its upload UI in one container, 
+            // Analysis Tool: Initializes its upload UI in the first container, 
             // and directs results to the separate output container.
             createWidget(
                 document.getElementById('analysisToolContainer'), 

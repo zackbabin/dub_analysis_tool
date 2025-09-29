@@ -74,9 +74,15 @@ const styles = `
         width: 100%; margin-bottom: 8px;
     }
     /* UI FIX: Analysis Output Constraint (Approximation of 2x upload box width + gap) */
+    /* NOTE: This container is in the output div, separate from the widget */
     #analysisResultsOutputContainer .qda-analysis-results {
-        max-width: 920px; /* 2 * 450px + 20px gap */
+        max-width: 920px; /* 2 * 450px (max-width of upload section) + 20px gap */
         margin: 0 auto;
+        padding: 20px;
+        background: white;
+        border: 2px solid #007bff; 
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
     /* Primary buttons for Data Merger, consistent styling for merged files */
@@ -165,7 +171,7 @@ function clearAnalysisStorage() {
 function loadPersistedResults(outputContainer) {
     const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
     
-    // Clear old content in the output container before loading new/persisted data
+    // Always clear old content in the output container before rendering new/persisted data
     outputContainer.innerHTML = ''; 
 
     if (!summaryStatsText) return false;
@@ -178,10 +184,10 @@ function loadPersistedResults(outputContainer) {
             cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
         };
         
-        // Recreate the result div structure needed by the display functions
+        // The container needs a wrapper div to apply the max-width styling
         const resultsDiv = document.createElement('div');
         resultsDiv.id = 'qdaAnalysisResultsInline';
-        resultsDiv.className = 'qda-analysis-results';
+        resultsDiv.className = 'qda-analysis-results'; // Applies max-width styling from CSS
         outputContainer.appendChild(resultsDiv);
 
         // Recreate sub-containers inside resultsDiv (REQUIRED for display functions)
@@ -207,8 +213,9 @@ function loadPersistedResults(outputContainer) {
         return true;
     } catch (e) {
         console.error("Error loading persisted results: Data corrupt or missing key.", e);
-        // Clear corrupt data
+        // Clear corrupt data and the output area
         clearAnalysisStorage();
+        outputContainer.innerHTML = '';
         return false;
     }
 }
