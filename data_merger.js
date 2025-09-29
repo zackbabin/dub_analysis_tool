@@ -344,10 +344,14 @@ async function matchFilesByName(files) {
     
     console.log(`Analyzing ${file.name}:`, headers);
     
-    // FIX: Demo breakdown file identification - Simplifed check to rely on most unique demographic and insight columns.
+    // Demo breakdown file: has income, netWorth, and multiple demographic columns
+    // UPDATED: Now also checks for the new subscribers insights columns including Creator Card Taps and Portfolio Card Taps
     if (headerString.includes('income') && headerString.includes('networth') && 
-        (headerString.includes('a. linked bank account') || headerString.includes('linked bank account')) && 
-        (headerString.includes('s. creator card taps') || headerString.includes('creator card taps'))) {
+        (headerString.includes('total deposits') || headerString.includes('b. total deposits')) && 
+        (headerString.includes('total subscriptions') || headerString.includes('m. total subscriptions') || 
+         headerString.includes('d. subscribed within 7 days')) &&
+        (headerString.includes('s. creator card taps') || headerString.includes('t. portfolio card taps') || 
+         headerString.includes('creator card taps') || headerString.includes('portfolio card taps'))) {
       if (!requiredFiles.demo) {
         requiredFiles.demo = file;
         console.log(`✓ Identified DEMO file: ${file.name}`);
@@ -651,10 +655,10 @@ function processComprehensiveData(contents) {
     
     // NEW: Add any additional subscribers insights columns that weren't in the original demo file
     subscribersInsightColumns.forEach(column => {
-      // If the original row does not have the column, ensure the cleaned name is added as empty
-      const cleanedName = cleanColumnName(column);
-      if (row[column] === undefined && clean[cleanedName] === undefined) { 
-        clean[cleanedName] = '';
+      if (!row[column] && row[column] !== 0) {
+        // If column doesn't exist in original data, add it as empty
+        // This ensures compatibility with future files that might have these columns
+        clean[cleanColumnName(column)] = '';
       }
     });
     
