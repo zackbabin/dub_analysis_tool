@@ -1,0 +1,42 @@
+name: Sync Mixpanel Data
+
+on:
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+  
+  # Schedule to run automatically (optional)
+  # Uncomment to run daily at 2 AM UTC
+  # schedule:
+  #   - cron: '0 2 * * *'
+
+jobs:
+  sync-mixpanel:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install dependencies
+      run: |
+        cd .github/scripts
+        npm install
+    
+    - name: Fetch Mixpanel Data
+      env:
+        MIXPANEL_SERVICE_USERNAME: ${{ secrets.MIXPANEL_SERVICE_USERNAME }}
+        MIXPANEL_SERVICE_SECRET: ${{ secrets.MIXPANEL_SERVICE_SECRET }}
+      run: |
+        node .github/scripts/fetch_mixpanel_data.js
+    
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/*.csv
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git push)
