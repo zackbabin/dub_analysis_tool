@@ -116,6 +116,7 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
     console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`);
 
     const params = {
+        project_id: PROJECT_ID,
         funnel_id: funnelId,
         from_date: fromDate,
         to_date: toDate
