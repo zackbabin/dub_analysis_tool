@@ -30,10 +30,13 @@ const SECTION_EXCLUSIONS = {
 
 // Inject styles
 const styles = `
+    /* UI FIX: Remove max-width here to let it shrink to fit the upload section, then reapply for results */
     .qda-inline-widget {
         background: white; border: 2px solid #007bff; border-radius: 10px;
-        font-family: Arial, sans-serif; font-size: 14px; max-width: 1200px;
-        margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        font-family: Arial, sans-serif; font-size: 14px; 
+        max-width: 1200px; /* Keep for max size on results */
+        margin: 0 auto; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     .qda-header {
         background: #007bff; color: white; padding: 15px;
@@ -44,21 +47,23 @@ const styles = `
     /* UI FIX: Constrain the upload section size and center it */
     .qda-upload-section {
         border: 2px dashed #007bff; border-radius: 8px; padding: 20px;
-        margin: 0 auto 40px auto; /* Centered horizontally */
+        /* Center the box */
+        margin: 0 auto 40px auto; 
         background: #f8f9fa;
         display: flex; 
         justify-content: center; 
-        max-width: 450px; /* Constrain the overall size of the upload box */
+        /* Set a fixed maximum width for the upload box */
+        max-width: 450px; 
     }
     .qda-upload-column {
         display: flex; 
         flex-direction: column; 
         align-items: center;
         text-align: center; 
-        padding: 0; /* Padding handled by parent section */
-        background: transparent; /* Background handled by parent section */
-        border: none; /* Border handled by parent section */
-        width: 100%; /* Ensures inner elements stretch within the max-width set above */
+        padding: 0; 
+        background: transparent; 
+        border: none; 
+        width: 100%; 
     }
     .qda-file-label {
         font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;
@@ -587,8 +592,8 @@ function createWidget(targetContainer = null) {
     const widget = document.createElement('div');
     
     if (targetContainer) {
-        // Since we are centering narrow content, remove the max-width on the inline widget 
-        // to allow it to shrink, then re-apply for wide results.
+        // Apply inline widget class and max-width if results are displayed, 
+        // but let the initial width be determined by its content.
         widget.className = 'qda-inline-widget';
         widget.style.maxWidth = '1200px'; 
     } else {
