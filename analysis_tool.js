@@ -978,7 +978,7 @@ function classifyPersona(user) {
     
     function isHigherOrUnknownIncome(income) {
         // Returns true if income is not one of the lower incomes (i.e., higher or missing)
-        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k'];
+        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k'];
         return !income || income.trim() === '' || !lowerIncomes.includes(income);
     }
     

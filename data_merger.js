@@ -19,6 +19,8 @@ function createInlineDataMerger(targetContainer) {
   const content = document.createElement('div');
   content.className = 'qda-content';
   
+  // REMOVED: descriptive paragraph text for full uniformity.
+  
   // File upload section - Using analysis_tool's UI classes for consistency and styling
   const uploadDiv = document.createElement('div');
   uploadDiv.className = 'qda-upload-section'; 
@@ -102,9 +104,6 @@ function createInlineDataMerger(targetContainer) {
       
       processBtn.textContent = 'Success! Check downloads';
       processBtn.style.background = '#28a745';
-      
-      // Show minimal results summary (only text on button)
-      // The button text itself serves as the persistent status feedback after success
       
     } catch (error) {
       console.error('Error:', error);
