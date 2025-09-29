@@ -478,6 +478,45 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
 }
 
 /**
+ * Extract user IDs from Insights data
+ */
+function extractUserIdsFromInsights(data) {
+    const userIds = new Set();
+
+    if (!data || !data.data) {
+        console.log('No insights data to extract users from');
+        return userIds;
+    }
+
+    console.log('Insights data type:', typeof data.data);
+    console.log('Insights data structure:', JSON.stringify(data).substring(0, 500));
+
+    // Handle insights data broken down by distinct_id
+    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log('Extracting users from distinct_id breakdown format');
+
+        // data.data is an object where keys might be distinct_ids
+        Object.keys(data.data).forEach(key => {
+            // Skip aggregate keys like $overall
+            if (key.startsWith('$overall') || key === 'total' || key.startsWith('$')) {
+                return;
+            }
+
+            // Clean up device prefix and add to set
+            const cleanId = key.replace('$device:', '');
+
+            // Only add if it looks like a user ID (UUID or device ID format)
+            if (cleanId.match(/^[A-F0-9-]+$/i) || cleanId.match(/^[a-z0-9-]+$/i)) {
+                userIds.add(cleanId);
+            }
+        });
+    }
+
+    console.log(`Extracted ${userIds.size} user IDs from insights chart`);
+    return userIds;
+}
+
+/**
  * Process Insights data into CSV format
  * For subscriber insights broken down by distinct_id and properties
  */
@@ -728,42 +767,54 @@ async function main() {
     }
 
     try {
-        // Step 1: Fetch the Subscribers Insights chart directly (with distinct_id breakdown)
-        console.log('\n=== Step 1: Fetching Subscribers Insights chart ===');
+        // Step 1: Fetch the Subscribers Insights chart to get the exact user list
+        console.log('\n=== Step 1: Fetching Subscribers Insights chart to identify users ===');
 
         const subscribersData = await fetchInsightsData(
             CHART_IDS.subscribersInsights,
             'Subscribers Insights'
         );
 
-        // Process the insights data - this should give us users with their properties
-        const processedInsights = processInsightsData(subscribersData);
+        // Extract user IDs from the insights chart
+        const baseUserIds = extractUserIdsFromInsights(subscribersData);
 
-        if (processedInsights && processedInsights.length > 0) {
-            console.log(`Processed ${processedInsights.length} users from insights chart`);
+        console.log(`Found ${baseUserIds.size} users from Subscribers Insights chart`);
 
-            // Extract user IDs for enrichment
-            const userIds = processedInsights.map(row => row.$distinct_id).filter(Boolean);
+        // Step 2: Fetch user profiles for only those specific users
+        console.log('\n=== Step 2: Fetching user profiles for identified users ===');
 
-            // Step 2: Enrich with full user profiles if needed
-            console.log('\n=== Step 2: Enriching with full user profiles ===');
-
-            const userProfiles = await fetchUserProfilesByIds(userIds);
-            const processedProfiles = processUserProfiles(userProfiles);
-
-            // Merge insights data with profiles
-            const enrichedData = processedInsights.map(insightRow => {
-                const profileRow = processedProfiles.find(p => p.$distinct_id === insightRow.$distinct_id);
-                return profileRow ? { ...profileRow, ...insightRow } : insightRow;
-            });
-
-            saveToCSV(enrichedData, '1_subscribers_insights.csv');
+        let userProfiles;
+        if (baseUserIds.size > 0 && baseUserIds.size < 10000) {
+            console.log(`Fetching profiles for ${baseUserIds.size} specific users...`);
+            userProfiles = await fetchUserProfilesByIds(Array.from(baseUserIds));
         } else {
-            console.log('Warning: No users found in insights chart, falling back to paginated fetch');
-            const userProfiles = await fetchUserProfilesPaginated();
-            const processedProfiles = processUserProfiles(userProfiles);
-            saveToCSV(processedProfiles, '1_subscribers_insights.csv');
+            console.log(`User count outside expected range (${baseUserIds.size}), falling back to paginated fetch with limit`);
+            // Fallback: fetch with pagination but limit to 5 pages
+            userProfiles = { results: [] };
+            let page = 0;
+            const pageSize = 1000;
+            while (page < 5) {
+                const response = await makeRequest('/engage', {
+                    project_id: PROJECT_ID,
+                    page_size: pageSize,
+                    page: page
+                }, 'GET');
+
+                if (response && response.results && response.results.length > 0) {
+                    userProfiles.results.push(...response.results);
+                    page++;
+                    console.log(`Fetched page ${page}, total users: ${userProfiles.results.length}`);
+
+                    if (response.results.length < pageSize) break;
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    break;
+                }
+            }
         }
+
+        const processedProfiles = processUserProfiles(userProfiles);
+        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
 
         // Step 3: Fetch all funnel data
         console.log('\n=== Step 3: Fetching funnel data ===');
