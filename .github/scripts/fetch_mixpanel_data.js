@@ -618,21 +618,32 @@ function extractUserIdsFromInsights(data) {
 
     console.log('Insights response structure:', JSON.stringify(data).substring(0, 500));
 
-    // Check if data has series (Query API format)
-    if (data.series && Array.isArray(data.series)) {
-        console.log('Extracting users from series format (Query API)');
-        console.log(`Found ${data.series.length} series`);
+    // Check if data has tabular format (Query API format with headers and series)
+    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+        console.log('Extracting users from tabular format (Query API)');
+        console.log(`Headers: ${data.headers.join(', ')}`);
+        console.log(`Found ${data.series.length} rows`);
 
-        // Each series represents a breakdown (e.g., by distinct_id)
-        data.series.forEach((series, idx) => {
-            console.log(`  Series ${idx}: ${series.legend || 'unnamed'}`);
+        // Find the index of the $distinct_id column
+        const distinctIdIndex = data.headers.indexOf('$distinct_id');
 
-            // The legend might be the user ID
-            if (series.legend) {
-                const cleanId = series.legend.replace('$device:', '');
-                // Only add if it looks like a user ID (UUID or device ID format)
-                if (cleanId.match(/^[A-F0-9-]+$/i) || cleanId.match(/^[a-z0-9-]+$/i)) {
+        if (distinctIdIndex === -1) {
+            console.log('Warning: $distinct_id column not found in headers');
+            return userIds;
+        }
+
+        console.log(`$distinct_id is at column index ${distinctIdIndex}`);
+
+        // Each series item is a row of data
+        data.series.forEach((row, idx) => {
+            if (Array.isArray(row) && row.length > distinctIdIndex) {
+                const userId = row[distinctIdIndex];
+                if (userId) {
+                    const cleanId = String(userId).replace('$device:', '');
                     userIds.add(cleanId);
+                    if (idx < 5) {
+                        console.log(`  Sample row ${idx}: distinct_id = ${cleanId}`);
+                    }
                 }
             }
         });
@@ -674,31 +685,23 @@ function processInsightsData(data) {
 
     const rows = [];
 
-    // Handle Query API format with series
-    if (data.series && Array.isArray(data.series)) {
-        console.log('Processing Query API series format');
+    // Handle Query API tabular format with headers and series
+    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+        console.log('Processing Query API tabular format');
+        console.log(`Headers: ${data.headers.join(', ')}`);
+        console.log(`Processing ${data.series.length} rows`);
 
-        data.series.forEach((series, index) => {
-            // series.legend might be the user ID
-            const userId = series.legend ? series.legend.replace('$device:', '') : `Unknown_${index}`;
+        // Each series item is a row of data corresponding to the headers
+        data.series.forEach((rowData, index) => {
+            if (Array.isArray(rowData)) {
+                const row = {};
 
-            // series.data contains the values over time
-            if (series.data && Array.isArray(series.data)) {
-                const row = {
-                    '$distinct_id': userId
-                };
-
-                // If there are dates, create time series rows
-                if (data.date_range && data.date_range.length > 0) {
-                    series.data.forEach((value, dateIndex) => {
-                        if (data.date_range[dateIndex]) {
-                            row[`value_${data.date_range[dateIndex]}`] = value;
-                        }
-                    });
-                } else {
-                    // Sum up the values or take the latest
-                    row['value'] = series.data.reduce((a, b) => a + b, 0);
-                }
+                // Map each value to its corresponding header
+                data.headers.forEach((header, headerIndex) => {
+                    if (headerIndex < rowData.length) {
+                        row[header] = rowData[headerIndex];
+                    }
+                });
 
                 rows.push(row);
             }
