@@ -262,6 +262,15 @@ async function fetchInsightsData(chartId, name) {
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result) {
             console.log(`  Response keys:`, Object.keys(result));
+            console.log(`  Full response structure:`, JSON.stringify(result, null, 2).substring(0, 2000));
+
+            if (result.series) {
+                console.log(`  Series count:`, result.series.length);
+                if (result.series.length > 0) {
+                    console.log(`  First series sample:`, JSON.stringify(result.series[0], null, 2).substring(0, 500));
+                }
+            }
+
             if (result.data) {
                 console.log(`  Data type:`, typeof result.data);
                 if (typeof result.data === 'object') {
