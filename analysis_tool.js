@@ -30,40 +30,39 @@ const SECTION_EXCLUSIONS = {
 
 // Inject styles
 const styles = `
-    /* UI FIX: Remove max-width here to let it shrink to fit the upload section, then reapply for wide results */
     .qda-inline-widget {
         background: white; 
-        border: 2px solid #17a2b8; /* TEAL */
+        border: 2px solid #17a2b8;
         border-radius: 10px;
         font-family: Arial, sans-serif; 
         font-size: 14px; 
-        max-width: 1200px; 
-        margin: 0 auto; 
         box-shadow: 0 4px 4px rgba(0,0,0,0.1);
     }
     .qda-header {
-        background: #17a2b8; /* TEAL */
-        color: white; padding: 15px;
-        border-radius: 8px 8px 0 0; text-align: center;
+        background: #17a2b8;
+        color: white; 
+        padding: 15px;
+        border-radius: 8px 8px 0 0; 
+        text-align: center;
     }
-    .qda-content { padding: 20px; background: white; }
+    .qda-content { 
+        padding: 20px; 
+        background: white; 
+    }
     
-    /* UI FIX: Constrain the upload section size and center it */
     .qda-upload-section {
-        border: 2px dashed #17a2b8; /* TEAL */
-        border-radius: 8px; padding: 20px;
-        /* Center the box */
-        margin: 0 auto 40px auto; 
+        border: 2px dashed #17a2b8;
+        border-radius: 8px; 
+        padding: 20px;
+        margin: 0 auto 20px auto; 
         background: #f8f9fa;
         display: flex; 
-        justify-content: center; 
-        /* Set a fixed maximum width for the upload box */
-        max-width: 450px; 
+        justify-content: center;
     }
-    /* UI FIX: Vertical stacking for consistency */
+    
     .qda-upload-column {
         display: flex; 
-        flex-direction: column; /* Stack children vertically */
+        flex-direction: column;
         align-items: center;
         text-align: center; 
         padding: 0; 
@@ -72,21 +71,39 @@ const styles = `
         width: 100%; 
     }
     .qda-file-label {
-        font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;
+        font-weight: bold; 
+        color: #333; 
+        margin-bottom: 10px; 
+        font-size: 14px;
     }
     .qda-file-input {
-        padding: 8px; border: 1px solid #ddd; border-radius: 4px;
-        width: 100%; margin-bottom: 8px;
+        padding: 8px; 
+        border: 1px solid #ddd; 
+        border-radius: 4px;
+        width: 100%; 
+        margin-bottom: 8px;
     }
-    /* UI FIX: Analysis Output Constraint (Approximation of 2x upload box width + gap) */
+    
+    /* Analysis Output Styling */
     #analysisResultsOutputContainer .qda-analysis-results {
-        max-width: 920px; /* 2 * 450px (max-width of upload section) + 20px gap */
+        max-width: 920px;
         margin: 0 auto;
         padding: 20px;
         background: white;
-        border: 2px solid #17a2b8; /* TEAL */
+        border: 2px solid #17a2b8;
         border-radius: 10px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        position: relative;
+    }
+    
+    /* Timestamp styling */
+    .qda-timestamp {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        color: #6c757d;
+        font-size: 12px;
+        font-style: italic;
     }
 
     /* Primary buttons for Data Merger, consistent styling for merged files */
@@ -193,11 +210,20 @@ function loadPersistedResults(outputContainer) {
         // Recreate the result div structure needed by the display functions
         const resultsDiv = document.createElement('div');
         resultsDiv.id = 'qdaAnalysisResultsInline';
-        resultsDiv.className = 'qda-analysis-results'; // Applies max-width styling from CSS
+        resultsDiv.className = 'qda-analysis-results';
         outputContainer.appendChild(resultsDiv);
+        
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        const lastUpdated = localStorage.getItem('qdaLastUpdated');
+        if (lastUpdated) {
+            timestamp.textContent = `Last updated: ${lastUpdated}`;
+            resultsDiv.appendChild(timestamp);
+        }
 
-        // Recreate sub-containers inside resultsDiv (REQUIRED for display functions)
-        resultsDiv.innerHTML = `
+        // Recreate sub-containers inside resultsDiv
+        resultsDiv.innerHTML += `
             <div id="qdaSummaryStatsInline"></div>
             <div id="qdaDemographicBreakdownInline"></div>
             <div id="qdaPersonaBreakdownInline"></div>
@@ -506,6 +532,7 @@ function displayPersonaBreakdownInline(stats) {
         
         const nameEl = document.createElement('div');
         nameEl.style.cssText = 'font-weight: bold; color: #007bff; margin-bottom: 5px; font-size: 16px;';
+        nameEl.textContent = p.name;
         card.appendChild(nameEl);
 
         const subtitleEl = document.createElement('div');
@@ -641,12 +668,9 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 // Now accepts two containers: uploadContainer (for the side-by-side UI) and outputContainer (for results below)
 function createWidget(uploadContainer, outputContainer) {
     const widget = document.createElement('div');
-    
-    // The main widget container (in the side-by-side section) should be styled for inline use
     widget.className = 'qda-inline-widget';
-    widget.style.maxWidth = '1200px'; 
 
-    // Header (Always created inside the upload container widget)
+    // Header
     const header = document.createElement('div');
     header.className = 'qda-header';
     
@@ -659,11 +683,11 @@ function createWidget(uploadContainer, outputContainer) {
     const content = document.createElement('div');
     content.className = 'qda-content';
     
-    // Upload section (The core UI component)
+    // Upload section
     const uploadSection = document.createElement('div');
     uploadSection.className = 'qda-upload-section';
     
-    // Main Analysis File (required)
+    // Main Analysis File column
     const mainColumn = document.createElement('div');
     mainColumn.className = 'qda-upload-column';
     
@@ -693,10 +717,11 @@ function createWidget(uploadContainer, outputContainer) {
     analyzeBtn.addEventListener('click', () => analyzeDataInline(uploadContainer, outputContainer.id));
     
     analyzeRow.appendChild(analyzeBtn);
-    uploadSection.appendChild(analyzeRow);
     
+    // Assemble sections in order matching data_merger.js
     content.appendChild(header);
     content.appendChild(uploadSection);
+    content.appendChild(analyzeRow);
 
     widget.appendChild(content);
 
@@ -743,7 +768,19 @@ async function analyzeDataInline(uploadContainer, outputContainerId) {
         localStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
         localStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
         localStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
-        localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
+        localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData));
+        
+        // Store timestamp
+        const now = new Date();
+        const timestamp = now.toLocaleString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric', 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+        });
+        localStorage.setItem('qdaLastUpdated', timestamp);
         
         // 3. RENDER RESULTS: Manually call the loading function to re-render in the persistent container
         if (outputContainer) {
@@ -811,7 +848,7 @@ async function analyzeData() {
     }
 }
 
-// Helper functions (omitted for brevity)
+// Helper functions
 function readFile(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -820,6 +857,7 @@ function readFile(file) {
         reader.readAsText(file);
     });
 }
+
 function parseCSV(text) {
     const lines = text.split('\n');
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
@@ -842,10 +880,12 @@ function parseCSV(text) {
     
     return { data };
 }
+
 function cleanNumeric(value) {
     if (value === null || value === undefined || value === '' || isNaN(value)) return 0;
     return parseFloat(value) || 0;
 }
+
 // Updated to handle both long and new short-form keys (e.g., '50k–100k')
 function convertIncomeToEnum(income) {
     const incomeMap = {
@@ -859,6 +899,7 @@ function convertIncomeToEnum(income) {
     };
     return incomeMap[income] || 0;
 }
+
 // Updated to handle both long and new short-form keys (e.g., '100k–250k')
 function convertNetWorthToEnum(netWorth) {
     const netWorthMap = {
@@ -872,6 +913,7 @@ function convertNetWorthToEnum(netWorth) {
     };
     return netWorthMap[netWorth] || 0;
 }
+
 function calculateCorrelation(x, y) {
     const n = x.length;
     const sumX = x.reduce((a, b) => a + b, 0);
@@ -885,6 +927,7 @@ function calculateCorrelation(x, y) {
     
     return denominator === 0 ? 0 : numerator / denominator;
 }
+
 function calculateCorrelations(data) {
     const variables = ALL_VARIABLES;
     const correlations = {};
@@ -903,6 +946,7 @@ function calculateCorrelations(data) {
 
     return correlations;
 }
+
 function performRegression(data, outcome) {
     const predictors = ALL_VARIABLES;
 
@@ -931,6 +975,7 @@ function performRegression(data, outcome) {
 
     return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
 }
+
 function calculateTippingPoint(data, variable, outcome) {
     const groups = {};
     data.forEach(user => {
@@ -968,6 +1013,7 @@ function calculateTippingPoint(data, variable, outcome) {
     
     return tippingPoint;
 }
+
 function classifyPersona(user) {
     function isLowerOrUnknownIncome(income) {
         // Updated to use both long form (if present) and short form (if present)
@@ -1040,6 +1086,7 @@ function classifyPersona(user) {
     
     return 'unclassified';
 }
+
 function calculateDemographicBreakdown(data, key) {
     let totalResponses = 0;
     const counts = data.reduce((acc, d) => {
@@ -1052,6 +1099,7 @@ function calculateDemographicBreakdown(data, key) {
     }, {});
     return { counts, totalResponses };
 }
+
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
     const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
@@ -1118,6 +1166,7 @@ function calculateSummaryStats(data) {
         personaStats
     };
 }
+
 function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
     const parsed = parseCSV(csvText);
     const data = parsed.data;
@@ -1199,6 +1248,7 @@ function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCs
         cleanData
     };
 }
+
 function makeDraggable(element) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     const header = element.querySelector('.qda-header');
@@ -1225,4 +1275,5 @@ function makeDraggable(element) {
         };
     };
 }
+
 console.log('Enhanced QDA Tool loaded successfully!');

@@ -2,10 +2,11 @@
 function createInlineDataMerger(targetContainer) {
   targetContainer.innerHTML = '';
   
-  // Adopted Analysis Tool's structure for wrapper and header styles
+  // Create wrapper with consistent styling
   const wrapper = document.createElement('div');
   wrapper.className = 'qda-inline-widget';
   
+  // Header
   const header = document.createElement('div');
   header.className = 'qda-header';
   
@@ -13,43 +14,38 @@ function createInlineDataMerger(targetContainer) {
   title.textContent = 'Comprehensive CSV Processor';
   title.style.margin = '0';
   header.appendChild(title);
-  wrapper.appendChild(header);
-
+  
   // Content area
   const content = document.createElement('div');
   content.className = 'qda-content';
   
-  // File upload section - Using analysis_tool's UI classes for consistency and styling
-  const uploadDiv = document.createElement('div');
-  uploadDiv.className = 'qda-upload-section'; 
+  // File upload section - matching the analysis tool structure exactly
+  const uploadSection = document.createElement('div');
+  uploadSection.className = 'qda-upload-section';
   
   const uploadColumn = document.createElement('div');
-  uploadColumn.className = 'qda-upload-column'; // This class forces vertical stacking
+  uploadColumn.className = 'qda-upload-column';
   
   const uploadLabel = document.createElement('div');
-  uploadLabel.textContent = 'Select All 7 Raw CSV Files'; // Simplified label
-  uploadLabel.className = 'qda-file-label'; 
+  uploadLabel.className = 'qda-file-label';
+  uploadLabel.textContent = 'Select All 7 Raw CSV Files';
+  uploadColumn.appendChild(uploadLabel);
   
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.csv';
   fileInput.multiple = true;
   fileInput.className = 'qda-file-input';
-  
-  // Stacking elements vertically inside uploadColumn
-  uploadColumn.appendChild(uploadLabel);
   uploadColumn.appendChild(fileInput);
   
-  uploadDiv.appendChild(uploadColumn);
+  uploadSection.appendChild(uploadColumn);
   
-  const analyzeRow = document.createElement('div'); 
+  const analyzeRow = document.createElement('div');
   analyzeRow.className = 'qda-analyze-row';
   
   const processBtn = document.createElement('button');
-  processBtn.textContent = 'Merge Files'; // Simplified button text
-  processBtn.className = 'qda-btn'; // Using the standard analysis button class for look
-  processBtn.style.background = '#17a2b8'; // Maintain unique color
-  
+  processBtn.className = 'qda-btn';
+  processBtn.textContent = 'Merge Files';
   
   processBtn.onclick = async () => {
     
@@ -113,8 +109,12 @@ function createInlineDataMerger(targetContainer) {
   };
 
   analyzeRow.appendChild(processBtn);
-  content.appendChild(uploadDiv);
-  content.appendChild(analyzeRow); // Add button after upload box
+  
+  // Assemble the sections in the right order
+  content.appendChild(header);
+  content.appendChild(uploadSection);
+  content.appendChild(analyzeRow);
+  
   wrapper.appendChild(content);
   targetContainer.appendChild(wrapper);
 }
@@ -173,7 +173,7 @@ async function matchFilesByName(files) {
          headerString.includes('creator card taps') || headerString.includes('portfolio card taps'))) {
       if (!requiredFiles.demo) {
         requiredFiles.demo = file;
-        console.log(`✓ Identified DEMO file: ${file.name}`);
+        console.log(`✔ Identified DEMO file: ${file.name}`);
       }
     }
     
@@ -184,19 +184,19 @@ async function matchFilesByName(files) {
           filename.includes('portfolio')) {
         if (!requiredFiles.firstCopy) {
           requiredFiles.firstCopy = file;
-          console.log(`✓ Identified FIRST COPY time file: ${file.name}`);
+          console.log(`✔ Identified FIRST COPY time file: ${file.name}`);
         }
       }
       else if (filename.includes('fund') || filename.includes('deposit')) {
         if (!requiredFiles.fundedAccount) {
           requiredFiles.fundedAccount = file;
-          console.log(`✓ Identified FUNDED ACCOUNT time file: ${file.name}`);
+          console.log(`✔ Identified FUNDED ACCOUNT time file: ${file.name}`);
         }
       }
       else if (filename.includes('bank') || filename.includes('link')) {
         if (!requiredFiles.linkedBank) {
           requiredFiles.linkedBank = file;
-          console.log(`✓ Identified LINKED BANK time file: ${file.name}`);
+          console.log(`✔ Identified LINKED BANK time file: ${file.name}`);
         }
       }
     }
@@ -207,7 +207,7 @@ async function matchFilesByName(files) {
              headerString.includes('viewed stripe modal')) {
       if (!requiredFiles.premiumSub) {
         requiredFiles.premiumSub = file;
-        console.log(`✓ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
+        console.log(`✔ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
       }
     }
     
@@ -217,7 +217,7 @@ async function matchFilesByName(files) {
              !headerString.includes('portfolioticker')) {
       if (!requiredFiles.creatorCopy) {
         requiredFiles.creatorCopy = file;
-        console.log(`✓ Identified CREATOR COPY file: ${file.name}`);
+        console.log(`✔ Identified CREATOR COPY file: ${file.name}`);
       }
     }
     
@@ -226,7 +226,7 @@ async function matchFilesByName(files) {
              headerString.includes('viewed portfolio details')) {
       if (!requiredFiles.portfolioCopy) {
         requiredFiles.portfolioCopy = file;
-        console.log(`✓ Identified PORTFOLIO COPY file: ${file.name}`);
+        console.log(`✔ Identified PORTFOLIO COPY file: ${file.name}`);
       }
     }
   });
@@ -255,7 +255,7 @@ async function matchFilesByName(files) {
       patterns.forEach(({ key, pattern }) => {
         if (!requiredFiles[key] && pattern.test(analysis.filename)) {
           requiredFiles[key] = analysis.file;
-          console.log(`✓ Fallback matched ${key}: ${analysis.file.name}`);
+          console.log(`✔ Fallback matched ${key}: ${analysis.file.name}`);
         }
       });
     });
