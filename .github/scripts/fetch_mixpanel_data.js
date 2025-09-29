@@ -316,75 +316,6 @@ async function fetchInsightsData(chartId, name) {
 }
 
 /**
- * Fetch user profiles using engage endpoint with pagination
- */
-async function fetchUserProfilesPaginated() {
-    const allUsers = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let sessionId = null;
-
-    // Filter for users who have been active in the date range
-    const whereClause = `"$last_seen" >= "${fromDate}" and "$last_seen" <= "${toDate}"`;
-
-    while (hasMore && page < 20) { // Limit to 20 pages (20,000 users) to avoid timeout
-        console.log(`Fetching page ${page + 1}...`);
-
-        try {
-            const params = {
-                project_id: PROJECT_ID,
-                page_size: pageSize,
-                where: whereClause
-            };
-
-            // Add session_id for subsequent pages
-            if (sessionId) {
-                params.session_id = sessionId;
-                params.page = page;
-            }
-
-            const response = await makeRequest('/engage', params, 'GET');
-
-            if (response && response.results && response.results.length > 0) {
-                allUsers.push(...response.results);
-
-                // Store session_id for next page
-                if (response.session_id) {
-                    sessionId = response.session_id;
-                }
-
-                hasMore = response.results.length === pageSize;
-                page++;
-
-                console.log(`Fetched ${response.results.length} users (total: ${allUsers.length})`);
-
-                // Add delay between requests to avoid rate limiting
-                if (hasMore) {
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between requests
-                }
-            } else {
-                hasMore = false;
-            }
-        } catch (error) {
-            console.error(`Error fetching page ${page}:`, error.message);
-            // Don't immediately stop on error - log it and continue
-            if (page === 0) {
-                // If first page fails, stop
-                hasMore = false;
-            } else {
-                // If later page fails, we already have some data
-                console.log(`Stopping pagination after error on page ${page}. Total users: ${allUsers.length}`);
-                hasMore = false;
-            }
-        }
-    }
-
-    console.log(`Total users fetched: ${allUsers.length}`);
-    return { results: allUsers };
-}
-
-/**
  * Convert data to CSV format
  */
 function arrayToCSV(data) {
@@ -1063,49 +994,6 @@ function extractUserIdsFromFunnelData(data) {
 }
 
 /**
- * Fetch user profiles for specific user IDs
- */
-async function fetchUserProfilesByIds(userIds) {
-    console.log(`Fetching profiles for ${userIds.length} specific users...`);
-
-    const allProfiles = [];
-    const batchSize = 100; // Fetch in batches to avoid URL length limits
-
-    for (let i = 0; i < userIds.length; i += batchSize) {
-        const batch = userIds.slice(i, i + batchSize);
-        console.log(`  Fetching batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(userIds.length/batchSize)}...`);
-
-        try {
-            // Use engage API with where clause to filter by distinct_id
-            const distinctIdList = batch.map(id => `"${id}"`).join(',');
-            const whereClause = `"$distinct_id" in [${distinctIdList}]`;
-
-            const params = {
-                project_id: PROJECT_ID,
-                where: whereClause
-            };
-
-            const response = await makeRequest('/engage', params, 'GET');
-
-            if (response && response.results && response.results.length > 0) {
-                allProfiles.push(...response.results);
-                console.log(`    Fetched ${response.results.length} profiles`);
-            }
-
-            // Small delay between batches
-            if (i + batchSize < userIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-        } catch (error) {
-            console.error(`Error fetching batch:`, error.message);
-        }
-    }
-
-    console.log(`Total profiles fetched: ${allProfiles.length}`);
-    return { results: allProfiles };
-}
-
-/**
  * Main function
  */
 async function main() {
@@ -1136,7 +1024,7 @@ async function main() {
 
         let userProfiles;
         if (baseUserIds.size > 0) {
-            console.log(`Using ${baseUserIds.size} users from Insights chart (skipping engage API due to $device: prefix issue)`);
+            console.log(`Using ${baseUserIds.size} users from Insights chart`);
             // Create simple profile data from user IDs
             userProfiles = {
                 results: Array.from(baseUserIds).map(userId => ({
@@ -1145,48 +1033,8 @@ async function main() {
                 }))
             };
         } else {
-            console.log(`User count outside expected range (${baseUserIds.size}), falling back to paginated fetch with limit`);
-            // Fallback: fetch with pagination but limit to 5 pages
+            console.log(`No users found from Insights chart`);
             userProfiles = { results: [] };
-            let page = 0;
-            const pageSize = 1000;
-            let sessionId = null;
-
-            while (page < 100) { // Allow up to 100 pages instead of fixed 5
-                const params = {
-                    project_id: PROJECT_ID,
-                    page_size: pageSize
-                };
-
-                if (sessionId) {
-                    params.session_id = sessionId;
-                    params.page = page;
-                }
-
-                const response = await makeRequest('/engage', params, 'GET');
-
-                if (response && response.results && response.results.length > 0) {
-                    userProfiles.results.push(...response.results);
-
-                    // Store session_id for next page
-                    if (response.session_id) {
-                        sessionId = response.session_id;
-                    }
-
-                    page++;
-                    console.log(`Fetched page ${page}, total users: ${userProfiles.results.length}`);
-
-                    // Stop if we got less than a full page (means we're at the end)
-                    if (response.results.length < pageSize) {
-                        console.log(`Reached end of user list (partial page returned)`);
-                        break;
-                    }
-
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                } else {
-                    break;
-                }
-            }
         }
 
         const processedProfiles = processUserProfiles(userProfiles);
