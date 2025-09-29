@@ -3,6 +3,7 @@ class MixpanelSync {
     constructor() {
         this.loadCredentials();
         this.baseURL = 'https://mixpanel.com/api/2.0';
+        this.projectId = '2948889'; // Your Mixpanel project ID from the dashboard URL
         
         // Chart IDs from Mixpanel dashboard
         this.chartIds = {
@@ -17,31 +18,32 @@ class MixpanelSync {
     }
     
     loadCredentials() {
-        this.projectToken = localStorage.getItem('mixpanel_project_token') || '';
-        this.apiSecret = localStorage.getItem('mixpanel_api_secret') || '';
+        this.serviceAccountUsername = localStorage.getItem('mixpanel_service_username') || '';
+        this.serviceAccountSecret = localStorage.getItem('mixpanel_service_secret') || '';
     }
     
-    saveCredentials(token, secret) {
-        localStorage.setItem('mixpanel_project_token', token);
-        localStorage.setItem('mixpanel_api_secret', secret);
-        this.projectToken = token;
-        this.apiSecret = secret;
+    saveCredentials(username, secret) {
+        localStorage.setItem('mixpanel_service_username', username);
+        localStorage.setItem('mixpanel_service_secret', secret);
+        this.serviceAccountUsername = username;
+        this.serviceAccountSecret = secret;
     }
     
     hasCredentials() {
-        return this.projectToken && this.apiSecret;
+        return this.serviceAccountUsername && this.serviceAccountSecret;
     }
     
     clearCredentials() {
-        localStorage.removeItem('mixpanel_project_token');
-        localStorage.removeItem('mixpanel_api_secret');
-        this.projectToken = '';
-        this.apiSecret = '';
+        localStorage.removeItem('mixpanel_service_username');
+        localStorage.removeItem('mixpanel_service_secret');
+        this.serviceAccountUsername = '';
+        this.serviceAccountSecret = '';
     }
     
-    // Base64 encode credentials for Basic Auth
+    // Base64 encode credentials for Basic Auth using Service Account format
     getAuthHeader() {
-        return 'Basic ' + btoa(this.apiSecret + ':');
+        // Service accounts use username:secret format
+        return 'Basic ' + btoa(this.serviceAccountUsername + ':' + this.serviceAccountSecret);
     }
     
     // Fetch data from a specific chart/report
@@ -49,17 +51,38 @@ class MixpanelSync {
         const endpoint = this.getEndpointForChart(chartType);
         const params = this.buildParams(chartId, chartType, dateRange);
         
-        const url = `${this.baseURL}${endpoint}?${new URLSearchParams(params)}`;
+        // For Mixpanel API v2.0, we need to use POST for some endpoints like funnels
+        const isPostEndpoint = endpoint.includes('funnels') || endpoint.includes('engage');
         
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Authorization': this.getAuthHeader(),
-                'Accept': 'application/json'
-            }
-        });
+        let url, response;
+        
+        if (isPostEndpoint) {
+            // Use POST method with parameters in body
+            url = `${this.baseURL}${endpoint}`;
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': this.getAuthHeader(),
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams(params).toString()
+            });
+        } else {
+            // Use GET method with parameters in URL
+            url = `${this.baseURL}${endpoint}?${new URLSearchParams(params)}`;
+            response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': this.getAuthHeader(),
+                    'Accept': 'application/json'
+                }
+            });
+        }
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Mixpanel API error details:', errorText);
             throw new Error(`Mixpanel API error: ${response.status} ${response.statusText}`);
         }
         
@@ -82,7 +105,7 @@ class MixpanelSync {
     
     buildParams(chartId, chartType, dateRange) {
         const baseParams = {
-            project_id: this.projectToken,
+            project_id: this.projectId, // Use the project ID directly
             funnel_id: chartId,
             from_date: dateRange.from,
             to_date: dateRange.to
@@ -395,30 +418,50 @@ class MixpanelSync {
         return csvRows.join('\n');
     }
     
-    // Test API connection
+    // Test API connection using service account
     async testConnection() {
         try {
-            // Try to fetch a small amount of data to test credentials
-            const today = new Date().toISOString().split('T')[0];
+            // Test with the events/names endpoint which is simple and reliable
+            const url = `${this.baseURL}/events/names`;
+            
             const params = {
-                project_id: this.projectToken,
-                from_date: today,
-                to_date: today,
+                project_id: this.projectId,
                 limit: 1
             };
             
-            const url = `${this.baseURL}/events?${new URLSearchParams(params)}`;
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
                     'Authorization': this.getAuthHeader(),
                     'Accept': 'application/json'
-                }
+                },
+                mode: 'cors'
             });
             
-            return response.ok;
+            // Check if we get a successful response
+            if (response.ok) {
+                console.log('Service account authentication successful');
+                return true;
+            }
+            
+            // If we get 401, credentials are wrong
+            if (response.status === 401) {
+                console.error('Authentication failed - invalid service account credentials');
+                return false;
+            }
+            
+            // If we get other errors, log them
+            console.error('Test connection failed with status:', response.status);
+            const errorText = await response.text();
+            console.error('Error details:', errorText);
+            return false;
+            
         } catch (error) {
             console.error('Connection test failed:', error);
+            // Check if it's a CORS error
+            if (error.message && error.message.includes('CORS')) {
+                alert('CORS error detected. Mixpanel API may need to be accessed through a backend server.');
+            }
             return false;
         }
     }

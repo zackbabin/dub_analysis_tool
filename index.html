@@ -222,24 +222,25 @@
             </div>
             
             <div class="info-box">
-                <h4>How to find your credentials:</h4>
+                <h4>How to find your Service Account credentials:</h4>
                 <p>
-                    1. Go to your <a href="https://mixpanel.com/project/settings" target="_blank">Mixpanel Project Settings</a><br>
-                    2. Find your <strong>Project Token</strong> in the Overview section<br>
-                    3. Find your <strong>API Secret</strong> in the Service Accounts section
+                    1. Go to your <a href="https://mixpanel.com/project/2948889/settings/project#serviceaccounts" target="_blank">Mixpanel Service Accounts</a><br>
+                    2. Click "Add Service Account" if you haven't created one<br>
+                    3. Copy the <strong>Username</strong> (format: name.xxxxx.mp-service-account)<br>
+                    4. Copy the <strong>Secret</strong> (shown only once when creating)
                 </p>
             </div>
             
             <div class="credential-field">
-                <label for="projectToken">Project Token</label>
-                <input type="text" id="projectToken" placeholder="e.g., 669eda949f33cf988d2bbe77bc961c34">
-                <small>Found in Project Settings → Overview</small>
+                <label for="serviceUsername">Service Account Username</label>
+                <input type="text" id="serviceUsername" placeholder="e.g., zack_babin.d1de07.mp-service-account">
+                <small>Found in Project Settings → Service Accounts</small>
             </div>
             
             <div class="credential-field">
-                <label for="apiSecret">API Secret</label>
-                <input type="password" id="apiSecret" placeholder="e.g., 8f48f2d2deb57702d7c062c2067c9882">
-                <small>Found in Project Settings → Service Accounts</small>
+                <label for="serviceSecret">Service Account Secret</label>
+                <input type="password" id="serviceSecret" placeholder="e.g., jsTenCxjm38RV6ljMcZqjZuIyju7PN9u">
+                <small>Shown once when creating the service account</small>
             </div>
             
             <div id="testStatus" class="test-status"></div>
@@ -265,8 +266,8 @@
             // Pre-fill with existing credentials if available
             if (window.MixpanelSync) {
                 const sync = new window.MixpanelSync();
-                document.getElementById('projectToken').value = sync.projectToken || '';
-                document.getElementById('apiSecret').value = sync.apiSecret || '';
+                document.getElementById('serviceUsername').value = sync.serviceAccountUsername || '';
+                document.getElementById('serviceSecret').value = sync.serviceAccountSecret || '';
             }
             
             // Clear test status
@@ -279,20 +280,20 @@
         }
         
         async function saveCredentials() {
-            const projectToken = document.getElementById('projectToken').value.trim();
-            const apiSecret = document.getElementById('apiSecret').value.trim();
+            const serviceUsername = document.getElementById('serviceUsername').value.trim();
+            const serviceSecret = document.getElementById('serviceSecret').value.trim();
             const testStatus = document.getElementById('testStatus');
             
-            if (!projectToken || !apiSecret) {
+            if (!serviceUsername || !serviceSecret) {
                 testStatus.className = 'test-status error';
-                testStatus.textContent = 'Please enter both Project Token and API Secret';
+                testStatus.textContent = 'Please enter both Service Account Username and Secret';
                 testStatus.style.display = 'block';
                 return;
             }
             
             // Save credentials
             const sync = new window.MixpanelSync();
-            sync.saveCredentials(projectToken, apiSecret);
+            sync.saveCredentials(serviceUsername, serviceSecret);
             
             // Test connection
             testStatus.className = 'test-status';
@@ -328,8 +329,8 @@
                 const sync = new window.MixpanelSync();
                 sync.clearCredentials();
                 
-                document.getElementById('projectToken').value = '';
-                document.getElementById('apiSecret').value = '';
+                document.getElementById('serviceUsername').value = '';
+                document.getElementById('serviceSecret').value = '';
                 
                 const testStatus = document.getElementById('testStatus');
                 testStatus.className = 'test-status success';
