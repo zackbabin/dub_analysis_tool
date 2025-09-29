@@ -742,15 +742,25 @@ function processInsightsData(data) {
         console.log('Processing Query API nested object format for user profiles');
         console.log(`Headers: ${data.headers.join(', ')}`);
 
-        // The structure is: series[metric][userId][propertyValue][propertyValue]...
-        // We need to traverse and build user profiles
+        // The structure is: series[metric][userId][prop1Value][prop2Value]...
+        // Each path from metric to userId represents a complete set of property values
+        // We need to extract ALL property values for each user
         const userDataMap = new Map(); // distinct_id -> {properties}
 
         function extractUserDataRecursive(obj, path = [], depth = 0) {
-            if (depth > 20) return; // Prevent infinite recursion
+            if (depth > 30) return; // Prevent infinite recursion
 
             if (obj && typeof obj === 'object') {
                 Object.entries(obj).forEach(([key, value]) => {
+                    // Skip meta keys
+                    if (key === '$overall' || key === 'all' || key === 'undefined') {
+                        // Still recurse into these
+                        if (typeof value === 'object') {
+                            extractUserDataRecursive(value, path, depth + 1);
+                        }
+                        return;
+                    }
+
                     // Check if key is a user ID
                     const isUserId = key.startsWith('$device:') ||
                         key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
@@ -762,32 +772,37 @@ function processInsightsData(data) {
                             userDataMap.set(key, { 'Distinct ID': key });
                         }
 
-                        // The path leading to this user ID contains property values
-                        // For example: path might be ["A. Linked Bank Account", "100k-200k", "<100k"]
-                        // Match these to headers: ["$metric", "$distinct_id", "income", "netWorth"]
                         const userData = userDataMap.get(key);
 
-                        // Try to map path elements to header names
-                        if (path.length > 0) {
-                            // First element in path is usually the metric name
-                            const metric = path[0];
+                        // The path contains property values in order matching headers (after $metric and $distinct_id)
+                        // path[0] = metric name (maps to headers[0] = "$metric")
+                        // path[1] = first property value (maps to headers[2] - skip headers[1] which is $distinct_id)
+                        // path[2] = second property value (maps to headers[3])
+                        // etc.
 
-                            // Subsequent elements might be property values
-                            // Map to headers starting from index 2 (skip "$metric" and "$distinct_id")
-                            for (let i = 1; i < path.length && i + 1 < data.headers.length; i++) {
-                                const headerName = data.headers[i + 1]; // +1 because headers[0] is $metric, headers[1] is $distinct_id
+                        // Map path values to header names
+                        for (let i = 1; i < path.length; i++) {
+                            const headerIndex = i + 1; // +1 to skip $distinct_id
+                            if (headerIndex < data.headers.length) {
+                                const headerName = data.headers[headerIndex];
                                 const propertyValue = path[i];
 
-                                if (headerName && propertyValue !== '$overall' && propertyValue !== 'undefined') {
+                                // Only set if we have a valid header and non-empty value
+                                if (headerName && propertyValue) {
                                     userData[headerName] = propertyValue;
                                 }
                             }
                         }
-                    }
 
-                    // Recurse with updated path
-                    if (typeof value === 'object' && key !== '$overall' && key !== 'all') {
-                        extractUserDataRecursive(value, [...path, key], depth + 1);
+                        // Continue recursing to find more property values deeper in the tree
+                        if (typeof value === 'object') {
+                            extractUserDataRecursive(value, path, depth + 1);
+                        }
+                    } else {
+                        // Not a user ID, add to path and continue
+                        if (typeof value === 'object') {
+                            extractUserDataRecursive(value, [...path, key], depth + 1);
+                        }
                     }
                 });
             }
