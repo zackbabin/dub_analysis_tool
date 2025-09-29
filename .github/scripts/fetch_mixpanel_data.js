@@ -152,13 +152,35 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
 
 /**
  * Fetch Insights data using correct API endpoint
- * Note: The Insights API doesn't support fetching saved chart data directly
- * This is a placeholder that will return null, forcing fallback to pagination
+ * https://developer.mixpanel.com/reference/insights-query
  */
 async function fetchInsightsData(chartId, name) {
-    console.log(`Note: Insights API doesn't support direct chart exports`);
-    console.log(`Skipping Insights API fetch for ${name}`);
-    return null;
+    console.log(`Fetching ${name} insights data (ID: ${chartId})...`);
+
+    const params = {
+        bookmark_id: chartId,
+        from_date: fromDate,
+        to_date: toDate
+    };
+
+    console.log(`  API params:`, JSON.stringify(params, null, 2));
+
+    try {
+        // Use POST method for insights endpoint
+        const result = await makeRequest('/insights', params, 'POST');
+        console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
+        if (result) {
+            console.log(`  Response keys:`, Object.keys(result));
+            if (result.data) {
+                console.log(`  Data type:`, typeof result.data);
+                console.log(`  Data keys:`, typeof result.data === 'object' ? Object.keys(result.data).slice(0, 10) : 'N/A');
+            }
+        }
+        return result;
+    } catch (error) {
+        console.error(`  ✗ Error fetching ${name}:`, error.message);
+        return null;
+    }
 }
 
 /**
