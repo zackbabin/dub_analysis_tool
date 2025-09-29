@@ -699,8 +699,54 @@ function extractUserIdsFromInsights(data) {
 
     console.log('Insights response structure:', JSON.stringify(data).substring(0, 500));
 
-    // Check if data has tabular format (Query API format with headers and series)
-    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+    // Check if data has nested object format (Query API with metrics and nested user IDs)
+    if (data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
+        console.log('Extracting users from nested object format (Query API)');
+
+        // Recursively search through the nested object for user IDs
+        function extractUserIdsRecursive(obj, depth = 0) {
+            if (depth > 20) return; // Prevent infinite recursion
+
+            if (obj && typeof obj === 'object') {
+                Object.keys(obj).forEach(key => {
+                    // Skip meta keys
+                    if (key === '$overall' || key === 'all' || key === 'undefined') {
+                        // Still recurse into these to find user IDs deeper
+                        if (typeof obj[key] === 'object') {
+                            extractUserIdsRecursive(obj[key], depth + 1);
+                        }
+                        return;
+                    }
+
+                    // Check if key looks like a user ID (distinct_id)
+                    // User IDs can be:
+                    // - $device:UUID format: $device:C5750779-0793-4CCF-B8B0-5E924BCB1808
+                    // - Numeric IDs: 537058217606729728
+                    // - UUID format without prefix: C5750779-0793-4CCF-B8B0-5E924BCB1808
+                    if (key.startsWith('$device:') ||
+                        key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
+                        (key.match(/^[0-9]+$/) && key.length > 10)) {
+
+                        userIds.add(key);
+
+                        if (userIds.size <= 5) {
+                            console.log(`  Sample user ID found: ${key}`);
+                        }
+                    }
+
+                    // Recurse into nested objects
+                    if (typeof obj[key] === 'object') {
+                        extractUserIdsRecursive(obj[key], depth + 1);
+                    }
+                });
+            }
+        }
+
+        extractUserIdsRecursive(data.series);
+        console.log(`Found ${userIds.size} unique user IDs in nested structure`);
+    }
+    // Check if data has tabular format (Query API format with headers and series array)
+    else if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
         console.log('Extracting users from tabular format (Query API)');
         console.log(`Headers: ${data.headers.join(', ')}`);
         console.log(`Found ${data.series.length} rows`);
@@ -720,10 +766,9 @@ function extractUserIdsFromInsights(data) {
             if (Array.isArray(row) && row.length > distinctIdIndex) {
                 const userId = row[distinctIdIndex];
                 if (userId) {
-                    const cleanId = String(userId).replace('$device:', '');
-                    userIds.add(cleanId);
+                    userIds.add(String(userId));
                     if (idx < 5) {
-                        console.log(`  Sample row ${idx}: distinct_id = ${cleanId}`);
+                        console.log(`  Sample row ${idx}: distinct_id = ${userId}`);
                     }
                 }
             }
@@ -736,17 +781,12 @@ function extractUserIdsFromInsights(data) {
         // data.data is an object where keys might be distinct_ids
         Object.keys(data.data).forEach(key => {
             // Skip aggregate keys like $overall
-            if (key.startsWith('$overall') || key === 'total' || key.startsWith('$')) {
+            if (key.startsWith('$overall') || key === 'total') {
                 return;
             }
 
-            // Clean up device prefix and add to set
-            const cleanId = key.replace('$device:', '');
-
-            // Only add if it looks like a user ID (UUID or device ID format)
-            if (cleanId.match(/^[A-F0-9-]+$/i) || cleanId.match(/^[a-z0-9-]+$/i)) {
-                userIds.add(cleanId);
-            }
+            // Add the key as-is (keep $device: prefix)
+            userIds.add(key);
         });
     }
 
