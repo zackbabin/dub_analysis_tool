@@ -294,6 +294,13 @@ class UnifiedAnalysisTool {
         const mainCSV = this.convertToCSV(mergedData.mainFile);
         const results = window.performQuantitativeAnalysis(mainCSV, null, null);
 
+        this.updateProgress(85, 'Calculating tipping points...');
+        this.addStatusMessage('📈 Calculating tipping points...', 'info');
+
+        // Step 3.5: Calculate tipping points for all variables and outcomes
+        const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
+        this.addStatusMessage('✅ Tipping points calculated', 'success');
+
         this.updateProgress(90, 'Displaying results...');
         this.addStatusMessage('✅ Analysis complete', 'success');
 
@@ -301,6 +308,7 @@ class UnifiedAnalysisTool {
         localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
         localStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
         localStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
+        localStorage.setItem('qdaTippingPoints', JSON.stringify(tippingPoints));
         // Note: Not storing cleanData to avoid quota issues
 
         const now = new Date();
@@ -365,10 +373,32 @@ class UnifiedAnalysisTool {
         window.displaySummaryStatsInline(results.summaryStats);
         window.displayDemographicBreakdownInline(results.summaryStats);
         window.displayPersonaBreakdownInline(results.summaryStats);
-        // Pass null for cleanData to skip tipping point calculations (data too large for localStorage)
-        window.displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null);
+
+        // Load tipping points from localStorage
+        const tippingPoints = JSON.parse(localStorage.getItem('qdaTippingPoints'));
+        window.displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
         resultsDiv.style.display = 'block';
+    }
+
+    /**
+     * Calculate tipping points for all variables and outcomes
+     */
+    calculateAllTippingPoints(cleanData, correlationResults) {
+        const tippingPoints = {};
+
+        ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
+            tippingPoints[outcome] = {};
+
+            const variables = Object.keys(correlationResults[outcome]);
+            variables.forEach(variable => {
+                if (variable !== outcome) {
+                    tippingPoints[outcome][variable] = window.calculateTippingPoint(cleanData, variable, outcome);
+                }
+            });
+        });
+
+        return tippingPoints;
     }
 
     /**

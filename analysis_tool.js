@@ -6,7 +6,8 @@ const STORAGE_KEYS = {
     SUMMARY: 'qdaSummaryStats',
     CORRELATION: 'qdaCorrelationResults',
     REGRESSION: 'qdaRegressionResults',
-    CLEAN_DATA: 'qdaCleanData'
+    CLEAN_DATA: 'qdaCleanData',
+    TIPPING_POINTS: 'qdaTippingPoints'
 };
 
 // --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
@@ -204,7 +205,8 @@ function loadPersistedResults(outputContainer) {
             summaryStats: JSON.parse(summaryStatsText),
             correlationResults: JSON.parse(localStorage.getItem(STORAGE_KEYS.CORRELATION)),
             regressionResults: JSON.parse(localStorage.getItem(STORAGE_KEYS.REGRESSION)),
-            cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
+            cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA)),
+            tippingPoints: JSON.parse(localStorage.getItem(STORAGE_KEYS.TIPPING_POINTS))
         };
         
         // Recreate the result div structure needed by the display functions
@@ -237,7 +239,7 @@ function loadPersistedResults(outputContainer) {
         displaySummaryStatsInline(results.summaryStats);
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData, results.tippingPoints);
 
         // Make the results visible
         resultsDiv.style.display = 'block';
@@ -557,7 +559,7 @@ function displayPersonaBreakdownInline(stats) {
     container.appendChild(resultSection);
 }
 
-function displayCombinedAnalysisInline(correlationResults, regressionResults, cleanData) {
+function displayCombinedAnalysisInline(correlationResults, regressionResults, cleanData, tippingPoints) {
     const container = document.getElementById('qdaCombinedResultsInline');
     container.textContent = '';
     
@@ -591,7 +593,14 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         const combinedData = filteredVariables.map(variable => {
             const correlation = correlationResults[outcome][variable];
             const regressionItem = regressionData.find(item => item.variable === variable);
-            const tippingPoint = cleanData ? calculateTippingPoint(cleanData, variable, outcome) : 'N/A';
+
+            // Get tipping point from pre-calculated values or calculate on-the-fly
+            let tippingPoint = 'N/A';
+            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
+                tippingPoint = tippingPoints[outcome][variable];
+            } else if (cleanData) {
+                tippingPoint = calculateTippingPoint(cleanData, variable, outcome);
+            }
 
             return {
                 variable: variable,
