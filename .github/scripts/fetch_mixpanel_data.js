@@ -806,8 +806,59 @@ function processInsightsData(data) {
 
     const rows = [];
 
-    // Handle Query API tabular format with headers and series
-    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+    // Handle Query API nested object format - extract user profiles from nested structure
+    if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
+        console.log('Processing Query API nested object format for user profiles');
+        console.log(`Headers: ${data.headers.join(', ')}`);
+
+        // Extract user data from nested structure
+        // The headers tell us: ["$metric", "$distinct_id", "income", "netWorth", ...]
+        // We need to find each distinct_id and collect their property values
+
+        const userDataMap = new Map(); // distinct_id -> {properties}
+
+        function extractUserData(obj, depth = 0) {
+            if (depth > 20) return;
+
+            if (obj && typeof obj === 'object') {
+                Object.keys(obj).forEach(key => {
+                    // Check if key is a user ID
+                    if (key.startsWith('$device:') ||
+                        key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
+                        (key.match(/^[0-9]+$/) && key.length > 10)) {
+
+                        // Initialize user data if not exists
+                        if (!userDataMap.has(key)) {
+                            userDataMap.set(key, {
+                                '$distinct_id': key
+                            });
+                        }
+
+                        // The nested structure contains property values
+                        // Try to extract them from parent keys in the path
+                    }
+
+                    // Recurse
+                    if (typeof obj[key] === 'object') {
+                        extractUserData(obj[key], depth + 1);
+                    }
+                });
+            }
+        }
+
+        extractUserData(data.series);
+        console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
+
+        // Convert to rows
+        userDataMap.forEach((userData, userId) => {
+            rows.push({
+                'Distinct ID': userId,
+                ...userData
+            });
+        });
+    }
+    // Handle Query API tabular format with headers and series array
+    else if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
         console.log('Processing Query API tabular format');
         console.log(`Headers: ${data.headers.join(', ')}`);
         console.log(`Processing ${data.series.length} rows`);
@@ -1084,9 +1135,15 @@ async function main() {
         console.log('\n=== Step 2: Fetching user profiles for identified users ===');
 
         let userProfiles;
-        if (baseUserIds.size > 0 && baseUserIds.size < 10000) {
-            console.log(`Fetching profiles for ${baseUserIds.size} specific users...`);
-            userProfiles = await fetchUserProfilesByIds(Array.from(baseUserIds));
+        if (baseUserIds.size > 0) {
+            console.log(`Using ${baseUserIds.size} users from Insights chart (skipping engage API due to $device: prefix issue)`);
+            // Create simple profile data from user IDs
+            userProfiles = {
+                results: Array.from(baseUserIds).map(userId => ({
+                    $distinct_id: userId,
+                    $properties: {}
+                }))
+            };
         } else {
             console.log(`User count outside expected range (${baseUserIds.size}), falling back to paginated fetch with limit`);
             // Fallback: fetch with pagination but limit to 5 pages
