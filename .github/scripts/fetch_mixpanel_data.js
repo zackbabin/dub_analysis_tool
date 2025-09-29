@@ -11,7 +11,7 @@ const https = require('https');
 
 // Configuration
 const PROJECT_ID = '2599235';
-const BASE_URL = 'https://mixpanel.com/api/2.0';
+const API_BASE = 'https://api.mixpanel.com';
 
 // Chart IDs from dashboard
 const CHART_IDS = {
@@ -48,24 +48,27 @@ const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
 /**
  * Make HTTPS request to Mixpanel API
  */
-function makeRequest(endpoint, params) {
+function makeRequest(endpoint, params, method = 'GET') {
     return new Promise((resolve, reject) => {
         const queryString = new URLSearchParams(params).toString();
-        
+
         const options = {
-            hostname: 'mixpanel.com',
-            path: `/api/2.0${endpoint}`,
-            method: 'POST',
+            hostname: 'api.mixpanel.com',
+            path: method === 'GET' ? `${endpoint}?${queryString}` : endpoint,
+            method: method,
             headers: {
                 'Authorization': authHeader,
-                'Accept': 'application/json',
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': Buffer.byteLength(queryString)
+                'Accept': 'application/json'
             }
         };
-        
-        console.log(`Fetching ${endpoint}...`);
-        
+
+        if (method === 'POST') {
+            options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            options.headers['Content-Length'] = Buffer.byteLength(queryString);
+        }
+
+        console.log(`Fetching ${endpoint} via ${method}...`);
+
         const req = https.request(options, (res) => {
             const chunks = [];
             let totalLength = 0;
@@ -98,7 +101,10 @@ function makeRequest(endpoint, params) {
         });
         
         req.on('error', reject);
-        req.write(queryString);
+
+        if (method === 'POST') {
+            req.write(queryString);
+        }
         req.end();
     });
 }
@@ -107,23 +113,31 @@ function makeRequest(endpoint, params) {
  * Fetch funnel data
  */
 async function fetchFunnelData(funnelId, name, groupBy = null) {
-    console.log(`Fetching ${name} funnel data...`);
-    
+    console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`);
+
     const params = {
-        project_id: PROJECT_ID,
         funnel_id: funnelId,
         from_date: fromDate,
         to_date: toDate
     };
-    
+
     if (groupBy) {
         params.on = `properties["${groupBy}"]`;
+        console.log(`  Grouping by: ${groupBy}`);
     }
-    
+
+    console.log(`  API params:`, JSON.stringify(params, null, 2));
+
     try {
-        return await makeRequest('/funnels', params);
+        // Use correct funnel query endpoint with GET method
+        const result = await makeRequest('/query/funnels', params, 'GET');
+        console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
+        if (result && result.data) {
+            console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
+        }
+        return result;
     } catch (error) {
-        console.error(`Error fetching ${name}:`, error.message);
+        console.error(`  ✗ Error fetching ${name}:`, error.message);
         return null;
     }
 }
@@ -155,7 +169,7 @@ async function fetchUserProfiles() {
     };
 
     try {
-        const countResult = await makeRequest('/jql', params);
+        const countResult = await makeRequest('/jql', params, 'POST');
         console.log('User count result:', countResult);
 
         // If we have too many users, use engage endpoint with pagination
@@ -188,7 +202,7 @@ async function fetchUserProfilesPaginated() {
                 project_id: PROJECT_ID,
                 page: page,
                 page_size: pageSize
-            });
+            }, 'GET');
 
             if (response && response.results && response.results.length > 0) {
                 allUsers.push(...response.results);
