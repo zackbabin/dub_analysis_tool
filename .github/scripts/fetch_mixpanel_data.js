@@ -15,7 +15,7 @@ const API_BASE = 'https://api.mixpanel.com';
 
 // Chart IDs from dashboard
 const CHART_IDS = {
-    subscribersInsights: '13682903',
+    subscribersInsights: '84933160',
     timeToFirstCopy: '84999271',
     timeToFundedAccount: '84999267',
     timeToLinkedBank: '84999265',
@@ -159,22 +159,29 @@ async function fetchInsightsData(chartId, name) {
 
     const params = {
         project_id: PROJECT_ID,
-        bookmark_id: chartId,
-        from_date: fromDate,
-        to_date: toDate
+        bookmark_id: chartId
     };
 
     console.log(`  API params:`, JSON.stringify(params, null, 2));
 
     try {
-        // Use POST method for insights endpoint
-        const result = await makeRequest('/insights', params, 'POST');
+        // Use GET method for insights endpoint
+        const result = await makeRequest('/insights', params, 'GET');
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result) {
             console.log(`  Response keys:`, Object.keys(result));
             if (result.data) {
                 console.log(`  Data type:`, typeof result.data);
-                console.log(`  Data keys:`, typeof result.data === 'object' ? Object.keys(result.data).slice(0, 10) : 'N/A');
+                if (typeof result.data === 'object') {
+                    const dataKeys = Object.keys(result.data);
+                    console.log(`  Data has ${dataKeys.length} keys`);
+                    console.log(`  First 10 keys:`, dataKeys.slice(0, 10));
+                    // Show sample of first key's data
+                    if (dataKeys.length > 0) {
+                        const firstKey = dataKeys[0];
+                        console.log(`  Sample data for '${firstKey}':`, JSON.stringify(result.data[firstKey]).substring(0, 200));
+                    }
+                }
             }
         }
         return result;
