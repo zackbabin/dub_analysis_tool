@@ -537,6 +537,16 @@ async function matchFilesByName(files) {
 }
 
 function processComprehensiveData(contents) {
+  // Helper function to find column value with flexible matching
+  function getColumnValue(row, ...possibleNames) {
+    for (const name of possibleNames) {
+      if (row[name] !== undefined && row[name] !== null) {
+        return row[name];
+      }
+    }
+    return '';
+  }
+
   // Helper function to clean column names
   function cleanColumnName(name) {
     return name
@@ -711,36 +721,51 @@ function processComprehensiveData(contents) {
   const mainAnalysisData = demoData.data.map(row => {
     const id = normalizeId(row);
     const clean = {};
-    
+
     // Clean original columns with normalized names
     Object.keys(row).forEach(k => {
       const cleanedName = cleanColumnName(k);
       clean[cleanedName] = cleanValue(row[k]);
     });
-    
-    // Add any additional subscribers insights columns
-    subscribersInsightColumns.forEach(column => {
-      if (!row[column] && row[column] !== 0) {
-        clean[cleanColumnName(column)] = '';
-      }
-    });
-    
+
+    // Map key columns with flexible matching (handles both API export and manual export formats)
+    clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
+    clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits') || clean['Total Deposits'] || '';
+    clean['Total Deposit Count'] = getColumnValue(row, 'C. Total Deposit Count', 'D. Total Deposit Count') || clean['Total Deposit Count'] || '';
+    clean['Subscribed Within 7 Days'] = getColumnValue(row, 'D. Subscribed within 7 days', 'F. Subscribed within 7 days') || clean['Subscribed Within 7 Days'] || '';
+    clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies') || clean['Total Copies'] || '';
+    clean['Total Regular Copies'] = getColumnValue(row, 'F. Total Regular Copies', 'H. Total Regular Copies') || clean['Total Regular Copies'] || '';
+    clean['Total Premium Copies'] = getColumnValue(row, 'G. Total Premium Copies') || clean['Total Premium Copies'] || '';
+    clean['Regular PDP Views'] = getColumnValue(row, 'H. Regular PDP Views', 'I. Regular PDP Views') || clean['Regular PDP Views'] || '';
+    clean['Premium PDP Views'] = getColumnValue(row, 'I. Premium PDP Views', 'J. Premium PDP Views') || clean['Premium PDP Views'] || '';
+    clean['Paywall Views'] = getColumnValue(row, 'J. Paywall Views', 'K. Paywall Views') || clean['Paywall Views'] || '';
+    clean['Regular Creator Profile Views'] = getColumnValue(row, 'K. Regular Creator Profile Views', 'L. Regular Creator Profile Views') || clean['Regular Creator Profile Views'] || '';
+    clean['Premium Creator Profile Views'] = getColumnValue(row, 'L. Premium Creator Profile Views', 'M. Premium Creator Profile Views') || clean['Premium Creator Profile Views'] || '';
+    clean['Total Subscriptions'] = getColumnValue(row, 'M. Total Subscriptions', 'E. Total Subscriptions') || clean['Total Subscriptions'] || '';
+    clean['App Sessions'] = getColumnValue(row, 'N. App Sessions') || clean['App Sessions'] || '';
+    clean['Discover Tab Views'] = getColumnValue(row, 'O. Discover Tab Views') || clean['Discover Tab Views'] || '';
+    clean['Leaderboard Tab Views'] = getColumnValue(row, 'P. Leaderboard Tab Views', 'P. Leaderboard Views') || clean['Leaderboard Tab Views'] || clean['Leaderboard Views'] || '';
+    clean['Premium Tab Views'] = getColumnValue(row, 'Q. Premium Tab Views') || clean['Premium Tab Views'] || '';
+    clean['Stripe Modal Views'] = getColumnValue(row, 'R. Stripe Modal Views') || clean['Stripe Modal Views'] || '';
+    clean['Creator Card Taps'] = getColumnValue(row, 'S. Creator Card Taps') || clean['Creator Card Taps'] || '';
+    clean['Portfolio Card Taps'] = getColumnValue(row, 'T. Portfolio Card Taps') || clean['Portfolio Card Taps'] || '';
+
     // Add time columns
     clean['Time To First Copy'] = secondsToDays(timeToFirstCopyMap[id]);
     clean['Time To Deposit'] = secondsToDays(timeToDepositMap[id]);
     clean['Time To Linked Bank'] = secondsToDays(timeToLinkedBankMap[id]);
-    
+
     // Add aggregated conversion metrics
     const conv = conversionAggregates[id] || {};
     const port = portfolioAggregates[id] || {};
-    
+
     const totalCopyStarts = (conv.total_creator_copy_starts || 0) + (port.total_portfolio_copy_starts || 0);
-    
+
     clean['Total Stripe Views'] = conv.total_stripe_views || 0;
     clean['Total Copy Starts'] = totalCopyStarts;
     clean['Unique Creators Interacted'] = conv.unique_creators_interacted ? conv.unique_creators_interacted.size : 0;
     clean['Unique Portfolios Interacted'] = port.unique_portfolios_interacted ? port.unique_portfolios_interacted.size : 0;
-    
+
     return clean;
   });
   
