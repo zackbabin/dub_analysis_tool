@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Analysis Tool - Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            color: white;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+
+        .page-header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* Container for the unified tool */
+        .unified-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .results-container {
+            max-width: 1200px;
+            margin: 40px auto 0 auto;
+        }
+
+        /* Reuse styles from analysis_tool.js */
+        .qda-inline-widget {
+            background: white;
+            border: 2px solid #17a2b8;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.1);
+        }
+
+        .qda-header {
+            background: #17a2b8;
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+
+        .qda-content {
+            padding: 20px;
+            background: white;
+        }
+
+        .qda-btn {
+            background: #17a2b8;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .qda-btn:hover {
+            background: #138496;
+        }
+
+        .qda-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Analysis results styling */
+        .qda-analysis-results {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border: 2px solid #17a2b8;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .qda-timestamp {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #6c757d;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .qda-result-section {
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .qda-result-section h1 {
+            margin: 0 0 20px 0;
+            padding: 10px 0 10px 15px;
+            border-left: 4px solid #17a2b8;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .qda-result-section h4 {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0 15px 0;
+            color: #333;
+        }
+
+        .qda-metric-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .qda-metric-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .qda-regression-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+
+        .qda-regression-table th,
+        .qda-regression-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+        }
+
+        .qda-regression-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        /* Strength indicators */
+        .qda-strength-very-weak { background-color: #D9D9D9; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-weak { background-color: #E8E5A3; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-weak-moderate { background-color: #F6F16E; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-moderate { background-color: #FFE787; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-moderate-strong { background-color: #B3E4A1; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-strong { background-color: #66E1BB; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-very-strong { background-color: #00CF84; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+
+        /* Info message */
+        .info-message {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #0c5460;
+        }
+
+        .info-message strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>🚀 Unified Analysis Tool</h1>
+        <p>Complete end-to-end workflow: Data Fetch → Merge → Analyze</p>
+    </div>
+
+    <div class="unified-container">
+        <div class="info-message">
+            <strong>How it works:</strong>
+            This tool combines the entire workflow into one seamless experience:
+            <ol style="margin: 10px 0 0 20px; padding: 0;">
+                <li><strong>Fetch Fresh Data:</strong> Triggers GitHub Actions to pull latest data from Mixpanel</li>
+                <li><strong>Upload CSV Files:</strong> Manually upload your 7 CSV files</li>
+                <li>Data is automatically merged and analyzed</li>
+                <li>Results are displayed below with full statistics and insights</li>
+            </ol>
+        </div>
+
+        <div id="unifiedToolContainer"></div>
+    </div>
+
+    <div class="results-container">
+        <div id="unifiedResultsContainer"></div>
+    </div>
+
+    <!-- Load dependencies -->
+    <script src="mixpanel_sync.js"></script>
+    <script src="data_merger.js"></script>
+    <script src="analysis_tool.js"></script>
+    <script src="unified_tool.js"></script>
+
+    <script>
+        // Initialize the unified tool
+        window.onload = function() {
+            const tool = new UnifiedAnalysisTool();
+            tool.createUI(
+                document.getElementById('unifiedToolContainer'),
+                document.getElementById('unifiedResultsContainer')
+            );
+
+            console.log('✅ Unified Analysis Tool initialized');
+        };
+    </script>
+</body>
+</html>

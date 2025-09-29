@@ -187,44 +187,56 @@ async function fetchUserProfilesPaginated() {
     let page = 0;
     const pageSize = 1000;
     let hasMore = true;
+    let sessionId = null;
 
-    while (hasMore && page < 10) { // Limit to 10 pages (10,000 users max)
+    while (hasMore && page < 100) { // Increased limit to 100 pages (100,000 users max)
         console.log(`Fetching page ${page + 1}...`);
 
         try {
             const params = {
                 project_id: PROJECT_ID,
-                page: page,
                 page_size: pageSize
             };
 
-            // Add session_id for pages > 0 (if we had one from previous call)
-            if (page > 0 && allUsers.length > 0) {
-                // For now, stop at first page to avoid session_id issue
-                console.log('Stopping at first page to avoid session_id requirement');
-                hasMore = false;
-                break;
+            // Add session_id for subsequent pages
+            if (sessionId) {
+                params.session_id = sessionId;
+                params.page = page;
             }
 
             const response = await makeRequest('/engage', params, 'GET');
 
             if (response && response.results && response.results.length > 0) {
                 allUsers.push(...response.results);
+
+                // Store session_id for next page
+                if (response.session_id) {
+                    sessionId = response.session_id;
+                }
+
                 hasMore = response.results.length === pageSize;
                 page++;
 
                 console.log(`Fetched ${response.results.length} users (total: ${allUsers.length})`);
 
-                // Add delay between requests to be nice to the API
+                // Add delay between requests to avoid rate limiting
                 if (hasMore) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between requests
                 }
             } else {
                 hasMore = false;
             }
         } catch (error) {
             console.error(`Error fetching page ${page}:`, error.message);
-            hasMore = false;
+            // Don't immediately stop on error - log it and continue
+            if (page === 0) {
+                // If first page fails, stop
+                hasMore = false;
+            } else {
+                // If later page fails, we already have some data
+                console.log(`Stopping pagination after error on page ${page}. Total users: ${allUsers.length}`);
+                hasMore = false;
+            }
         }
     }
 
