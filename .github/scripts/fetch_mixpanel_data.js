@@ -283,49 +283,59 @@ function processFunnelData(data, funnelName) {
 
     const rows = [];
 
-    // Handle the new date-based object format
+    // Handle the new date-based object format where dates are keys
+    // and values are objects with user IDs as keys
     if (typeof data.data === 'object' && !Array.isArray(data.data)) {
         console.log(`Processing date-based funnel data for ${funnelName}`);
 
-        // data.data is an object with date keys
+        // Collect all unique user IDs across all dates
+        const allUserIds = new Set();
         for (const [date, dateData] of Object.entries(data.data)) {
-            console.log(`  Processing date ${date}:`, typeof dateData, Array.isArray(dateData) ? `array[${dateData.length}]` : 'object');
             if (dateData && typeof dateData === 'object') {
-                // Check if this date has funnel step data
-                if (Array.isArray(dateData)) {
-                    // Handle array of user data for this date
-                    dateData.forEach(user => {
-                        const row = {
-                            'Date': date,
-                            'Funnel': funnelName,
-                            'Distinct ID': user.$distinct_id || user.distinct_id || '',
-                        };
-
-                        // Add any additional user data
-                        Object.keys(user).forEach(key => {
-                            if (key !== '$distinct_id' && key !== 'distinct_id') {
-                                row[key] = user[key];
-                            }
-                        });
-
-                        rows.push(row);
-                    });
-                } else {
-                    // Handle object data for this date
-                    const row = {
-                        'Date': date,
-                        'Funnel': funnelName
-                    };
-
-                    // Add all data from this date
-                    Object.keys(dateData).forEach(key => {
-                        row[key] = dateData[key];
-                    });
-
-                    rows.push(row);
-                }
+                Object.keys(dateData).forEach(key => {
+                    // Filter out non-user keys like '$overall'
+                    if (key.startsWith('$device:') || key.match(/^[A-F0-9-]+$/i) || key.match(/^[a-z0-9-]+$/i)) {
+                        allUserIds.add(key);
+                    }
+                });
             }
         }
+
+        console.log(`  Found ${allUserIds.size} unique user IDs across all dates`);
+
+        // For each user, extract their data
+        allUserIds.forEach(userId => {
+            // Clean up the user ID (remove $device: prefix if present)
+            const cleanUserId = userId.replace('$device:', '');
+
+            // Collect data for this user across all dates
+            let userData = null;
+            for (const [date, dateData] of Object.entries(data.data)) {
+                if (dateData && dateData[userId] && typeof dateData[userId] === 'object') {
+                    userData = dateData[userId];
+                    break; // Found user data, use it
+                }
+            }
+
+            if (userData) {
+                const row = {
+                    'Funnel': funnelName,
+                    'Distinct ID': cleanUserId
+                };
+
+                // Add the time value (for time-based funnels) or other metrics
+                if (userData.time !== undefined) {
+                    row[funnelName] = userData.time;
+                } else if (userData.value !== undefined) {
+                    row[funnelName] = userData.value;
+                } else {
+                    // For step-based funnels, extract all numeric values
+                    row[funnelName] = userData.steps ? userData.steps[userData.steps.length - 1] : 0;
+                }
+
+                rows.push(row);
+            }
+        });
     }
     // Legacy format handling (keep for backward compatibility)
     else if (Array.isArray(data.data)) {
@@ -350,6 +360,112 @@ function processFunnelData(data, funnelName) {
     }
 
     console.log(`Processed ${rows.length} funnel rows for ${funnelName}`);
+    return rows;
+}
+
+/**
+ * Process grouped funnel data (by creator or portfolio) into CSV format
+ */
+function processGroupedFunnelData(data, funnelName, groupByField) {
+    if (!data || !data.data) {
+        console.log(`No data for ${funnelName}`);
+        return [];
+    }
+
+    const rows = [];
+
+    // Check if data is in the new date-based format
+    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log(`Processing date-based grouped funnel data for ${funnelName}`);
+
+        // Collect all user IDs and their group associations
+        const userDataMap = new Map(); // userId -> {groupValue, steps}
+
+        for (const [date, dateData] of Object.entries(data.data)) {
+            if (dateData && typeof dateData === 'object') {
+                Object.entries(dateData).forEach(([key, value]) => {
+                    // Skip meta keys like '$overall'
+                    if (key.startsWith('$')) return;
+
+                    // The key might be the group value (e.g., creator username)
+                    // and the value contains user data
+                    if (value && typeof value === 'object') {
+                        // Check if this is group data with users
+                        if (value.users && Array.isArray(value.users)) {
+                            value.users.forEach(user => {
+                                const userId = user.$distinct_id || user.distinct_id;
+                                if (userId) {
+                                    userDataMap.set(userId, {
+                                        groupValue: key,
+                                        steps: user.steps || []
+                                    });
+                                }
+                            });
+                        } else if (value.$distinct_id || value.distinct_id) {
+                            // Single user object
+                            const userId = value.$distinct_id || value.distinct_id;
+                            userDataMap.set(userId, {
+                                groupValue: key,
+                                steps: value.steps || []
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        console.log(`  Found ${userDataMap.size} users in grouped funnel`);
+
+        // Convert to rows
+        userDataMap.forEach((userData, userId) => {
+            const row = {
+                '$distinct_id': userId,
+                [groupByField]: userData.groupValue
+            };
+
+            // Add funnel steps based on funnelName
+            if (funnelName === 'Premium Subscriptions') {
+                row['(1) Viewed Creator Paywall'] = userData.steps[0] || 0;
+                row['(2) Viewed Stripe Modal'] = userData.steps[1] || 0;
+                row['(3) Subscribed to Creator'] = userData.steps[2] || 0;
+            } else if (funnelName === 'Creator Copy Funnel' || funnelName === 'Portfolio Copy Funnel') {
+                row['(1) Viewed Portfolio Details'] = userData.steps[0] || 0;
+                row['(2) Started Copy Portfolio'] = userData.steps[1] || 0;
+                row['(3) Copied Portfolio'] = userData.steps[2] || 0;
+            }
+
+            rows.push(row);
+        });
+    }
+    // Legacy array format
+    else if (Array.isArray(data.data)) {
+        data.data.forEach(group => {
+            if (group.users) {
+                const groupValue = group.name || '';
+                group.users.forEach(user => {
+                    const row = {
+                        '$distinct_id': user.$distinct_id || '',
+                        [groupByField]: groupValue
+                    };
+
+                    // Add funnel steps
+                    if (funnelName === 'Premium Subscriptions') {
+                        row['(1) Viewed Creator Paywall'] = user.step_1 || 0;
+                        row['(2) Viewed Stripe Modal'] = user.step_2 || 0;
+                        row['(3) Subscribed to Creator'] = user.step_3 || 0;
+                    } else if (funnelName === 'Creator Copy Funnel' || funnelName === 'Portfolio Copy Funnel') {
+                        row['(1) Viewed Portfolio Details'] = user.step_1 || 0;
+                        row['(2) Started Copy Portfolio'] = user.step_2 || 0;
+                        row['(3) Copied Portfolio'] = user.step_3 || 0;
+                    }
+
+                    rows.push(row);
+                });
+            }
+        });
+    }
+
+    console.log(`Processed ${rows.length} rows for grouped funnel ${funnelName}`);
     return rows;
 }
 
@@ -532,25 +648,25 @@ async function main() {
             'Premium Subscriptions',
             'creatorUsername'
         );
-        const processedPremium = processFunnelData(premiumSubs, 'Premium Subscriptions');
+        const processedPremium = processGroupedFunnelData(premiumSubs, 'Premium Subscriptions', 'creatorUsername');
         saveToCSV(processedPremium, '5_premium_subscriptions.csv');
-        
+
         // 6. Fetch Creator Copy Funnel (grouped by creator)
         const creatorCopy = await fetchFunnelData(
             CHART_IDS.creatorCopyFunnel,
             'Creator Copy Funnel',
             'creatorUsername'
         );
-        const processedCreator = processFunnelData(creatorCopy, 'Creator Copy Funnel');
+        const processedCreator = processGroupedFunnelData(creatorCopy, 'Creator Copy Funnel', 'creatorUsername');
         saveToCSV(processedCreator, '6_creator_copy_funnel.csv');
-        
+
         // 7. Fetch Portfolio Copy Funnel (grouped by portfolio)
         const portfolioCopy = await fetchFunnelData(
             CHART_IDS.portfolioCopyFunnel,
             'Portfolio Copy Funnel',
             'portfolioTicker'
         );
-        const processedPortfolio = processFunnelData(portfolioCopy, 'Portfolio Copy Funnel');
+        const processedPortfolio = processGroupedFunnelData(portfolioCopy, 'Portfolio Copy Funnel', 'portfolioTicker');
         saveToCSV(processedPortfolio, '7_portfolio_copy_funnel.csv');
         
         console.log('\n✅ All data fetched and saved successfully!');
