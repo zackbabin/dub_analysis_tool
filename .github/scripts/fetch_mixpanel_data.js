@@ -152,35 +152,13 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
 
 /**
  * Fetch Insights data using correct API endpoint
+ * Note: The Insights API doesn't support fetching saved chart data directly
+ * This is a placeholder that will return null, forcing fallback to pagination
  */
 async function fetchInsightsData(chartId, name) {
-    console.log(`Fetching ${name} insights data (ID: ${chartId})...`);
-
-    const params = {
-        project_id: PROJECT_ID,
-        insight_id: chartId,
-        from_date: fromDate,
-        to_date: toDate
-    };
-
-    console.log(`  API params:`, JSON.stringify(params, null, 2));
-
-    try {
-        // Use correct insights query endpoint with GET method
-        const result = await makeRequest('/query/insights', params, 'GET');
-        console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
-        if (result && result.data) {
-            console.log(`  Data type:`, typeof result.data);
-            console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
-            if (typeof result.data === 'object' && !Array.isArray(result.data)) {
-                console.log(`  Data keys:`, Object.keys(result.data).slice(0, 10));
-            }
-        }
-        return result;
-    } catch (error) {
-        console.error(`  ✗ Error fetching ${name}:`, error.message);
-        return null;
-    }
+    console.log(`Note: Insights API doesn't support direct chart exports`);
+    console.log(`Skipping Insights API fetch for ${name}`);
+    return null;
 }
 
 /**
@@ -793,15 +771,29 @@ async function main() {
             userProfiles = { results: [] };
             let page = 0;
             const pageSize = 1000;
+            let sessionId = null;
+
             while (page < 5) {
-                const response = await makeRequest('/engage', {
+                const params = {
                     project_id: PROJECT_ID,
-                    page_size: pageSize,
-                    page: page
-                }, 'GET');
+                    page_size: pageSize
+                };
+
+                if (sessionId) {
+                    params.session_id = sessionId;
+                    params.page = page;
+                }
+
+                const response = await makeRequest('/engage', params, 'GET');
 
                 if (response && response.results && response.results.length > 0) {
                     userProfiles.results.push(...response.results);
+
+                    // Store session_id for next page
+                    if (response.session_id) {
+                        sessionId = response.session_id;
+                    }
+
                     page++;
                     console.log(`Fetched page ${page}, total users: ${userProfiles.results.length}`);
 
