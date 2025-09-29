@@ -1,4 +1,134 @@
-// Fixed Data Merger with Mixpanel Sync Integration - Inline Version
+// Fixed Data Merger with GitHub Workflow Trigger - Complete Version
+
+// Function to trigger GitHub Actions workflow
+async function triggerGitHubWorkflow() {
+    // Get or prompt for GitHub Personal Access Token
+    let githubToken = localStorage.getItem('github_pat');
+    
+    if (!githubToken) {
+        githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):');
+        if (!githubToken) {
+            alert('GitHub token is required to trigger the workflow');
+            return false;
+        }
+        
+        // Optionally save it
+        if (confirm('Save this token for future use?')) {
+            localStorage.setItem('github_pat', githubToken);
+        }
+    }
+    
+    const owner = 'zackbabin';
+    const repo = 'zackbabin.github.io';
+    const workflow_id = 'mixpanel-sync.yml';
+    
+    try {
+        const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow_id}/dispatches`,
+            {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': `Bearer ${githubToken}`,
+                    'X-GitHub-Api-Version': '2022-11-28'
+                },
+                body: JSON.stringify({
+                    ref: 'main' // or 'master' depending on your default branch
+                })
+            }
+        );
+        
+        if (response.status === 204) {
+            console.log('Workflow triggered successfully');
+            return true;
+        } else {
+            const error = await response.text();
+            console.error('Failed to trigger workflow:', error);
+            
+            if (response.status === 401) {
+                // Clear invalid token
+                localStorage.removeItem('github_pat');
+                alert('Invalid GitHub token. Please try again.');
+            } else if (response.status === 404) {
+                alert('Workflow not found. Make sure the workflow file exists and has been run at least once manually.');
+            } else {
+                alert(`Failed to trigger workflow: ${error}`);
+            }
+            return false;
+        }
+    } catch (error) {
+        console.error('Error triggering workflow:', error);
+        alert('Error triggering workflow. Check console for details.');
+        return false;
+    }
+}
+
+// Function to check workflow status
+async function checkWorkflowStatus() {
+    const githubToken = localStorage.getItem('github_pat');
+    if (!githubToken) return null;
+    
+    const owner = 'zackbabin';
+    const repo = 'zackbabin.github.io';
+    
+    try {
+        const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=1`,
+            {
+                headers: {
+                    'Accept': 'application/vnd.github+json',
+                    'Authorization': `Bearer ${githubToken}`,
+                    'X-GitHub-Api-Version': '2022-11-28'
+                }
+            }
+        );
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.workflow_runs && data.workflow_runs.length > 0) {
+                const latestRun = data.workflow_runs[0];
+                return {
+                    status: latestRun.status,
+                    conclusion: latestRun.conclusion,
+                    created_at: latestRun.created_at,
+                    html_url: latestRun.html_url
+                };
+            }
+        }
+    } catch (error) {
+        console.error('Error checking workflow status:', error);
+    }
+    
+    return null;
+}
+
+// Helper function to load GitHub data
+async function loadGitHubData() {
+    const baseUrl = 'https://raw.githubusercontent.com/zackbabin/zackbabin.github.io/main/data/';
+    
+    const fileUrls = [
+        baseUrl + '1_subscribers_insights.csv',
+        baseUrl + '2_time_to_first_copy.csv',
+        baseUrl + '3_time_to_funded_account.csv',
+        baseUrl + '4_time_to_linked_bank.csv',
+        baseUrl + '5_premium_subscriptions.csv',
+        baseUrl + '6_creator_copy_funnel.csv',
+        baseUrl + '7_portfolio_copy_funnel.csv'
+    ];
+    
+    const contents = await Promise.all(
+        fileUrls.map(async (url) => {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch ${url}: ${response.status}`);
+            }
+            return await response.text();
+        })
+    );
+    
+    return contents;
+}
+
 function createInlineDataMerger(targetContainer) {
   targetContainer.innerHTML = '';
   
@@ -6,12 +136,12 @@ function createInlineDataMerger(targetContainer) {
   const wrapper = document.createElement('div');
   wrapper.className = 'qda-inline-widget';
   
-  // Header - UPDATED TITLE
+  // Header
   const header = document.createElement('div');
   header.className = 'qda-header';
   
   const title = document.createElement('h3');
-  title.textContent = 'Data Merge Tool'; // Updated from "Comprehensive CSV Processor"
+  title.textContent = 'Data Merge Tool';
   title.style.margin = '0';
   header.appendChild(title);
   
@@ -19,7 +149,7 @@ function createInlineDataMerger(targetContainer) {
   const content = document.createElement('div');
   content.className = 'qda-content';
   
-  // File upload section - matching the analysis tool structure exactly
+  // File upload section
   const uploadSection = document.createElement('div');
   uploadSection.className = 'qda-upload-section';
   
@@ -40,12 +170,13 @@ function createInlineDataMerger(targetContainer) {
   
   uploadSection.appendChild(uploadColumn);
   
-  // Button row with both Merge and Sync buttons
+  // Button row with all buttons
   const analyzeRow = document.createElement('div');
   analyzeRow.className = 'qda-analyze-row';
   analyzeRow.style.display = 'flex';
   analyzeRow.style.justifyContent = 'center';
   analyzeRow.style.gap = '10px';
+  analyzeRow.style.flexWrap = 'wrap';
   
   // Original Merge Files button
   const processBtn = document.createElement('button');
@@ -53,7 +184,6 @@ function createInlineDataMerger(targetContainer) {
   processBtn.textContent = 'Merge Files';
   
   processBtn.onclick = async () => {
-    
     // Clear old summary text/status when starting new merge
     const oldSummary = content.querySelector('.data-merger-summary');
     if (oldSummary) oldSummary.remove();
@@ -118,131 +248,201 @@ function createInlineDataMerger(targetContainer) {
     }
   };
   
-  // NEW: Sync Mixpanel Data button
-  const syncBtn = document.createElement('button');
-  syncBtn.className = 'qda-btn';
-  syncBtn.textContent = 'Sync Mixpanel Data';
-  syncBtn.style.background = '#6f42c1'; // Purple to differentiate
+  // Load GitHub Data button
+  const githubBtn = document.createElement('button');
+  githubBtn.className = 'qda-btn';
+  githubBtn.textContent = 'Load GitHub Data';
+  githubBtn.style.background = '#6f42c1'; // Purple
   
-  syncBtn.onclick = async () => {
-    // Check if MixpanelSync is available
-    if (typeof window.MixpanelSync === 'undefined') {
-      alert('Mixpanel Sync module not loaded. Please ensure mixpanel_sync.js is included.');
-      return;
-    }
-    
-    const mixpanelSync = new window.MixpanelSync();
-    
-    // Check for credentials
-    if (!mixpanelSync.hasCredentials()) {
-      // Show credentials modal
-      if (typeof window.showCredentialsModal === 'function') {
-        window.showCredentialsModal();
-      } else {
-        alert('Please configure Mixpanel credentials first.');
-      }
-      return;
-    }
-    
+  githubBtn.onclick = async () => {
     try {
-      syncBtn.textContent = 'Syncing...';
-      syncBtn.disabled = true;
-      processBtn.disabled = true; // Disable merge button during sync
+      githubBtn.textContent = 'Loading...';
+      githubBtn.disabled = true;
+      processBtn.disabled = true;
       
-      // Clear old summary text/status when starting new sync
+      // Clear old summary
       const oldSummary = content.querySelector('.data-merger-summary');
       if (oldSummary) oldSummary.remove();
       
-      console.log('Fetching data from Mixpanel...');
+      console.log('Fetching data from GitHub repository...');
       
-      // Fetch all chart data from Mixpanel
-      const csvDataArray = await mixpanelSync.fetchAllChartData();
+      const contents = await loadGitHubData();
       
-      console.log('Processing synced data...');
+      console.log('Processing GitHub data...');
+      const results = processComprehensiveData(contents);
       
-      // Process the CSV data using existing function
-      const results = processComprehensiveData(csvDataArray);
-      
-      // Create downloads
       createMultipleDownloads(results);
       
-      syncBtn.textContent = 'Sync Success!';
-      syncBtn.style.background = '#28a745';
+      githubBtn.textContent = 'Success!';
+      githubBtn.style.background = '#28a745';
       
       // Add summary message
       const summaryDiv = document.createElement('div');
       summaryDiv.className = 'data-merger-summary';
       summaryDiv.style.cssText = 'margin-top: 15px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; text-align: center;';
-      summaryDiv.textContent = 'Data synced successfully! Check your downloads.';
+      summaryDiv.textContent = 'Data loaded from GitHub! Check your downloads.';
       content.appendChild(summaryDiv);
       
       // Reset button after 3 seconds
       setTimeout(() => {
-        syncBtn.textContent = 'Sync Mixpanel Data';
-        syncBtn.style.background = '#6f42c1';
-        syncBtn.disabled = false;
+        githubBtn.textContent = 'Load GitHub Data';
+        githubBtn.style.background = '#6f42c1';
+        githubBtn.disabled = false;
         processBtn.disabled = false;
       }, 3000);
       
     } catch (error) {
-      console.error('Sync error:', error);
+      console.error('GitHub load error:', error);
+      alert('Error loading GitHub data: ' + error.message + '\n\nMake sure the GitHub Action has run at least once to generate the data files.');
       
-      if (error.message.includes('credentials')) {
-        if (typeof window.showCredentialsModal === 'function') {
-          window.showCredentialsModal();
-        } else {
-          alert('Please configure valid Mixpanel credentials.');
-        }
-      } else {
-        alert('Sync failed: ' + error.message);
-      }
-      
-      syncBtn.textContent = 'Sync Mixpanel Data';
-      syncBtn.style.background = '#6f42c1';
-      syncBtn.disabled = false;
+      githubBtn.textContent = 'Load GitHub Data';
+      githubBtn.style.background = '#6f42c1';
+      githubBtn.disabled = false;
       processBtn.disabled = false;
     }
   };
-
-  analyzeRow.appendChild(processBtn);
-  analyzeRow.appendChild(syncBtn);
   
-  // Add credentials status indicator
-  const credentialsStatus = document.createElement('div');
-  credentialsStatus.id = 'credentialsStatus';
-  credentialsStatus.style.cssText = 'margin-top: 10px; text-align: center; font-size: 12px;';
+  // NEW: Sync & Load button (combines trigger + load)
+  const syncLoadBtn = document.createElement('button');
+  syncLoadBtn.className = 'qda-btn';
+  syncLoadBtn.textContent = 'Sync & Load Data';
+  syncLoadBtn.style.background = '#28a745'; // Green
   
-  // Check and display credentials status
-  if (typeof window.MixpanelSync !== 'undefined') {
-    const mixpanelSync = new window.MixpanelSync();
-    if (mixpanelSync.hasCredentials()) {
-      credentialsStatus.innerHTML = `
-        <span style="color: #28a745;">✓ Mixpanel credentials configured</span>
-        <button onclick="window.showCredentialsModal()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Update</button>
-      `;
-    } else {
-      credentialsStatus.innerHTML = `
-        <span style="color: #dc3545;">✗ Mixpanel credentials not configured</span>
-        <button onclick="window.showCredentialsModal()" style="margin-left: 10px; padding: 2px 8px; font-size: 11px; background: #6f42c1; color: white; border: none; border-radius: 3px; cursor: pointer;">Configure</button>
-      `;
+  syncLoadBtn.onclick = async () => {
+    try {
+      syncLoadBtn.textContent = 'Triggering workflow...';
+      syncLoadBtn.disabled = true;
+      processBtn.disabled = true;
+      githubBtn.disabled = true;
+      
+      // Clear old summary
+      const oldSummary = content.querySelector('.data-merger-summary');
+      if (oldSummary) oldSummary.remove();
+      
+      // Step 1: Trigger the workflow
+      const triggered = await triggerGitHubWorkflow();
+      
+      if (!triggered) {
+        syncLoadBtn.textContent = 'Sync & Load Data';
+        syncLoadBtn.disabled = false;
+        processBtn.disabled = false;
+        githubBtn.disabled = false;
+        return;
+      }
+      
+      syncLoadBtn.textContent = 'Workflow started...';
+      
+      // Step 2: Poll for completion (check every 5 seconds)
+      let attempts = 0;
+      const maxAttempts = 36; // 3 minutes max
+      
+      const checkInterval = setInterval(async () => {
+        attempts++;
+        
+        const status = await checkWorkflowStatus();
+        
+        if (status) {
+          syncLoadBtn.textContent = `Workflow ${status.status}...`;
+          
+          if (status.status === 'completed') {
+            clearInterval(checkInterval);
+            
+            if (status.conclusion === 'success') {
+              syncLoadBtn.textContent = 'Loading data...';
+              
+              // Wait a moment for GitHub to update the files
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              // Step 3: Load the data
+              const contents = await loadGitHubData();
+              const results = processComprehensiveData(contents);
+              createMultipleDownloads(results);
+              
+              syncLoadBtn.textContent = 'Success!';
+              syncLoadBtn.style.background = '#28a745';
+              
+              // Add summary message
+              const summaryDiv = document.createElement('div');
+              summaryDiv.className = 'data-merger-summary';
+              summaryDiv.style.cssText = 'margin-top: 15px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; text-align: center;';
+              summaryDiv.textContent = 'Fresh data synced and loaded! Check your downloads.';
+              content.appendChild(summaryDiv);
+              
+              setTimeout(() => {
+                syncLoadBtn.textContent = 'Sync & Load Data';
+                syncLoadBtn.disabled = false;
+                processBtn.disabled = false;
+                githubBtn.disabled = false;
+              }, 3000);
+            } else {
+              syncLoadBtn.textContent = 'Workflow failed';
+              syncLoadBtn.style.background = '#dc3545';
+              
+              alert(`Workflow failed. Check the logs: ${status.html_url}`);
+              
+              setTimeout(() => {
+                syncLoadBtn.textContent = 'Sync & Load Data';
+                syncLoadBtn.style.background = '#28a745';
+                syncLoadBtn.disabled = false;
+                processBtn.disabled = false;
+                githubBtn.disabled = false;
+              }, 3000);
+            }
+          }
+        }
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          syncLoadBtn.textContent = 'Timeout - check Actions tab';
+          
+          setTimeout(() => {
+            syncLoadBtn.textContent = 'Sync & Load Data';
+            syncLoadBtn.disabled = false;
+            processBtn.disabled = false;
+            githubBtn.disabled = false;
+          }, 3000);
+        }
+      }, 5000); // Check every 5 seconds
+      
+    } catch (error) {
+      console.error('Error in sync & load:', error);
+      alert('Error: ' + error.message);
+      
+      syncLoadBtn.textContent = 'Sync & Load Data';
+      syncLoadBtn.style.background = '#28a745';
+      syncLoadBtn.disabled = false;
+      processBtn.disabled = false;
+      githubBtn.disabled = false;
     }
-  }
+  };
+
+  // Add all buttons
+  analyzeRow.appendChild(processBtn);
+  analyzeRow.appendChild(githubBtn);
+  analyzeRow.appendChild(syncLoadBtn);
   
-  // Assemble the sections in the right order
+  // Add info about GitHub Actions
+  const githubInfo = document.createElement('div');
+  githubInfo.style.cssText = 'margin-top: 10px; text-align: center; font-size: 12px; color: #6c757d;';
+  githubInfo.innerHTML = `
+    <div style="margin-top: 10px;">
+      <strong>Options:</strong> Upload CSVs | Load existing GitHub data | Sync fresh data<br>
+      <a href="https://github.com/zackbabin/zackbabin.github.io/actions" target="_blank" style="color: #6f42c1;">View GitHub Actions</a>
+      | <a href="#" onclick="if(confirm('Clear saved GitHub token?')) { localStorage.removeItem('github_pat'); alert('Token cleared'); } return false;" style="color: #dc3545;">Clear Token</a>
+    </div>
+  `;
+  
+  // Assemble the sections
   content.appendChild(header);
   content.appendChild(uploadSection);
   content.appendChild(analyzeRow);
-  content.appendChild(credentialsStatus);
+  content.appendChild(githubInfo);
   
   wrapper.appendChild(content);
   targetContainer.appendChild(wrapper);
 }
 
-// Keep original function for backwards compatibility
-function createComprehensiveCSVProcessor() {
-  // ... (omitted for brevity - keep existing implementation)
-}
-
+// Keep all existing functions unchanged
 async function matchFilesByName(files) {
   const requiredFiles = {
     demo: null,
@@ -282,8 +482,7 @@ async function matchFilesByName(files) {
     
     console.log(`Analyzing ${file.name}:`, headers);
     
-    // Demo breakdown file: has income, netWorth, and multiple demographic columns
-    // UPDATED: Now also checks for the new subscribers insights columns including Creator Card Taps and Portfolio Card Taps
+    // Demo breakdown file
     if (headerString.includes('income') && headerString.includes('networth') && 
         (headerString.includes('total deposits') || headerString.includes('b. total deposits')) && 
         (headerString.includes('total subscriptions') || headerString.includes('m. total subscriptions') || 
@@ -320,7 +519,7 @@ async function matchFilesByName(files) {
       }
     }
     
-    // Premium subscription: has creatorUsername and viewed creator paywall
+    // Premium subscription
     else if (headerString.includes('creatorusername') && 
              headerString.includes('viewed creator paywall') && 
              headerString.includes('viewed stripe modal')) {
@@ -330,7 +529,7 @@ async function matchFilesByName(files) {
       }
     }
     
-    // Creator copy: has creatorUsername and portfolio details columns (but NOT portfolioTicker)
+    // Creator copy
     else if (headerString.includes('creatorusername') && 
              headerString.includes('viewed portfolio details') && 
              !headerString.includes('portfolioticker')) {
@@ -340,7 +539,7 @@ async function matchFilesByName(files) {
       }
     }
     
-    // Portfolio copy: has portfolioTicker and portfolio details columns  
+    // Portfolio copy
     else if (headerString.includes('portfolioticker') && 
              headerString.includes('viewed portfolio details')) {
       if (!requiredFiles.portfolioCopy) {
@@ -403,9 +602,9 @@ function processComprehensiveData(contents) {
   function cleanColumnName(name) {
     return name
       .replace(/^[A-Z]\.\s*/, '') // Remove "A. ", "B. " etc.
-      .replace(/\s*\(\$?\)\s*/, '') // Remove empty parentheses like " ($)" or " ()"
+      .replace(/\s*\(\$?\)\s*/, '') // Remove empty parentheses
       .replace(/([a-z])([A-Z])/g, '$1 $2') // Add spaces in camelCase
-      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Handle sequences like "ID" -> "I D"
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
       .replace(/\b\w/g, l => l.toUpperCase()) // Title case
       .replace(/\bI D\b/g, 'ID'); // Fix "I D" back to "ID"
   }
@@ -477,7 +676,7 @@ function processComprehensiveData(contents) {
     if (id) timeToLinkedBankMap[id] = row[linkedBankData.headers[2]];
   });
   
-  // Create aggregated conversion metrics by distinct_id
+  // Create aggregated conversion metrics
   const conversionAggregates = {};
   
   // Process premium subscription data
@@ -530,7 +729,7 @@ function processComprehensiveData(contents) {
     }
   });
   
-  // Aggregate portfolio-level data and combine with creator copy starts
+  // Aggregate portfolio-level data
   const portfolioAggregates = {};
   portfolioCopyData.data.forEach(row => {
     const id = normalizeId(row);
@@ -555,7 +754,7 @@ function processComprehensiveData(contents) {
     return Math.round((seconds / 86400) * 100) / 100;
   }
   
-  // NEW: Define all columns that should be preserved from subscribers insights
+  // Define all columns that should be preserved
   const subscribersInsightColumns = [
     'income', 'netWorth', 'availableCopyCredits', 'buyingPower',
     'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells', 'totalTrades',
@@ -574,31 +773,28 @@ function processComprehensiveData(contents) {
     const id = normalizeId(row);
     const clean = {};
     
-    // Clean original columns with normalized names - PRESERVE ALL EXISTING COLUMNS
+    // Clean original columns with normalized names
     Object.keys(row).forEach(k => {
       const cleanedName = cleanColumnName(k);
       clean[cleanedName] = cleanValue(row[k]);
     });
     
-    // NEW: Add any additional subscribers insights columns that weren't in the original demo file
+    // Add any additional subscribers insights columns
     subscribersInsightColumns.forEach(column => {
       if (!row[column] && row[column] !== 0) {
-        // If column doesn't exist in original data, add it as empty
-        // This ensures compatibility with future files that might have these columns
         clean[cleanColumnName(column)] = '';
       }
     });
     
-    // Add time columns with consistent naming (EXISTING FUNCTIONALITY PRESERVED)
+    // Add time columns
     clean['Time To First Copy'] = secondsToDays(timeToFirstCopyMap[id]);
     clean['Time To Deposit'] = secondsToDays(timeToDepositMap[id]);
     clean['Time To Linked Bank'] = secondsToDays(timeToLinkedBankMap[id]);
     
-    // Add aggregated conversion metrics (EXISTING FUNCTIONALITY PRESERVED)
+    // Add aggregated conversion metrics
     const conv = conversionAggregates[id] || {};
     const port = portfolioAggregates[id] || {};
     
-    // Combine copy starts from both creator-level and portfolio-level data
     const totalCopyStarts = (conv.total_creator_copy_starts || 0) + (port.total_portfolio_copy_starts || 0);
     
     clean['Total Stripe Views'] = conv.total_stripe_views || 0;
@@ -609,7 +805,7 @@ function processComprehensiveData(contents) {
     return clean;
   });
   
-  // Create creator detail file (merge premium + creator copy data) - UNCHANGED
+  // Create creator detail file
   const creatorDetailMap = {};
   
   // Add premium subscription data
@@ -658,7 +854,7 @@ function processComprehensiveData(contents) {
   
   const creatorDetailData = Object.values(creatorDetailMap);
   
-  // Create portfolio detail file - UNCHANGED
+  // Create portfolio detail file
   const portfolioDetailData = portfolioCopyData.data.map(row => ({
     distinct_id: normalizeId(row),
     portfolioTicker: row['portfolioTicker'],
