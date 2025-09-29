@@ -248,61 +248,7 @@ function createInlineDataMerger(targetContainer) {
     }
   };
   
-  // Load GitHub Data button
-  const githubBtn = document.createElement('button');
-  githubBtn.className = 'qda-btn';
-  githubBtn.textContent = 'Load GitHub Data';
-  githubBtn.style.background = '#6f42c1'; // Purple
-  
-  githubBtn.onclick = async () => {
-    try {
-      githubBtn.textContent = 'Loading...';
-      githubBtn.disabled = true;
-      processBtn.disabled = true;
-      
-      // Clear old summary
-      const oldSummary = content.querySelector('.data-merger-summary');
-      if (oldSummary) oldSummary.remove();
-      
-      console.log('Fetching data from GitHub repository...');
-      
-      const contents = await loadGitHubData();
-      
-      console.log('Processing GitHub data...');
-      const results = processComprehensiveData(contents);
-      
-      createMultipleDownloads(results);
-      
-      githubBtn.textContent = 'Success!';
-      githubBtn.style.background = '#28a745';
-      
-      // Add summary message
-      const summaryDiv = document.createElement('div');
-      summaryDiv.className = 'data-merger-summary';
-      summaryDiv.style.cssText = 'margin-top: 15px; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724; text-align: center;';
-      summaryDiv.textContent = 'Data loaded from GitHub! Check your downloads.';
-      content.appendChild(summaryDiv);
-      
-      // Reset button after 3 seconds
-      setTimeout(() => {
-        githubBtn.textContent = 'Load GitHub Data';
-        githubBtn.style.background = '#6f42c1';
-        githubBtn.disabled = false;
-        processBtn.disabled = false;
-      }, 3000);
-      
-    } catch (error) {
-      console.error('GitHub load error:', error);
-      alert('Error loading GitHub data: ' + error.message + '\n\nMake sure the GitHub Action has run at least once to generate the data files.');
-      
-      githubBtn.textContent = 'Load GitHub Data';
-      githubBtn.style.background = '#6f42c1';
-      githubBtn.disabled = false;
-      processBtn.disabled = false;
-    }
-  };
-  
-  // NEW: Sync & Load button (combines trigger + load)
+  // Sync & Load button (combines trigger + load)
   const syncLoadBtn = document.createElement('button');
   syncLoadBtn.className = 'qda-btn';
   syncLoadBtn.textContent = 'Sync & Load Data';
@@ -313,7 +259,6 @@ function createInlineDataMerger(targetContainer) {
       syncLoadBtn.textContent = 'Triggering workflow...';
       syncLoadBtn.disabled = true;
       processBtn.disabled = true;
-      githubBtn.disabled = true;
       
       // Clear old summary
       const oldSummary = content.querySelector('.data-merger-summary');
@@ -326,7 +271,6 @@ function createInlineDataMerger(targetContainer) {
         syncLoadBtn.textContent = 'Sync & Load Data';
         syncLoadBtn.disabled = false;
         processBtn.disabled = false;
-        githubBtn.disabled = false;
         return;
       }
       
@@ -372,7 +316,6 @@ function createInlineDataMerger(targetContainer) {
                 syncLoadBtn.textContent = 'Sync & Load Data';
                 syncLoadBtn.disabled = false;
                 processBtn.disabled = false;
-                githubBtn.disabled = false;
               }, 3000);
             } else {
               syncLoadBtn.textContent = 'Workflow failed';
@@ -385,7 +328,6 @@ function createInlineDataMerger(targetContainer) {
                 syncLoadBtn.style.background = '#28a745';
                 syncLoadBtn.disabled = false;
                 processBtn.disabled = false;
-                githubBtn.disabled = false;
               }, 3000);
             }
           }
@@ -399,7 +341,6 @@ function createInlineDataMerger(targetContainer) {
             syncLoadBtn.textContent = 'Sync & Load Data';
             syncLoadBtn.disabled = false;
             processBtn.disabled = false;
-            githubBtn.disabled = false;
           }, 3000);
         }
       }, 5000); // Check every 5 seconds
@@ -412,13 +353,11 @@ function createInlineDataMerger(targetContainer) {
       syncLoadBtn.style.background = '#28a745';
       syncLoadBtn.disabled = false;
       processBtn.disabled = false;
-      githubBtn.disabled = false;
     }
   };
 
-  // Add all buttons
+  // Add buttons
   analyzeRow.appendChild(processBtn);
-  analyzeRow.appendChild(githubBtn);
   analyzeRow.appendChild(syncLoadBtn);
   
   // Add info about GitHub Actions
@@ -426,7 +365,7 @@ function createInlineDataMerger(targetContainer) {
   githubInfo.style.cssText = 'margin-top: 10px; text-align: center; font-size: 12px; color: #6c757d;';
   githubInfo.innerHTML = `
     <div style="margin-top: 10px;">
-      <strong>Options:</strong> Upload CSVs | Load existing GitHub data | Sync fresh data<br>
+      <strong>Options:</strong> Upload CSVs | Sync fresh data from Mixpanel<br>
       <a href="https://github.com/zackbabin/zackbabin.github.io/actions" target="_blank" style="color: #6f42c1;">View GitHub Actions</a>
       | <a href="#" onclick="if(confirm('Clear saved GitHub token?')) { localStorage.removeItem('github_pat'); alert('Token cleared'); } return false;" style="color: #dc3545;">Clear Token</a>
     </div>
