@@ -34,9 +34,23 @@ jobs:
       run: |
         node .github/scripts/fetch_mixpanel_data.js
     
-    - name: Commit and push if changed
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add data/*.csv
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git push)
+    - name: Checkout target repository
+        uses: actions/checkout@v3
+        with:
+          repository: zackbabin/zackbabin.github.io
+          token: ${{ secrets.GITHUB_PAT }}
+          path: target-repo
+
+      - name: Copy CSV files to target repository
+        run: |
+          mkdir -p target-repo/data
+          cp -f data/*.csv target-repo/data/
+
+      - name: Commit and push to target repository
+        run: |
+          cd target-repo
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/*.csv
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git 
+  push)
