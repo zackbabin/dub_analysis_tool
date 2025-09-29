@@ -178,9 +178,29 @@ function processComprehensiveData(contents) {
         }
     });
 
-    // Create main analysis file
-    const mainAnalysisData = demoData.data.map(row => {
+    // Collect ALL unique user IDs from all 7 files
+    const allUserIds = new Set();
+
+    [demoData, firstCopyData, fundedAccountData, linkedBankData,
+     premiumSubData, creatorCopyData, portfolioCopyData].forEach(dataset => {
+        dataset.data.forEach(row => {
+            const id = normalizeId(row);
+            if (id) allUserIds.add(id);
+        });
+    });
+
+    console.log(`Found ${allUserIds.size} unique users across all files`);
+
+    // Create a map of user data from demo/insights file
+    const demoDataMap = {};
+    demoData.data.forEach(row => {
         const id = normalizeId(row);
+        if (id) demoDataMap[id] = row;
+    });
+
+    // Create main analysis file with ALL users
+    const mainAnalysisData = Array.from(allUserIds).map(id => {
+        const row = demoDataMap[id] || {};
         const clean = {};
 
         // Clean original columns with normalized names
@@ -188,6 +208,9 @@ function processComprehensiveData(contents) {
             const cleanedName = cleanColumnName(k);
             clean[cleanedName] = cleanValue(row[k]);
         });
+
+        // Always include the Distinct ID
+        clean['Distinct ID'] = id;
 
         // Map key columns with flexible matching
         clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
@@ -230,68 +253,8 @@ function processComprehensiveData(contents) {
         return clean;
     });
 
-    // Create creator detail file
-    const creatorDetailMap = {};
-
-    // Add premium subscription data
-    premiumSubData.data.forEach(row => {
-        const id = normalizeId(row);
-        const creator = row['creatorUsername'];
-        if (!id || !creator) return;
-
-        const key = `${id}_${creator}`;
-        creatorDetailMap[key] = {
-            distinct_id: id,
-            creatorUsername: creator,
-            paywall_views: parseInt(row['(1) Viewed Creator Paywall'] || 0),
-            stripe_views: parseInt(row['(2) Viewed Stripe Modal'] || 0),
-            subscriptions: parseInt(row['(3) Subscribed to Creator'] || 0),
-            portfolio_views: 0,
-            copy_starts: 0,
-            copies: 0
-        };
-    });
-
-    // Add creator copy data
-    creatorCopyData.data.forEach(row => {
-        const id = normalizeId(row);
-        const creator = row['creatorUsername'];
-        if (!id || !creator) return;
-
-        const key = `${id}_${creator}`;
-        if (!creatorDetailMap[key]) {
-            creatorDetailMap[key] = {
-                distinct_id: id,
-                creatorUsername: creator,
-                paywall_views: 0,
-                stripe_views: 0,
-                subscriptions: 0,
-                portfolio_views: 0,
-                copy_starts: 0,
-                copies: 0
-            };
-        }
-
-        creatorDetailMap[key].portfolio_views += parseInt(row['(1) Viewed Portfolio Details'] || 0);
-        creatorDetailMap[key].copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
-        creatorDetailMap[key].copies += parseInt(row['(3) Copied Portfolio'] || 0);
-    });
-
-    const creatorDetailData = Object.values(creatorDetailMap);
-
-    // Create portfolio detail file
-    const portfolioDetailData = portfolioCopyData.data.map(row => ({
-        distinct_id: normalizeId(row),
-        portfolioTicker: row['portfolioTicker'],
-        portfolio_views: parseInt(row['(1) Viewed Portfolio Details'] || 0),
-        copy_starts: parseInt(row['(2) Started Copy Portfolio'] || 0),
-        copies: parseInt(row['(3) Copied Portfolio'] || 0)
-    })).filter(row => row.distinct_id);
-
     return {
-        mainFile: mainAnalysisData,
-        creatorFile: creatorDetailData,
-        portfolioFile: portfolioDetailData
+        mainFile: mainAnalysisData
     };
 }
 
@@ -350,19 +313,13 @@ async function main() {
     // Convert to CSV
     console.log('Converting to CSV format...');
     const mainCSV = dataToCSV(results.mainFile);
-    const creatorCSV = dataToCSV(results.creatorFile);
-    const portfolioCSV = dataToCSV(results.portfolioFile);
 
-    // Write output files
-    console.log('Writing output files...');
+    // Write output file
+    console.log('Writing output file...');
     fs.writeFileSync(path.join(dataDir, 'Main_Analysis_File.csv'), mainCSV);
-    fs.writeFileSync(path.join(dataDir, 'Creator_Detail_File.csv'), creatorCSV);
-    fs.writeFileSync(path.join(dataDir, 'Portfolio_Detail_File.csv'), portfolioCSV);
 
     console.log('✅ Merge complete!');
     console.log(`  - Main Analysis File: ${results.mainFile.length} rows`);
-    console.log(`  - Creator Detail File: ${results.creatorFile.length} rows`);
-    console.log(`  - Portfolio Detail File: ${results.portfolioFile.length} rows`);
 }
 
 // Run the script
