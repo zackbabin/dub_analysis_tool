@@ -1,13 +1,13 @@
 name: Sync Mixpanel Data
 
-  on:
+on:
     workflow_dispatch:
 
-  permissions:
+permissions:
     contents: write
     actions: read
 
-  jobs:
+jobs:
     sync-mixpanel:
       runs-on: ubuntu-latest
 
@@ -50,5 +50,4 @@ name: Sync Mixpanel Data
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/*.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git 
-  push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git push)
