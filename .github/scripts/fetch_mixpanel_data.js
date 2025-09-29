@@ -268,25 +268,54 @@ function processFunnelData(data, funnelName) {
         console.log(`No data for ${funnelName}`);
         return [];
     }
-    
+
     const rows = [];
-    
-    // Time-based funnel (single funnel with time data)
-    if (data.data.length === 1 && data.data[0].steps) {
-        const steps = data.data[0].steps;
-        // Look for time data in the last step
-        const lastStep = steps[steps.length - 1];
-        if (lastStep && lastStep.custom_event_params) {
-            for (const [userId, timeValue] of Object.entries(lastStep.custom_event_params)) {
-                rows.push({
-                    'Funnel': funnelName,
-                    'Distinct ID': userId,
-                    [funnelName]: timeValue
-                });
+
+    // Handle the new date-based object format
+    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log(`Processing date-based funnel data for ${funnelName}`);
+
+        // data.data is an object with date keys
+        for (const [date, dateData] of Object.entries(data.data)) {
+            console.log(`  Processing date ${date}:`, typeof dateData, Array.isArray(dateData) ? `array[${dateData.length}]` : 'object');
+            if (dateData && typeof dateData === 'object') {
+                // Check if this date has funnel step data
+                if (Array.isArray(dateData)) {
+                    // Handle array of user data for this date
+                    dateData.forEach(user => {
+                        const row = {
+                            'Date': date,
+                            'Funnel': funnelName,
+                            'Distinct ID': user.$distinct_id || user.distinct_id || '',
+                        };
+
+                        // Add any additional user data
+                        Object.keys(user).forEach(key => {
+                            if (key !== '$distinct_id' && key !== 'distinct_id') {
+                                row[key] = user[key];
+                            }
+                        });
+
+                        rows.push(row);
+                    });
+                } else {
+                    // Handle object data for this date
+                    const row = {
+                        'Date': date,
+                        'Funnel': funnelName
+                    };
+
+                    // Add all data from this date
+                    Object.keys(dateData).forEach(key => {
+                        row[key] = dateData[key];
+                    });
+
+                    rows.push(row);
+                }
             }
         }
     }
-    // Grouped funnel (multiple groups with user data)
+    // Legacy format handling (keep for backward compatibility)
     else if (Array.isArray(data.data)) {
         data.data.forEach(group => {
             if (group.users) {
@@ -296,18 +325,19 @@ function processFunnelData(data, funnelName) {
                         '$distinct_id': user.$distinct_id || '',
                         'group': groupName
                     };
-                    
+
                     // Add step data
                     for (let i = 1; i <= 3; i++) {
                         row[`step_${i}`] = user[`step_${i}`] || 0;
                     }
-                    
+
                     rows.push(row);
                 });
             }
         });
     }
-    
+
+    console.log(`Processed ${rows.length} funnel rows for ${funnelName}`);
     return rows;
 }
 
