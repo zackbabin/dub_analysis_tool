@@ -170,7 +170,11 @@ async function fetchInsightsData(chartId, name) {
         const result = await makeRequest('/query/insights', params, 'GET');
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result && result.data) {
+            console.log(`  Data type:`, typeof result.data);
             console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
+            if (typeof result.data === 'object' && !Array.isArray(result.data)) {
+                console.log(`  Data keys:`, Object.keys(result.data).slice(0, 10));
+            }
         }
         return result;
     } catch (error) {
@@ -475,6 +479,7 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
 
 /**
  * Process Insights data into CSV format
+ * For subscriber insights broken down by distinct_id and properties
  */
 function processInsightsData(data) {
     if (!data || !data.data) {
@@ -484,8 +489,33 @@ function processInsightsData(data) {
 
     const rows = [];
 
-    // Handle different Insights data formats
-    if (data.data.series && Array.isArray(data.data.series)) {
+    // Handle insights data broken down by distinct_id (like Demo breakdown of subscribers)
+    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log('Processing distinct_id breakdown format');
+
+        // data.data is an object where keys are distinct_ids or property values
+        Object.entries(data.data).forEach(([key, value]) => {
+            // Skip aggregate keys like $overall
+            if (key.startsWith('$overall') || key === 'total') return;
+
+            const row = {
+                '$distinct_id': key.replace('$device:', '') // Clean up device prefix
+            };
+
+            // The value might be an object with property values or a simple value
+            if (typeof value === 'object' && value !== null) {
+                Object.entries(value).forEach(([propKey, propValue]) => {
+                    row[propKey] = propValue;
+                });
+            } else {
+                row['value'] = value;
+            }
+
+            rows.push(row);
+        });
+    }
+    // Handle different Insights data formats (fallback)
+    else if (data.data.series && Array.isArray(data.data.series)) {
         // Time series data format
         data.data.series.forEach((series, index) => {
             if (series.data) {
@@ -699,49 +729,42 @@ async function main() {
     }
 
     try {
-        // Step 1: Fetch the Subscribers Insights chart (the base universe of users)
-        console.log('\n=== Step 1: Fetching Subscribers Insights (base user list) ===');
+        // Step 1: Fetch the Subscribers Insights chart directly (with distinct_id breakdown)
+        console.log('\n=== Step 1: Fetching Subscribers Insights chart ===');
 
         const subscribersData = await fetchInsightsData(
             CHART_IDS.subscribersInsights,
             'Subscribers Insights'
         );
 
-        // Extract user IDs from the insights chart
-        let baseUserIds = new Set();
-        if (subscribersData && subscribersData.data) {
-            // The insights data should contain user information
-            // Need to extract the user IDs from the response
-            console.log('Subscribers insights data structure:', Object.keys(subscribersData));
-            if (subscribersData.data.series) {
-                console.log('Series data found');
-            }
-            // For now, we'll fall back to fetching recent users
-            console.log('Warning: Could not extract users from insights chart, fetching paginated users instead');
-            const paginatedUsers = await fetchUserProfilesPaginated();
-            if (paginatedUsers && paginatedUsers.results) {
-                paginatedUsers.results.forEach(user => {
-                    const userId = (user.$distinct_id || user.distinct_id || '').replace('$device:', '');
-                    if (userId) baseUserIds.add(userId);
-                });
-            }
-        }
+        // Process the insights data - this should give us users with their properties
+        const processedInsights = processInsightsData(subscribersData);
 
-        console.log(`Base user list: ${baseUserIds.size} users`);
+        if (processedInsights && processedInsights.length > 0) {
+            console.log(`Processed ${processedInsights.length} users from insights chart`);
 
-        // Step 2: Fetch user profiles for the base list
-        console.log('\n=== Step 2: Fetching user profiles ===');
+            // Extract user IDs for enrichment
+            const userIds = processedInsights.map(row => row.$distinct_id).filter(Boolean);
 
-        let userProfiles;
-        if (baseUserIds.size > 0 && baseUserIds.size < 10000) {
-            userProfiles = await fetchUserProfilesByIds(Array.from(baseUserIds));
+            // Step 2: Enrich with full user profiles if needed
+            console.log('\n=== Step 2: Enriching with full user profiles ===');
+
+            const userProfiles = await fetchUserProfilesByIds(userIds);
+            const processedProfiles = processUserProfiles(userProfiles);
+
+            // Merge insights data with profiles
+            const enrichedData = processedInsights.map(insightRow => {
+                const profileRow = processedProfiles.find(p => p.$distinct_id === insightRow.$distinct_id);
+                return profileRow ? { ...profileRow, ...insightRow } : insightRow;
+            });
+
+            saveToCSV(enrichedData, '1_subscribers_insights.csv');
         } else {
-            // Fall back to paginated fetch if we couldn't extract IDs
-            userProfiles = await fetchUserProfilesPaginated();
+            console.log('Warning: No users found in insights chart, falling back to paginated fetch');
+            const userProfiles = await fetchUserProfilesPaginated();
+            const processedProfiles = processUserProfiles(userProfiles);
+            saveToCSV(processedProfiles, '1_subscribers_insights.csv');
         }
-
-        const processedProfiles = processUserProfiles(userProfiles);
-        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
 
         // Step 3: Fetch all funnel data
         console.log('\n=== Step 3: Fetching funnel data ===');
