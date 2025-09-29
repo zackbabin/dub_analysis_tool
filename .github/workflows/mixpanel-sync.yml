@@ -1,9 +1,13 @@
 name: Sync Mixpanel Data
 
-on:
+  on:
     workflow_dispatch:
 
-jobs:
+  permissions:
+    contents: write
+    actions: read
+
+  jobs:
     sync-mixpanel:
       runs-on: ubuntu-latest
 
@@ -32,7 +36,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: zackbabin/zackbabin.github.io
-          token: ${{ secrets.GITHUB_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: target-repo
 
       - name: Copy CSV files to target repository
@@ -46,4 +50,5 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add data/*.csv
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git push)
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update Mixpanel data [skip ci]" && git 
+  push)
