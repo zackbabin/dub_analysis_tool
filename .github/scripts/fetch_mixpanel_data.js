@@ -133,8 +133,15 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
         // Use original funnel endpoint that was working before
         const result = await makeRequest('/funnels', params, 'POST');
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
-        if (result && result.data) {
-            console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
+        if (result) {
+            console.log(`  Response keys:`, Object.keys(result));
+            if (result.data) {
+                console.log(`  Data type:`, typeof result.data);
+                console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
+                if (!Array.isArray(result.data)) {
+                    console.log(`  Data structure:`, Object.keys(result.data));
+                }
+            }
         }
         return result;
     } catch (error) {
@@ -185,11 +192,21 @@ async function fetchUserProfilesPaginated() {
         console.log(`Fetching page ${page + 1}...`);
 
         try {
-            const response = await makeRequest('/engage', {
+            const params = {
                 project_id: PROJECT_ID,
                 page: page,
                 page_size: pageSize
-            }, 'GET');
+            };
+
+            // Add session_id for pages > 0 (if we had one from previous call)
+            if (page > 0 && allUsers.length > 0) {
+                // For now, stop at first page to avoid session_id issue
+                console.log('Stopping at first page to avoid session_id requirement');
+                hasMore = false;
+                break;
+            }
+
+            const response = await makeRequest('/engage', params, 'GET');
 
             if (response && response.results && response.results.length > 0) {
                 allUsers.push(...response.results);
