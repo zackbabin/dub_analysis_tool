@@ -154,6 +154,33 @@ if (!document.getElementById('qda-styles')) {
     document.head.appendChild(styleSheet);
 }
 
+// --- STORAGE KEYS FOR PERSISTENCE ---
+const STORAGE_KEYS = {
+    SUMMARY: 'qdaSummaryStats',
+    CORRELATION: 'qdaCorrelationResults',
+    REGRESSION: 'qdaRegressionResults',
+    CLEAN_DATA: 'qdaCleanData'
+};
+
+// --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
+const ALL_VARIABLES = [
+    'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
+    'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
+    'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
+    'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
+    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
+    'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
+    'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
+    'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
+    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps'
+];
+
+// Section-specific exclusions for display only
+const SECTION_EXCLUSIONS = {
+    'totalDeposits': ['totalDepositCount'],
+    'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies']
+};
+
 // === HELPER FUNCTIONS FOR PERSISTENCE ===
 
 /**
@@ -169,6 +196,7 @@ function clearAnalysisStorage() {
  * @returns {boolean} True if results were loaded, false otherwise.
  */
 function loadPersistedResults(outputContainer) {
+    // FIX: Switched from sessionStorage to localStorage
     const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
     
     // Always clear old content in the output container before rendering new/persisted data
@@ -184,7 +212,7 @@ function loadPersistedResults(outputContainer) {
             cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
         };
         
-        // The container needs a wrapper div to apply the max-width styling
+        // Recreate the result div structure needed by the display functions
         const resultsDiv = document.createElement('div');
         resultsDiv.id = 'qdaAnalysisResultsInline';
         resultsDiv.className = 'qda-analysis-results'; // Applies max-width styling from CSS
@@ -753,6 +781,9 @@ async function analyzeDataInline(uploadContainer, outputContainerId) {
     } finally {
         analyzeBtn.textContent = 'Analyze Data';
         analyzeBtn.disabled = false;
+        
+        // FIX: Reset file input value after success or failure to ensure it can be triggered again
+        mainFileInput.value = ''; 
     }
 }
 

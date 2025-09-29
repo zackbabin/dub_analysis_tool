@@ -19,11 +19,6 @@ function createInlineDataMerger(targetContainer) {
   const content = document.createElement('div');
   content.className = 'qda-content';
   
-  const description = document.createElement('p');
-  description.textContent = 'Upload all 7 CSV files at once (hold Ctrl/Cmd to select multiple files)';
-  description.style.cssText = 'margin: 0 0 15px 0; font-size: 12px; color: #666; text-align: center;';
-  content.appendChild(description);
-  
   // File upload section - Using analysis_tool's UI classes for consistency and styling
   const uploadDiv = document.createElement('div');
   uploadDiv.className = 'qda-upload-section'; 
@@ -31,9 +26,9 @@ function createInlineDataMerger(targetContainer) {
   const uploadColumn = document.createElement('div');
   uploadColumn.className = 'qda-upload-column'; // This class forces vertical stacking
   
-  const uploadLabel = document.createElement('label');
-  uploadLabel.textContent = 'Select all 7 CSV files:';
-  uploadLabel.className = 'qda-file-label'; // Use analysis tool's label style
+  const uploadLabel = document.createElement('div');
+  uploadLabel.textContent = 'Select All 7 Raw CSV Files'; // Simplified label
+  uploadLabel.className = 'qda-file-label'; 
   
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -41,42 +36,23 @@ function createInlineDataMerger(targetContainer) {
   fileInput.multiple = true;
   fileInput.className = 'qda-file-input';
   
-  const fileRequirements = document.createElement('div');
-  fileRequirements.style.cssText = 'margin-top: 10px; font-size: 10px; color: #666; text-align: left;';
-  
-  const requirementsTitle = document.createElement('strong');
-  requirementsTitle.textContent = 'Smart file detection: ';
-  fileRequirements.appendChild(requirementsTitle);
-  
-  const requirementsText = document.createTextNode('Files will be automatically identified by their column structure.');
-  fileRequirements.appendChild(requirementsText);
-  
-  fileRequirements.appendChild(document.createElement('br'));
-  
-  const expectedTitle = document.createElement('em');
-  expectedTitle.textContent = 'Expected file types: ';
-  const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
-  fileRequirements.appendChild(expectedTitle);
-  fileRequirements.appendChild(expectedText);
-  
   // Stacking elements vertically inside uploadColumn
   uploadColumn.appendChild(uploadLabel);
   uploadColumn.appendChild(fileInput);
-  uploadColumn.appendChild(fileRequirements);
+  
   uploadDiv.appendChild(uploadColumn);
   
-  content.appendChild(uploadDiv);
+  const analyzeRow = document.createElement('div'); 
+  analyzeRow.className = 'qda-analyze-row';
   
   const processBtn = document.createElement('button');
-  processBtn.textContent = 'Process All Files';
-  // Use a common class for styling the primary button
-  processBtn.className = 'qda-btn-merge'; 
-  processBtn.style.cssText = `
-    width: 100%; padding: 12px; background: #17a2b8; color: white; 
-    border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
-  `;
+  processBtn.textContent = 'Merge Files'; // Simplified button text
+  processBtn.className = 'qda-btn'; // Using the standard analysis button class for look
+  processBtn.style.background = '#17a2b8'; // Maintain unique color
+  
   
   processBtn.onclick = async () => {
+    
     const files = Array.from(fileInput.files);
     if (files.length !== 7) {
       alert(`Please select exactly 7 CSV files. You selected ${files.length} files.`);
@@ -86,44 +62,50 @@ function createInlineDataMerger(targetContainer) {
     try {
       processBtn.textContent = 'Processing...';
       processBtn.disabled = true;
-      
+
+      // --- START OF FILE READING AND PROCESSING (Logic from previous step) ---
       console.log('Intelligently identifying file types...');
       const matchedFiles = await matchFilesByName(files);
-      
+    
       if (!matchedFiles.success) {
-        const missingTypes = [];
-        if (!matchedFiles.files[0]) missingTypes.push('Demo/breakdown file');
-        if (!matchedFiles.files[1]) missingTypes.push('Time to first copy file'); 
-        if (!matchedFiles.files[2]) missingTypes.push('Time to funded account file');
-        if (!matchedFiles.files[3]) missingTypes.push('Time to linked bank file');
-        if (!matchedFiles.files[4]) missingTypes.push('Premium subscription file');
-        if (!matchedFiles.files[5]) missingTypes.push('Creator-level copy file');
-        if (!matchedFiles.files[6]) missingTypes.push('Portfolio-level copy file');
-        
-        throw new Error(`Could not identify ${7 - matchedFiles.foundCount} file types. Missing: ${missingTypes.join(', ')}. Please check that your files contain the expected column structures.`);
+          const missingTypes = [];
+          if (!matchedFiles.files[0]) missingTypes.push('Demo/breakdown file');
+          if (!matchedFiles.files[1]) missingTypes.push('Time to first copy file'); 
+          if (!matchedFiles.files[2]) missingTypes.push('Time to funded account file');
+          if (!matchedFiles.files[3]) missingTypes.push('Time to linked bank file');
+          if (!matchedFiles.files[4]) missingTypes.push('Premium subscription file');
+          if (!matchedFiles.files[5]) missingTypes.push('Creator-level copy file');
+          if (!matchedFiles.files[6]) missingTypes.push('Portfolio-level copy file');
+          
+          throw new Error(`Could not identify ${7 - matchedFiles.foundCount} file types. Missing: ${missingTypes.join(', ')}. Please check that your files contain the expected column structures.`);
       }
-      
+    
       console.log('Reading all files...');
       const contents = await Promise.all(matchedFiles.files.map(file => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = e => resolve(e.target.result);
-          reader.onerror = () => reject(new Error('Failed to read file: ' + file.name));
-          reader.readAsText(file);
-        });
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('Failed to read file: ' + file.name));
+            reader.readAsText(file);
+          });
       }));
-      
+    
       console.log('Processing comprehensive merge...');
       const results = processComprehensiveData(contents);
-      
-      console.log('Creating downloads...');
+      // --- END OF FILE READING AND PROCESSING ---
+
       createMultipleDownloads(results);
       
       processBtn.textContent = 'Success! Check downloads';
       processBtn.style.background = '#28a745';
       
+      // Remove old summary if it exists
+      const oldSummary = content.querySelector('.data-merger-summary');
+      if (oldSummary) oldSummary.remove();
+
       // Show results summary
       const summary = document.createElement('div');
+      summary.className = 'data-merger-summary';
       summary.style.cssText = 'margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 11px;';
       
       const summaryTitle = document.createElement('strong');
@@ -148,13 +130,15 @@ function createInlineDataMerger(targetContainer) {
     } catch (error) {
       console.error('Error:', error);
       alert('Error: ' + error.message);
-      processBtn.textContent = 'Process All Files';
+      processBtn.textContent = 'Merge Files';
       processBtn.style.background = '#17a2b8';
       processBtn.disabled = false;
     }
   };
-  
-  content.appendChild(processBtn);
+
+  analyzeRow.appendChild(processBtn);
+  content.appendChild(uploadDiv);
+  content.appendChild(analyzeRow); // Add button after upload box
   wrapper.appendChild(content);
   targetContainer.appendChild(wrapper);
 }
@@ -303,17 +287,6 @@ async function matchFilesByName(files) {
   
   const allFilesFound = Object.values(requiredFiles).every(file => file !== null);
   const foundCount = Object.values(requiredFiles).filter(file => file !== null).length;
-  
-  console.log(`File identification complete: ${foundCount}/7 files identified`);
-  console.log('Final matches:', {
-    demo: requiredFiles.demo?.name || 'NOT FOUND',
-    firstCopy: requiredFiles.firstCopy?.name || 'NOT FOUND',
-    fundedAccount: requiredFiles.fundedAccount?.name || 'NOT FOUND', 
-    linkedBank: requiredFiles.linkedBank?.name || 'NOT FOUND',
-    premiumSub: requiredFiles.premiumSub?.name || 'NOT FOUND',
-    creatorCopy: requiredFiles.creatorCopy?.name || 'NOT FOUND',
-    portfolioCopy: requiredFiles.portfolioCopy?.name || 'NOT FOUND'
-  });
   
   return {
     success: allFilesFound,
@@ -599,12 +572,6 @@ function processComprehensiveData(contents) {
     copies: parseInt(row['(3) Copied Portfolio'] || 0)
   })).filter(row => row.distinct_id);
   
-  console.log('Processing complete:', {
-    mainFile: mainAnalysisData.length,
-    creatorFile: creatorDetailData.length,
-    portfolioFile: portfolioDetailData.length
-  });
-  
   return {
     mainFile: mainAnalysisData,
     creatorFile: creatorDetailData,
@@ -664,6 +631,4 @@ function createMultipleDownloads(results) {
     // Auto-remove after 60 seconds
     setTimeout(() => link.remove(), 60000);
   });
-  
-  console.log('Download links created for all 3 files');
 }
