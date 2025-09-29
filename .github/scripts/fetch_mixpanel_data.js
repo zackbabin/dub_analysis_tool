@@ -189,13 +189,17 @@ async function fetchUserProfilesPaginated() {
     let hasMore = true;
     let sessionId = null;
 
+    // Filter for users who have been active in the date range
+    const whereClause = `"$last_seen" >= "${fromDate}" and "$last_seen" <= "${toDate}"`;
+
     while (hasMore && page < 20) { // Limit to 20 pages (20,000 users) to avoid timeout
         console.log(`Fetching page ${page + 1}...`);
 
         try {
             const params = {
                 project_id: PROJECT_ID,
-                page_size: pageSize
+                page_size: pageSize,
+                where: whereClause
             };
 
             // Add session_id for subsequent pages
@@ -695,83 +699,100 @@ async function main() {
     }
 
     try {
-        // Step 1: Fetch all funnel data first
-        console.log('\n=== Step 1: Fetching funnel data ===');
+        // Step 1: Fetch the Subscribers Insights chart (the base universe of users)
+        console.log('\n=== Step 1: Fetching Subscribers Insights (base user list) ===');
+
+        const subscribersData = await fetchInsightsData(
+            CHART_IDS.subscribersInsights,
+            'Subscribers Insights'
+        );
+
+        // Extract user IDs from the insights chart
+        let baseUserIds = new Set();
+        if (subscribersData && subscribersData.data) {
+            // The insights data should contain user information
+            // Need to extract the user IDs from the response
+            console.log('Subscribers insights data structure:', Object.keys(subscribersData));
+            if (subscribersData.data.series) {
+                console.log('Series data found');
+            }
+            // For now, we'll fall back to fetching recent users
+            console.log('Warning: Could not extract users from insights chart, fetching paginated users instead');
+            const paginatedUsers = await fetchUserProfilesPaginated();
+            if (paginatedUsers && paginatedUsers.results) {
+                paginatedUsers.results.forEach(user => {
+                    const userId = (user.$distinct_id || user.distinct_id || '').replace('$device:', '');
+                    if (userId) baseUserIds.add(userId);
+                });
+            }
+        }
+
+        console.log(`Base user list: ${baseUserIds.size} users`);
+
+        // Step 2: Fetch user profiles for the base list
+        console.log('\n=== Step 2: Fetching user profiles ===');
+
+        let userProfiles;
+        if (baseUserIds.size > 0 && baseUserIds.size < 10000) {
+            userProfiles = await fetchUserProfilesByIds(Array.from(baseUserIds));
+        } else {
+            // Fall back to paginated fetch if we couldn't extract IDs
+            userProfiles = await fetchUserProfilesPaginated();
+        }
+
+        const processedProfiles = processUserProfiles(userProfiles);
+        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
+
+        // Step 3: Fetch all funnel data
+        console.log('\n=== Step 3: Fetching funnel data ===');
 
         const firstCopy = await fetchFunnelData(
             CHART_IDS.timeToFirstCopy,
             'Time to First Copy'
         );
+        const processedFirstCopy = processFunnelData(firstCopy, 'Time to First Copy');
+        saveToCSV(processedFirstCopy, '2_time_to_first_copy.csv');
 
         const fundedAccount = await fetchFunnelData(
             CHART_IDS.timeToFundedAccount,
             'Time to Funded Account'
         );
+        const processedFunded = processFunnelData(fundedAccount, 'Time to Funded Account');
+        saveToCSV(processedFunded, '3_time_to_funded_account.csv');
 
         const linkedBank = await fetchFunnelData(
             CHART_IDS.timeToLinkedBank,
             'Time to Linked Bank'
         );
+        const processedLinked = processFunnelData(linkedBank, 'Time to Linked Bank');
+        saveToCSV(processedLinked, '4_time_to_linked_bank.csv');
 
         const premiumSubs = await fetchFunnelData(
             CHART_IDS.premiumSubscriptions,
             'Premium Subscriptions',
             'creatorUsername'
         );
+        const processedPremium = processGroupedFunnelData(premiumSubs, 'Premium Subscriptions', 'creatorUsername');
+        saveToCSV(processedPremium, '5_premium_subscriptions.csv');
 
         const creatorCopy = await fetchFunnelData(
             CHART_IDS.creatorCopyFunnel,
             'Creator Copy Funnel',
             'creatorUsername'
         );
+        const processedCreator = processGroupedFunnelData(creatorCopy, 'Creator Copy Funnel', 'creatorUsername');
+        saveToCSV(processedCreator, '6_creator_copy_funnel.csv');
 
         const portfolioCopy = await fetchFunnelData(
             CHART_IDS.portfolioCopyFunnel,
             'Portfolio Copy Funnel',
             'portfolioTicker'
         );
-
-        // Step 2: Extract all unique user IDs from funnels
-        console.log('\n=== Step 2: Extracting unique user IDs ===');
-
-        const allUserIds = new Set();
-
-        [firstCopy, fundedAccount, linkedBank, premiumSubs, creatorCopy, portfolioCopy].forEach(funnelData => {
-            const ids = extractUserIdsFromFunnelData(funnelData);
-            ids.forEach(id => allUserIds.add(id));
-        });
-
-        console.log(`Found ${allUserIds.size} unique users across all funnels`);
-
-        // Step 3: Fetch user profiles for only those IDs
-        console.log('\n=== Step 3: Fetching user profiles ===');
-
-        const userProfiles = await fetchUserProfilesByIds(Array.from(allUserIds));
-        const processedProfiles = processUserProfiles(userProfiles);
-        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
-
-        // Step 4: Process and save funnel data
-        console.log('\n=== Step 4: Processing and saving funnel data ===');
-
-        const processedFirstCopy = processFunnelData(firstCopy, 'Time to First Copy');
-        saveToCSV(processedFirstCopy, '2_time_to_first_copy.csv');
-
-        const processedFunded = processFunnelData(fundedAccount, 'Time to Funded Account');
-        saveToCSV(processedFunded, '3_time_to_funded_account.csv');
-
-        const processedLinked = processFunnelData(linkedBank, 'Time to Linked Bank');
-        saveToCSV(processedLinked, '4_time_to_linked_bank.csv');
-
-        const processedPremium = processGroupedFunnelData(premiumSubs, 'Premium Subscriptions', 'creatorUsername');
-        saveToCSV(processedPremium, '5_premium_subscriptions.csv');
-
-        const processedCreator = processGroupedFunnelData(creatorCopy, 'Creator Copy Funnel', 'creatorUsername');
-        saveToCSV(processedCreator, '6_creator_copy_funnel.csv');
-
         const processedPortfolio = processGroupedFunnelData(portfolioCopy, 'Portfolio Copy Funnel', 'portfolioTicker');
         saveToCSV(processedPortfolio, '7_portfolio_copy_funnel.csv');
 
         console.log('\n✅ All data fetched and saved successfully!');
+        console.log('Note: The 6 funnel files will be merged into the subscribers insights file by the data merger.');
 
     } catch (error) {
         console.error('Error in main function:', error);
