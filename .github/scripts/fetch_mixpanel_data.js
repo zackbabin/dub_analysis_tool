@@ -144,45 +144,31 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
 }
 
 /**
- * Fetch user profile data using JQL with pagination
+ * Fetch Insights data using correct API endpoint
  */
-async function fetchUserProfiles() {
-    console.log('Fetching user profiles via JQL...');
-
-    const jqlScript = `
-    function main() {
-        return People()
-            .filter(function(user) {
-                return user.properties.$distinct_id !== undefined;
-            })
-            .groupBy([], mixpanel.reducer.count())
-            .map(function(row) {
-                return {
-                    count: row.value
-                }
-            });
-    }
-    `;
+async function fetchInsightsData(chartId, name) {
+    console.log(`Fetching ${name} insights data (ID: ${chartId})...`);
 
     const params = {
         project_id: PROJECT_ID,
-        script: jqlScript.trim()
+        insight_id: chartId,
+        from_date: fromDate,
+        to_date: toDate
     };
 
+    console.log(`  API params:`, JSON.stringify(params, null, 2));
+
     try {
-        const countResult = await makeRequest('/jql', params, 'POST');
-        console.log('User count result:', countResult);
-
-        // If we have too many users, use engage endpoint with pagination
-        console.log('Using engage endpoint with pagination...');
-        return await fetchUserProfilesPaginated();
-
+        // Use correct insights query endpoint with GET method
+        const result = await makeRequest('/query/insights', params, 'GET');
+        console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
+        if (result && result.data) {
+            console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
+        }
+        return result;
     } catch (error) {
-        console.error('Error fetching user profiles:', error.message);
-
-        // Fallback: Try engage endpoint
-        console.log('Trying engage endpoint as fallback...');
-        return await fetchUserProfilesPaginated();
+        console.error(`  ✗ Error fetching ${name}:`, error.message);
+        return null;
     }
 }
 
@@ -309,6 +295,57 @@ function processFunnelData(data, funnelName) {
 }
 
 /**
+ * Process Insights data into CSV format
+ */
+function processInsightsData(data) {
+    if (!data || !data.data) {
+        console.log('No insights data');
+        return [];
+    }
+
+    const rows = [];
+
+    // Handle different Insights data formats
+    if (data.data.series && Array.isArray(data.data.series)) {
+        // Time series data format
+        data.data.series.forEach((series, index) => {
+            if (series.data) {
+                series.data.forEach((point, pointIndex) => {
+                    rows.push({
+                        'Series': series.name || `Series ${index}`,
+                        'Date': data.data.dates ? data.data.dates[pointIndex] : pointIndex,
+                        'Value': point
+                    });
+                });
+            }
+        });
+    } else if (Array.isArray(data.data)) {
+        // Simple array format
+        data.data.forEach((item, index) => {
+            if (typeof item === 'object') {
+                rows.push(item);
+            } else {
+                rows.push({
+                    'Index': index,
+                    'Value': item
+                });
+            }
+        });
+    } else if (data.data.values) {
+        // Key-value format
+        Object.entries(data.data.values).forEach(([key, value]) => {
+            rows.push({
+                'Property': key,
+                'Value': value
+            });
+        });
+    }
+
+    console.log(`Processed ${rows.length} insights rows`);
+    return rows;
+}
+
+/**
  * Process user profile data into CSV format
  */
 function processUserProfiles(data) {
@@ -401,10 +438,13 @@ async function main() {
     }
     
     try {
-        // 1. Fetch User Profiles
-        const userProfiles = await fetchUserProfiles();
-        const processedProfiles = processUserProfiles(userProfiles);
-        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
+        // 1. Fetch Subscribers Insights (using Insights API)
+        const subscribersInsights = await fetchInsightsData(
+            CHART_IDS.subscribersInsights,
+            'Subscribers Insights'
+        );
+        const processedInsights = processInsightsData(subscribersInsights);
+        saveToCSV(processedInsights, '1_subscribers_insights.csv');
         
         // 2. Fetch Time to First Copy
         const firstCopy = await fetchFunnelData(
