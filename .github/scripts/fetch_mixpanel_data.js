@@ -277,10 +277,20 @@ async function fetchInsightsData(chartId, name) {
             console.log(`  Response keys:`, Object.keys(result));
             console.log(`  Full response structure:`, JSON.stringify(result, null, 2).substring(0, 2000));
 
-            if (result.series) {
-                console.log(`  Series count:`, result.series.length);
-                if (result.series.length > 0) {
-                    console.log(`  First series sample:`, JSON.stringify(result.series[0], null, 2).substring(0, 500));
+            if (result.series !== undefined) {
+                console.log(`  Series type:`, typeof result.series);
+                console.log(`  Series is array:`, Array.isArray(result.series));
+
+                if (result.series && typeof result.series === 'object') {
+                    console.log(`  Series keys:`, Object.keys(result.series).slice(0, 10));
+                    console.log(`  Series sample:`, JSON.stringify(result.series).substring(0, 1000));
+                }
+
+                if (Array.isArray(result.series)) {
+                    console.log(`  Series count:`, result.series.length);
+                    if (result.series.length > 0) {
+                        console.log(`  First series sample:`, JSON.stringify(result.series[0], null, 2).substring(0, 500));
+                    }
                 }
             }
 
