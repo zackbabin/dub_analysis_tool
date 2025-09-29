@@ -24,12 +24,12 @@ function createInlineDataMerger(targetContainer) {
   description.style.cssText = 'margin: 0 0 15px 0; font-size: 12px; color: #666; text-align: center;';
   content.appendChild(description);
   
-  // File upload section - Using analysis_tool's UI classes for consistency
+  // File upload section - Using analysis_tool's UI classes for consistency and styling
   const uploadDiv = document.createElement('div');
-  uploadDiv.className = 'qda-upload-section'; // Use analysis tool's wrapper style
+  uploadDiv.className = 'qda-upload-section'; 
   
   const uploadColumn = document.createElement('div');
-  uploadColumn.className = 'qda-upload-column'; // Use analysis tool's inner wrapper style
+  uploadColumn.className = 'qda-upload-column'; // This class forces vertical stacking
   
   const uploadLabel = document.createElement('label');
   uploadLabel.textContent = 'Select all 7 CSV files:';
@@ -59,6 +59,7 @@ function createInlineDataMerger(targetContainer) {
   fileRequirements.appendChild(expectedTitle);
   fileRequirements.appendChild(expectedText);
   
+  // Stacking elements vertically inside uploadColumn
   uploadColumn.appendChild(uploadLabel);
   uploadColumn.appendChild(fileInput);
   uploadColumn.appendChild(fileRequirements);
@@ -68,6 +69,8 @@ function createInlineDataMerger(targetContainer) {
   
   const processBtn = document.createElement('button');
   processBtn.textContent = 'Process All Files';
+  // Use a common class for styling the primary button
+  processBtn.className = 'qda-btn-merge'; 
   processBtn.style.cssText = `
     width: 100%; padding: 12px; background: #17a2b8; color: white; 
     border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
@@ -158,7 +161,162 @@ function createInlineDataMerger(targetContainer) {
 
 // Keep original function for backwards compatibility
 function createComprehensiveCSVProcessor() {
-  // ... (omitted)
+  // Remove any existing tool
+  const existing = document.getElementById('comprehensiveCSVTool');
+  if (existing) existing.remove();
+  
+  const container = document.createElement('div');
+  container.id = 'comprehensiveCSVTool';
+  container.style.cssText = `
+    position: fixed; top: 50px; right: 20px; width: 380px; 
+    background: white; border: 2px solid #007bff; border-radius: 8px; 
+    padding: 20px; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    font-family: Arial, sans-serif; font-size: 13px; max-height: 85vh; overflow-y: auto;
+  `;
+  
+  const title = document.createElement('h3');
+  title.textContent = 'Comprehensive CSV Processor';
+  title.style.cssText = 'margin: 0 0 15px 0; color: #007bff; text-align: center;';
+  container.appendChild(title);
+  
+  const description = document.createElement('p');
+  description.textContent = 'Upload all 7 CSV files at once (hold Ctrl/Cmd to select multiple files)';
+  description.style.cssText = 'margin: 0 0 15px 0; font-size: 12px; color: #666; text-align: center;';
+  container.appendChild(description);
+  
+  // File upload section
+  const uploadDiv = document.createElement('div');
+  uploadDiv.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin: 15px 0; background: #f8f9fa; text-align: center;';
+  
+  const uploadLabel = document.createElement('label');
+  uploadLabel.textContent = 'Select all 7 CSV files:';
+  uploadLabel.style.cssText = 'display: block; margin-bottom: 10px; font-weight: bold; color: #333;';
+  
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.csv';
+  fileInput.multiple = true;
+  fileInput.style.cssText = 'width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;';
+  
+  const fileRequirements = document.createElement('div');
+  fileRequirements.style.cssText = 'margin-top: 10px; font-size: 10px; color: #666; text-align: left;';
+  
+  const requirementsTitle = document.createElement('strong');
+  requirementsTitle.textContent = 'Smart file detection: ';
+  fileRequirements.appendChild(requirementsTitle);
+  
+  const requirementsText = document.createTextNode('Files will be automatically identified by their column structure.');
+  fileRequirements.appendChild(requirementsText);
+  
+  fileRequirements.appendChild(document.createElement('br'));
+  
+  const expectedTitle = document.createElement('em');
+  expectedTitle.textContent = 'Expected file types: ';
+  const expectedText = document.createTextNode('Demographics/breakdown, Time-to-copy, Time-to-deposit, Time-to-bank, Subscription conversion, Creator-level copy, Portfolio-level copy');
+  fileRequirements.appendChild(expectedTitle);
+  fileRequirements.appendChild(expectedText);
+  
+  uploadDiv.appendChild(uploadLabel);
+  uploadDiv.appendChild(fileInput);
+  uploadDiv.appendChild(fileRequirements);
+  container.appendChild(uploadDiv);
+  
+  const processBtn = document.createElement('button');
+  processBtn.textContent = 'Process All Files';
+  processBtn.style.cssText = `
+    width: 100%; padding: 12px; background: #007bff; color: white; 
+    border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 15px 0 10px 0;
+  `;
+  
+  processBtn.onclick = async () => {
+    const files = Array.from(fileInput.files);
+    if (files.length !== 7) {
+      alert(`Please select exactly 7 CSV files. You selected ${files.length} files.`);
+      return;
+    }
+    
+    try {
+      processBtn.textContent = 'Processing...';
+      processBtn.disabled = true;
+      
+      console.log('Intelligently identifying file types...');
+      const matchedFiles = await matchFilesByName(files);
+      
+      if (!matchedFiles.success) {
+        const missingTypes = [];
+        if (!matchedFiles.files[0]) missingTypes.push('Demo/breakdown file');
+        if (!matchedFiles.files[1]) missingTypes.push('Time to first copy file'); 
+        if (!matchedFiles.files[2]) missingTypes.push('Time to funded account file');
+        if (!matchedFiles.files[3]) missingTypes.push('Time to linked bank file');
+        if (!matchedFiles.files[4]) missingTypes.push('Premium subscription file');
+        if (!matchedFiles.files[5]) missingTypes.push('Creator-level copy file');
+        if (!matchedFiles.files[6]) missingTypes.push('Portfolio-level copy file');
+        
+        throw new Error(`Could not identify ${7 - matchedFiles.foundCount} file types. Missing: ${missingTypes.join(', ')}. Please check that your files contain the expected column structures.`);
+      }
+      
+      console.log('Reading all files...');
+      const contents = await Promise.all(matchedFiles.files.map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.onerror = () => reject(new Error('Failed to read file: ' + file.name));
+          reader.readAsText(file);
+        });
+      }));
+      
+      console.log('Processing comprehensive merge...');
+      const results = processComprehensiveData(contents);
+      
+      console.log('Creating downloads...');
+      createMultipleDownloads(results);
+      
+      processBtn.textContent = 'Success! Check downloads';
+      processBtn.style.background = '#28a745';
+      
+      // Show results summary
+      const summary = document.createElement('div');
+      summary.style.cssText = 'margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 11px;';
+      
+      const summaryTitle = document.createElement('strong');
+      summaryTitle.textContent = 'Files Created:';
+      summary.appendChild(summaryTitle);
+      summary.appendChild(document.createElement('br'));
+      
+      const mainFileInfo = document.createElement('div');
+      mainFileInfo.textContent = `• Main Analysis: ${results.mainFile.length} users`;
+      summary.appendChild(mainFileInfo);
+      
+      const creatorFileInfo = document.createElement('div');
+      creatorFileInfo.textContent = `• Creator Details: ${results.creatorFile.length} records`;
+      summary.appendChild(creatorFileInfo);
+      
+      const portfolioFileInfo = document.createElement('div');
+      portfolioFileInfo.textContent = `• Portfolio Details: ${results.portfolioFile.length} records`;
+      summary.appendChild(portfolioFileInfo);
+      
+      container.appendChild(summary);
+      
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error: ' + error.message);
+      processBtn.textContent = 'Process All Files';
+      processBtn.style.background = '#007bff';
+      processBtn.disabled = false;
+    }
+  };
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = `
+    width: 100%; padding: 5px; background: #dc3545; color: white; 
+    border: none; border-radius: 3px; cursor: pointer; margin-top: 10px;
+  `;
+  closeBtn.onclick = () => container.remove();
+  
+  container.appendChild(processBtn);
+  container.appendChild(closeBtn);
+  document.body.appendChild(container);
 }
 
 async function matchFilesByName(files) {
@@ -656,7 +814,6 @@ function createMultipleDownloads(results) {
       background: ${download.color}; color: white; text-decoration: none; 
       border-radius: 6px; z-index: 100000; font-weight: bold; font-size: 13px;
     `;
-    link.textContent = `Download ${download.name}`;
     document.body.appendChild(link);
     
     // Auto-remove after 60 seconds

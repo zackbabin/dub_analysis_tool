@@ -55,9 +55,10 @@ const styles = `
         /* Set a fixed maximum width for the upload box */
         max-width: 450px; 
     }
+    /* UI FIX: Vertical stacking for consistency */
     .qda-upload-column {
         display: flex; 
-        flex-direction: column; 
+        flex-direction: column; /* Stack children vertically */
         align-items: center;
         text-align: center; 
         padding: 0; 
@@ -72,6 +73,23 @@ const styles = `
         padding: 8px; border: 1px solid #ddd; border-radius: 4px;
         width: 100%; margin-bottom: 8px;
     }
+    /* UI FIX: Analysis Output Constraint (Approximation of 2x upload box width + gap) */
+    #analysisResultsOutputContainer .qda-analysis-results {
+        max-width: 920px; /* 2 * 450px + 20px gap */
+        margin: 0 auto;
+    }
+
+    /* Primary buttons for Data Merger, consistent styling for merged files */
+    .qda-btn-merge {
+        /* This class is now used in data_merger.js */
+        transition: all 0.3s;
+        font-weight: bold;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
     /* REMOVED: .qda-file-description CSS */
     .qda-btn {
         background: #007bff; color: white; padding: 8px 20px;
@@ -145,7 +163,6 @@ function clearAnalysisStorage() {
  * @returns {boolean} True if results were loaded, false otherwise.
  */
 function loadPersistedResults(outputContainer) {
-    // FIX: Switched from sessionStorage to localStorage
     const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
     
     // Clear old content in the output container before loading new/persisted data
@@ -702,6 +719,10 @@ async function analyzeDataInline(uploadContainer, outputContainerId) {
     try {
         const mainCsvText = await readFile(mainFileInput.files[0]);
         
+        // Ensure old results are cleared from the output area
+        const outputContainer = document.getElementById(outputContainerId);
+        if (outputContainer) outputContainer.innerHTML = '';
+        
         console.log('Starting analysis...');
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
@@ -712,7 +733,6 @@ async function analyzeDataInline(uploadContainer, outputContainerId) {
         localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
         
         // 3. RENDER RESULTS: Manually call the loading function to re-render in the persistent container
-        const outputContainer = document.getElementById(outputContainerId);
         if (outputContainer) {
             loadPersistedResults(outputContainer); 
         }
