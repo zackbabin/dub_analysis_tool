@@ -1,0 +1,14 @@
+{
+  "name": "mixpanel-data-sync",
+  "version": "1.0.0",
+  "description": "Fetch Mixpanel data for GitHub Pages site",
+  "main": "fetch_mixpanel_data.js",
+  "scripts": {
+    "fetch": "node fetch_mixpanel_data.js"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
