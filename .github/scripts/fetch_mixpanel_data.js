@@ -53,8 +53,8 @@ function makeRequest(endpoint, params, method = 'GET') {
         const queryString = new URLSearchParams(params).toString();
 
         const options = {
-            hostname: 'api.mixpanel.com',
-            path: method === 'GET' ? `${endpoint}?${queryString}` : endpoint,
+            hostname: 'mixpanel.com',
+            path: method === 'GET' ? `/api/2.0${endpoint}?${queryString}` : `/api/2.0${endpoint}`,
             method: method,
             headers: {
                 'Authorization': authHeader,
@@ -130,8 +130,8 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
     console.log(`  API params:`, JSON.stringify(params, null, 2));
 
     try {
-        // Use correct funnel query endpoint with GET method
-        const result = await makeRequest('/query/funnels', params, 'GET');
+        // Use original funnel endpoint that was working before
+        const result = await makeRequest('/funnels', params, 'POST');
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result && result.data) {
             console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
