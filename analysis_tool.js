@@ -1,6 +1,14 @@
 // Enhanced Quantitative Driver Analysis - FIXED Persona Logic
 'use strict';
 
+// --- STORAGE KEYS FOR PERSISTENCE ---
+const STORAGE_KEYS = {
+    SUMMARY: 'qdaSummaryStats',
+    CORRELATION: 'qdaCorrelationResults',
+    REGRESSION: 'qdaRegressionResults',
+    CLEAN_DATA: 'qdaCleanData'
+};
+
 // --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
 const ALL_VARIABLES = [
     'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
@@ -108,6 +116,56 @@ if (!document.getElementById('qda-styles')) {
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
 }
+
+// === HELPER FUNCTIONS FOR PERSISTENCE ===
+
+/**
+ * Clears all analysis-related data from sessionStorage.
+ */
+function clearAnalysisStorage() {
+    Object.values(STORAGE_KEYS).forEach(key => sessionStorage.removeItem(key));
+}
+
+/**
+ * Checks sessionStorage for previous analysis results and displays them if found.
+ * @param {HTMLElement} container The target container element (or null for the main body).
+ * @returns {boolean} True if results were loaded, false otherwise.
+ */
+function loadPersistedResults(container) {
+    const summaryStatsText = sessionStorage.getItem(STORAGE_KEYS.SUMMARY);
+    if (!summaryStatsText) return false;
+
+    try {
+        const results = {
+            summaryStats: JSON.parse(summaryStatsText),
+            correlationResults: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.CORRELATION)),
+            regressionResults: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.REGRESSION)),
+            cleanData: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
+        };
+        
+        // Display results
+        displaySummaryStatsInline(results.summaryStats);
+        displayDemographicBreakdownInline(results.summaryStats);
+        displayPersonaBreakdownInline(results.summaryStats);
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
+
+        // Make the results visible
+        const resultsContainerId = container ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
+        document.getElementById(resultsContainerId).style.display = 'block';
+
+        // Hide the upload section to show only results
+        const uploadSection = container.querySelector('.qda-upload-section');
+        if (uploadSection) uploadSection.style.display = 'none';
+
+        return true;
+    } catch (e) {
+        console.error("Error loading persisted results: Data corrupt or missing key.", e);
+        // Clear corrupt data
+        clearAnalysisStorage();
+        return false;
+    }
+}
+
 
 // === DISPLAY FUNCTIONS (Moved to Global Scope) ===
 function createMetricCard(title, content, size = null) {
@@ -544,55 +602,6 @@ function createWidget(targetContainer = null) {
     const content = document.createElement('div');
     content.className = 'qda-content';
     
-    // REMOVED: descriptive paragraph text as requested
-    
-    // Upload section (now 1 column, centered)
-    const uploadSection = document.createElement('div');
-    uploadSection.className = 'qda-upload-section';
-    uploadSection.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin-bottom: 40px; background: #f8f9fa; display: flex; justify-content: center;';
-    
-    // Main Analysis File (required)
-    const mainColumn = document.createElement('div');
-    mainColumn.className = 'qda-upload-column';
-    mainColumn.style.maxWidth = '350px';
-    
-    const mainLabel = document.createElement('div');
-    mainLabel.className = 'qda-file-label';
-    mainLabel.textContent = 'Select Main Analysis CSV File';
-    mainColumn.appendChild(mainLabel);
-    
-    const mainFileInput = document.createElement('input');
-    mainFileInput.type = 'file';
-    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
-    mainFileInput.accept = '.csv';
-    mainFileInput.className = 'qda-file-input';
-    mainColumn.appendChild(mainFileInput);
-    
-    // REMOVED: mainDesc (small text description)
-    
-    // REMOVED: Portfolio Detail File Column
-    // REMOVED: Creator Detail File Column
-    
-    uploadSection.appendChild(mainColumn);
-    
-    const analyzeRow = document.createElement('div');
-    analyzeRow.className = 'qda-analyze-row';
-    
-    const analyzeBtn = document.createElement('button');
-    analyzeBtn.className = 'qda-btn';
-    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
-    analyzeBtn.textContent = 'Analyze Data';
-    
-    if (targetContainer) {
-        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
-    } else {
-        analyzeBtn.addEventListener('click', analyzeData);
-    }
-    
-    analyzeRow.appendChild(analyzeBtn);
-    uploadSection.appendChild(analyzeRow);
-    content.appendChild(uploadSection);
-    
     // Results containers
     const resultsDiv = document.createElement('div');
     resultsDiv.id = targetContainer ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
@@ -616,7 +625,6 @@ function createWidget(targetContainer = null) {
     
     const portfolioDiv = document.createElement('div');
     portfolioDiv.id = targetContainer ? 'qdaPortfolioResultsInline' : 'qdaPortfolioResults';
-    // Kept the container elements themselves, though they won't be explicitly populated by the current logic
     resultsDiv.appendChild(portfolioDiv);
     
     const creatorDiv = document.createElement('div');
@@ -628,6 +636,68 @@ function createWidget(targetContainer = null) {
     resultsDiv.appendChild(crossAnalysisDiv);
     
     content.appendChild(resultsDiv);
+
+    // --- PERSISTENCE CHECK ---
+    const resultsLoaded = loadPersistedResults(targetContainer);
+
+    // Upload section (only displayed if no results were loaded)
+    const uploadSection = document.createElement('div');
+    uploadSection.className = 'qda-upload-section';
+    uploadSection.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin-bottom: 40px; background: #f8f9fa; display: flex; justify-content: center;';
+    
+    if (resultsLoaded) {
+        uploadSection.style.display = 'none';
+        // Add a button to hide results and show upload form
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'qda-btn';
+        resetBtn.textContent = 'Clear Results & Start New Analysis';
+        resetBtn.style.cssText = 'margin-bottom: 20px;';
+        resetBtn.onclick = () => {
+            clearAnalysisStorage();
+            resultsDiv.style.display = 'none';
+            uploadSection.style.display = 'flex';
+            resetBtn.remove();
+        };
+        content.insertBefore(resetBtn, resultsDiv);
+    }
+
+    // Main Analysis File (required)
+    const mainColumn = document.createElement('div');
+    mainColumn.className = 'qda-upload-column';
+    mainColumn.style.maxWidth = '350px';
+    
+    const mainLabel = document.createElement('div');
+    mainLabel.className = 'qda-file-label';
+    mainLabel.textContent = 'Select Main Analysis CSV File';
+    mainColumn.appendChild(mainLabel);
+    
+    const mainFileInput = document.createElement('input');
+    mainFileInput.type = 'file';
+    mainFileInput.id = targetContainer ? 'qdaMainFileInline' : 'qdaMainFile';
+    mainFileInput.accept = '.csv';
+    mainFileInput.className = 'qda-file-input';
+    mainColumn.appendChild(mainFileInput);
+    
+    uploadSection.appendChild(mainColumn);
+    
+    const analyzeRow = document.createElement('div');
+    analyzeRow.className = 'qda-analyze-row';
+    
+    const analyzeBtn = document.createElement('button');
+    analyzeBtn.className = 'qda-btn';
+    analyzeBtn.id = targetContainer ? 'qdaAnalyzeBtnInline' : 'qdaAnalyzeBtn';
+    analyzeBtn.textContent = 'Analyze Data';
+    
+    if (targetContainer) {
+        analyzeBtn.addEventListener('click', () => analyzeDataInline(widget));
+    } else {
+        analyzeBtn.addEventListener('click', analyzeData);
+    }
+    
+    analyzeRow.appendChild(analyzeBtn);
+    uploadSection.appendChild(analyzeRow);
+    content.insertBefore(uploadSection, resultsDiv); // Insert before results
+
     widget.appendChild(header);
     widget.appendChild(content);
     
@@ -642,6 +712,9 @@ function createWidget(targetContainer = null) {
 
 // Analysis functions
 async function analyzeDataInline(widget) {
+    // STATE RESET: Clear storage before starting new analysis
+    clearAnalysisStorage();
+
     const mainFileInput = document.getElementById('qdaMainFileInline');
     
     if (!mainFileInput.files[0]) {
@@ -653,7 +726,6 @@ async function analyzeDataInline(widget) {
     analyzeBtn.textContent = 'Analyzing...';
     analyzeBtn.disabled = true;
     
-    // Simplified function arguments after removing file inputs
     const portfolioCsvText = null; 
     const creatorCsvText = null;
 
@@ -661,13 +733,13 @@ async function analyzeDataInline(widget) {
         const mainCsvText = await readFile(mainFileInput.files[0]);
         
         console.log('Starting analysis...');
-        // Pass null for the removed optional files
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
-        // Store results
-        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
+        // DATA STORAGE: Store results to sessionStorage
+        sessionStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
+        sessionStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
+        sessionStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
+        sessionStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
         
         // Display all results using inline display functions
         displaySummaryStatsInline(results.summaryStats);
@@ -675,8 +747,11 @@ async function analyzeDataInline(widget) {
         displayPersonaBreakdownInline(results.summaryStats);
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, results.cleanData);
         
-        // FIX: Make the results container visible
+        // Make the results visible
         document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
+        
+        // Hide upload section after success
+        widget.querySelector('.qda-upload-section').style.display = 'none';
 
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
@@ -688,6 +763,9 @@ async function analyzeDataInline(widget) {
 }
 
 async function analyzeData() {
+    // STATE RESET: Clear storage before starting new analysis
+    clearAnalysisStorage();
+    
     const mainFileInput = document.getElementById('qdaMainFile');
     
     if (!mainFileInput.files[0]) {
@@ -699,7 +777,6 @@ async function analyzeData() {
     analyzeBtn.textContent = 'Analyzing...';
     analyzeBtn.disabled = true;
 
-    // Simplified function arguments after removing file inputs
     const portfolioCsvText = null; 
     const creatorCsvText = null;
 
@@ -707,15 +784,15 @@ async function analyzeData() {
         const mainCsvText = await readFile(mainFileInput.files[0]);
         
         console.log('Starting analysis...');
-        // Pass null for the removed optional files
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
-        // Store results
-        sessionStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        sessionStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        sessionStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        
-        // Display results - placeholder for now
+        // DATA STORAGE: Store results to sessionStorage
+        sessionStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
+        sessionStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
+        sessionStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
+        sessionStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData));
+
+        // Display results - placeholder for non-inline version
         document.getElementById('qdaAnalysisResults').style.display = 'block';
         document.getElementById('qdaAnalysisResults').innerHTML = '<h2>Analysis Complete!</h2><p>Results would be displayed here.</p>';
         
