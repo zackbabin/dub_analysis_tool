@@ -67,22 +67,32 @@ function makeRequest(endpoint, params) {
         console.log(`Fetching ${endpoint}...`);
         
         const req = https.request(options, (res) => {
-            let data = '';
-            
+            const chunks = [];
+            let totalLength = 0;
+
             res.on('data', (chunk) => {
-                data += chunk;
+                chunks.push(chunk);
+                totalLength += chunk.length;
+
+                // Prevent excessive memory usage
+                if (totalLength > 50 * 1024 * 1024) { // 50MB limit
+                    reject(new Error('Response too large - exceeds 50MB limit'));
+                    return;
+                }
             });
-            
+
             res.on('end', () => {
                 if (res.statusCode === 200) {
                     try {
+                        const data = Buffer.concat(chunks).toString();
                         resolve(JSON.parse(data));
                     } catch (e) {
                         reject(new Error(`Failed to parse response: ${e.message}`));
                     }
                 } else {
-                    console.error(`Error ${res.statusCode}: ${data}`);
-                    reject(new Error(`API returned ${res.statusCode}: ${data}`));
+                    const errorData = Buffer.concat(chunks).toString();
+                    console.error(`Error ${res.statusCode}: ${errorData}`);
+                    reject(new Error(`API returned ${res.statusCode}: ${errorData}`));
                 }
             });
         });
@@ -119,43 +129,89 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
 }
 
 /**
- * Fetch user profile data using JQL
+ * Fetch user profile data using JQL with pagination
  */
 async function fetchUserProfiles() {
     console.log('Fetching user profiles via JQL...');
-    
+
     const jqlScript = `
     function main() {
         return People()
             .filter(function(user) {
                 return user.properties.$distinct_id !== undefined;
+            })
+            .groupBy([], mixpanel.reducer.count())
+            .map(function(row) {
+                return {
+                    count: row.value
+                }
             });
     }
     `;
-    
+
     const params = {
         project_id: PROJECT_ID,
         script: jqlScript.trim()
     };
-    
+
     try {
-        return await makeRequest('/jql', params);
+        const countResult = await makeRequest('/jql', params);
+        console.log('User count result:', countResult);
+
+        // If we have too many users, use engage endpoint with pagination
+        console.log('Using engage endpoint with pagination...');
+        return await fetchUserProfilesPaginated();
+
     } catch (error) {
         console.error('Error fetching user profiles:', error.message);
-        
+
         // Fallback: Try engage endpoint
         console.log('Trying engage endpoint as fallback...');
+        return await fetchUserProfilesPaginated();
+    }
+}
+
+/**
+ * Fetch user profiles using engage endpoint with pagination
+ */
+async function fetchUserProfilesPaginated() {
+    const allUsers = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore && page < 10) { // Limit to 10 pages (10,000 users max)
+        console.log(`Fetching page ${page + 1}...`);
+
         try {
-            return await makeRequest('/engage', {
+            const response = await makeRequest('/engage', {
                 project_id: PROJECT_ID,
-                page: 0,
-                page_size: 1000
+                page: page,
+                page_size: pageSize
             });
-        } catch (engageError) {
-            console.error('Engage endpoint also failed:', engageError.message);
-            return null;
+
+            if (response && response.results && response.results.length > 0) {
+                allUsers.push(...response.results);
+                hasMore = response.results.length === pageSize;
+                page++;
+
+                console.log(`Fetched ${response.results.length} users (total: ${allUsers.length})`);
+
+                // Add delay between requests to be nice to the API
+                if (hasMore) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            } else {
+                hasMore = false;
+            }
+        } catch (error) {
+            console.error(`Error fetching page ${page}:`, error.message);
+            hasMore = false;
         }
     }
+
+    console.log(`Total users fetched: ${allUsers.length}`);
+    return { results: allUsers };
 }
 
 /**
