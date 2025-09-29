@@ -742,50 +742,63 @@ function processInsightsData(data) {
         console.log('Processing Query API nested object format for user profiles');
         console.log(`Headers: ${data.headers.join(', ')}`);
 
-        // Extract user data from nested structure
-        // The headers tell us: ["$metric", "$distinct_id", "income", "netWorth", ...]
-        // We need to find each distinct_id and collect their property values
-
+        // The structure is: series[metric][userId][propertyValue][propertyValue]...
+        // We need to traverse and build user profiles
         const userDataMap = new Map(); // distinct_id -> {properties}
 
-        function extractUserData(obj, depth = 0) {
-            if (depth > 20) return;
+        function extractUserDataRecursive(obj, path = [], depth = 0) {
+            if (depth > 20) return; // Prevent infinite recursion
 
             if (obj && typeof obj === 'object') {
-                Object.keys(obj).forEach(key => {
+                Object.entries(obj).forEach(([key, value]) => {
                     // Check if key is a user ID
-                    if (key.startsWith('$device:') ||
+                    const isUserId = key.startsWith('$device:') ||
                         key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
-                        (key.match(/^[0-9]+$/) && key.length > 10)) {
+                        (key.match(/^[0-9]+$/) && key.length > 10);
 
-                        // Initialize user data if not exists
+                    if (isUserId) {
+                        // Initialize user if not exists
                         if (!userDataMap.has(key)) {
-                            userDataMap.set(key, {
-                                '$distinct_id': key
-                            });
+                            userDataMap.set(key, { 'Distinct ID': key });
                         }
 
-                        // The nested structure contains property values
-                        // Try to extract them from parent keys in the path
+                        // The path leading to this user ID contains property values
+                        // For example: path might be ["A. Linked Bank Account", "100k-200k", "<100k"]
+                        // Match these to headers: ["$metric", "$distinct_id", "income", "netWorth"]
+                        const userData = userDataMap.get(key);
+
+                        // Try to map path elements to header names
+                        if (path.length > 0) {
+                            // First element in path is usually the metric name
+                            const metric = path[0];
+
+                            // Subsequent elements might be property values
+                            // Map to headers starting from index 2 (skip "$metric" and "$distinct_id")
+                            for (let i = 1; i < path.length && i + 1 < data.headers.length; i++) {
+                                const headerName = data.headers[i + 1]; // +1 because headers[0] is $metric, headers[1] is $distinct_id
+                                const propertyValue = path[i];
+
+                                if (headerName && propertyValue !== '$overall' && propertyValue !== 'undefined') {
+                                    userData[headerName] = propertyValue;
+                                }
+                            }
+                        }
                     }
 
-                    // Recurse
-                    if (typeof obj[key] === 'object') {
-                        extractUserData(obj[key], depth + 1);
+                    // Recurse with updated path
+                    if (typeof value === 'object' && key !== '$overall' && key !== 'all') {
+                        extractUserDataRecursive(value, [...path, key], depth + 1);
                     }
                 });
             }
         }
 
-        extractUserData(data.series);
+        extractUserDataRecursive(data.series);
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
 
         // Convert to rows
-        userDataMap.forEach((userData, userId) => {
-            rows.push({
-                'Distinct ID': userId,
-                ...userData
-            });
+        userDataMap.forEach((userData) => {
+            rows.push(userData);
         });
     }
     // Handle Query API tabular format with headers and series array
@@ -1014,31 +1027,12 @@ async function main() {
             'Subscribers Insights'
         );
 
-        // Extract user IDs from the insights chart
-        const baseUserIds = extractUserIdsFromInsights(subscribersData);
+        // Step 2: Process Insights data to extract user profiles
+        console.log('\n=== Step 2: Processing user profiles from Insights chart ===');
 
-        console.log(`Found ${baseUserIds.size} users from Subscribers Insights chart`);
-
-        // Step 2: Fetch user profiles for only those specific users
-        console.log('\n=== Step 2: Fetching user profiles for identified users ===');
-
-        let userProfiles;
-        if (baseUserIds.size > 0) {
-            console.log(`Using ${baseUserIds.size} users from Insights chart`);
-            // Create simple profile data from user IDs
-            userProfiles = {
-                results: Array.from(baseUserIds).map(userId => ({
-                    $distinct_id: userId,
-                    $properties: {}
-                }))
-            };
-        } else {
-            console.log(`No users found from Insights chart`);
-            userProfiles = { results: [] };
-        }
-
-        const processedProfiles = processUserProfiles(userProfiles);
+        const processedProfiles = processInsightsData(subscribersData);
         saveToCSV(processedProfiles, '1_subscribers_insights.csv');
+        console.log(`Processed ${processedProfiles.length} user profiles from Insights`);
 
         // Step 3: Fetch all funnel data
         console.log('\n=== Step 3: Fetching funnel data ===');
