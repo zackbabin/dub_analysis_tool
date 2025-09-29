@@ -185,6 +185,19 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result) {
             console.log(`  Response keys:`, Object.keys(result));
+            console.log(`  Full response structure:`, JSON.stringify(result, null, 2).substring(0, 2000));
+
+            if (result.headers) {
+                console.log(`  Headers: ${result.headers.join(', ')}`);
+            }
+
+            if (result.series) {
+                console.log(`  Series count:`, result.series.length);
+                if (result.series.length > 0) {
+                    console.log(`  First series sample:`, JSON.stringify(result.series[0], null, 2).substring(0, 500));
+                }
+            }
+
             if (result.data) {
                 console.log(`  Data type:`, typeof result.data);
                 console.log(`  Data length: ${Array.isArray(result.data) ? result.data.length : 'not array'}`);
@@ -393,16 +406,43 @@ function arrayToCSV(data) {
  * Process funnel data into CSV format
  */
 function processFunnelData(data, funnelName) {
-    if (!data || !data.data) {
+    if (!data) {
         console.log(`No data for ${funnelName}`);
         return [];
     }
 
     const rows = [];
 
-    // Handle the new date-based object format where dates are keys
-    // and values are objects with user IDs as keys
-    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
+    // Handle Query API tabular format with headers and series (like Insights)
+    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+        console.log(`Processing Query API tabular format for ${funnelName}`);
+        console.log(`  Headers: ${data.headers.join(', ')}`);
+        console.log(`  Processing ${data.series.length} rows`);
+
+        // Find the $distinct_id column index
+        const distinctIdIndex = data.headers.indexOf('$distinct_id');
+
+        // Each series item is a row of data corresponding to the headers
+        data.series.forEach((rowData, index) => {
+            if (Array.isArray(rowData)) {
+                const row = {};
+
+                // Map each value to its corresponding header
+                data.headers.forEach((header, headerIndex) => {
+                    if (headerIndex < rowData.length) {
+                        row[header] = rowData[headerIndex];
+                    }
+                });
+
+                // Add funnel name for clarity
+                row['Funnel'] = funnelName;
+
+                rows.push(row);
+            }
+        });
+    }
+    // Handle the date-based object format (legacy)
+    else if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
         console.log(`Processing date-based funnel data for ${funnelName}`);
 
         // Collect all unique user IDs across all dates
@@ -454,8 +494,8 @@ function processFunnelData(data, funnelName) {
             }
         });
     }
-    // Legacy format handling (keep for backward compatibility)
-    else if (Array.isArray(data.data)) {
+    // Legacy array format handling
+    else if (data.data && Array.isArray(data.data)) {
         data.data.forEach(group => {
             if (group.users) {
                 const groupName = group.name || '';
@@ -484,12 +524,43 @@ function processFunnelData(data, funnelName) {
  * Process grouped funnel data (by creator or portfolio) into CSV format
  */
 function processGroupedFunnelData(data, funnelName, groupByField) {
-    if (!data || !data.data) {
+    if (!data) {
         console.log(`No data for ${funnelName}`);
         return [];
     }
 
     const rows = [];
+
+    // Handle Query API tabular format with headers and series (like Insights)
+    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
+        console.log(`Processing Query API tabular format for grouped ${funnelName}`);
+        console.log(`  Headers: ${data.headers.join(', ')}`);
+        console.log(`  Processing ${data.series.length} rows`);
+
+        // Each series item is a row of data corresponding to the headers
+        data.series.forEach((rowData, index) => {
+            if (Array.isArray(rowData)) {
+                const row = {};
+
+                // Map each value to its corresponding header
+                data.headers.forEach((header, headerIndex) => {
+                    if (headerIndex < rowData.length) {
+                        row[header] = rowData[headerIndex];
+                    }
+                });
+
+                // Add funnel name for clarity
+                row['Funnel'] = funnelName;
+
+                rows.push(row);
+            }
+        });
+
+        console.log(`Processed ${rows.length} rows for grouped funnel ${funnelName}`);
+        return rows;
+    }
+
+    // Legacy format handling below
 
     // Check if data is in the new date-based format
     if (typeof data.data === 'object' && !Array.isArray(data.data)) {
