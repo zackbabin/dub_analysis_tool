@@ -3,7 +3,7 @@ class MixpanelSync {
     constructor() {
         this.loadCredentials();
         this.baseURL = 'https://mixpanel.com/api/2.0';
-        this.projectId = '2948889'; // Your Mixpanel project ID from the dashboard URL
+        this.projectId = '2599235'; // Your Mixpanel project ID
         
         // Chart IDs from Mixpanel dashboard
         this.chartIds = {
