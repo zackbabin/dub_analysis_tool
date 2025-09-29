@@ -133,27 +133,28 @@ if (!document.getElementById('qda-styles')) {
 // === HELPER FUNCTIONS FOR PERSISTENCE ===
 
 /**
- * Clears all analysis-related data from sessionStorage.
+ * Clears all analysis-related data from localStorage.
  */
 function clearAnalysisStorage() {
-    Object.values(STORAGE_KEYS).forEach(key => sessionStorage.removeItem(key));
+    Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
 }
 
 /**
- * Checks sessionStorage for previous analysis results and displays them if found.
+ * Checks localStorage for previous analysis results and displays them if found.
  * @param {HTMLElement} container The target container element (or null for the main body).
  * @returns {boolean} True if results were loaded, false otherwise.
  */
 function loadPersistedResults(container) {
-    const summaryStatsText = sessionStorage.getItem(STORAGE_KEYS.SUMMARY);
+    // FIX: Switched from sessionStorage to localStorage
+    const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
     if (!summaryStatsText) return false;
 
     try {
         const results = {
             summaryStats: JSON.parse(summaryStatsText),
-            correlationResults: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.CORRELATION)),
-            regressionResults: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.REGRESSION)),
-            cleanData: JSON.parse(sessionStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
+            correlationResults: JSON.parse(localStorage.getItem(STORAGE_KEYS.CORRELATION)),
+            regressionResults: JSON.parse(localStorage.getItem(STORAGE_KEYS.REGRESSION)),
+            cleanData: JSON.parse(localStorage.getItem(STORAGE_KEYS.CLEAN_DATA))
         };
         
         // Display results
@@ -667,7 +668,8 @@ function createWidget(targetContainer = null) {
             clearAnalysisStorage();
             resultsDiv.style.display = 'none';
             uploadSection.style.display = 'flex';
-            resetBtn.remove();
+            const existingResetBtn = content.querySelector('button');
+            if (existingResetBtn) existingResetBtn.remove();
         };
         content.insertBefore(resetBtn, resultsDiv);
     }
@@ -745,11 +747,11 @@ async function analyzeDataInline(widget) {
         console.log('Starting analysis...');
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
-        // DATA STORAGE: Store results to sessionStorage
-        sessionStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
-        sessionStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
-        sessionStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
-        sessionStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
+        // DATA STORAGE: Store results to localStorage
+        localStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
+        localStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
+        localStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
+        localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData)); 
         
         // Display all results using inline display functions
         displaySummaryStatsInline(results.summaryStats);
@@ -761,7 +763,30 @@ async function analyzeDataInline(widget) {
         document.getElementById('qdaAnalysisResultsInline').style.display = 'block';
         
         // Hide upload section after success
-        widget.querySelector('.qda-upload-section').style.display = 'none';
+        const uploadSection = widget.querySelector('.qda-upload-section');
+        if (uploadSection) uploadSection.style.display = 'none';
+
+        // Add 'Clear Results' button to display next time
+        let resetBtn = widget.querySelector('button[data-reset="true"]');
+        if (!resetBtn) {
+            resetBtn = document.createElement('button');
+            resetBtn.className = 'qda-btn';
+            resetBtn.textContent = 'Clear Results & Start New Analysis';
+            resetBtn.style.cssText = 'margin-bottom: 20px;';
+            resetBtn.setAttribute('data-reset', 'true');
+            resetBtn.onclick = () => {
+                clearAnalysisStorage();
+                document.getElementById('qdaAnalysisResultsInline').style.display = 'none';
+                uploadSection.style.display = 'flex';
+                resetBtn.remove();
+            };
+            const content = widget.querySelector('.qda-content');
+            const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
+            if (content && resultsDiv) {
+                content.insertBefore(resetBtn, resultsDiv);
+            }
+        }
+
 
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
@@ -797,11 +822,11 @@ async function analyzeData() {
         console.log('Starting analysis...');
         const results = performQuantitativeAnalysis(mainCsvText, portfolioCsvText, creatorCsvText);
         
-        // DATA STORAGE: Store results to sessionStorage
-        sessionStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
-        sessionStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
-        sessionStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
-        sessionStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData));
+        // DATA STORAGE: Store results to localStorage
+        localStorage.setItem(STORAGE_KEYS.SUMMARY, JSON.stringify(results.summaryStats));
+        localStorage.setItem(STORAGE_KEYS.CORRELATION, JSON.stringify(results.correlationResults));
+        localStorage.setItem(STORAGE_KEYS.REGRESSION, JSON.stringify(results.regressionResults));
+        localStorage.setItem(STORAGE_KEYS.CLEAN_DATA, JSON.stringify(results.cleanData));
 
         // Display results - placeholder for non-inline version
         document.getElementById('qdaAnalysisResults').style.display = 'block';
