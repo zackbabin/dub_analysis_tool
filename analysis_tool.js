@@ -154,7 +154,7 @@ if (!document.getElementById('qda-styles')) {
     document.head.appendChild(styleSheet);
 }
 
-// === HELPER FUNCTIONS FOR PERSISTENCE ===
+// --- HELPER FUNCTIONS FOR PERSISTENCE ---
 
 /**
  * Clears all analysis-related data from localStorage.
