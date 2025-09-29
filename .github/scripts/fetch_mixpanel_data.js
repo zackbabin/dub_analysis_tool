@@ -110,7 +110,8 @@ function makeRequest(endpoint, params, method = 'GET') {
 }
 
 /**
- * Fetch funnel data
+ * Fetch funnel data using Query API
+ * https://developer.mixpanel.com/reference/funnels-query
  */
 async function fetchFunnelData(funnelId, name, groupBy = null) {
     console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`);
@@ -130,8 +131,57 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
     console.log(`  API params:`, JSON.stringify(params, null, 2));
 
     try {
-        // Use original funnel endpoint that was working before
-        const result = await makeRequest('/funnels', params, 'POST');
+        // Create custom request for query API (different from /api/2.0)
+        const queryString = new URLSearchParams(params).toString();
+
+        const options = {
+            hostname: 'mixpanel.com',
+            path: `/api/query/funnels?${queryString}`,
+            method: 'GET',
+            headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+            }
+        };
+
+        console.log(`Fetching /api/query/funnels via GET...`);
+
+        const result = await new Promise((resolve, reject) => {
+            const req = https.request(options, (res) => {
+                const chunks = [];
+                let totalLength = 0;
+
+                res.on('data', (chunk) => {
+                    chunks.push(chunk);
+                    totalLength += chunk.length;
+
+                    // Prevent excessive memory usage
+                    if (totalLength > 50 * 1024 * 1024) { // 50MB limit
+                        reject(new Error('Response too large - exceeds 50MB limit'));
+                        return;
+                    }
+                });
+
+                res.on('end', () => {
+                    if (res.statusCode === 200) {
+                        try {
+                            const data = Buffer.concat(chunks).toString();
+                            resolve(JSON.parse(data));
+                        } catch (e) {
+                            reject(new Error(`Failed to parse response: ${e.message}`));
+                        }
+                    } else {
+                        const errorData = Buffer.concat(chunks).toString();
+                        console.error(`Error ${res.statusCode}: ${errorData}`);
+                        reject(new Error(`API returned ${res.statusCode}: ${errorData}`));
+                    }
+                });
+            });
+
+            req.on('error', reject);
+            req.end();
+        });
+
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result) {
             console.log(`  Response keys:`, Object.keys(result));
@@ -153,6 +203,7 @@ async function fetchFunnelData(funnelId, name, groupBy = null) {
 /**
  * Fetch Insights data using correct API endpoint
  * https://developer.mixpanel.com/reference/insights-query
+ * Uses /api/query/insights instead of /api/2.0/insights
  */
 async function fetchInsightsData(chartId, name) {
     console.log(`Fetching ${name} insights data (ID: ${chartId})...`);
@@ -165,8 +216,49 @@ async function fetchInsightsData(chartId, name) {
     console.log(`  API params:`, JSON.stringify(params, null, 2));
 
     try {
-        // Use GET method for insights endpoint
-        const result = await makeRequest('/insights', params, 'GET');
+        // Create custom request for query API (different from /api/2.0)
+        const queryString = new URLSearchParams(params).toString();
+
+        const options = {
+            hostname: 'mixpanel.com',
+            path: `/api/query/insights?${queryString}`,
+            method: 'GET',
+            headers: {
+                'Authorization': authHeader,
+                'Accept': 'application/json'
+            }
+        };
+
+        console.log(`Fetching /api/query/insights via GET...`);
+
+        const result = await new Promise((resolve, reject) => {
+            const req = https.request(options, (res) => {
+                const chunks = [];
+
+                res.on('data', (chunk) => {
+                    chunks.push(chunk);
+                });
+
+                res.on('end', () => {
+                    if (res.statusCode === 200) {
+                        try {
+                            const data = Buffer.concat(chunks).toString();
+                            resolve(JSON.parse(data));
+                        } catch (e) {
+                            reject(new Error(`Failed to parse response: ${e.message}`));
+                        }
+                    } else {
+                        const errorData = Buffer.concat(chunks).toString();
+                        console.error(`Error ${res.statusCode}: ${errorData}`);
+                        reject(new Error(`API returned ${res.statusCode}: ${errorData}`));
+                    }
+                });
+            });
+
+            req.on('error', reject);
+            req.end();
+        });
+
         console.log(`  ✓ ${name} fetch successful. Data:`, result ? 'received' : 'null');
         if (result) {
             console.log(`  Response keys:`, Object.keys(result));
