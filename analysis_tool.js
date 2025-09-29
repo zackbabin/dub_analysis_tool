@@ -33,16 +33,16 @@ const styles = `
     /* UI FIX: Remove max-width here to let it shrink to fit the upload section, then reapply for wide results */
     .qda-inline-widget {
         background: white; 
-        border: 2px solid #17a2b8; /* Changed primary border color to Data Merger teal */
+        border: 2px solid #17a2b8; /* TEAL */
         border-radius: 10px;
         font-family: Arial, sans-serif; 
         font-size: 14px; 
         max-width: 1200px; 
         margin: 0 auto; 
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 4px rgba(0,0,0,0.1);
     }
     .qda-header {
-        background: #17a2b8; /* Changed primary header color to Data Merger teal */
+        background: #17a2b8; /* TEAL */
         color: white; padding: 15px;
         border-radius: 8px 8px 0 0; text-align: center;
     }
@@ -50,7 +50,7 @@ const styles = `
     
     /* UI FIX: Constrain the upload section size and center it */
     .qda-upload-section {
-        border: 2px dashed #17a2b8; /* Changed dashed border color */
+        border: 2px dashed #17a2b8; /* TEAL */
         border-radius: 8px; padding: 20px;
         /* Center the box */
         margin: 0 auto 40px auto; 
@@ -84,7 +84,7 @@ const styles = `
         margin: 0 auto;
         padding: 20px;
         background: white;
-        border: 2px solid #17a2b8; /* Changed primary border color */
+        border: 2px solid #17a2b8; /* TEAL */
         border-radius: 10px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
@@ -100,14 +100,14 @@ const styles = `
         font-size: 16px;
     }
 
-    /* Primary Analysis Button (default blue, but other components are teal) */
+    /* Primary Analysis Button: MUST use the same color as the Merger button */
     .qda-btn {
-        background: #007bff; /* Kept blue for Analysis Button for contrast/identity */
+        background: #17a2b8; /* Changed to TEAL for uniformity */
         color: white; padding: 8px 20px;
         border: none; border-radius: 5px; cursor: pointer;
         font-size: 14px; white-space: nowrap;
     }
-    .qda-btn:hover { background: #0056b3; }
+    .qda-btn:hover { background: #138496; } /* Darker teal hover */
     .qda-btn:disabled { background: #ccc; cursor: not-allowed; }
     .qda-analyze-row {
         margin-top: 20px; text-align: center; width: 100%;
@@ -116,18 +116,18 @@ const styles = `
     .qda-result-section { margin: 30px 0; position: relative; }
     .qda-result-section h1 {
         margin: 0 0 20px 0; padding: 10px 0 10px 15px;
-        border-left: 4px solid #007bff; /* Kept blue for visual highlight/branding */
+        border-left: 4px solid #17a2b8; /* Changed to TEAL for uniformity */
         font-size: 28px; font-weight: bold;
     }
     .qda-result-section h4 {
         font-size: 18px; font-weight: bold; margin: 20px 0 15px 0; color: #333;
     }
     .qda-export-btn {
-        position: absolute; top: 0; right: 0; background: #007bff;
+        position: absolute; top: 0; right: 0; background: #17a2b8; /* Changed to TEAL */
         color: white; border: none; padding: 8px 12px;
         border-radius: 4px; cursor: pointer; font-size: 12px;
     }
-    .qda-export-btn:hover { background: #0056b3; }
+    .qda-export-btn:hover { background: #138496; } /* Darker teal hover */
     .qda-regression-table {
         width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 12px;
     }
