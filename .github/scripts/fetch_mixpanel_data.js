@@ -438,13 +438,10 @@ async function main() {
     }
     
     try {
-        // 1. Fetch Subscribers Insights (using Insights API)
-        const subscribersInsights = await fetchInsightsData(
-            CHART_IDS.subscribersInsights,
-            'Subscribers Insights'
-        );
-        const processedInsights = processInsightsData(subscribersInsights);
-        saveToCSV(processedInsights, '1_subscribers_insights.csv');
+        // 1. Fetch User Profiles (this was working before)
+        const userProfiles = await fetchUserProfilesPaginated();
+        const processedProfiles = processUserProfiles(userProfiles);
+        saveToCSV(processedProfiles, '1_subscribers_insights.csv');
         
         // 2. Fetch Time to First Copy
         const firstCopy = await fetchFunnelData(
