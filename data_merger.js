@@ -53,6 +53,10 @@ function createInlineDataMerger(targetContainer) {
   
   processBtn.onclick = async () => {
     
+    // Clear old summary text/status when starting new merge
+    const oldSummary = content.querySelector('.data-merger-summary');
+    if (oldSummary) oldSummary.remove();
+
     const files = Array.from(fileInput.files);
     if (files.length !== 7) {
       alert(`Please select exactly 7 CSV files. You selected ${files.length} files.`);
@@ -89,7 +93,7 @@ function createInlineDataMerger(targetContainer) {
             reader.readAsText(file);
           });
       }));
-    
+      
       console.log('Processing comprehensive merge...');
       const results = processComprehensiveData(contents);
       // --- END OF FILE READING AND PROCESSING ---
@@ -99,33 +103,8 @@ function createInlineDataMerger(targetContainer) {
       processBtn.textContent = 'Success! Check downloads';
       processBtn.style.background = '#28a745';
       
-      // Remove old summary if it exists
-      const oldSummary = content.querySelector('.data-merger-summary');
-      if (oldSummary) oldSummary.remove();
-
-      // Show results summary
-      const summary = document.createElement('div');
-      summary.className = 'data-merger-summary';
-      summary.style.cssText = 'margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 11px;';
-      
-      const summaryTitle = document.createElement('strong');
-      summaryTitle.textContent = 'Files Created:';
-      summary.appendChild(summaryTitle);
-      summary.appendChild(document.createElement('br'));
-      
-      const mainFileInfo = document.createElement('div');
-      mainFileInfo.textContent = `• Main Analysis: ${results.mainFile.length} users`;
-      summary.appendChild(mainFileInfo);
-      
-      const creatorFileInfo = document.createElement('div');
-      creatorFileInfo.textContent = `• Creator Details: ${results.creatorFile.length} records`;
-      summary.appendChild(creatorFileInfo);
-      
-      const portfolioFileInfo = document.createElement('div');
-      portfolioFileInfo.textContent = `• Portfolio Details: ${results.portfolioFile.length} records`;
-      summary.appendChild(portfolioFileInfo);
-      
-      content.appendChild(summary);
+      // Show minimal results summary (only text on button)
+      // The button text itself serves as the persistent status feedback after success
       
     } catch (error) {
       console.error('Error:', error);

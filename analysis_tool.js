@@ -154,33 +154,6 @@ if (!document.getElementById('qda-styles')) {
     document.head.appendChild(styleSheet);
 }
 
-// --- STORAGE KEYS FOR PERSISTENCE ---
-const STORAGE_KEYS = {
-    SUMMARY: 'qdaSummaryStats',
-    CORRELATION: 'qdaCorrelationResults',
-    REGRESSION: 'qdaRegressionResults',
-    CLEAN_DATA: 'qdaCleanData'
-};
-
-// --- 1. CANONICAL VARIABLE LIST (STANDARDISATION) ---
-const ALL_VARIABLES = [
-    'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
-    'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
-    'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
-    'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
-    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
-    'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
-    'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
-    'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
-    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps'
-];
-
-// Section-specific exclusions for display only
-const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalDepositCount'],
-    'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies']
-};
-
 // === HELPER FUNCTIONS FOR PERSISTENCE ===
 
 /**
@@ -196,7 +169,6 @@ function clearAnalysisStorage() {
  * @returns {boolean} True if results were loaded, false otherwise.
  */
 function loadPersistedResults(outputContainer) {
-    // FIX: Switched from sessionStorage to localStorage
     const summaryStatsText = localStorage.getItem(STORAGE_KEYS.SUMMARY);
     
     // Always clear old content in the output container before rendering new/persisted data
@@ -739,7 +711,8 @@ async function analyzeDataInline(uploadContainer, outputContainerId) {
 
     const mainFileInput = document.getElementById('qdaMainFileInline');
     
-    if (!mainFileInput.files[0]) {
+    // Fix: Re-checking for file existence *after* clearing storage but before reading
+    if (!mainFileInput.files || mainFileInput.files.length === 0) {
         alert('Please select the Main Analysis CSV file');
         return;
     }
