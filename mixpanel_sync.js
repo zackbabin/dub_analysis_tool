@@ -421,13 +421,10 @@ class MixpanelSync {
     // Test API connection using service account
     async testConnection() {
         try {
-            // Test with the events/names endpoint which is simple and reliable
-            const params = {
-                project_id: this.projectId,
-                limit: 1
-            };
+            // Build URL with parameters explicitly
+            const url = `${this.baseURL}/events/names?project_id=${this.projectId}&limit=1`;
             
-            const url = `${this.baseURL}/events/names?${new URLSearchParams(params)}`;
+            console.log('Testing connection with URL:', url);
             
             const response = await fetch(url, {
                 method: 'GET',
