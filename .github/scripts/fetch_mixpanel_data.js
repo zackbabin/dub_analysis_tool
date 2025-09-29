@@ -189,7 +189,7 @@ async function fetchUserProfilesPaginated() {
     let hasMore = true;
     let sessionId = null;
 
-    while (hasMore && page < 100) { // Increased limit to 100 pages (100,000 users max)
+    while (hasMore && page < 20) { // Limit to 20 pages (20,000 users) to avoid timeout
         console.log(`Fetching page ${page + 1}...`);
 
         try {
@@ -221,7 +221,7 @@ async function fetchUserProfilesPaginated() {
 
                 // Add delay between requests to avoid rate limiting
                 if (hasMore) {
-                    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 seconds between requests
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second between requests
                 }
             } else {
                 hasMore = false;

@@ -457,7 +457,7 @@ class UnifiedAnalysisTool {
         const repo = 'dub_analysis_tool';
 
         let attempts = 0;
-        const maxAttempts = 36; // 3 minutes
+        const maxAttempts = 180; // 15 minutes (5 seconds * 180 = 900 seconds)
 
         while (attempts < maxAttempts) {
             await new Promise(resolve => setTimeout(resolve, 5000));
