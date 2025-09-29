@@ -90,9 +90,10 @@ class MixpanelSync {
     }
     
     getEndpointForChart(chartType) {
-        // Map chart types to Mixpanel API endpoints
+        // For saved reports/insights, we might need to use the insights endpoint
+        // For funnels, use the funnels endpoint
         const endpoints = {
-            'subscribersInsights': '/engage',
+            'subscribersInsights': '/insights', // Try insights endpoint for saved reports
             'timeToFirstCopy': '/funnels',
             'timeToFundedAccount': '/funnels',
             'timeToLinkedBank': '/funnels',
@@ -104,31 +105,35 @@ class MixpanelSync {
     }
     
     buildParams(chartId, chartType, dateRange) {
+        // Different endpoints require different parameters
+        if (chartType === 'subscribersInsights') {
+            // For insights reports, use bookmark_id instead of funnel_id
+            return {
+                project_id: this.projectId,
+                bookmark_id: chartId,
+                from_date: dateRange.from,
+                to_date: dateRange.to
+            };
+        }
+        
+        // For funnel endpoints
         const baseParams = {
-            project_id: this.projectId, // Use the project ID directly
+            project_id: this.projectId,
             funnel_id: chartId,
             from_date: dateRange.from,
             to_date: dateRange.to
         };
         
         // Add specific parameters based on chart type
-        if (chartType === 'subscribersInsights') {
-            // For user profile data, we need different parameters
-            return {
-                ...baseParams,
-                where: '', // Can add filters if needed
-                session_id: new Date().getTime(), // Unique session
-                page: 0,
-                page_size: 10000 // Adjust based on user count
-            };
-        } else if (chartType.includes('premium') || chartType.includes('creator')) {
-            // For grouped funnels
+        if (chartType.includes('premium') || chartType.includes('creator')) {
+            // For grouped funnels by creator
             return {
                 ...baseParams,
                 on: 'properties["creatorUsername"]',
                 unit: 'day'
             };
         } else if (chartType.includes('portfolio')) {
+            // For grouped funnels by portfolio
             return {
                 ...baseParams,
                 on: 'properties["portfolioTicker"]',
