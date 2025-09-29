@@ -31,6 +31,9 @@ jobs:
           MIXPANEL_SERVICE_SECRET: ${{ secrets.MIXPANEL_SERVICE_SECRET }}
         run: |
           node .github/scripts/fetch_mixpanel_data.js
+      - name: Merge CSV Files
+        run: |
+          node .github/scripts/merge_data.js
 
       - name: Commit and push CSV files
         run: |
