@@ -28,13 +28,7 @@ class UnifiedAnalysisTool {
         wrapper.style.maxWidth = '800px';
         wrapper.style.margin = '0 auto';
 
-        // Header
-        const header = document.createElement('div');
-        header.className = 'qda-header';
-        header.innerHTML = '<h3 style="margin: 0;">Unified Analysis Workflow</h3>';
-        wrapper.appendChild(header);
-
-        // Content
+        // Content (no header)
         const content = document.createElement('div');
         content.className = 'qda-content';
 
@@ -84,7 +78,7 @@ class UnifiedAnalysisTool {
 
         // Option 1: Fetch from Mixpanel via GitHub Actions
         const githubBtn = this.createModeButton(
-            'Fetch Fresh Data',
+            'Sync Live Data',
             'Trigger GitHub Actions to fetch latest data from Mixpanel',
             '#28a745',
             () => this.runWorkflow('github')
@@ -93,7 +87,7 @@ class UnifiedAnalysisTool {
 
         // Option 2: Upload CSV files
         const uploadBtn = this.createModeButton(
-            'Upload CSV Files',
+            'Manually Upload Data',
             'Upload your own 7 CSV files for analysis',
             '#17a2b8',
             () => this.runWorkflow('upload')
