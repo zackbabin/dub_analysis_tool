@@ -40,17 +40,25 @@ const styles = `
         border-radius: 8px 8px 0 0; text-align: center;
     }
     .qda-content { padding: 20px; background: white; }
-    /* UPDATED: Simplified grid for a single column centered layout */
+    
+    /* UI FIX: Constrain the upload section size and center it */
     .qda-upload-section {
         border: 2px dashed #007bff; border-radius: 8px; padding: 20px;
-        margin-bottom: 40px; background: #f8f9fa;
-        display: flex; justify-content: center; align-items: center; 
+        margin: 0 auto 40px auto; /* Centered horizontally */
+        background: #f8f9fa;
+        display: flex; 
+        justify-content: center; 
+        max-width: 450px; /* Constrain the overall size of the upload box */
     }
     .qda-upload-column {
-        display: flex; flex-direction: column; align-items: center;
-        text-align: center; padding: 15px; background: white;
-        border-radius: 8px; border: 1px solid #dee2e6;
-        max-width: 350px; /* Constrain the size of the single upload box */
+        display: flex; 
+        flex-direction: column; 
+        align-items: center;
+        text-align: center; 
+        padding: 0; /* Padding handled by parent section */
+        background: transparent; /* Background handled by parent section */
+        border: none; /* Border handled by parent section */
+        width: 100%; /* Ensures inner elements stretch within the max-width set above */
     }
     .qda-file-label {
         font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px;
@@ -152,10 +160,6 @@ function loadPersistedResults(container) {
         // Make the results visible
         const resultsContainerId = container ? 'qdaAnalysisResultsInline' : 'qdaAnalysisResults';
         document.getElementById(resultsContainerId).style.display = 'block';
-
-        // Hide the upload section to show only results
-        const uploadSection = container.querySelector('.qda-upload-section');
-        if (uploadSection) uploadSection.style.display = 'none';
 
         return true;
     } catch (e) {
@@ -583,7 +587,10 @@ function createWidget(targetContainer = null) {
     const widget = document.createElement('div');
     
     if (targetContainer) {
+        // Since we are centering narrow content, remove the max-width on the inline widget 
+        // to allow it to shrink, then re-apply for wide results.
         widget.className = 'qda-inline-widget';
+        widget.style.maxWidth = '1200px'; 
     } else {
         widget.className = 'qda-widget';
     }
@@ -643,7 +650,6 @@ function createWidget(targetContainer = null) {
     // Upload section (only displayed if no results were loaded)
     const uploadSection = document.createElement('div');
     uploadSection.className = 'qda-upload-section';
-    uploadSection.style.cssText = 'border: 2px dashed #007bff; border-radius: 8px; padding: 20px; margin-bottom: 40px; background: #f8f9fa; display: flex; justify-content: center;';
     
     if (resultsLoaded) {
         uploadSection.style.display = 'none';
@@ -664,7 +670,6 @@ function createWidget(targetContainer = null) {
     // Main Analysis File (required)
     const mainColumn = document.createElement('div');
     mainColumn.className = 'qda-upload-column';
-    mainColumn.style.maxWidth = '350px';
     
     const mainLabel = document.createElement('div');
     mainLabel.className = 'qda-file-label';
@@ -755,6 +760,7 @@ async function analyzeDataInline(widget) {
 
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
+        clearAnalysisStorage(); // Clear storage on failure to prevent partial loads
         console.error('Full error:', error);
     } finally {
         analyzeBtn.textContent = 'Analyze Data';
@@ -799,6 +805,7 @@ async function analyzeData() {
         console.log('Analysis completed successfully!');
     } catch (error) {
         alert('Error analyzing data: ' + error.message);
+        clearAnalysisStorage(); // Clear storage on failure to prevent partial loads
         console.error('Full error:', error);
     } finally {
         analyzeBtn.textContent = 'Analyze Data';
