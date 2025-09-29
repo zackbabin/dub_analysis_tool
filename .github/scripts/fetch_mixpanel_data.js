@@ -602,17 +602,35 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
 function extractUserIdsFromInsights(data) {
     const userIds = new Set();
 
-    if (!data || !data.data) {
+    if (!data) {
         console.log('No insights data to extract users from');
         return userIds;
     }
 
-    console.log('Insights data type:', typeof data.data);
-    console.log('Insights data structure:', JSON.stringify(data).substring(0, 500));
+    console.log('Insights response structure:', JSON.stringify(data).substring(0, 500));
 
-    // Handle insights data broken down by distinct_id
-    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
-        console.log('Extracting users from distinct_id breakdown format');
+    // Check if data has series (Query API format)
+    if (data.series && Array.isArray(data.series)) {
+        console.log('Extracting users from series format (Query API)');
+        console.log(`Found ${data.series.length} series`);
+
+        // Each series represents a breakdown (e.g., by distinct_id)
+        data.series.forEach((series, idx) => {
+            console.log(`  Series ${idx}: ${series.legend || 'unnamed'}`);
+
+            // The legend might be the user ID
+            if (series.legend) {
+                const cleanId = series.legend.replace('$device:', '');
+                // Only add if it looks like a user ID (UUID or device ID format)
+                if (cleanId.match(/^[A-F0-9-]+$/i) || cleanId.match(/^[a-z0-9-]+$/i)) {
+                    userIds.add(cleanId);
+                }
+            }
+        });
+    }
+    // Handle insights data broken down by distinct_id (legacy format)
+    else if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log('Extracting users from distinct_id breakdown format (legacy)');
 
         // data.data is an object where keys might be distinct_ids
         Object.keys(data.data).forEach(key => {
@@ -640,16 +658,46 @@ function extractUserIdsFromInsights(data) {
  * For subscriber insights broken down by distinct_id and properties
  */
 function processInsightsData(data) {
-    if (!data || !data.data) {
+    if (!data) {
         console.log('No insights data');
         return [];
     }
 
     const rows = [];
 
-    // Handle insights data broken down by distinct_id (like Demo breakdown of subscribers)
-    if (typeof data.data === 'object' && !Array.isArray(data.data)) {
-        console.log('Processing distinct_id breakdown format');
+    // Handle Query API format with series
+    if (data.series && Array.isArray(data.series)) {
+        console.log('Processing Query API series format');
+
+        data.series.forEach((series, index) => {
+            // series.legend might be the user ID
+            const userId = series.legend ? series.legend.replace('$device:', '') : `Unknown_${index}`;
+
+            // series.data contains the values over time
+            if (series.data && Array.isArray(series.data)) {
+                const row = {
+                    '$distinct_id': userId
+                };
+
+                // If there are dates, create time series rows
+                if (data.date_range && data.date_range.length > 0) {
+                    series.data.forEach((value, dateIndex) => {
+                        if (data.date_range[dateIndex]) {
+                            row[`value_${data.date_range[dateIndex]}`] = value;
+                        }
+                    });
+                } else {
+                    // Sum up the values or take the latest
+                    row['value'] = series.data.reduce((a, b) => a + b, 0);
+                }
+
+                rows.push(row);
+            }
+        });
+    }
+    // Handle legacy format: insights data broken down by distinct_id
+    else if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
+        console.log('Processing distinct_id breakdown format (legacy)');
 
         // data.data is an object where keys are distinct_ids or property values
         Object.entries(data.data).forEach(([key, value]) => {
@@ -673,7 +721,7 @@ function processInsightsData(data) {
         });
     }
     // Handle different Insights data formats (fallback)
-    else if (data.data.series && Array.isArray(data.data.series)) {
+    else if (data.data && data.data.series && Array.isArray(data.data.series)) {
         // Time series data format
         data.data.series.forEach((series, index) => {
             if (series.data) {
@@ -686,7 +734,7 @@ function processInsightsData(data) {
                 });
             }
         });
-    } else if (Array.isArray(data.data)) {
+    } else if (data.data && Array.isArray(data.data)) {
         // Simple array format
         data.data.forEach((item, index) => {
             if (typeof item === 'object') {
