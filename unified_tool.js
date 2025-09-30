@@ -196,18 +196,18 @@ class UnifiedAnalysisTool {
         }
 
         this.addStatusMessage('✅ Workflow triggered successfully', 'success');
-        this.updateProgress(20, 'Workflow started...');
+        this.updateProgress(20, 'Ingesting live data...');
 
-        // Step 2: Wait for workflow completion
-        this.addStatusMessage('⏳ Waiting for workflow to complete...', 'info');
+        // Step 2: Wait for workflow completion (data ingestion from Mixpanel)
+        this.addStatusMessage('📊 Ingesting live data from Mixpanel...', 'info');
         const workflowSuccess = await this.waitForWorkflowCompletion();
 
         if (!workflowSuccess) {
             throw new Error('Workflow failed or timed out');
         }
 
-        this.addStatusMessage('✅ Data fetch completed', 'success');
-        this.updateProgress(40, 'Loading data...');
+        this.addStatusMessage('✅ Data ingestion completed', 'success');
+        this.updateProgress(40, 'Analyzing the data...');
 
         // Step 3: Load data from GitHub
         this.addStatusMessage('📥 Loading data files from GitHub...', 'info');
@@ -215,9 +215,9 @@ class UnifiedAnalysisTool {
 
         const contents = await this.loadGitHubData();
         this.addStatusMessage('✅ Data files loaded', 'success');
-        this.updateProgress(60, 'Merging data...');
+        this.updateProgress(60, 'Analyzing the data...');
 
-        // Step 4: Process and merge data
+        // Step 4: Process and analyze data
         await this.processAndAnalyze(contents);
     }
 
@@ -570,7 +570,7 @@ class UnifiedAnalysisTool {
 
                     // Update status message to show workflow progress
                     const statusText = latestRun.status === 'in_progress' || latestRun.status === 'queued'
-                        ? 'Workflow in progress...'
+                        ? 'Ingesting live data...'
                         : `Workflow ${latestRun.status}...`;
                     this.updateProgress(20 + (attempts * 0.5), statusText);
 
