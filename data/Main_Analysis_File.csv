@@ -11,7 +11,7 @@ $device:875AEFDD-B74C-4AA1-A3A4-F3201601E5EB,1,undefined,undefined,0,4.61,0,0,0,
 $device:D84E5619-DC63-4B91-8402-1A180C957E91,1,undefined,undefined,0,0,0,0,1,196.53,undefined,undefined,undefined,undefined,undefined,396.53,2,2,2,2,15,,32,3,7,4,,,,1,,,,,0.015023148148148148,0.014270833333333333,0.013599537037037037
 535844905713070080,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,7,,,,,,,,,,,,,,0.008900462962962962
 $device:187C3DE9-6583-4FA0-8A85-0E3B6B047FE3,1,100k–200k,<100k,0,0.07000000000000001,0,0,0,0,occasional,5–10,balanced,growth,Facebook,500,1,2,,14,8,1,14,3,1,,,2,9,4,,2,,,0.008229166666666666,0.005983796296296296,0.005347222222222222
-$device:12F20B78-9CF9-4E75-83E1-41F859C50ACD,1,<25k,<100k,2,300,0,0,0,0,day-trade,0,preservation,moderately-conservative,Other -  YouTube,300,2,2,,12,4,,25,8,9,9,,2,2,6,,2,,,4.486493055555556,,2.4527430555555556
+$device:12F20B78-9CF9-4E75-83E1-41F859C50ACD,1,<25k,<100k,2,300,0,0,0,0,day-trade,0,preservation,moderately-conservative,Other -  YouTube,300,2,2,,12,4,,25,8,9,9,,2,2,6,,2,,,,3.364236111111111,2.4527430555555556
 549546167588999168,1,50k–100k,100k–250k,1,0,0,0,0,0,passive,0,capital-appreciation,growth,Other - tv interview,1000,1,1,,15,5,3,32,3,1,,,1,9,10,,,,,2.534710648148148,3.916284722222222,2.5324537037037036
 $device:EBCD2BCD-3E03-4628-8B30-AAACE003393E,1,undefined,undefined,0,100.12,0,0,0,0,undefined,undefined,undefined,undefined,undefined,400,3,3,2,7,19,,25,3,12,3,,1,4,8,1,1,,,0.02829861111111111,0.025324074074074075,0.02505787037037037
 542895815234560000,1,undefined,undefined,2,0,1,1,0,0,undefined,undefined,undefined,undefined,undefined,200,1,,,7,11,1,21,1,8,3,,,,1,,,,,,1.2702893518518519,0.02849537037037037
@@ -174,7 +174,7 @@ $device:A2B5D119-A73E-44D8-B293-F662C8A6A340,1,undefined,undefined,1,203.4,0,0,0
 $device:402A7F69-4424-4372-A976-66A8479AEAB4,1,100k–200k,<100k,2,0,0,0,0,0,occasional,<1,preservation,moderate,Friend,,,,,5,,,9,,,1,,,,1,,,,,,,2.6667708333333335
 $device:6A8844F2-B5E4-4A55-B0E6-32C434B6936F,1,100k–200k,<100k,2,0,0,0,0,0,passive,0,income,moderate,Instagram,,,,,,1,,4,1,2,,,,,,,,,,,,0.005115740740740741
 428368217488560128,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,0.0037731481481481483
-549545041871360000,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,1–3,growth,aggressive,Other - fox news,200,1,,,2,7,,15,,2,,,,2,,,,,,,5.121597222222222,5.121296296296296
+549545041871360000,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,1–3,growth,aggressive,Other - fox news,200,1,,,2,7,,15,,2,,,,2,,,,,,,5.121597222222222,2.8929050925925925
 $device:27AFC4FB-2190-4329-8E1A-81B66BE12DBC,1,100k–200k,250k–500k,1,400,0,0,0,0,passive,0,growth,moderate,Other - Fox,900,2,1,,2,,,15,,,,,1,,,,,,,3.533275462962963,3.9153356481481483,3.531840277777778
 $device:F144CF87-9FD0-4693-98A9-134F70EB3D1D,1,undefined,undefined,1,0,0,0,1,20,undefined,undefined,undefined,undefined,undefined,220,2,1,,14,1,,61,10,4,2,,1,,,,,,,3.9994791666666667,1.744236111111111,1.7407060185185186
 $device:E827590B-BF33-4E58-8722-DA8A7B5CEEAA,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,
@@ -194,7 +194,7 @@ $device:4EF714C5-64E5-4905-AC96-055E37F9AA02,1,undefined,undefined,1,0.06,0,0,0,
 $device:a5be9b39-bdbc-4b39-afe2-b81e8fcd02c3,1,undefined,undefined,undefined,undefined,undefined,undefined,undefined,,,,,,,,,,,2,1,,8,,,,,,,,,,,,,,0.08168981481481481
 $device:1606546A-BA88-4E85-B67D-CFD7A6B45D9E,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,<1,growth,growth,TikTok,,,,,,,,6,,1,,,,,3,,,1,,,,0.01721064814814815
 $device:459b8a97-a835-47cf-9e62-5aae12fb175f,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,5,1,1,1,,,,,,,,,,,0.008368055555555556
-$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,0.9260532407407407,,0.008923611111111111
+$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,3.507962962962963,2.4889004629629627,0.008923611111111111
 $device:5E7EC410-ED87-4A13-9382-C304347A3B39,1,undefined,undefined,0,100.04,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,2,1,13,10,20,1,,6,,,1,,1,1,,1,7.429131944444444,7.422233796296296,0.4298958333333333
 6cdf0bca-f129-4f92-a3c9-24fb7acacaca,1,<25k,<100k,1,0,0,0,1,198.37,passive,0,income,moderate,TikTok,398.37,2,1,1,1,16,1,9,4,5,2,,,,,,,,,0.4832523148148148,0.503275462962963,0.4807060185185185
 $device:D03995E4-03BB-43B7-AAD4-8D386BC91493,1,undefined,undefined,1,0.01,0,0,0,0,undefined,undefined,undefined,undefined,undefined,9000,2,1,,33,7,3,57,15,2,13,,1,,3,,,,,,,
