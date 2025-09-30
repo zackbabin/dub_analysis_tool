@@ -1242,13 +1242,11 @@ function classifyPersona(user) {
         return 'aspiringPremium';
     }
 
-    if (user.totalSubscriptions === 0) {
-        const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1);
-        const engagementQualifies = (hasCopied || totalPDPViews >= 2);
-
-        if (depositQualifies || engagementQualifies) {
-            return 'core';
-        }
+    if (user.totalSubscriptions === 0 &&
+        user.totalDeposits >= 200 &&
+        user.totalDeposits <= 1000 &&
+        (hasCopied || totalPDPViews >= 2)) {
+        return 'core';
     }
 
     if (isHigherOrUnknownIncome(user.income) &&
