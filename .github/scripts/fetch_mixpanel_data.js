@@ -710,22 +710,26 @@ function processInsightsData(data) {
     if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
         console.log('Processing Query API nested object format for user profiles');
         console.log(`Headers (${data.headers.length}): ${data.headers.join(', ')}`);
-        console.log(`Series metrics: ${Object.keys(data.series).slice(0, 5).join(', ')}...`);
+        console.log(`Series metrics (${Object.keys(data.series).length}): ${Object.keys(data.series).slice(0, 5).join(', ')}...`);
 
-        // New approach: Flatten the entire nested structure
-        // We'll collect all unique paths to users and extract property values
-        const userDataMap = new Map(); // distinct_id -> {properties}
+        // Structure: series[metricName][userId or prop][prop][prop]...
+        // We need to extract:
+        // 1. Property values from headers (dimensions like income, netWorth)
+        // 2. Metric values from series keys (metrics like "A. Linked Bank Account")
+
+        const userDataMap = new Map(); // distinct_id -> {properties and metrics}
         const propertyHeaders = data.headers.slice(2); // Skip $metric and $distinct_id
+        const metricNames = Object.keys(data.series); // All the metric names
 
-        function extractUserDataRecursive(obj, pathValues = [], currentUserId = null, depth = 0) {
+        function extractUserDataRecursive(obj, pathValues = [], currentUserId = null, currentMetric = null, depth = 0) {
             if (depth > 30) return; // Prevent infinite recursion
 
             if (obj && typeof obj === 'object') {
                 Object.entries(obj).forEach(([key, value]) => {
                     // Skip meta keys but still recurse
-                    if (key === '$overall' || key === 'all' || key === 'undefined') {
+                    if (key === '$overall' || key === 'all') {
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, pathValues, currentUserId, depth + 1);
+                            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1);
                         }
                         return;
                     }
@@ -741,20 +745,20 @@ function processInsightsData(data) {
                             userDataMap.set(key, { '$distinct_id': key });
                         }
 
-                        // Continue recursing with this user ID, collecting property values
+                        // Continue recursing with this user ID
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, pathValues, key, depth + 1);
+                            extractUserDataRecursive(value, pathValues, key, currentMetric, depth + 1);
+                        } else if (typeof value === 'number' && currentMetric) {
+                            // Direct metric value for this user
+                            userDataMap.get(key)[currentMetric] = value;
                         }
                     } else if (currentUserId) {
                         // We're inside a user's data - collect property values
-                        // Add this key to the path
                         const newPath = [...pathValues, key];
 
-                        // Map path values to property headers
+                        // Map path values to property headers (dimensions)
                         const userData = userDataMap.get(currentUserId);
                         if (userData) {
-                            // Each level of nesting after the user corresponds to a property
-                            // pathValues[0] = value for propertyHeaders[0], etc.
                             newPath.forEach((val, idx) => {
                                 if (idx < propertyHeaders.length) {
                                     const propName = propertyHeaders[idx];
@@ -763,23 +767,31 @@ function processInsightsData(data) {
                                     }
                                 }
                             });
+
+                            // Check if we've reached a metric value (number at leaf)
+                            if (typeof value === 'number' && currentMetric) {
+                                userData[currentMetric] = value;
+                            }
                         }
 
                         // Continue recursing
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, newPath, currentUserId, depth + 1);
+                            extractUserDataRecursive(value, newPath, currentUserId, currentMetric, depth + 1);
                         }
                     } else {
-                        // Not a user ID yet, keep looking
+                        // Not inside a user yet, keep searching
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, pathValues, currentUserId, depth + 1);
+                            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1);
                         }
                     }
                 });
             }
         }
 
-        extractUserDataRecursive(data.series);
+        // Iterate through each metric in series
+        metricNames.forEach(metricName => {
+            extractUserDataRecursive(data.series[metricName], [], null, metricName, 0);
+        });
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
 
         if (userDataMap.size > 0) {
