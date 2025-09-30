@@ -1296,7 +1296,7 @@ function calculateDemographicBreakdown(data, key) {
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
     const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
-    const usersWithDeposits = data.filter(d => d.totalDeposits > 0).length;
+    const usersWithDeposits = data.filter(d => d.totalDepositCount > 0).length;
     const usersWithSubscriptions = data.filter(d => d.totalSubscriptions > 0).length;
 
     const demographicKeys = [
