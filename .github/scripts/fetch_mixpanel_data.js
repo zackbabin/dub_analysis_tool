@@ -224,7 +224,7 @@ async function fetchInsightsData(chartId, name) {
     const params = {
         project_id: PROJECT_ID,
         bookmark_id: chartId,
-        limit: 10000  // Increase limit to get all users (default is usually 3000-5000)
+        limit: 100000  // Set high limit to ensure we get all users as the base grows
     };
 
     console.log(`  API params:`, JSON.stringify(params, null, 2));
