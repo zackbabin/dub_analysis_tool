@@ -1082,8 +1082,9 @@ const ALL_VARIABLES = [
 ];
 
 const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalDepositCount'],
-    'totalCopies': ['totalBuys', 'totalTrades', 'totalRegularCopies']
+    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank'],
+    'totalCopies': ['hasLinkedBank'],
+    'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
 };
 
 /**
@@ -1878,8 +1879,8 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         combinedData.slice(0, 20).forEach(item => {
             const rowData = [
                 getVariableLabel(item.variable),
-                item.correlation.toFixed(3),
-                item.tStat.toFixed(3),
+                item.correlation.toFixed(2),
+                item.tStat.toFixed(2),
                 { text: item.predictiveStrength, className: item.predictiveClass, html: true },
                 item.tippingPoint !== 'N/A' ?
                     (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
