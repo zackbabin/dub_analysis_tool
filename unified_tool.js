@@ -1305,14 +1305,14 @@ function classifyPersona(user) {
 
     if (user.totalDeposits === 0 &&
         user.totalCopies === 0 &&
-        (totalPDPViews >= 2 || totalCreatorViews >= 2)) {
+        (totalPDPViews >= 1 || totalCreatorViews >= 1)) {
         return 'activationTargets';
     }
 
-    if (user.hasLinkedBank === 0 &&
-        user.totalDeposits === 0 &&
+    if (user.totalDeposits === 0 &&
         totalPDPViews === 0 &&
-        totalCreatorViews === 0) {
+        totalCreatorViews === 0 &&
+        user.totalCopies === 0) {
         return 'nonActivated';
     }
 
