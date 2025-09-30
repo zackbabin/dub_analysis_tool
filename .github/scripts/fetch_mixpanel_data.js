@@ -418,20 +418,29 @@ function processFunnelData(data, funnelName) {
                     '$distinct_id': userId
                 };
 
-                // Debug: Check what keys userData has
-                const userKeys = Object.keys(userData);
+                // userData IS the array of steps directly (not wrapped in $overall)
+                // Check if it's an array or array-like object
+                const isArrayLike = Array.isArray(userData) || (typeof userData === 'object' && userData.length !== undefined);
+
                 if (rows.length < 3) {
-                    console.log(`  Sample user ${userId} has keys: ${userKeys.join(', ')}`);
-                    if (userData.$overall) {
-                        console.log(`  $overall type: ${Array.isArray(userData.$overall) ? 'array' : typeof userData.$overall}`);
+                    console.log(`  Sample user ${userId.substring(0, 20)}... isArrayLike: ${isArrayLike}, length: ${userData.length || 'N/A'}`);
+                    if (isArrayLike && userData.length > 0) {
+                        const lastStep = userData[userData.length - 1];
+                        console.log(`    Last step: ${JSON.stringify(lastStep).substring(0, 150)}`);
                     }
                 }
 
-                // Extract funnel step data from $overall array
-                if (userData.$overall && Array.isArray(userData.$overall)) {
-                    // Each element in $overall is a step with count, avg_time, etc.
-                    const steps = userData.$overall;
+                // Convert array-like object to actual array if needed
+                let steps = Array.isArray(userData) ? userData : [];
+                if (!Array.isArray(userData) && userData.length !== undefined) {
+                    // It's an array-like object (with numeric keys)
+                    steps = [];
+                    for (let i = 0; i < userData.length; i++) {
+                        if (userData[i]) steps.push(userData[i]);
+                    }
+                }
 
+                if (steps.length > 0) {
                     // For time-to-event funnels (Time to First Copy, etc.)
                     // Extract the last step's avg_time_from_start and convert to days
                     if (funnelName.includes('Time to')) {
@@ -451,7 +460,7 @@ function processFunnelData(data, funnelName) {
                         });
                     }
                 } else {
-                    console.log(`Warning: No $overall data for user ${userId}, keys: ${userKeys.join(', ')}`);
+                    console.log(`Warning: No step data for user ${userId}`);
                 }
 
                 rows.push(row);
@@ -726,10 +735,19 @@ function processInsightsData(data) {
 
             if (obj && typeof obj === 'object') {
                 Object.entries(obj).forEach(([key, value]) => {
-                    // Skip meta keys but still recurse
-                    if (key === '$overall' || key === 'all') {
+                    // Skip $overall but handle 'all' which contains metric values
+                    if (key === '$overall') {
                         if (typeof value === 'object') {
                             extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1);
+                        }
+                        return;
+                    }
+
+                    // 'all' key contains the actual metric value
+                    if (key === 'all' && typeof value === 'number' && currentUserId && currentMetric) {
+                        const userData = userDataMap.get(currentUserId);
+                        if (userData) {
+                            userData[currentMetric] = value;
                         }
                         return;
                     }
@@ -771,6 +789,9 @@ function processInsightsData(data) {
                             // Check if we've reached a metric value (number at leaf)
                             if (typeof value === 'number' && currentMetric) {
                                 userData[currentMetric] = value;
+                                if (Object.keys(userData).length <= 5) {
+                                    console.log(`    Set metric ${currentMetric} = ${value} for user`);
+                                }
                             }
                         }
 
@@ -789,7 +810,9 @@ function processInsightsData(data) {
         }
 
         // Iterate through each metric in series
-        metricNames.forEach(metricName => {
+        console.log(`Processing ${metricNames.length} metrics...`);
+        metricNames.forEach((metricName, idx) => {
+            if (idx < 3) console.log(`  Processing metric: ${metricName}`);
             extractUserDataRecursive(data.series[metricName], [], null, metricName, 0);
         });
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
