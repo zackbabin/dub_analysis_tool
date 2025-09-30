@@ -501,14 +501,9 @@ class UnifiedAnalysisTool {
         let githubToken = localStorage.getItem('github_pat');
 
         if (!githubToken) {
-            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):');
-            if (!githubToken) {
-                throw new Error('GitHub token is required');
-            }
-
-            if (confirm('Save this token for future use?')) {
-                localStorage.setItem('github_pat', githubToken);
-            }
+            // Use default token for shared access
+            githubToken = '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';
+            localStorage.setItem('github_pat', githubToken);
         }
 
         const owner = 'zackbabin';
