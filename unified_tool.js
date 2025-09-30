@@ -1231,8 +1231,7 @@ function classifyPersona(user) {
         return 'core';
     }
 
-    if (isHigherOrUnknownIncome(user.income) &&
-        user.totalDeposits === 0 &&
+    if (user.totalDeposits === 0 &&
         user.totalCopies === 0 &&
         (totalPDPViews >= 2 || totalCreatorViews >= 2)) {
         return 'activationTargets';
@@ -1650,25 +1649,25 @@ function displayPersonaBreakdownInline(stats) {
     const personas = [
         {
             name: 'Premium',
-            subtitle: 'Active subscriptions - highest revenue users',
+            subtitle: 'Active Premium subscribers',
             data: stats.personaStats.premium,
             priority: 1
         },
         {
             name: 'Core',
-            subtitle: 'All non-premium users with deposits > 0 - main revenue-generating user base',
+            subtitle: 'Engaged users with deposits and no Premium subscriptions',
             data: stats.personaStats.core,
             priority: 2
         },
         {
             name: 'Activation Targets',
-            subtitle: 'Higher income prospects browsing creators but not converting',
+            subtitle: 'Users that have shown engagement but no deposits',
             data: stats.personaStats.activationTargets,
             priority: 3
         },
         {
             name: 'Non-activated',
-            subtitle: 'Zero banking, deposits, and platform engagement',
+            subtitle: 'Users who have not linked a bank or zero deposits',
             data: stats.personaStats.nonActivated,
             priority: 4
         }
@@ -1689,12 +1688,12 @@ function displayPersonaBreakdownInline(stats) {
         card.appendChild(subtitleEl);
 
         const percentageEl = document.createElement('div');
-        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px; text-align: right;';
+        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px; text-align: left;';
         percentageEl.textContent = `${p.data.percentage.toFixed(1)}%`;
         card.appendChild(percentageEl);
 
         const countEl = document.createElement('div');
-        countEl.style.cssText = 'font-size: 13px; color: #333; text-align: right;';
+        countEl.style.cssText = 'font-size: 13px; color: #333; text-align: left;';
         countEl.textContent = `(N=${p.data.count.toLocaleString()})`;
         card.appendChild(countEl);
 
