@@ -1594,7 +1594,8 @@ function calculatePredictiveStrength(correlation, tStat) {
     else if (absCorr >= 0.20) corrScore = 4;
     else if (absCorr >= 0.10) corrScore = 3;
     else if (absCorr >= 0.05) corrScore = 2;
-    else corrScore = 1;
+    else if (absCorr >= 0.02) corrScore = 1;
+    else corrScore = 0;  // Very tiny correlation (< 0.02) scores 0
 
     // T-stat score (0-6 scale)
     let tScore = 0;
@@ -1606,8 +1607,9 @@ function calculatePredictiveStrength(correlation, tStat) {
     else if (absTStat >= 0.67) tScore = 1;     // p < 0.50 (50% confidence)
     else tScore = 0;
 
-    // Combined score (average of both, 0-6 scale)
-    const combinedScore = (corrScore + tScore) / 2;
+    // Combined score (90% correlation, 10% T-stat)
+    // Heavy weighting on correlation since large sample size makes most T-stats significant
+    const combinedScore = (corrScore * 0.9) + (tScore * 0.1);
 
     // Map combined score to strength categories
     if (combinedScore >= 5.5) {
@@ -1875,7 +1877,7 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength', 'Tipping Point'].forEach(header => {
+        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength*', 'Tipping Point**'].forEach(header => {
             const th = document.createElement('th');
             th.textContent = header;
             headerRow.appendChild(th);
@@ -1903,6 +1905,31 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         table.appendChild(tbody);
 
         resultSection.appendChild(table);
+
+        // Add footnotes after the last (Subscriptions) table
+        if (outcome === 'totalSubscriptions') {
+            const footnotes = document.createElement('div');
+            footnotes.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 3px solid #17a2b8; font-size: 13px; line-height: 1.6;';
+            footnotes.innerHTML = `
+                <div style="margin-bottom: 10px;"><strong>* Predictive Strength Calculation:</strong></div>
+                <div style="margin-left: 15px; margin-bottom: 15px;">
+                    Combines correlation (effect size) and T-statistic (statistical confidence) with 90/10 weighting:
+                    <br>• <strong>Correlation</strong> measures the strength of the relationship (0-1 scale)
+                    <br>• <strong>T-statistic</strong> measures statistical significance (confidence the relationship isn't random)
+                    <br>• Large datasets make most T-stats significant, so correlation is weighted 90% to prioritize practical impact
+                    <br>• Score ranges: Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5), Very Weak (<0.5)
+                </div>
+                <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
+                <div style="margin-left: 15px;">
+                    Identifies the variable value where the largest jump in conversion rate occurs:
+                    <br>• Groups users by variable value and calculates conversion rate for each group
+                    <br>• Finds the point where conversion rate increases most dramatically
+                    <br>• Represents the "magic number" threshold where user behavior changes significantly
+                    <br>• Only considers groups with 10+ users and conversion rates >10% to ensure reliability
+                </div>
+            `;
+            resultSection.appendChild(footnotes);
+        }
     });
 
     container.appendChild(resultSection);
