@@ -485,38 +485,7 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
 
     const rows = [];
 
-    // Handle Query API tabular format with headers and series (like Insights)
-    if (data.headers && Array.isArray(data.headers) && data.series && Array.isArray(data.series)) {
-        console.log(`Processing Query API tabular format for grouped ${funnelName}`);
-        console.log(`  Headers: ${data.headers.join(', ')}`);
-        console.log(`  Processing ${data.series.length} rows`);
-
-        // Each series item is a row of data corresponding to the headers
-        data.series.forEach((rowData, index) => {
-            if (Array.isArray(rowData)) {
-                const row = {};
-
-                // Map each value to its corresponding header
-                data.headers.forEach((header, headerIndex) => {
-                    if (headerIndex < rowData.length) {
-                        row[header] = rowData[headerIndex];
-                    }
-                });
-
-                // Add funnel name for clarity
-                row['Funnel'] = funnelName;
-
-                rows.push(row);
-            }
-        });
-
-        console.log(`Processed ${rows.length} rows for grouped funnel ${funnelName}`);
-        return rows;
-    }
-
-    // Legacy format handling below
-
-    // Check if data is in the date-based format (Funnel API format)
+    // Grouped funnels use the date-based format (Funnel API format)
     if (typeof data.data === 'object' && !Array.isArray(data.data)) {
         console.log(`Processing date-based grouped funnel data for ${funnelName}`);
 
@@ -762,18 +731,19 @@ function processInsightsData(data) {
                         }
                     } else if (currentUserId) {
                         // We're inside a user's data structure
-                        // The path elements after the user ID are property values
-                        // They map to headers starting at index 2 (after $metric and $distinct_id)
+                        // The path elements represent the nesting after userId
+                        // Structure: series[metric][userId][prop1Val][prop2Val]...
+                        // depth 0 = metric, depth 1 = userId, depth 2+ = property values
 
                         const userData = userDataMap.get(currentUserId);
                         if (userData) {
-                            // Calculate which header this corresponds to
-                            // path[0] = metric, then we found userId, now we're at depth levels after userId
-                            // Each subsequent level corresponds to headers[2], headers[3], etc.
-                            const propertyDepth = depth - 2; // Subtract 2 for metric and userId levels
-                            const headerIndex = propertyDepth + 1; // +1 because we start counting from headers[2]
+                            // Calculate which property this is
+                            // depth - 2 gives us the property index (0, 1, 2, ...)
+                            // headers[0] = $metric, headers[1] = $distinct_id, headers[2+] = properties
+                            const propertyIndex = depth - 2; // 0-based property index
+                            const headerIndex = propertyIndex + 2; // +2 to skip $metric and $distinct_id
 
-                            if (headerIndex >= 0 && headerIndex < data.headers.length) {
+                            if (headerIndex >= 2 && headerIndex < data.headers.length) {
                                 const headerName = data.headers[headerIndex];
 
                                 if (headerName && headerName !== '$metric' && headerName !== '$distinct_id') {
