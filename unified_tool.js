@@ -1110,13 +1110,19 @@ function calculateCorrelations(data) {
     const variables = ALL_VARIABLES;
     const correlations = {};
 
+    // Pre-extract all variable arrays once to avoid repeated map operations
+    const variableArrays = {};
+    ['totalCopies', 'totalDeposits', 'totalSubscriptions'].concat(variables).forEach(varName => {
+        variableArrays[varName] = data.map(d => d[varName]);
+    });
+
     ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
         correlations[outcome] = {};
         variables.forEach(variable => {
             if (variable !== outcome) {
                 correlations[outcome][variable] = calculateCorrelation(
-                    data.map(d => d[outcome]),
-                    data.map(d => d[variable])
+                    variableArrays[outcome],
+                    variableArrays[variable]
                 );
             }
         });
