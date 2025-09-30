@@ -306,8 +306,8 @@ class UnifiedAnalysisTool {
         // Step 3: Run analysis on main file
         this.addStatusMessage('📊 Running analysis...', 'info');
 
-        const mainCSV = this.convertToCSV(mergedData.mainFile);
-        const results = performQuantitativeAnalysis(mainCSV, null, null);
+        // Pass JSON directly instead of converting to CSV and parsing back
+        const results = performQuantitativeAnalysis(mergedData.mainFile, null, null);
 
         this.updateProgress(85, 'Calculating tipping points...');
 
@@ -529,7 +529,7 @@ class UnifiedAnalysisTool {
     }
 
     /**
-     * Helper: Wait for workflow completion
+     * Helper: Wait for workflow completion with exponential backoff
      */
     async waitForWorkflowCompletion() {
         const githubToken = localStorage.getItem('github_pat');
@@ -539,10 +539,12 @@ class UnifiedAnalysisTool {
         const repo = 'dub_analysis_tool';
 
         let attempts = 0;
-        const maxAttempts = 180; // 15 minutes (5 seconds * 180 = 900 seconds)
+        const maxAttempts = 60; // Reduced from 180 since we use exponential backoff
+        let delay = 3000; // Start with 3 seconds
+        const maxDelay = 30000; // Cap at 30 seconds
 
         while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, delay));
             attempts++;
 
             const response = await fetch(
@@ -572,6 +574,9 @@ class UnifiedAnalysisTool {
                     }
                 }
             }
+
+            // Exponential backoff: 3s → 6s → 12s → 24s → 30s (capped)
+            delay = Math.min(delay * 2, maxDelay);
         }
 
         throw new Error('Workflow timeout');
@@ -1324,9 +1329,9 @@ function calculateSummaryStats(data) {
     };
 }
 
-function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCsvText = null) {
-    const parsed = parseCSV(csvText);
-    const data = parsed.data;
+function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData = null) {
+    // Accept JSON directly instead of CSV text to avoid redundant parsing
+    const data = jsonData;
 
     const cleanData = data.map(row => ({
         // Core Conversion Metrics
@@ -1594,10 +1599,13 @@ function displayDemographicBreakdownInline(stats) {
 
         dataArray.sort((a, b) => b.percentage - a.percentage);
 
+        // Use DocumentFragment to batch DOM insertions
+        const fragment = document.createDocumentFragment();
         dataArray.forEach(item => {
             const percentageFormatted = item.percentage.toFixed(1) + '%';
-            tbody.appendChild(createTableRow([item.category, percentageFormatted]));
+            fragment.appendChild(createTableRow([item.category, percentageFormatted]));
         });
+        tbody.appendChild(fragment);
 
         table.appendChild(tbody);
         tableContainer.appendChild(table);
@@ -1790,6 +1798,9 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
+
+        // Use DocumentFragment to batch DOM insertions
+        const fragment = document.createDocumentFragment();
         combinedData.slice(0, 20).forEach(item => {
             const rowData = [
                 getVariableLabel(item.variable),
@@ -1800,8 +1811,9 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
                     (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
                     'N/A'
             ];
-            tbody.appendChild(createTableRow(rowData));
+            fragment.appendChild(createTableRow(rowData));
         });
+        tbody.appendChild(fragment);
         table.appendChild(tbody);
 
         resultSection.appendChild(table);
