@@ -1289,17 +1289,8 @@ function classifyPersona(user) {
         return 'premium';
     }
 
-    if (user.totalSubscriptions === 0 &&
-        hasCopied &&
-        isHigherOrUnknownIncome(user.income) &&
-        user.totalDeposits >= 1000) {
-        return 'aspiringPremium';
-    }
-
-    if (user.totalSubscriptions === 0 &&
-        user.totalDeposits >= 200 &&
-        user.totalDeposits <= 5000 &&
-        (hasCopied || totalPDPViews >= 1 || totalCreatorViews >= 1)) {
+    // Core: All non-premium users with deposits > 0 (merged Aspiring Premium, original Core, and Lower Income with deposits)
+    if (user.totalSubscriptions === 0 && user.totalDeposits > 0) {
         return 'core';
     }
 
@@ -1311,16 +1302,6 @@ function classifyPersona(user) {
         return 'activationTargets';
     }
 
-    const hasEngagement = hasCopied || totalPDPViews >= 1;
-    if (user.totalDeposits <= 200 &&
-        isLowerOrUnknownIncome(user.income) &&
-        isLowerOrUnknownNetWorth(user.netWorth) &&
-        user.totalSubscriptions === 0 &&
-        user.hasLinkedBank === 1 &&
-        !hasEngagement) {
-        return 'lowerIncome';
-    }
-
     if (user.hasLinkedBank === 0 &&
         user.totalDeposits === 0 &&
         totalPDPViews === 0 &&
@@ -1328,6 +1309,7 @@ function classifyPersona(user) {
         return 'nonActivated';
     }
 
+    // Former Lower Income users with deposits = 0 now fall into Non-Activated or Unclassified
     return 'unclassified';
 }
 
@@ -1734,34 +1716,22 @@ function displayPersonaBreakdownInline(stats) {
             priority: 1
         },
         {
-            name: 'Aspiring Premium',
-            subtitle: '$1000+ deposits, copies, higher income - premium conversion targets',
-            data: stats.personaStats.aspiringPremium,
-            priority: 2
-        },
-        {
             name: 'Core',
-            subtitle: '$200-1000 deposits with banking OR active engagement - main user base',
+            subtitle: 'All non-premium users with deposits > 0 - main revenue-generating user base',
             data: stats.personaStats.core,
-            priority: 3
+            priority: 2
         },
         {
             name: 'Activation Targets',
             subtitle: 'Higher income prospects browsing creators but not converting',
             data: stats.personaStats.activationTargets,
-            priority: 4
-        },
-        {
-            name: 'Lower Income',
-            subtitle: '≤$200 deposits, lower demographics, minimal engagement',
-            data: stats.personaStats.lowerIncome,
-            priority: 5
+            priority: 3
         },
         {
             name: 'Non-activated',
             subtitle: 'Zero banking, deposits, and platform engagement',
             data: stats.personaStats.nonActivated,
-            priority: 6
+            priority: 4
         }
     ];
 
