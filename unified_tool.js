@@ -1373,7 +1373,7 @@ function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCs
         // Account & Financial Metrics
         hasLinkedBank: (row['Linked Bank Account'] === true || row['Linked Bank Account'] === 'true' ||
                         row['Linked Bank Account'] === 1 || row['Linked Bank Account'] === '1' ||
-                        row['A. Linked Bank Account'] === 1) ? 1 : 0,
+                        row['A. Linked Bank Account'] === 1 || row['A. Linked Bank Account'] === '1') ? 1 : 0,
         availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
         buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
         totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
