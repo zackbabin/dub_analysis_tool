@@ -1586,7 +1586,13 @@ function calculatePredictiveStrength(correlation, tStat) {
     const absCorr = Math.abs(correlation);
     const absTStat = Math.abs(tStat);
 
-    // Calculate scores based on both correlation and T-stat
+    // Gate 1: Check statistical significance first
+    // If T-stat < 1.96, the relationship is not statistically significant at 95% confidence
+    if (absTStat < 1.96) {
+        return { strength: 'Very Weak', className: 'qda-strength-very-weak' };
+    }
+
+    // Gate 2: If statistically significant, calculate weighted score
     // Correlation score (0-6 scale)
     let corrScore = 0;
     if (absCorr >= 0.50) corrScore = 6;
@@ -1597,15 +1603,11 @@ function calculatePredictiveStrength(correlation, tStat) {
     else if (absCorr >= 0.02) corrScore = 1;
     else corrScore = 0;  // Very tiny correlation (< 0.02) scores 0
 
-    // T-stat score (0-6 scale)
+    // T-stat score (0-6 scale) - only for values >= 1.96
     let tScore = 0;
     if (absTStat >= 3.29) tScore = 6;          // p < 0.001 (99.9% confidence)
     else if (absTStat >= 2.58) tScore = 5;     // p < 0.01 (99% confidence)
     else if (absTStat >= 1.96) tScore = 4;     // p < 0.05 (95% confidence)
-    else if (absTStat >= 1.65) tScore = 3;     // p < 0.10 (90% confidence)
-    else if (absTStat >= 1.28) tScore = 2;     // p < 0.20 (80% confidence)
-    else if (absTStat >= 0.67) tScore = 1;     // p < 0.50 (50% confidence)
-    else tScore = 0;
 
     // Combined score (90% correlation, 10% T-stat)
     // Heavy weighting on correlation since large sample size makes most T-stats significant
@@ -1913,11 +1915,13 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
             footnotes.innerHTML = `
                 <div style="margin-bottom: 10px;"><strong>* Predictive Strength Calculation:</strong></div>
                 <div style="margin-left: 15px; margin-bottom: 15px;">
-                    Combines correlation (effect size) and T-statistic (statistical confidence) with 90/10 weighting:
-                    <br>• <strong>Correlation</strong> measures the strength of the relationship (0-1 scale)
-                    <br>• <strong>T-statistic</strong> measures statistical significance (confidence the relationship isn't random)
-                    <br>• Large datasets make most T-stats significant, so correlation is weighted 90% to prioritize practical impact
-                    <br>• Score ranges: Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5), Very Weak (<0.5)
+                    Uses a two-stage approach combining statistical significance and effect size:
+                    <br>• <strong>Stage 1:</strong> T-statistic must be ≥1.96 (95% confidence threshold) - filters out non-significant relationships
+                    <br>• <strong>Stage 2:</strong> If significant, combines correlation (90% weight) and T-statistic (10% weight)
+                    <br>• <strong>Correlation</strong> measures effect size - how much the variable actually matters
+                    <br>• <strong>T-statistic</strong> measures confidence - how sure we are the relationship is real
+                    <br>• Heavy weighting on correlation because large datasets make most T-stats significant
+                    <br>• Score ranges: Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5), Very Weak (<0.5 or not significant)
                 </div>
                 <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
                 <div style="margin-left: 15px;">
