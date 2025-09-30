@@ -1227,7 +1227,6 @@ function classifyPersona(user) {
     }
 
     if (isHigherOrUnknownIncome(user.income) &&
-        user.hasLinkedBank === 0 &&
         user.totalDeposits === 0 &&
         user.totalCopies === 0 &&
         (totalPDPViews >= 2 || totalCreatorViews >= 2)) {
