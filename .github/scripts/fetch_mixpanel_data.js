@@ -758,12 +758,11 @@ function processInsightsData(data) {
                         console.log(`      Found 'all' key but not extracting: valueType=${typeof value}, hasUserId=${!!currentUserId}, hasMetric=${!!currentMetric}, depth=${depth}`);
                     }
 
-                    // Check if key is a user ID
-                    const isUserId = key.startsWith('$device:') ||
-                        key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
-                        (key.match(/^[0-9]+$/) && key.length > 10);
+                    // Check if this is a user ID (distinct_id)
+                    // It's a user ID if we don't have a currentUserId yet and key is not a special key
+                    const isUserId = !currentUserId && key !== '$overall' && key !== 'all';
 
-                    if (isUserId && !currentUserId) {
+                    if (isUserId) {
                         // Found a user ID! Initialize user data
                         if (!userDataMap.has(key)) {
                             userDataMap.set(key, { '$distinct_id': key });
@@ -778,11 +777,13 @@ function processInsightsData(data) {
                         }
                     } else if (currentUserId) {
                         // We're inside a user's data - collect property values
-                        const newPath = [...pathValues, key];
+                        // Handle $non_numeric_values as null/0
+                        const actualKey = key === '$non_numeric_values' ? null : key;
+                        const newPath = actualKey !== null ? [...pathValues, actualKey] : pathValues;
 
                         // Map path values to property headers (dimensions)
                         const userData = userDataMap.get(currentUserId);
-                        if (userData) {
+                        if (userData && actualKey !== null) {
                             newPath.forEach((val, idx) => {
                                 if (idx < propertyHeaders.length) {
                                     const propName = propertyHeaders[idx];
@@ -791,14 +792,6 @@ function processInsightsData(data) {
                                     }
                                 }
                             });
-
-                            // Check if we've reached a metric value (number at leaf)
-                            if (typeof value === 'number' && currentMetric) {
-                                userData[currentMetric] = value;
-                                if (Object.keys(userData).length <= 5) {
-                                    console.log(`    Set metric ${currentMetric} = ${value} for user`);
-                                }
-                            }
                         }
 
                         // Continue recursing
