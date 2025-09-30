@@ -83,8 +83,8 @@ class UnifiedAnalysisTool {
         const githubBtn = this.createModeButton(
             'Sync Live Data',
             'Trigger GitHub Actions to fetch latest data from Mixpanel',
-            '#495057',
-            '#495057',
+            '#28a745',
+            '#28a745',
             () => this.runWorkflow('github')
         );
         buttonContainer.appendChild(githubBtn);
