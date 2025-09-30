@@ -748,8 +748,14 @@ function processInsightsData(data) {
                         const userData = userDataMap.get(currentUserId);
                         if (userData) {
                             userData[currentMetric] = value;
+                            if (depth <= 5) console.log(`      ✓ Set ${currentMetric}=${value} for user (depth=${depth})`);
                         }
                         return;
+                    }
+
+                    // Log if we see 'all' key but don't extract
+                    if (key === 'all' && depth <= 5) {
+                        console.log(`      Found 'all' key but not extracting: valueType=${typeof value}, hasUserId=${!!currentUserId}, hasMetric=${!!currentMetric}, depth=${depth}`);
                     }
 
                     // Check if key is a user ID
@@ -811,11 +817,23 @@ function processInsightsData(data) {
 
         // Iterate through each metric in series
         console.log(`Processing ${metricNames.length} metrics...`);
+        let metricsSetCount = 0;
         metricNames.forEach((metricName, idx) => {
             if (idx < 3) console.log(`  Processing metric: ${metricName}`);
+            const beforeSize = userDataMap.size;
             extractUserDataRecursive(data.series[metricName], [], null, metricName, 0);
+            const afterSize = userDataMap.size;
+            if (idx < 3) {
+                console.log(`    After processing ${metricName}: ${afterSize} users in map`);
+                // Check if metric was set
+                let hasMetric = 0;
+                userDataMap.forEach(u => { if (u[metricName] !== undefined) hasMetric++; });
+                console.log(`    ${hasMetric} users have ${metricName} set`);
+                if (hasMetric > 0) metricsSetCount++;
+            }
         });
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
+        console.log(`First 3 metrics had values for users: ${metricsSetCount}/3`);
 
         if (userDataMap.size > 0) {
             const sampleUsers = Array.from(userDataMap.values()).slice(0, 3);
@@ -827,8 +845,21 @@ function processInsightsData(data) {
             console.log(`Expected headers count:`, data.headers.length);
         }
 
-        // Convert to rows
+        // Collect all possible column names (properties + metrics)
+        const allColumns = new Set(['$distinct_id']);
+        propertyHeaders.forEach(h => allColumns.add(h));
+        metricNames.forEach(m => allColumns.add(m));
+
+        console.log(`Total columns to include: ${allColumns.size} (1 ID + ${propertyHeaders.length} properties + ${metricNames.length} metrics)`);
+
+        // Convert to rows, ensuring all columns are present
         userDataMap.forEach((userData) => {
+            // Ensure all metric columns exist (even if undefined)
+            metricNames.forEach(metricName => {
+                if (!(metricName in userData)) {
+                    userData[metricName] = undefined;
+                }
+            });
             rows.push(userData);
         });
     }
