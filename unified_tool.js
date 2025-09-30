@@ -432,9 +432,13 @@ class UnifiedAnalysisTool {
 
     /**
      * Calculate tipping points for all variables and outcomes
+     * Optimized: Pre-groups data in single pass instead of 105 separate iterations
      */
     calculateAllTippingPoints(cleanData, correlationResults) {
         const tippingPoints = {};
+
+        // Pre-group all data in a single pass through the dataset
+        const preGroupedData = preGroupDataForTippingPoints(cleanData);
 
         ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
             tippingPoints[outcome] = {};
@@ -442,7 +446,9 @@ class UnifiedAnalysisTool {
             const variables = Object.keys(correlationResults[outcome]);
             variables.forEach(variable => {
                 if (variable !== outcome) {
-                    tippingPoints[outcome][variable] = calculateTippingPoint(cleanData, variable, outcome);
+                    // Use pre-grouped data instead of iterating through dataset again
+                    const groupKey = `${variable}_${outcome}`;
+                    tippingPoints[outcome][variable] = calculateTippingPointFromGroups(preGroupedData[groupKey]);
                 }
             });
         });
@@ -1155,6 +1161,70 @@ function performRegression(data, outcome, correlations) {
     });
 
     return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+}
+
+/**
+ * Pre-group data for all variables and outcomes in a single pass
+ * This avoids iterating through the dataset multiple times (once per variable/outcome pair)
+ */
+function preGroupDataForTippingPoints(data) {
+    const allGroups = {};
+    const variables = ALL_VARIABLES;
+    const outcomes = ['totalCopies', 'totalDeposits', 'totalSubscriptions'];
+
+    // Single pass through the dataset, grouping all variable/outcome combinations
+    data.forEach(user => {
+        variables.forEach(variable => {
+            outcomes.forEach(outcome => {
+                const key = `${variable}_${outcome}`;
+                const value = Math.floor(user[variable]) || 0;
+                const converted = user[outcome] > 0 ? 1 : 0;
+
+                if (!allGroups[key]) {
+                    allGroups[key] = {};
+                }
+                if (!allGroups[key][value]) {
+                    allGroups[key][value] = { total: 0, converted: 0 };
+                }
+                allGroups[key][value].total++;
+                allGroups[key][value].converted += converted;
+            });
+        });
+    });
+
+    return allGroups;
+}
+
+/**
+ * Calculate tipping point from pre-grouped data
+ * This version doesn't iterate through the dataset, just processes pre-computed groups
+ */
+function calculateTippingPointFromGroups(groups) {
+    if (!groups) return 'N/A';
+
+    const conversionRates = Object.keys(groups)
+        .map(value => ({
+            value: parseInt(value),
+            rate: groups[value].converted / groups[value].total,
+            total: groups[value].total
+        }))
+        .filter(item => item.total >= 10)
+        .sort((a, b) => a.value - b.value);
+
+    if (conversionRates.length < 2) return 'N/A';
+
+    let maxIncrease = 0;
+    let tippingPoint = 'N/A';
+
+    for (let i = 1; i < conversionRates.length; i++) {
+        const increase = conversionRates[i].rate - conversionRates[i-1].rate;
+        if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
+            maxIncrease = increase;
+            tippingPoint = conversionRates[i].value;
+        }
+    }
+
+    return tippingPoint;
 }
 
 function calculateTippingPoint(data, variable, outcome) {
