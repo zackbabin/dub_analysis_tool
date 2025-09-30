@@ -211,7 +211,6 @@ class UnifiedAnalysisTool {
 
         // Step 3: Load data from GitHub
         this.addStatusMessage('📥 Loading data files from GitHub...', 'info');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for GitHub to update
 
         const contents = await this.loadGitHubData();
         this.addStatusMessage('✅ Data files loaded', 'success');
