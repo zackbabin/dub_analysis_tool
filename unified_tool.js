@@ -275,7 +275,6 @@ class UnifiedAnalysisTool {
         }
 
         this.updateProgress(40, 'Reading files...');
-        this.addStatusMessage('✅ Files identified', 'success');
 
         // Read file contents
         const contents = await Promise.all(matchedFiles.files.map(file => this.readFile(file)));
@@ -298,7 +297,6 @@ class UnifiedAnalysisTool {
 
         this.updateProgress(70, 'Data merged...');
         this.addStatusMessage('✅ Data merged successfully', 'success');
-        this.addStatusMessage(`   - Main file: ${mergedData.mainFile.length} records`, 'info');
 
         // Step 2: Skip download creation for unified workflow
         // (Files are already saved to GitHub by the workflow)
@@ -306,23 +304,20 @@ class UnifiedAnalysisTool {
         this.updateProgress(80, 'Running analysis...');
 
         // Step 3: Run analysis on main file
-        this.addStatusMessage('📊 Running statistical analysis...', 'info');
+        this.addStatusMessage('📊 Running analysis...', 'info');
 
         const mainCSV = this.convertToCSV(mergedData.mainFile);
         const results = performQuantitativeAnalysis(mainCSV, null, null);
 
         this.updateProgress(85, 'Calculating tipping points...');
-        this.addStatusMessage('📈 Calculating tipping points...', 'info');
 
         // Step 3.5: Calculate tipping points for all variables and outcomes
         const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
-        this.addStatusMessage('✅ Tipping points calculated', 'success');
 
         // Clear cleanData reference to free memory (it's large and no longer needed)
         results.cleanData = null;
 
         this.updateProgress(90, 'Displaying results...');
-        this.addStatusMessage('✅ Analysis complete', 'success');
 
         // Step 4: Save results to localStorage (cleanData excluded - too large for storage)
         localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
@@ -342,11 +337,10 @@ class UnifiedAnalysisTool {
         localStorage.setItem('qdaLastUpdated', timestamp);
 
         // Step 5: Display results
-        this.addStatusMessage('📈 Displaying results...', 'info');
         this.displayResults(results);
 
         this.updateProgress(100, 'Complete!');
-        this.addStatusMessage('✅ Workflow completed successfully!', 'success');
+        this.addStatusMessage('✅ Analysis complete!', 'success');
 
         // Hide status after a delay
         setTimeout(() => {
@@ -1537,8 +1531,8 @@ function displaySummaryStatsInline(stats) {
     const metrics = [
         ['Total Users', stats.totalUsers.toLocaleString(), '18px'],
         ['Link Bank Rate', `${stats.linkBankConversion.toFixed(1)}%`, '18px'],
-        ['Copy Rate', `${stats.firstCopyConversion.toFixed(1)}%`, '18px'],
         ['Deposit Rate', `${stats.depositConversion.toFixed(1)}%`, '18px'],
+        ['Copy Rate', `${stats.firstCopyConversion.toFixed(1)}%`, '18px'],
         ['Subscription Rate', `${stats.subscriptionConversion.toFixed(1)}%`, '18px']
     ];
 
@@ -1643,7 +1637,7 @@ function displayPersonaBreakdownInline(stats) {
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;';
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;';
 
     const personas = [
         {
@@ -1687,12 +1681,12 @@ function displayPersonaBreakdownInline(stats) {
         card.appendChild(subtitleEl);
 
         const percentageEl = document.createElement('div');
-        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px;';
+        percentageEl.style.cssText = 'font-size: 24px; font-weight: bold; color: #28a745; margin-bottom: 5px; text-align: right;';
         percentageEl.textContent = `${p.data.percentage.toFixed(1)}%`;
         card.appendChild(percentageEl);
 
         const countEl = document.createElement('div');
-        countEl.style.cssText = 'font-size: 13px; color: #333;';
+        countEl.style.cssText = 'font-size: 13px; color: #333; text-align: right;';
         countEl.textContent = `(N=${p.data.count.toLocaleString()})`;
         card.appendChild(countEl);
 
