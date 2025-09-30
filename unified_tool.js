@@ -599,14 +599,12 @@ class UnifiedAnalysisTool {
     async loadGitHubData() {
         const baseUrl = 'https://raw.githubusercontent.com/zackbabin/dub_analysis_tool/main/data/';
 
+        // Only load the 4 required files for analysis
         const fileUrls = [
             baseUrl + '1_subscribers_insights.csv',
             baseUrl + '2_time_to_first_copy.csv',
             baseUrl + '3_time_to_funded_account.csv',
-            baseUrl + '4_time_to_linked_bank.csv',
-            baseUrl + '5_premium_subscriptions.csv',
-            baseUrl + '6_creator_copy_funnel.csv',
-            baseUrl + '7_portfolio_copy_funnel.csv'
+            baseUrl + '4_time_to_linked_bank.csv'
         ];
 
         const contents = await Promise.all(
