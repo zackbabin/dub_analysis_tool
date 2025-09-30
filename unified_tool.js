@@ -966,8 +966,8 @@ const ALL_VARIABLES = [
 ];
 
 const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank'],
-    'totalCopies': ['hasLinkedBank'],
+    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank', 'totalRegularCopies', 'buyingPower'],
+    'totalCopies': ['hasLinkedBank', 'totalRegularCopies'],
     'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
 };
 
@@ -1491,21 +1491,49 @@ function getVariableLabel(variable) {
     return variableLabels[variable] || variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 }
 
-function calculateRelativeStrengths(dataArray, valueKey) {
-    const sortedValues = dataArray.map(item => Math.abs(item[valueKey])).sort((a, b) => a - b);
-    const total = sortedValues.length;
+function calculatePredictiveStrength(correlation, tStat) {
+    const absCorr = Math.abs(correlation);
+    const absTStat = Math.abs(tStat);
 
-    const veryWeakThreshold = sortedValues[Math.floor(total * 0.143)];
-    const weakThreshold = sortedValues[Math.floor(total * 0.286)];
-    const weakModerateThreshold = sortedValues[Math.floor(total * 0.429)];
-    const moderateThreshold = sortedValues[Math.floor(total * 0.571)];
-    const moderateStrongThreshold = sortedValues[Math.floor(total * 0.714)];
-    const strongThreshold = sortedValues[Math.floor(total * 0.857)];
+    // Calculate scores based on both correlation and T-stat
+    // Correlation score (0-6 scale)
+    let corrScore = 0;
+    if (absCorr >= 0.50) corrScore = 6;
+    else if (absCorr >= 0.30) corrScore = 5;
+    else if (absCorr >= 0.20) corrScore = 4;
+    else if (absCorr >= 0.10) corrScore = 3;
+    else if (absCorr >= 0.05) corrScore = 2;
+    else corrScore = 1;
 
-    return {
-        veryWeakThreshold, weakThreshold, weakModerateThreshold,
-        moderateThreshold, moderateStrongThreshold, strongThreshold
-    };
+    // T-stat score (0-6 scale)
+    let tScore = 0;
+    if (absTStat >= 3.29) tScore = 6;          // p < 0.001 (99.9% confidence)
+    else if (absTStat >= 2.58) tScore = 5;     // p < 0.01 (99% confidence)
+    else if (absTStat >= 1.96) tScore = 4;     // p < 0.05 (95% confidence)
+    else if (absTStat >= 1.65) tScore = 3;     // p < 0.10 (90% confidence)
+    else if (absTStat >= 1.28) tScore = 2;     // p < 0.20 (80% confidence)
+    else if (absTStat >= 0.67) tScore = 1;     // p < 0.50 (50% confidence)
+    else tScore = 0;
+
+    // Combined score (average of both, 0-6 scale)
+    const combinedScore = (corrScore + tScore) / 2;
+
+    // Map combined score to strength categories
+    if (combinedScore >= 5.5) {
+        return { strength: 'Very Strong', className: 'qda-strength-very-strong' };
+    } else if (combinedScore >= 4.5) {
+        return { strength: 'Strong', className: 'qda-strength-strong' };
+    } else if (combinedScore >= 3.5) {
+        return { strength: 'Moderate - Strong', className: 'qda-strength-moderate-strong' };
+    } else if (combinedScore >= 2.5) {
+        return { strength: 'Moderate', className: 'qda-strength-moderate' };
+    } else if (combinedScore >= 1.5) {
+        return { strength: 'Weak - Moderate', className: 'qda-strength-weak-moderate' };
+    } else if (combinedScore >= 0.5) {
+        return { strength: 'Weak', className: 'qda-strength-weak' };
+    } else {
+        return { strength: 'Very Weak', className: 'qda-strength-very-weak' };
+    }
 }
 
 function displaySummaryStatsInline(stats) {
@@ -1744,33 +1772,11 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
             };
         }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
 
-        const tStatThresholds = calculateRelativeStrengths(combinedData, 'tStat');
-
+        // Calculate predictive strength using combined correlation + T-stat method
         combinedData.forEach(item => {
-            const absTStat = Math.abs(item.tStat);
-
-            if (absTStat >= tStatThresholds.strongThreshold) {
-                item.predictiveStrength = 'Very Strong';
-                item.predictiveClass = 'qda-strength-very-strong';
-            } else if (absTStat >= tStatThresholds.moderateStrongThreshold) {
-                item.predictiveStrength = 'Strong';
-                item.predictiveClass = 'qda-strength-strong';
-            } else if (absTStat >= tStatThresholds.moderateThreshold) {
-                item.predictiveStrength = 'Moderate - Strong';
-                item.predictiveClass = 'qda-strength-moderate-strong';
-            } else if (absTStat >= tStatThresholds.weakModerateThreshold) {
-                item.predictiveStrength = 'Moderate';
-                item.predictiveClass = 'qda-strength-moderate';
-            } else if (absTStat >= tStatThresholds.weakThreshold) {
-                item.predictiveStrength = 'Weak - Moderate';
-                item.predictiveClass = 'qda-strength-weak-moderate';
-            } else if (absTStat >= tStatThresholds.veryWeakThreshold) {
-                item.predictiveStrength = 'Weak';
-                item.predictiveClass = 'qda-strength-weak';
-            } else {
-                item.predictiveStrength = 'Very Weak';
-                item.predictiveClass = 'qda-strength-very-weak';
-            }
+            const result = calculatePredictiveStrength(item.correlation, item.tStat);
+            item.predictiveStrength = result.strength;
+            item.predictiveClass = result.className;
         });
 
         const table = document.createElement('table');
