@@ -972,6 +972,60 @@ const SECTION_EXCLUSIONS = {
 };
 
 /**
+ * Helper: Convert column name to camelCase
+ */
+function toCamelCase(str) {
+    return str
+        .replace(/^[A-Z]\.\s*/, '')  // Remove "A. " prefix
+        .replace(/\s*\(\$?\)\s*/g, '') // Remove ($) suffix
+        .replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase())
+        .replace(/^./, str => str.toLowerCase());
+}
+
+/**
+ * Helper: Detect new variables that aren't in the known list
+ */
+function detectNewVariables(cleanData) {
+    if (!cleanData || cleanData.length === 0) return [];
+
+    const firstUser = cleanData[0];
+    const allFields = Object.keys(firstUser);
+
+    const excludeFields = [
+        'totalCopies', 'totalDeposits', 'totalSubscriptions',
+        'income', 'netWorth', 'investingExperienceYears', 'investingActivity',
+        'investingObjective', 'investmentType', 'distinctId'
+    ];
+
+    const newVariables = allFields.filter(field => {
+        // Skip if in exclusion list
+        if (excludeFields.includes(field)) return false;
+
+        // Skip if not numeric
+        if (typeof firstUser[field] !== 'number') return false;
+
+        // Skip if already in known variables
+        if (ALL_VARIABLES.includes(field)) return false;
+
+        return true;
+    });
+
+    if (newVariables.length > 0) {
+        console.log(`📊 Detected ${newVariables.length} new variables:`, newVariables);
+    }
+
+    return newVariables;
+}
+
+/**
+ * Helper: Get all variables (known + new)
+ */
+function getAllVariables(cleanData) {
+    const newVariables = detectNewVariables(cleanData);
+    return [...ALL_VARIABLES, ...newVariables];
+}
+
+/**
  * Helper functions for analysis
  */
 function parseCSV(text) {
@@ -1032,7 +1086,7 @@ function calculateCorrelation(x, y) {
 }
 
 function calculateCorrelations(data) {
-    const variables = ALL_VARIABLES;
+    const variables = getAllVariables(data);  // Use dynamic variable detection
     const correlations = {};
 
     // Pre-extract all variable arrays once to avoid repeated map operations
@@ -1057,7 +1111,7 @@ function calculateCorrelations(data) {
 }
 
 function performRegression(data, outcome, correlations) {
-    const predictors = ALL_VARIABLES;
+    const predictors = getAllVariables(data);  // Use dynamic variable detection
     const n = data.length;
 
     const results = predictors.filter(predictor => predictor !== outcome).map(predictor => {
@@ -1089,7 +1143,7 @@ function performRegression(data, outcome, correlations) {
  */
 function preGroupDataForTippingPoints(data) {
     const allGroups = {};
-    const variables = ALL_VARIABLES;
+    const variables = getAllVariables(data);  // Use dynamic variable detection
     const outcomes = ['totalCopies', 'totalDeposits', 'totalSubscriptions'];
 
     // Single pass through the dataset, grouping all variable/outcome combinations
@@ -1383,6 +1437,43 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
         investmentType: row['Investment Type'] || row['investmentType'] || ''
     }));
+
+    // Step 2: Dynamically add any new columns that weren't hardcoded above
+    if (data.length > 0) {
+        const firstRow = data[0];
+        const allColumns = Object.keys(firstRow);
+
+        // List of columns to skip (non-numeric or already mapped)
+        const skipColumns = [
+            'Distinct ID', '$distinct_id', 'Income', 'income', 'Net Worth', 'netWorth',
+            'Investing Experience Years', 'investingExperienceYears',
+            'Investing Activity', 'investingActivity',
+            'Investing Objective', 'investingObjective',
+            'Investment Type', 'investmentType'
+        ];
+
+        allColumns.forEach(colName => {
+            // Skip if in exclusion list
+            if (skipColumns.includes(colName)) return;
+
+            const camelCaseName = toCamelCase(colName);
+
+            // Skip if already mapped by hardcoded logic
+            if (cleanData[0].hasOwnProperty(camelCaseName)) return;
+
+            // Add the new column dynamically to all rows
+            cleanData.forEach((user, i) => {
+                const value = data[i][colName];
+                // Only add if numeric or can be converted to numeric
+                user[camelCaseName] = cleanNumeric(value);
+            });
+        });
+
+        const newVarsCount = Object.keys(cleanData[0]).length - 35; // Approximate count of hardcoded fields
+        if (newVarsCount > 0) {
+            console.log(`✨ Dynamically added ${newVarsCount} new variables from data`);
+        }
+    }
 
     const summaryStats = calculateSummaryStats(cleanData);
     const correlationResults = calculateCorrelations(cleanData);
