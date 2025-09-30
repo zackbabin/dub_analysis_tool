@@ -108,7 +108,10 @@ class UnifiedAnalysisTool {
                 <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
                     Select All 7 CSV Files
                 </label>
-                <input type="file" id="unifiedFileInput" accept=".csv" multiple style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%;">
+                <input type="file" id="unifiedFileInput" accept=".csv" multiple style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+                <button id="unifiedProcessButton" class="qda-btn" style="display: none;">
+                    Process Files
+                </button>
             </div>
         `;
         section.appendChild(uploadSection);
@@ -226,23 +229,34 @@ class UnifiedAnalysisTool {
         const uploadSection = document.getElementById('unifiedUploadSection');
         uploadSection.style.display = 'block';
 
-        this.addStatusMessage('📁 Please select your 7 CSV files and click here when ready', 'info');
+        this.addStatusMessage('📁 Please select your 7 CSV files and click "Process Files"', 'info');
 
         // Wait for user to select files
         const fileInput = document.getElementById('unifiedFileInput');
+        const processButton = document.getElementById('unifiedProcessButton');
 
-        // Create a promise that resolves when files are selected
+        // Show button when 7 files are selected
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files && fileInput.files.length === 7) {
+                processButton.style.display = 'inline-block';
+                this.addStatusMessage('✅ 7 files selected - click "Process Files" to continue', 'success');
+            } else {
+                processButton.style.display = 'none';
+            }
+        });
+
+        // Create a promise that resolves when button is clicked
         await new Promise((resolve, reject) => {
-            const checkInterval = setInterval(() => {
+            processButton.onclick = () => {
                 if (fileInput.files && fileInput.files.length === 7) {
-                    clearInterval(checkInterval);
                     resolve();
+                } else {
+                    this.addStatusMessage('❌ Please select exactly 7 CSV files', 'error');
                 }
-            }, 500);
+            };
 
             // Add timeout
             setTimeout(() => {
-                clearInterval(checkInterval);
                 reject(new Error('File selection timeout'));
             }, 300000); // 5 minutes
         });
