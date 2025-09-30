@@ -199,7 +199,7 @@ class UnifiedAnalysisTool {
         this.updateProgress(20, 'Workflow started...');
 
         // Step 2: Wait for workflow completion
-        this.addStatusMessage('⏳ Waiting for workflow to complete (checking every 5s)...', 'info');
+        this.addStatusMessage('⏳ Waiting for workflow to complete...', 'info');
         const workflowSuccess = await this.waitForWorkflowCompletion();
 
         if (!workflowSuccess) {
@@ -535,7 +535,7 @@ class UnifiedAnalysisTool {
     }
 
     /**
-     * Helper: Wait for workflow completion with exponential backoff
+     * Helper: Wait for workflow completion with simple polling
      */
     async waitForWorkflowCompletion() {
         const githubToken = localStorage.getItem('github_pat');
@@ -545,12 +545,11 @@ class UnifiedAnalysisTool {
         const repo = 'dub_analysis_tool';
 
         let attempts = 0;
-        const maxAttempts = 60; // Reduced from 180 since we use exponential backoff
-        let delay = 3000; // Start with 3 seconds
-        const maxDelay = 30000; // Cap at 30 seconds
+        const maxAttempts = 300; // 300 attempts * 3s = 15 minutes
+        const pollInterval = 3000; // Check every 3 seconds
 
         while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
             attempts++;
 
             const response = await fetch(
@@ -569,7 +568,11 @@ class UnifiedAnalysisTool {
                 if (data.workflow_runs && data.workflow_runs.length > 0) {
                     const latestRun = data.workflow_runs[0];
 
-                    this.updateProgress(20 + (attempts * 0.5), `Workflow ${latestRun.status}...`);
+                    // Update status message to show workflow progress
+                    const statusText = latestRun.status === 'in_progress' || latestRun.status === 'queued'
+                        ? 'Workflow in progress...'
+                        : `Workflow ${latestRun.status}...`;
+                    this.updateProgress(20 + (attempts * 0.5), statusText);
 
                     if (latestRun.status === 'completed') {
                         if (latestRun.conclusion === 'success') {
@@ -580,12 +583,9 @@ class UnifiedAnalysisTool {
                     }
                 }
             }
-
-            // Exponential backoff: 3s → 6s → 12s → 24s → 30s (capped)
-            delay = Math.min(delay * 2, maxDelay);
         }
 
-        throw new Error('Workflow timeout');
+        throw new Error('Workflow timeout - exceeded 15 minutes');
     }
 
     /**
