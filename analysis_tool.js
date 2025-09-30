@@ -653,7 +653,7 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         table.appendChild(thead);
         
         const tbody = document.createElement('tbody');
-        combinedData.slice(0, 25).forEach(item => {
+        combinedData.slice(0, 20).forEach(item => {
             const rowData = [
                 getVariableLabel(item.variable),
                 item.correlation.toFixed(3),
