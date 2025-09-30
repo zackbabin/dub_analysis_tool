@@ -1298,8 +1298,8 @@ function classifyPersona(user) {
 
     if (user.totalSubscriptions === 0 &&
         user.totalDeposits >= 200 &&
-        user.totalDeposits <= 1000 &&
-        (hasCopied || totalPDPViews >= 2)) {
+        user.totalDeposits <= 5000 &&
+        (hasCopied || totalPDPViews >= 1 || totalCreatorViews >= 1)) {
         return 'core';
     }
 
