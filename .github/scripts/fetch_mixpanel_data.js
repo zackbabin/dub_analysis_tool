@@ -683,18 +683,31 @@ function processInsightsData(data) {
 
     const rows = [];
 
+    // Check if we have headers - this tells us what data structure to expect
+    if (!data.headers) {
+        console.log('No headers found in Insights data');
+        return [];
+    }
+
+    console.log('Insights data structure:', {
+        hasHeaders: !!data.headers,
+        headersCount: data.headers?.length,
+        seriesType: Array.isArray(data.series) ? 'array' : typeof data.series,
+        seriesIsEmpty: data.series ? (Array.isArray(data.series) ? data.series.length === 0 : Object.keys(data.series).length === 0) : true
+    });
+
     // Handle Query API nested object format - extract user profiles from nested structure
     if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
         console.log('Processing Query API nested object format for user profiles');
-        console.log(`Headers: ${data.headers.join(', ')}`);
-        console.log(`Series structure sample:`, JSON.stringify(data.series).substring(0, 1000));
+        console.log(`Headers (${data.headers.length}): ${data.headers.join(', ')}`);
+        console.log(`Series metrics: ${Object.keys(data.series).slice(0, 5).join(', ')}...`);
 
-        // The structure is: series[metric][prop1Value][prop2Value]...[userId]
-        // OR: series[metric][userId][prop1Value][prop2Value]...
-        // We need to identify the path to each user and extract their properties
+        // New approach: Flatten the entire nested structure
+        // We'll collect all unique paths to users and extract property values
         const userDataMap = new Map(); // distinct_id -> {properties}
+        const propertyHeaders = data.headers.slice(2); // Skip $metric and $distinct_id
 
-        function extractUserDataRecursive(obj, path = [], currentUserId = null, depth = 0) {
+        function extractUserDataRecursive(obj, pathValues = [], currentUserId = null, depth = 0) {
             if (depth > 30) return; // Prevent infinite recursion
 
             if (obj && typeof obj === 'object') {
@@ -702,7 +715,7 @@ function processInsightsData(data) {
                     // Skip meta keys but still recurse
                     if (key === '$overall' || key === 'all' || key === 'undefined') {
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, path, currentUserId, depth + 1);
+                            extractUserDataRecursive(value, pathValues, currentUserId, depth + 1);
                         }
                         return;
                     }
@@ -712,62 +725,44 @@ function processInsightsData(data) {
                         key.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i) ||
                         (key.match(/^[0-9]+$/) && key.length > 10);
 
-                    if (isUserId) {
-                        // Found a user ID!
-                        // Structure: series[metric][userId][prop1][prop2]...
-                        // path[0] should be the metric name at this point
-
+                    if (isUserId && !currentUserId) {
+                        // Found a user ID! Initialize user data
                         if (!userDataMap.has(key)) {
                             userDataMap.set(key, { '$distinct_id': key });
                         }
 
-                        // Continue recursing to find property values nested below this user
+                        // Continue recursing with this user ID, collecting property values
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, path, key, depth + 1);
-                        } else if (typeof value === 'number') {
-                            // Direct numeric value for this user
-                            const userData = userDataMap.get(key);
-                            userData['$metric_value'] = value;
+                            extractUserDataRecursive(value, pathValues, key, depth + 1);
                         }
                     } else if (currentUserId) {
-                        // We're inside a user's data structure
-                        // The path elements represent the nesting after userId
-                        // Structure: series[metric][userId][prop1Val][prop2Val]...
-                        // depth 0 = metric, depth 1 = userId, depth 2+ = property values
+                        // We're inside a user's data - collect property values
+                        // Add this key to the path
+                        const newPath = [...pathValues, key];
 
+                        // Map path values to property headers
                         const userData = userDataMap.get(currentUserId);
                         if (userData) {
-                            // Calculate which property this is
-                            // depth - 2 gives us the property index (0, 1, 2, ...)
-                            // headers[0] = $metric, headers[1] = $distinct_id, headers[2+] = properties
-                            const propertyIndex = depth - 2; // 0-based property index
-                            const headerIndex = propertyIndex + 2; // +2 to skip $metric and $distinct_id
-
-                            if (headerIndex >= 2 && headerIndex < data.headers.length) {
-                                const headerName = data.headers[headerIndex];
-
-                                if (headerName && headerName !== '$metric' && headerName !== '$distinct_id') {
-                                    // Only set if we haven't set it yet (take the first value encountered)
-                                    if (!userData[headerName]) {
-                                        userData[headerName] = key;
-
-                                        // Debug: Log first few property assignments
-                                        if (Object.keys(userData).length <= 5) {
-                                            console.log(`  Setting property at depth ${depth}, index ${propertyIndex}: ${headerName} = ${key}`);
-                                        }
+                            // Each level of nesting after the user corresponds to a property
+                            // pathValues[0] = value for propertyHeaders[0], etc.
+                            newPath.forEach((val, idx) => {
+                                if (idx < propertyHeaders.length) {
+                                    const propName = propertyHeaders[idx];
+                                    if (propName && !userData[propName]) {
+                                        userData[propName] = val;
                                     }
                                 }
-                            }
+                            });
                         }
 
                         // Continue recursing
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, [...path, key], currentUserId, depth + 1);
+                            extractUserDataRecursive(value, newPath, currentUserId, depth + 1);
                         }
                     } else {
-                        // Not a user ID and not inside a user's data, it's part of the metric-level path
+                        // Not a user ID yet, keep looking
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, [...path, key], currentUserId, depth + 1);
+                            extractUserDataRecursive(value, pathValues, currentUserId, depth + 1);
                         }
                     }
                 });
