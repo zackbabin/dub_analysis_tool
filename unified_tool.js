@@ -848,19 +848,6 @@ function processComprehensiveData(contents) {
         return value;
     }
 
-    // Parse CSV function
-    function parseCSV(text) {
-        const lines = text.split('\n').filter(l => l.trim());
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        const data = lines.slice(1).map(line => {
-            const values = line.split(',');
-            const row = {};
-            headers.forEach((h, i) => row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '');
-            return row;
-        });
-        return { headers, data };
-    }
-
     console.log('Parsing all CSV files...');
     const [
         demoData,
@@ -1063,26 +1050,15 @@ const SECTION_EXCLUSIONS = {
  * Helper functions for analysis
  */
 function parseCSV(text) {
-    const lines = text.split('\n');
+    const lines = text.split('\n').filter(l => l.trim());
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const data = [];
-
-    for (let i = 1; i < lines.length; i++) {
-        if (lines[i].trim()) {
-            const values = lines[i].split(',');
-            const row = {};
-            headers.forEach((header, index) => {
-                let value = values[index] ? values[index].trim().replace(/"/g, '') : '';
-                if (value === 'TRUE' || value === 'true') value = true;
-                else if (value === 'FALSE' || value === 'false') value = false;
-                else if (!isNaN(value) && value !== '') value = parseFloat(value);
-                row[header] = value;
-            });
-            data.push(row);
-        }
-    }
-
-    return { data };
+    const data = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const row = {};
+        headers.forEach((h, i) => row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '');
+        return row;
+    });
+    return { headers, data };
 }
 
 function cleanNumeric(value) {
@@ -1149,16 +1125,14 @@ function calculateCorrelations(data) {
     return correlations;
 }
 
-function performRegression(data, outcome) {
+function performRegression(data, outcome, correlations) {
     const predictors = ALL_VARIABLES;
+    const n = data.length;
 
     const results = predictors.filter(predictor => predictor !== outcome).map(predictor => {
-        const correlation = calculateCorrelation(
-            data.map(d => d[outcome]),
-            data.map(d => d[predictor])
-        );
+        // Reuse pre-calculated correlation instead of recalculating
+        const correlation = correlations[outcome][predictor];
 
-        const n = data.length;
         let tStat = 0;
         if (Math.abs(correlation) > 0.001 && n > 2) {
             const denominator = 1 - (correlation * correlation);
@@ -1420,9 +1394,9 @@ function performQuantitativeAnalysis(csvText, portfolioCsvText = null, creatorCs
     const summaryStats = calculateSummaryStats(cleanData);
     const correlationResults = calculateCorrelations(cleanData);
     const regressionResults = {
-        copies: performRegression(cleanData, 'totalCopies'),
-        deposits: performRegression(cleanData, 'totalDeposits'),
-        subscriptions: performRegression(cleanData, 'totalSubscriptions')
+        copies: performRegression(cleanData, 'totalCopies', correlationResults),
+        deposits: performRegression(cleanData, 'totalDeposits', correlationResults),
+        subscriptions: performRegression(cleanData, 'totalSubscriptions', correlationResults)
     };
 
     return {
