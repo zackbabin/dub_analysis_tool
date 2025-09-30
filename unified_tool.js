@@ -10,7 +10,7 @@
 
 class UnifiedAnalysisTool {
     constructor() {
-        this.mixpanelSync = new window.MixpanelSync();
+        this.mixpanelSync = null; // Lazy-loaded when GitHub workflow is used
         this.container = null;
         this.outputContainer = null;
         this.statusMessages = [];
@@ -318,15 +318,17 @@ class UnifiedAnalysisTool {
         const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
         this.addStatusMessage('✅ Tipping points calculated', 'success');
 
+        // Clear cleanData reference to free memory (it's large and no longer needed)
+        results.cleanData = null;
+
         this.updateProgress(90, 'Displaying results...');
         this.addStatusMessage('✅ Analysis complete', 'success');
 
-        // Step 4: Save results to localStorage (skip cleanData - it's too large)
+        // Step 4: Save results to localStorage (cleanData excluded - too large for storage)
         localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
         localStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
         localStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
         localStorage.setItem('qdaTippingPoints', JSON.stringify(tippingPoints));
-        // Note: Not storing cleanData to avoid quota issues
 
         const now = new Date();
         const timestamp = now.toLocaleString('en-US', {
@@ -475,6 +477,16 @@ class UnifiedAnalysisTool {
         });
 
         return rows.join('\n');
+    }
+
+    /**
+     * Helper: Get or create MixpanelSync instance
+     */
+    getMixpanelSync() {
+        if (!this.mixpanelSync) {
+            this.mixpanelSync = new window.MixpanelSync();
+        }
+        return this.mixpanelSync;
     }
 
     /**
@@ -1015,66 +1027,12 @@ function processComprehensiveData(contents) {
         return clean;
     });
 
-    // Create creator detail file
-    const creatorDetailMap = {};
-
-    premiumSubData.data.forEach(row => {
-        const id = normalizeId(row);
-        const creator = row['creatorUsername'];
-        if (!id || !creator) return;
-
-        const key = `${id}_${creator}`;
-        creatorDetailMap[key] = {
-            distinct_id: id,
-            creatorUsername: creator,
-            paywall_views: parseInt(row['(1) Viewed Creator Paywall'] || 0),
-            stripe_views: parseInt(row['(2) Viewed Stripe Modal'] || 0),
-            subscriptions: parseInt(row['(3) Subscribed to Creator'] || 0),
-            portfolio_views: 0,
-            copy_starts: 0,
-            copies: 0
-        };
-    });
-
-    creatorCopyData.data.forEach(row => {
-        const id = normalizeId(row);
-        const creator = row['creatorUsername'];
-        if (!id || !creator) return;
-
-        const key = `${id}_${creator}`;
-        if (!creatorDetailMap[key]) {
-            creatorDetailMap[key] = {
-                distinct_id: id,
-                creatorUsername: creator,
-                paywall_views: 0,
-                stripe_views: 0,
-                subscriptions: 0,
-                portfolio_views: 0,
-                copy_starts: 0,
-                copies: 0
-            };
-        }
-
-        creatorDetailMap[key].portfolio_views += parseInt(row['(1) Viewed Portfolio Details'] || 0);
-        creatorDetailMap[key].copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
-        creatorDetailMap[key].copies += parseInt(row['(3) Copied Portfolio'] || 0);
-    });
-
-    const creatorDetailData = Object.values(creatorDetailMap);
-
-    // Create portfolio detail file
-    const portfolioDetailData = portfolioCopyData.data.map(row => ({
-        distinct_id: normalizeId(row),
-        portfolioTicker: row['portfolioTicker'],
-        portfolio_views: parseInt(row['(1) Viewed Portfolio Details'] || 0),
-        copy_starts: parseInt(row['(2) Started Copy Portfolio'] || 0),
-        copies: parseInt(row['(3) Copied Portfolio'] || 0)
-    })).filter(row => row.distinct_id);
+    // Note: Creator and portfolio detail file generation removed as they're not currently used
+    // Previously generated creatorFile and portfolioFile from premiumSubData, creatorCopyData, and portfolioCopyData
+    // Can be re-enabled if needed for future analysis
 
     return {
-        mainFile: mainAnalysisData,
-        creatorFile: creatorDetailData,
-        portfolioFile: portfolioDetailData
+        mainFile: mainAnalysisData
     };
 }
 
