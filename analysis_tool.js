@@ -1027,19 +1027,25 @@ function classifyPersona(user) {
     function isLowerOrUnknownIncome(income) {
         // Updated to use both long form (if present) and short form (if present)
         const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k'];
-        return !income || income.trim() === '' || lowerIncomes.includes(income);
+        if (!income) return true;
+        const incomeStr = String(income);
+        return incomeStr.trim() === '' || lowerIncomes.includes(incomeStr);
     }
-    
+
     function isLowerOrUnknownNetWorth(netWorth) {
         // Updated to use both long form (if present) and short form (if present)
         const lowerNetWorths = ['Less than $10,000', '<10k', '$10,000-$49,999', '10k–50k', '$50,000-$99,999', '50k–100k'];
-        return !netWorth || netWorth.trim() === '' || lowerNetWorths.includes(netWorth);
+        if (!netWorth) return true;
+        const netWorthStr = String(netWorth);
+        return netWorthStr.trim() === '' || lowerNetWorths.includes(netWorthStr);
     }
-    
+
     function isHigherOrUnknownIncome(income) {
         // Returns true if income is not one of the lower incomes (i.e., higher or missing)
         const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k'];
-        return !income || income.trim() === '' || !lowerIncomes.includes(income);
+        if (!income) return true;
+        const incomeStr = String(income);
+        return incomeStr.trim() === '' || !lowerIncomes.includes(incomeStr);
     }
     
     const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
