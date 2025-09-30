@@ -108,8 +108,11 @@ class UnifiedAnalysisTool {
         uploadSection.innerHTML = `
             <div style="text-align: center;">
                 <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
-                    Select All 7 CSV Files
+                    Select 4 Required CSV Files
                 </label>
+                <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
+                    Required: Subscriber Insights, Time to Linked Bank, Time to Funded Account, Time to First Copy
+                </div>
                 <input type="file" id="unifiedFileInput" accept=".csv" multiple style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
                 <button id="unifiedProcessButton" class="qda-btn" style="display: none;">
                     Process Files
@@ -231,17 +234,17 @@ class UnifiedAnalysisTool {
         const uploadSection = document.getElementById('unifiedUploadSection');
         uploadSection.style.display = 'block';
 
-        this.addStatusMessage('📁 Please select your 7 CSV files and click "Process Files"', 'info');
+        this.addStatusMessage('📁 Please select your 4 required CSV files and click "Process Files"', 'info');
 
         // Wait for user to select files
         const fileInput = document.getElementById('unifiedFileInput');
         const processButton = document.getElementById('unifiedProcessButton');
 
-        // Show button when 7 files are selected
+        // Show button when 4 files are selected
         fileInput.addEventListener('change', () => {
-            if (fileInput.files && fileInput.files.length === 7) {
+            if (fileInput.files && fileInput.files.length === 4) {
                 processButton.style.display = 'inline-block';
-                this.addStatusMessage('✅ 7 files selected - click "Process Files" to continue', 'success');
+                this.addStatusMessage('✅ 4 files selected - click "Process Files" to continue', 'success');
             } else {
                 processButton.style.display = 'none';
             }
@@ -250,10 +253,10 @@ class UnifiedAnalysisTool {
         // Create a promise that resolves when button is clicked
         await new Promise((resolve, reject) => {
             processButton.onclick = () => {
-                if (fileInput.files && fileInput.files.length === 7) {
+                if (fileInput.files && fileInput.files.length === 4) {
                     resolve();
                 } else {
-                    this.addStatusMessage('❌ Please select exactly 7 CSV files', 'error');
+                    this.addStatusMessage('❌ Please select exactly 4 CSV files', 'error');
                 }
             };
 
@@ -273,7 +276,7 @@ class UnifiedAnalysisTool {
         // Match files by content
         const matchedFiles = await this.matchFilesByName(files);
         if (!matchedFiles.success) {
-            throw new Error(`Could not identify all file types. Found ${matchedFiles.foundCount}/7 files.`);
+            throw new Error(`Could not identify all file types. Found ${matchedFiles.foundCount}/4 required files.`);
         }
 
         this.updateProgress(40, 'Reading files...');
@@ -705,10 +708,7 @@ async function matchFilesByName(files) {
         demo: null,
         firstCopy: null,
         fundedAccount: null,
-        linkedBank: null,
-        premiumSub: null,
-        creatorCopy: null,
-        portfolioCopy: null
+        linkedBank: null
     };
 
     console.log('Analyzing file structures to identify file types...');
@@ -773,35 +773,6 @@ async function matchFilesByName(files) {
                 }
             }
         }
-
-        // Premium subscription
-        else if (headerString.includes('creatorusername') &&
-                 headerString.includes('viewed creator paywall') &&
-                 headerString.includes('viewed stripe modal')) {
-            if (!requiredFiles.premiumSub) {
-                requiredFiles.premiumSub = file;
-                console.log(`✓ Identified PREMIUM SUBSCRIPTION file: ${file.name}`);
-            }
-        }
-
-        // Creator copy
-        else if (headerString.includes('creatorusername') &&
-                 headerString.includes('viewed portfolio details') &&
-                 !headerString.includes('portfolioticker')) {
-            if (!requiredFiles.creatorCopy) {
-                requiredFiles.creatorCopy = file;
-                console.log(`✓ Identified CREATOR COPY file: ${file.name}`);
-            }
-        }
-
-        // Portfolio copy
-        else if (headerString.includes('portfolioticker') &&
-                 headerString.includes('viewed portfolio details')) {
-            if (!requiredFiles.portfolioCopy) {
-                requiredFiles.portfolioCopy = file;
-                console.log(`✓ Identified PORTFOLIO COPY file: ${file.name}`);
-            }
-        }
     });
 
     const allFilesFound = Object.values(requiredFiles).every(file => file !== null);
@@ -814,10 +785,7 @@ async function matchFilesByName(files) {
             requiredFiles.demo,
             requiredFiles.firstCopy,
             requiredFiles.fundedAccount,
-            requiredFiles.linkedBank,
-            requiredFiles.premiumSub,
-            requiredFiles.creatorCopy,
-            requiredFiles.portfolioCopy
+            requiredFiles.linkedBank
         ]
     };
 }
@@ -855,15 +823,12 @@ function processComprehensiveData(contents) {
         return value;
     }
 
-    console.log('Parsing all CSV files...');
+    console.log('Parsing CSV files...');
     const [
         demoData,
         firstCopyData,
         fundedAccountData,
-        linkedBankData,
-        premiumSubData,
-        creatorCopyData,
-        portfolioCopyData
+        linkedBankData
     ] = contents.map(parseCSV);
 
     // Normalize distinct_id keys
@@ -891,11 +856,14 @@ function processComprehensiveData(contents) {
         if (id) timeToLinkedBankMap[id] = row[linkedBankData.headers[2]];
     });
 
-    // Create aggregated conversion metrics
+    // Create aggregated conversion metrics (stubbed - premium/creator/portfolio data not used)
     const conversionAggregates = {};
 
-    // Process premium subscription data
-    premiumSubData.data.forEach(row => {
+    // Note: Premium subscription, creator copy, and portfolio copy data removed
+    // These files are not required for main analysis
+
+    // Initialize empty aggregates (no premium/creator/portfolio data processed)
+    demoData.data.forEach(row => {
         const id = normalizeId(row);
         if (!id) return;
 
@@ -910,58 +878,10 @@ function processComprehensiveData(contents) {
                 unique_creators_interacted: new Set()
             };
         }
-
-        conversionAggregates[id].total_paywall_views += parseInt(row['(1) Viewed Creator Paywall'] || 0);
-        conversionAggregates[id].total_stripe_views += parseInt(row['(2) Viewed Stripe Modal'] || 0);
-        conversionAggregates[id].total_subscriptions += parseInt(row['(3) Subscribed to Creator'] || 0);
-        if (row['creatorUsername']) {
-            conversionAggregates[id].unique_creators_interacted.add(row['creatorUsername']);
-        }
     });
 
-    // Process creator-level copy data
-    creatorCopyData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (!id) return;
-
-        if (!conversionAggregates[id]) {
-            conversionAggregates[id] = {
-                total_paywall_views: 0,
-                total_stripe_views: 0,
-                total_subscriptions: 0,
-                total_creator_portfolio_views: 0,
-                total_creator_copy_starts: 0,
-                total_creator_copies: 0,
-                unique_creators_interacted: new Set()
-            };
-        }
-
-        conversionAggregates[id].total_creator_portfolio_views += parseInt(row['(1) Viewed Portfolio Details'] || 0);
-        conversionAggregates[id].total_creator_copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
-        conversionAggregates[id].total_creator_copies += parseInt(row['(3) Copied Portfolio'] || 0);
-        if (row['creatorUsername']) {
-            conversionAggregates[id].unique_creators_interacted.add(row['creatorUsername']);
-        }
-    });
-
-    // Aggregate portfolio-level data
+    // Portfolio aggregates (empty - no data file provided)
     const portfolioAggregates = {};
-    portfolioCopyData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (!id) return;
-
-        if (!portfolioAggregates[id]) {
-            portfolioAggregates[id] = {
-                total_portfolio_copy_starts: 0,
-                unique_portfolios_interacted: new Set()
-            };
-        }
-
-        portfolioAggregates[id].total_portfolio_copy_starts += parseInt(row['(2) Started Copy Portfolio'] || 0);
-        if (row['portfolioTicker']) {
-            portfolioAggregates[id].unique_portfolios_interacted.add(row['portfolioTicker']);
-        }
-    });
 
     // Helper function for time conversion
     function secondsToDays(seconds) {
