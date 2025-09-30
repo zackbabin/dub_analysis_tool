@@ -1293,8 +1293,7 @@ function classifyPersona(user) {
         user.hasLinkedBank === 0 &&
         user.totalDeposits === 0 &&
         user.totalCopies === 0 &&
-        totalCreatorViews > 0 &&
-        totalPDPViews < 2) {
+        (totalPDPViews >= 2 || totalCreatorViews >= 2)) {
         return 'activationTargets';
     }
 
