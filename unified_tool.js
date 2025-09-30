@@ -1651,13 +1651,13 @@ function displayPersonaBreakdownInline(stats) {
         },
         {
             name: 'Activation Targets',
-            subtitle: 'Users that have shown engagement but no deposits',
+            subtitle: 'Users that have shown engagement but no deposits or copies',
             data: stats.personaStats.activationTargets,
             priority: 3
         },
         {
             name: 'Non-activated',
-            subtitle: 'Users who have not linked a bank or zero deposits',
+            subtitle: 'Users with no bank linked, deposits, or engagement',
             data: stats.personaStats.nonActivated,
             priority: 4
         }
