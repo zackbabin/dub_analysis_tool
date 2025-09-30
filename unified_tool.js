@@ -83,7 +83,8 @@ class UnifiedAnalysisTool {
         const githubBtn = this.createModeButton(
             'Sync Live Data',
             'Trigger GitHub Actions to fetch latest data from Mixpanel',
-            '#28a745',
+            '#495057',
+            '#495057',
             () => this.runWorkflow('github')
         );
         buttonContainer.appendChild(githubBtn);
@@ -92,7 +93,8 @@ class UnifiedAnalysisTool {
         const uploadBtn = this.createModeButton(
             'Manually Upload Data',
             'Upload your own 7 CSV files for analysis',
-            '#17a2b8',
+            '#dee2e6',
+            '#6c757d',
             () => this.runWorkflow('upload')
         );
         buttonContainer.appendChild(uploadBtn);
@@ -122,22 +124,23 @@ class UnifiedAnalysisTool {
     /**
      * Creates a styled mode selection button
      */
-    createModeButton(title, description, color, onClick) {
+    createModeButton(title, description, borderColor, textColor, onClick) {
         const button = document.createElement('div');
         button.style.cssText = `
             flex: 1;
             min-width: 200px;
             padding: 20px;
             background: white;
-            border: 2px solid ${color};
+            border: 2px solid ${borderColor};
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
+            box-sizing: border-box;
         `;
 
         button.innerHTML = `
-            <div style="font-weight: bold; color: ${color}; font-size: 16px; margin-bottom: 8px;">
+            <div style="font-weight: bold; color: ${textColor}; font-size: 16px; margin-bottom: 8px;">
                 ${title}
             </div>
             <div style="font-size: 12px; color: #6c757d;">
@@ -146,14 +149,14 @@ class UnifiedAnalysisTool {
         `;
 
         button.onmouseover = () => {
-            button.style.background = color;
+            button.style.background = borderColor;
             button.querySelector('div:first-child').style.color = 'white';
             button.querySelector('div:last-child').style.color = 'white';
         };
 
         button.onmouseout = () => {
             button.style.background = 'white';
-            button.querySelector('div:first-child').style.color = color;
+            button.querySelector('div:first-child').style.color = textColor;
             button.querySelector('div:last-child').style.color = '#6c757d';
         };
 
