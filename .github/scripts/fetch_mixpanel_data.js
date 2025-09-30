@@ -750,6 +750,11 @@ function processInsightsData(data) {
                                     // Only set if we haven't set it yet (take the first value encountered)
                                     if (!userData[headerName]) {
                                         userData[headerName] = key;
+
+                                        // Debug: Log first few property assignments
+                                        if (Object.keys(userData).length <= 5) {
+                                            console.log(`  Setting property at depth ${depth}, index ${propertyIndex}: ${headerName} = ${key}`);
+                                        }
                                     }
                                 }
                             }
@@ -773,8 +778,13 @@ function processInsightsData(data) {
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
 
         if (userDataMap.size > 0) {
-            const sampleUser = Array.from(userDataMap.values())[0];
-            console.log(`Sample user data:`, JSON.stringify(sampleUser, null, 2));
+            const sampleUsers = Array.from(userDataMap.values()).slice(0, 3);
+            console.log(`Sample user data (first 3):`, JSON.stringify(sampleUsers, null, 2));
+
+            // Check how many properties each user has
+            const propertyCounts = sampleUsers.map(u => Object.keys(u).length);
+            console.log(`Property counts per user:`, propertyCounts);
+            console.log(`Expected headers count:`, data.headers.length);
         }
 
         // Convert to rows
