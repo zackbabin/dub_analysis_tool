@@ -23,6 +23,9 @@ class UnifiedAnalysisTool {
         this.container = container;
         this.outputContainer = outputContainer;
 
+        // Try to restore previous analysis results
+        this.restoreAnalysisResults();
+
         const wrapper = document.createElement('div');
         wrapper.className = 'qda-inline-widget';
         wrapper.style.maxWidth = '800px';
@@ -337,6 +340,39 @@ class UnifiedAnalysisTool {
     }
 
     /**
+     * Saves analysis results to localStorage
+     */
+    saveAnalysisResults(resultsHTML) {
+        try {
+            const data = {
+                html: resultsHTML,
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem('dubAnalysisResults', JSON.stringify(data));
+        } catch (e) {
+            console.warn('Failed to save analysis results to localStorage:', e);
+        }
+    }
+
+    /**
+     * Restores analysis results from localStorage
+     */
+    restoreAnalysisResults() {
+        try {
+            const saved = localStorage.getItem('dubAnalysisResults');
+            if (saved) {
+                const data = JSON.parse(saved);
+                if (this.outputContainer && data.html) {
+                    this.outputContainer.innerHTML = data.html;
+                    console.log('Restored analysis results from', data.timestamp);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to restore analysis results from localStorage:', e);
+        }
+    }
+
+    /**
      * Displays analysis results
      */
     displayResults(results) {
@@ -379,6 +415,9 @@ class UnifiedAnalysisTool {
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
         resultsDiv.style.display = 'block';
+
+        // Save the complete HTML to localStorage for restoration on page reload
+        this.saveAnalysisResults(this.outputContainer.innerHTML);
     }
 
     /**
