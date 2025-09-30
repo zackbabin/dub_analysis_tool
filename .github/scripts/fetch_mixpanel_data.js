@@ -382,7 +382,7 @@ function processFunnelData(data, funnelName) {
             }
         });
     }
-    // Handle the date-based object format (legacy)
+    // Handle the date-based object format (Funnel API format)
     else if (data.data && typeof data.data === 'object' && !Array.isArray(data.data)) {
         console.log(`Processing date-based funnel data for ${funnelName}`);
 
@@ -392,7 +392,7 @@ function processFunnelData(data, funnelName) {
             if (dateData && typeof dateData === 'object') {
                 Object.keys(dateData).forEach(key => {
                     // Filter out non-user keys like '$overall'
-                    if (key.startsWith('$device:') || key.match(/^[A-F0-9-]+$/i) || key.match(/^[a-z0-9-]+$/i)) {
+                    if (key.startsWith('$device:') || key.match(/^[A-F0-9-]+$/i)) {
                         allUserIds.add(key);
                     }
                 });
@@ -403,9 +403,6 @@ function processFunnelData(data, funnelName) {
 
         // For each user, extract their data
         allUserIds.forEach(userId => {
-            // Clean up the user ID (remove $device: prefix if present)
-            const cleanUserId = userId.replace('$device:', '');
-
             // Collect data for this user across all dates
             let userData = null;
             for (const [date, dateData] of Object.entries(data.data)) {
@@ -418,17 +415,33 @@ function processFunnelData(data, funnelName) {
             if (userData) {
                 const row = {
                     'Funnel': funnelName,
-                    'Distinct ID': cleanUserId
+                    '$distinct_id': userId
                 };
 
-                // Add the time value (for time-based funnels) or other metrics
-                if (userData.time !== undefined) {
-                    row[funnelName] = userData.time;
-                } else if (userData.value !== undefined) {
-                    row[funnelName] = userData.value;
+                // Extract funnel step data from $overall array
+                if (userData.$overall && Array.isArray(userData.$overall)) {
+                    // Each element in $overall is a step with count, avg_time, etc.
+                    const steps = userData.$overall;
+
+                    // For time-to-event funnels (Time to First Copy, etc.)
+                    // Extract the last step's avg_time_from_start
+                    if (funnelName.includes('Time to')) {
+                        const lastStep = steps[steps.length - 1];
+                        if (lastStep && lastStep.avg_time_from_start !== null) {
+                            row[funnelName] = lastStep.avg_time_from_start;
+                        } else {
+                            row[funnelName] = null;
+                        }
+                    } else {
+                        // For conversion funnels, extract counts for each step
+                        steps.forEach((step, index) => {
+                            const stepLabel = step.step_label || `Step ${index + 1}`;
+                            row[stepLabel] = step.count;
+                        });
+                    }
                 } else {
-                    // For step-based funnels, extract all numeric values
-                    row[funnelName] = userData.steps ? userData.steps[userData.steps.length - 1] : 0;
+                    // Fallback for unexpected formats
+                    console.log(`Warning: No $overall data for user ${userId}`);
                 }
 
                 rows.push(row);
@@ -503,87 +516,51 @@ function processGroupedFunnelData(data, funnelName, groupByField) {
 
     // Legacy format handling below
 
-    // Check if data is in the new date-based format
+    // Check if data is in the date-based format (Funnel API format)
     if (typeof data.data === 'object' && !Array.isArray(data.data)) {
         console.log(`Processing date-based grouped funnel data for ${funnelName}`);
 
-        // Collect all user IDs and their group associations
-        const userDataMap = new Map(); // userId -> {groupValue, steps}
-
-        // Debug: log structure of first date
-        const firstDate = Object.keys(data.data)[0];
-        if (firstDate && data.data[firstDate]) {
-            console.log(`  Sample date structure for ${firstDate}:`, JSON.stringify(data.data[firstDate]).substring(0, 500));
-        }
+        // Structure: data[date][userId][groupValue] = [step array]
+        // We need to create one row per user per group value
 
         for (const [date, dateData] of Object.entries(data.data)) {
             if (dateData && typeof dateData === 'object') {
-                Object.entries(dateData).forEach(([key, value]) => {
-                    // Skip meta keys like '$overall'
-                    if (key.startsWith('$')) return;
+                Object.entries(dateData).forEach(([userId, userData]) => {
+                    // Skip non-user keys like '$overall'
+                    if (!userId.startsWith('$device:') && !userId.match(/^[A-F0-9-]+$/i)) {
+                        return;
+                    }
 
-                    // The key is the group value (e.g., "@dubAdvisors")
-                    // The value contains breakdown data
-                    if (value && typeof value === 'object') {
-                        // Check for different possible structures
-                        if (value.users && Array.isArray(value.users)) {
-                            // Structure: { users: [...] }
-                            value.users.forEach(user => {
-                                const userId = user.$distinct_id || user.distinct_id;
-                                if (userId) {
-                                    userDataMap.set(userId, {
-                                        groupValue: key,
-                                        steps: user.steps || []
-                                    });
-                                }
-                            });
-                        } else if (value.steps || value.analysis) {
-                            // Structure: the value itself contains step/analysis data
-                            // We need to extract user IDs differently
-                            // This might be aggregate data, not user-level data
-                            console.log(`  Group ${key} has aggregate data (no user list)`);
-                        } else {
-                            // Try to find user IDs as keys within the value
-                            Object.entries(value).forEach(([innerKey, innerValue]) => {
-                                // Check if innerKey looks like a user ID
-                                if (innerKey.match(/^[A-F0-9-]+$/i) || innerKey.startsWith('$device:')) {
-                                    const userId = innerKey.replace('$device:', '');
-                                    if (innerValue && typeof innerValue === 'object') {
-                                        userDataMap.set(userId, {
-                                            groupValue: key,
-                                            steps: innerValue.steps || innerValue || []
-                                        });
-                                    }
-                                }
-                            });
-                        }
+                    // userData is an object with keys like '$overall', '@justin', 'portfolioTicker', etc.
+                    if (userData && typeof userData === 'object') {
+                        Object.entries(userData).forEach(([groupKey, groupData]) => {
+                            // Skip $overall - we want the specific group breakdowns
+                            if (groupKey === '$overall') {
+                                return;
+                            }
+
+                            // groupData should be an array of step objects
+                            if (Array.isArray(groupData)) {
+                                const row = {
+                                    '$distinct_id': userId,
+                                    [groupByField]: groupKey
+                                };
+
+                                // Extract step counts from the array
+                                groupData.forEach((step, index) => {
+                                    const stepLabel = step.step_label || `Step ${index + 1}`;
+                                    row[stepLabel] = step.count;
+                                });
+
+                                rows.push(row);
+                            }
+                        });
                     }
                 });
             }
         }
 
-        console.log(`  Found ${userDataMap.size} users in grouped funnel`);
-
-        // Convert to rows
-        userDataMap.forEach((userData, userId) => {
-            const row = {
-                '$distinct_id': userId,
-                [groupByField]: userData.groupValue
-            };
-
-            // Add funnel steps based on funnelName
-            if (funnelName === 'Premium Subscriptions') {
-                row['(1) Viewed Creator Paywall'] = userData.steps[0] || 0;
-                row['(2) Viewed Stripe Modal'] = userData.steps[1] || 0;
-                row['(3) Subscribed to Creator'] = userData.steps[2] || 0;
-            } else if (funnelName === 'Creator Copy Funnel' || funnelName === 'Portfolio Copy Funnel') {
-                row['(1) Viewed Portfolio Details'] = userData.steps[0] || 0;
-                row['(2) Started Copy Portfolio'] = userData.steps[1] || 0;
-                row['(3) Copied Portfolio'] = userData.steps[2] || 0;
-            }
-
-            rows.push(row);
-        });
+        console.log(`  Found ${rows.length} user-group combinations in grouped funnel`);
     }
     // Legacy array format
     else if (Array.isArray(data.data)) {
@@ -741,22 +718,22 @@ function processInsightsData(data) {
     if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
         console.log('Processing Query API nested object format for user profiles');
         console.log(`Headers: ${data.headers.join(', ')}`);
+        console.log(`Series structure sample:`, JSON.stringify(data.series).substring(0, 1000));
 
-        // The structure is: series[metric][userId][prop1Value][prop2Value]...
-        // Each path from metric to userId represents a complete set of property values
-        // We need to extract ALL property values for each user
+        // The structure is: series[metric][prop1Value][prop2Value]...[userId]
+        // OR: series[metric][userId][prop1Value][prop2Value]...
+        // We need to identify the path to each user and extract their properties
         const userDataMap = new Map(); // distinct_id -> {properties}
 
-        function extractUserDataRecursive(obj, path = [], depth = 0) {
+        function extractUserDataRecursive(obj, path = [], currentUserId = null, depth = 0) {
             if (depth > 30) return; // Prevent infinite recursion
 
             if (obj && typeof obj === 'object') {
                 Object.entries(obj).forEach(([key, value]) => {
-                    // Skip meta keys
+                    // Skip meta keys but still recurse
                     if (key === '$overall' || key === 'all' || key === 'undefined') {
-                        // Still recurse into these
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, path, depth + 1);
+                            extractUserDataRecursive(value, path, currentUserId, depth + 1);
                         }
                         return;
                     }
@@ -767,41 +744,55 @@ function processInsightsData(data) {
                         (key.match(/^[0-9]+$/) && key.length > 10);
 
                     if (isUserId) {
-                        // Initialize user if not exists
+                        // Found a user ID!
+                        // Structure: series[metric][userId][prop1][prop2]...
+                        // path[0] should be the metric name at this point
+
                         if (!userDataMap.has(key)) {
-                            userDataMap.set(key, { 'Distinct ID': key });
+                            userDataMap.set(key, { '$distinct_id': key });
                         }
 
-                        const userData = userDataMap.get(key);
+                        // Continue recursing to find property values nested below this user
+                        if (typeof value === 'object') {
+                            extractUserDataRecursive(value, path, key, depth + 1);
+                        } else if (typeof value === 'number') {
+                            // Direct numeric value for this user
+                            const userData = userDataMap.get(key);
+                            userData['$metric_value'] = value;
+                        }
+                    } else if (currentUserId) {
+                        // We're inside a user's data structure
+                        // The path elements after the user ID are property values
+                        // They map to headers starting at index 2 (after $metric and $distinct_id)
 
-                        // The path contains property values in order matching headers (after $metric and $distinct_id)
-                        // path[0] = metric name (maps to headers[0] = "$metric")
-                        // path[1] = first property value (maps to headers[2] - skip headers[1] which is $distinct_id)
-                        // path[2] = second property value (maps to headers[3])
-                        // etc.
+                        const userData = userDataMap.get(currentUserId);
+                        if (userData) {
+                            // Calculate which header this corresponds to
+                            // path[0] = metric, then we found userId, now we're at depth levels after userId
+                            // Each subsequent level corresponds to headers[2], headers[3], etc.
+                            const propertyDepth = depth - 2; // Subtract 2 for metric and userId levels
+                            const headerIndex = propertyDepth + 1; // +1 because we start counting from headers[2]
 
-                        // Map path values to header names
-                        for (let i = 1; i < path.length; i++) {
-                            const headerIndex = i + 1; // +1 to skip $distinct_id
-                            if (headerIndex < data.headers.length) {
+                            if (headerIndex >= 0 && headerIndex < data.headers.length) {
                                 const headerName = data.headers[headerIndex];
-                                const propertyValue = path[i];
 
-                                // Only set if we have a valid header and non-empty value
-                                if (headerName && propertyValue) {
-                                    userData[headerName] = propertyValue;
+                                if (headerName && headerName !== '$metric' && headerName !== '$distinct_id') {
+                                    // Only set if we haven't set it yet (take the first value encountered)
+                                    if (!userData[headerName]) {
+                                        userData[headerName] = key;
+                                    }
                                 }
                             }
                         }
 
-                        // Continue recursing to find more property values deeper in the tree
+                        // Continue recursing
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, path, depth + 1);
+                            extractUserDataRecursive(value, [...path, key], currentUserId, depth + 1);
                         }
                     } else {
-                        // Not a user ID, add to path and continue
+                        // Not a user ID and not inside a user's data, it's part of the metric-level path
                         if (typeof value === 'object') {
-                            extractUserDataRecursive(value, [...path, key], depth + 1);
+                            extractUserDataRecursive(value, [...path, key], currentUserId, depth + 1);
                         }
                     }
                 });
@@ -810,6 +801,11 @@ function processInsightsData(data) {
 
         extractUserDataRecursive(data.series);
         console.log(`Extracted ${userDataMap.size} user profiles from nested structure`);
+
+        if (userDataMap.size > 0) {
+            const sampleUser = Array.from(userDataMap.values())[0];
+            console.log(`Sample user data:`, JSON.stringify(sampleUser, null, 2));
+        }
 
         // Convert to rows
         userDataMap.forEach((userData) => {
