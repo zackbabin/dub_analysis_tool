@@ -418,17 +418,28 @@ function processFunnelData(data, funnelName) {
                     '$distinct_id': userId
                 };
 
+                // Debug: Check what keys userData has
+                const userKeys = Object.keys(userData);
+                if (rows.length < 3) {
+                    console.log(`  Sample user ${userId} has keys: ${userKeys.join(', ')}`);
+                    if (userData.$overall) {
+                        console.log(`  $overall type: ${Array.isArray(userData.$overall) ? 'array' : typeof userData.$overall}`);
+                    }
+                }
+
                 // Extract funnel step data from $overall array
                 if (userData.$overall && Array.isArray(userData.$overall)) {
                     // Each element in $overall is a step with count, avg_time, etc.
                     const steps = userData.$overall;
 
                     // For time-to-event funnels (Time to First Copy, etc.)
-                    // Extract the last step's avg_time_from_start
+                    // Extract the last step's avg_time_from_start and convert to days
                     if (funnelName.includes('Time to')) {
                         const lastStep = steps[steps.length - 1];
-                        if (lastStep && lastStep.avg_time_from_start !== null) {
-                            row[funnelName] = lastStep.avg_time_from_start;
+                        if (lastStep && lastStep.avg_time_from_start !== null && lastStep.avg_time_from_start !== undefined) {
+                            // Convert from seconds to days
+                            const timeInDays = lastStep.avg_time_from_start / 86400;
+                            row[funnelName] = timeInDays;
                         } else {
                             row[funnelName] = null;
                         }
@@ -440,8 +451,7 @@ function processFunnelData(data, funnelName) {
                         });
                     }
                 } else {
-                    // Fallback for unexpected formats
-                    console.log(`Warning: No $overall data for user ${userId}`);
+                    console.log(`Warning: No $overall data for user ${userId}, keys: ${userKeys.join(', ')}`);
                 }
 
                 rows.push(row);
@@ -1044,32 +1054,8 @@ async function main() {
         const processedLinked = processFunnelData(linkedBank, 'Time to Linked Bank');
         saveToCSV(processedLinked, '4_time_to_linked_bank.csv');
 
-        const premiumSubs = await fetchFunnelData(
-            CHART_IDS.premiumSubscriptions,
-            'Premium Subscriptions',
-            'creatorUsername'
-        );
-        const processedPremium = processGroupedFunnelData(premiumSubs, 'Premium Subscriptions', 'creatorUsername');
-        saveToCSV(processedPremium, '5_premium_subscriptions.csv');
-
-        const creatorCopy = await fetchFunnelData(
-            CHART_IDS.creatorCopyFunnel,
-            'Creator Copy Funnel',
-            'creatorUsername'
-        );
-        const processedCreator = processGroupedFunnelData(creatorCopy, 'Creator Copy Funnel', 'creatorUsername');
-        saveToCSV(processedCreator, '6_creator_copy_funnel.csv');
-
-        const portfolioCopy = await fetchFunnelData(
-            CHART_IDS.portfolioCopyFunnel,
-            'Portfolio Copy Funnel',
-            'portfolioTicker'
-        );
-        const processedPortfolio = processGroupedFunnelData(portfolioCopy, 'Portfolio Copy Funnel', 'portfolioTicker');
-        saveToCSV(processedPortfolio, '7_portfolio_copy_funnel.csv');
-
         console.log('\n✅ All data fetched and saved successfully!');
-        console.log('Note: The 6 funnel files will be merged into the subscribers insights file by the data merger.');
+        console.log('Note: The 3 time funnel files will be merged with the subscribers insights file.');
 
     } catch (error) {
         console.error('Error in main function:', error);
