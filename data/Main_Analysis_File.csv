@@ -194,7 +194,7 @@ $device:4EF714C5-64E5-4905-AC96-055E37F9AA02,1,undefined,undefined,1,0.06,0,0,0,
 $device:a5be9b39-bdbc-4b39-afe2-b81e8fcd02c3,1,undefined,undefined,undefined,undefined,undefined,undefined,undefined,,,,,,,,,,,2,1,,8,,,,,,,,,,,,,,0.08168981481481481
 $device:1606546A-BA88-4E85-B67D-CFD7A6B45D9E,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,<1,growth,growth,TikTok,,,,,,,,6,,1,,,,,3,,,1,,,,0.01721064814814815
 $device:459b8a97-a835-47cf-9e62-5aae12fb175f,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,5,1,1,1,,,,,,,,,,,0.008368055555555556
-$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,,5.070810185185185,0.008923611111111111
+$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,3.507962962962963,,0.008923611111111111
 $device:5E7EC410-ED87-4A13-9382-C304347A3B39,1,undefined,undefined,0,100.04,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,2,1,13,10,20,1,,6,,,1,,1,1,,1,7.429131944444444,7.422233796296296,0.4298958333333333
 6cdf0bca-f129-4f92-a3c9-24fb7acacaca,1,<25k,<100k,1,0,0,0,1,198.37,passive,0,income,moderate,TikTok,398.37,2,1,1,1,16,1,9,4,5,2,,,,,,,,,0.4832523148148148,0.503275462962963,0.4807060185185185
 $device:D03995E4-03BB-43B7-AAD4-8D386BC91493,1,undefined,undefined,1,0.01,0,0,0,0,undefined,undefined,undefined,undefined,undefined,9000,2,1,,33,7,3,57,15,2,13,,1,,3,,,,,,,
