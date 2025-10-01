@@ -189,6 +189,86 @@
             display: block;
             margin-bottom: 5px;
         }
+
+        /* Tab Navigation Styles */
+        .tab-navigation {
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .tab-btn {
+            background: white;
+            color: #6c757d;
+            padding: 12px 24px;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .tab-btn:hover {
+            color: #17a2b8;
+            background: #f8f9fa;
+        }
+
+        .tab-btn.active {
+            color: #17a2b8;
+            border-bottom-color: #17a2b8;
+            background: white;
+        }
+
+        /* Tab Content Styles */
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .tab-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .tab-results-container {
+            max-width: 1200px;
+            margin: 40px auto 0 auto;
+        }
+
+        /* Coming Soon Badge */
+        .coming-soon-badge {
+            display: inline-block;
+            background: #ffc107;
+            color: #856404;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
+        /* Placeholder Message */
+        .placeholder-message {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .placeholder-message h2 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .placeholder-message p {
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -197,12 +277,35 @@
         <p>Ingests real-time data from Mixpanel and runs deep analysis to identify the drivers of key app behavior</p>
     </div>
 
-    <div class="unified-container">
-        <div id="unifiedToolContainer"></div>
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+        <button class="tab-btn active" data-tab="user">User Analysis</button>
+        <button class="tab-btn" data-tab="creator">
+            Creator Analysis
+            <span class="coming-soon-badge">COMING SOON</span>
+        </button>
     </div>
 
-    <div class="results-container">
-        <div id="unifiedResultsContainer"></div>
+    <!-- User Analysis Tab (ACTIVE - Existing Functionality) -->
+    <div id="user-analysis-tab" class="tab-pane active">
+        <div class="tab-container">
+            <div id="unifiedToolContainer"></div>
+        </div>
+
+        <div class="tab-results-container">
+            <div id="unifiedResultsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Creator Analysis Tab (PLACEHOLDER - Not Functional Yet) -->
+    <div id="creator-analysis-tab" class="tab-pane">
+        <div class="placeholder-message">
+            <h2>🚧 Creator Analysis Tool - Under Construction</h2>
+            <p>This feature is currently being built and will be available soon.</p>
+            <p style="margin-top: 20px; font-size: 12px; color: #adb5bd;">
+                The creator analysis tool will analyze creator performance including copies, subscriptions, and behavioral patterns.
+            </p>
+        </div>
     </div>
 
     <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
@@ -217,25 +320,60 @@
     <!-- Load Supabase Version (extends unified_tool.js) -->
     <script src="unified_tool_supabase.js"></script>
 
+    <!-- Creator Analysis Tool Scripts (NOT LOADED YET - Commented Out) -->
+    <!-- <script src="creator_analysis_tool.js"></script> -->
+    <!-- <script src="creator_analysis_tool_supabase.js"></script> -->
+
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
 
-        // Initialize the Supabase-powered unified tool
+        // Tab switching functionality
+        function initializeTabs() {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-tab');
+
+                    // Remove active class from all buttons and panes
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    tabPanes.forEach(pane => pane.classList.remove('active'));
+
+                    // Add active class to clicked button
+                    button.classList.add('active');
+
+                    // Show corresponding tab pane
+                    const targetPane = document.getElementById(`${targetTab}-analysis-tab`);
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                    }
+                });
+            });
+        }
+
+        // Initialize the Supabase-powered unified tool (USER ANALYSIS ONLY)
         window.onload = function() {
+            // Initialize tab switching
+            initializeTabs();
+
             // Initialize Supabase Integration with credentials
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // Use UnifiedAnalysisToolSupabase instead of UnifiedAnalysisTool
-            const tool = new UnifiedAnalysisToolSupabase();
+            const userTool = new UnifiedAnalysisToolSupabase();
 
-            tool.createUI(
+            userTool.createUI(
                 document.getElementById('unifiedToolContainer'),
                 document.getElementById('unifiedResultsContainer')
             );
 
-            console.log('✅ Unified Analysis Tool (Supabase) initialized');
+            console.log('✅ User Analysis Tool (Supabase) initialized');
+
+            // Creator tool NOT initialized yet - will be added later
+            console.log('⏳ Creator Analysis Tool - Coming Soon');
         };
     </script>
 </body>
