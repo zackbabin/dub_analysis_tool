@@ -498,13 +498,8 @@ class UnifiedAnalysisTool {
      * Helper: Trigger GitHub workflow
      */
     async triggerGitHubWorkflow() {
-        let githubToken = localStorage.getItem('github_pat');
-
-        if (!githubToken) {
-            // Use default token for shared access
-            githubToken = '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';
-            localStorage.setItem('github_pat', githubToken);
-        }
+        // Always use hardcoded token for shared access (ignore any previously stored tokens)
+        const githubToken = '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';
 
         const owner = 'zackbabin';
         const repo = 'dub_analysis_tool';
@@ -526,7 +521,6 @@ class UnifiedAnalysisTool {
         if (response.status === 204) {
             return true;
         } else if (response.status === 401) {
-            localStorage.removeItem('github_pat');
             throw new Error('Invalid GitHub token');
         } else {
             const error = await response.text();
@@ -538,8 +532,8 @@ class UnifiedAnalysisTool {
      * Helper: Wait for workflow completion with simple polling
      */
     async waitForWorkflowCompletion() {
-        const githubToken = localStorage.getItem('github_pat');
-        if (!githubToken) return false;
+        // Always use hardcoded token for shared access
+        const githubToken = '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';
 
         const owner = 'zackbabin';
         const repo = 'dub_analysis_tool';
