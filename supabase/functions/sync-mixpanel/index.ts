@@ -128,28 +128,36 @@ serve(async (req) => {
         totalRecordsInserted: 0,
       }
 
-      // Process subscribers insights
-      const subscribersRows = processInsightsData(subscribersData)
-      console.log(\`Processed \${subscribersRows.length} subscriber rows\`)
-      
-      if (subscribersRows.length > 0) {
-        // Use upsert to handle duplicates
-        const { error: insertError } = await supabase
-          .from('subscribers_insights')
-          .upsert(subscribersRows, {
-            onConflict: 'distinct_id,synced_at',
-            ignoreDuplicates: false
-          })
+      // Process subscribers insights in batches to avoid memory issues
+      const batchSize = 500
+      let totalProcessed = 0
 
-        if (insertError) {
-          console.error('Error upserting subscribers:', insertError)
-          throw insertError
+      const allSubscribersRows = processInsightsData(subscribersData)
+      console.log(\`Processed \${allSubscribersRows.length} subscriber rows, inserting in batches...\`)
+
+      for (let i = 0; i < allSubscribersRows.length; i += batchSize) {
+        const batch = allSubscribersRows.slice(i, i + batchSize)
+
+        if (batch.length > 0) {
+          const { error: insertError } = await supabase
+            .from('subscribers_insights')
+            .upsert(batch, {
+              onConflict: 'distinct_id,synced_at',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting subscribers batch:', insertError)
+            throw insertError
+          }
+
+          totalProcessed += batch.length
+          console.log(\`Upserted batch: \${totalProcessed}/\${allSubscribersRows.length} records\`)
         }
-
-        stats.subscribersFetched = subscribersRows.length
-        stats.totalRecordsInserted += subscribersRows.length
-        console.log(\`Upserted \${subscribersRows.length} subscriber records\`)
       }
+
+      stats.subscribersFetched = totalProcessed
+      stats.totalRecordsInserted += totalProcessed
 
       // Process time funnels
       const timeFunnelRows = [
@@ -350,63 +358,64 @@ function processInsightsData(data: any): any[] {
     const propertyHeaders = data.headers.slice(2)
     const metricNames = Object.keys(data.series)
 
-    function extractUserDataRecursive(obj: any, pathValues: any[] = [], currentUserId: any = null, currentMetric: any = null, depth: number = 0) {
-      if (depth > 30) return
+    function extractUserDataRecursive(obj: any, pathValues: string[], currentUserId: string | null, currentMetric: string | null, depth: number) {
+      if (depth > 30 || !obj || typeof obj !== 'object') return
 
-      if (obj && typeof obj === 'object') {
-        Object.entries(obj).forEach(([key, value]) => {
-          if (key === '$overall') {
-            if (typeof value === 'object') {
-              extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
-            }
-            return
+      for (const [key, value] of Object.entries(obj)) {
+        if (key === '$overall') {
+          if (typeof value === 'object') {
+            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+          }
+          continue
+        }
+
+        if (key === 'all' && typeof value === 'number' && currentUserId && currentMetric) {
+          const userData = userDataMap.get(currentUserId)
+          if (userData) {
+            userData[currentMetric] = value
+          }
+          continue
+        }
+
+        const isUserId = !currentUserId && key !== '$overall' && key !== 'all'
+
+        if (isUserId) {
+          if (!userDataMap.has(key)) {
+            userDataMap.set(key, { '$distinct_id': key })
           }
 
-          if (key === 'all' && typeof value === 'number' && currentUserId && currentMetric) {
-            const userData = userDataMap.get(currentUserId)
-            if (userData) {
-              userData[currentMetric] = value
-            }
-            return
+          if (typeof value === 'object') {
+            extractUserDataRecursive(value, pathValues, key, currentMetric, depth + 1)
+          } else if (typeof value === 'number' && currentMetric) {
+            const userData = userDataMap.get(key)
+            if (userData) userData[currentMetric] = value
+          }
+        } else if (currentUserId) {
+          if (key === '$non_numeric_values') {
+            continue
           }
 
-          const isUserId = !currentUserId && key !== '$overall' && key !== 'all'
-
-          if (isUserId) {
-            if (!userDataMap.has(key)) {
-              userDataMap.set(key, { '$distinct_id': key })
-            }
-
-            if (typeof value === 'object') {
-              extractUserDataRecursive(value, pathValues, key, currentMetric, depth + 1)
-            } else if (typeof value === 'number' && currentMetric) {
-              userDataMap.get(key)[currentMetric] = value
-            }
-          } else if (currentUserId) {
-            const actualKey = key === '$non_numeric_values' ? null : key
-            const newPath = actualKey !== null ? [...pathValues, actualKey] : pathValues
-
-            const userData = userDataMap.get(currentUserId)
-            if (userData && actualKey !== null) {
-              newPath.forEach((val, idx) => {
-                if (idx < propertyHeaders.length) {
-                  const propName = propertyHeaders[idx]
-                  if (propName && !userData[propName]) {
-                    userData[propName] = val
-                  }
-                }
-              })
-            }
-
-            if (typeof value === 'object') {
-              extractUserDataRecursive(value, newPath, currentUserId, currentMetric, depth + 1)
-            }
-          } else {
-            if (typeof value === 'object') {
-              extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+          const userData = userDataMap.get(currentUserId)
+          if (userData) {
+            const propIndex = pathValues.length
+            if (propIndex < propertyHeaders.length) {
+              const propName = propertyHeaders[propIndex]
+              if (propName && !userData[propName]) {
+                userData[propName] = key
+              }
             }
           }
-        })
+
+          if (typeof value === 'object') {
+            pathValues.push(key)
+            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+            pathValues.pop()
+          }
+        } else {
+          if (typeof value === 'object') {
+            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+          }
+        }
       }
     }
 
