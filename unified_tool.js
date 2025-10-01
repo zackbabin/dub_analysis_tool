@@ -39,6 +39,10 @@ class UnifiedAnalysisTool {
         const modeSection = this.createModeSection();
         content.appendChild(modeSection);
 
+        // GitHub Token Configuration
+        const tokenSection = this.createTokenSection();
+        content.appendChild(tokenSection);
+
         // Status Display
         const statusSection = document.createElement('div');
         statusSection.id = 'unifiedStatusSection';
@@ -120,6 +124,89 @@ class UnifiedAnalysisTool {
             </div>
         `;
         section.appendChild(uploadSection);
+
+        return section;
+    }
+
+    /**
+     * Creates the GitHub token configuration section
+     */
+    createTokenSection() {
+        const section = document.createElement('div');
+        section.style.cssText = 'margin-bottom: 20px; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;';
+
+        const title = document.createElement('h4');
+        title.textContent = '⚙️ GitHub Token Configuration';
+        title.style.cssText = 'margin: 0 0 10px 0; color: #856404;';
+        section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.textContent = 'Required for "Sync Live Data" feature. Enter and save your GitHub Personal Access Token below:';
+        description.style.cssText = 'margin: 0 0 15px 0; font-size: 13px; color: #856404;';
+        section.appendChild(description);
+
+        // Token input field
+        const inputContainer = document.createElement('div');
+        inputContainer.style.cssText = 'display: flex; gap: 10px; margin-bottom: 10px;';
+
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.id = 'githubTokenInput';
+        input.placeholder = 'Enter GitHub Personal Access Token';
+        input.style.cssText = 'flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace;';
+        input.value = localStorage.getItem('github_pat') || '';
+        inputContainer.appendChild(input);
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save Token';
+        saveBtn.className = 'qda-btn';
+        saveBtn.style.background = '#28a745';
+        saveBtn.onclick = () => {
+            const token = input.value.trim();
+            if (token) {
+                localStorage.setItem('github_pat', token);
+                alert('✅ Token saved successfully!');
+            } else {
+                alert('❌ Please enter a valid token');
+            }
+        };
+        inputContainer.appendChild(saveBtn);
+
+        section.appendChild(inputContainer);
+
+        // Default token with copy button
+        const defaultTokenContainer = document.createElement('div');
+        defaultTokenContainer.style.cssText = 'margin-top: 10px; padding: 10px; background: white; border: 1px solid #ddd; border-radius: 4px;';
+
+        const defaultTokenLabel = document.createElement('div');
+        defaultTokenLabel.textContent = 'Default Token (click to copy):';
+        defaultTokenLabel.style.cssText = 'font-size: 12px; color: #6c757d; margin-bottom: 5px;';
+        defaultTokenContainer.appendChild(defaultTokenLabel);
+
+        const tokenDisplay = document.createElement('div');
+        tokenDisplay.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+        const tokenText = document.createElement('code');
+        tokenText.textContent = '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';
+        tokenText.style.cssText = 'flex: 1; padding: 8px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-size: 12px; word-break: break-all;';
+        tokenDisplay.appendChild(tokenText);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '📋 Copy';
+        copyBtn.className = 'qda-btn';
+        copyBtn.style.cssText = 'background: #007bff; padding: 8px 15px; font-size: 12px;';
+        copyBtn.onclick = () => {
+            navigator.clipboard.writeText('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').then(() => {
+                copyBtn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Copy';
+                }, 2000);
+            });
+        };
+        tokenDisplay.appendChild(copyBtn);
+
+        defaultTokenContainer.appendChild(tokenDisplay);
+        section.appendChild(defaultTokenContainer);
 
         return section;
     }
@@ -498,17 +585,10 @@ class UnifiedAnalysisTool {
      * Helper: Trigger GitHub workflow
      */
     async triggerGitHubWorkflow() {
-        let githubToken = localStorage.getItem('github_pat');
+        const githubToken = localStorage.getItem('github_pat');
 
         if (!githubToken) {
-            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):');
-            if (!githubToken) {
-                throw new Error('GitHub token is required');
-            }
-
-            if (confirm('Save this token for future use?')) {
-                localStorage.setItem('github_pat', githubToken);
-            }
+            throw new Error('GitHub token not configured. Please enter and save your token in the configuration section above.');
         }
 
         const owner = 'zackbabin';
