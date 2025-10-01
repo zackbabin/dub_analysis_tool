@@ -125,11 +125,25 @@ CREATE INDEX IF NOT EXISTS idx_profile_conversions_username ON creator_profile_c
 CREATE INDEX IF NOT EXISTS idx_profile_conversions_synced_at ON creator_profile_conversions(synced_at DESC);
 
 -- ============================================================================
+-- MIGRATION: Add new columns to existing table
+-- ============================================================================
+
+-- Add new columns to creators_insights table
+ALTER TABLE creators_insights
+ADD COLUMN IF NOT EXISTS creator_type TEXT DEFAULT 'Regular',
+ADD COLUMN IF NOT EXISTS total_subscription_revenue NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_cancelled_subscriptions INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_expired_subscriptions INTEGER DEFAULT 0;
+
+-- ============================================================================
 -- Materialized View: creator_analysis
 -- Pre-computed joined view of all creator data for faster analysis
 -- ============================================================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS creator_analysis AS
+-- Drop existing view to recreate with new columns (CASCADE drops dependent views)
+DROP MATERIALIZED VIEW IF EXISTS creator_analysis CASCADE;
+
+CREATE MATERIALIZED VIEW creator_analysis AS
 SELECT
     ci.creator_id,
     ci.creator_username,
@@ -263,6 +277,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-update updated_at on creators_insights
+DROP TRIGGER IF EXISTS update_creators_insights_updated_at ON creators_insights;
 CREATE TRIGGER update_creators_insights_updated_at
     BEFORE UPDATE ON creators_insights
     FOR EACH ROW
@@ -278,34 +293,40 @@ ALTER TABLE creator_portfolios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE creator_profile_conversions ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to read all data
+DROP POLICY IF EXISTS "Allow authenticated read access to creators_insights" ON creators_insights;
 CREATE POLICY "Allow authenticated read access to creators_insights"
     ON creators_insights FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated read access to creator_portfolios" ON creator_portfolios;
 CREATE POLICY "Allow authenticated read access to creator_portfolios"
     ON creator_portfolios FOR SELECT
     TO authenticated
     USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated read access to creator_profile_conversions" ON creator_profile_conversions;
 CREATE POLICY "Allow authenticated read access to creator_profile_conversions"
     ON creator_profile_conversions FOR SELECT
     TO authenticated
     USING (true);
 
 -- Allow service role full access (for Edge Functions)
+DROP POLICY IF EXISTS "Allow service role full access to creators_insights" ON creators_insights;
 CREATE POLICY "Allow service role full access to creators_insights"
     ON creators_insights FOR ALL
     TO service_role
     USING (true)
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow service role full access to creator_portfolios" ON creator_portfolios;
 CREATE POLICY "Allow service role full access to creator_portfolios"
     ON creator_portfolios FOR ALL
     TO service_role
     USING (true)
     WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow service role full access to creator_profile_conversions" ON creator_profile_conversions;
 CREATE POLICY "Allow service role full access to creator_profile_conversions"
     ON creator_profile_conversions FOR ALL
     TO service_role
