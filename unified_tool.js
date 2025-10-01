@@ -260,7 +260,7 @@ class UnifiedAnalysisTool {
      */
     async runWorkflow(mode) {
         this.clearStatus();
-        this.showStatus();
+        // Don't show status by default - only show for errors
         this.showProgress(0);
 
         try {
@@ -383,33 +383,21 @@ class UnifiedAnalysisTool {
      */
     async processAndAnalyze(contents) {
         // Step 1: Merge data
-        this.addStatusMessage('🔄 Merging data files...', 'info');
-
         const mergedData = processComprehensiveData(contents);
 
-        this.updateProgress(70, 'Data merged...');
-        this.addStatusMessage('✅ Data merged successfully', 'success');
-
-        // Step 2: Skip download creation for unified workflow
-        // (Files are already saved to GitHub by the workflow)
-
-        this.updateProgress(80, 'Running analysis...');
-
-        // Step 3: Run analysis on main file
-        this.addStatusMessage('📊 Running analysis...', 'info');
+        // Step 2: Run analysis on main file
+        this.updateProgress(75, 'Analyzing data...');
 
         // Pass JSON directly instead of converting to CSV and parsing back
         const results = performQuantitativeAnalysis(mergedData.mainFile, null, null);
 
-        this.updateProgress(85, 'Calculating tipping points...');
+        this.updateProgress(90, 'Generating insights...');
 
-        // Step 3.5: Calculate tipping points for all variables and outcomes
+        // Step 3: Calculate tipping points for all variables and outcomes
         const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
 
         // Clear cleanData reference to free memory (it's large and no longer needed)
         results.cleanData = null;
-
-        this.updateProgress(90, 'Displaying results...');
 
         // Step 4: Save results to localStorage (cleanData excluded - too large for storage)
         localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
@@ -432,13 +420,11 @@ class UnifiedAnalysisTool {
         this.displayResults(results);
 
         this.updateProgress(100, 'Complete!');
-        this.addStatusMessage('✅ Analysis complete!', 'success');
 
-        // Hide status after a delay
+        // Hide progress bar after completion
         setTimeout(() => {
-            document.getElementById('unifiedStatusSection').style.display = 'none';
             document.getElementById('unifiedProgressSection').style.display = 'none';
-        }, 5000);
+        }, 2000);
     }
 
     /**
@@ -738,6 +724,11 @@ class UnifiedAnalysisTool {
      * UI Helper: Add status message
      */
     addStatusMessage(message, type = 'info') {
+        // Only show status section for errors
+        if (type === 'error') {
+            this.showStatus();
+        }
+
         const statusSection = document.getElementById('unifiedStatusSection');
         const messageDiv = document.createElement('div');
         messageDiv.style.cssText = `

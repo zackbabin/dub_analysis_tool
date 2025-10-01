@@ -85,23 +85,18 @@ class UnifiedAnalysisToolSupabase extends UnifiedAnalysisTool {
      */
     async runGitHubWorkflow() {
         // Step 1: Trigger Supabase Edge Function
-        this.addStatusMessage('🚀 Triggering Supabase Edge Function...', 'info');
-        this.updateProgress(10, 'Triggering sync...');
+        this.updateProgress(15, 'Syncing data...');
 
         const triggered = await this.triggerGitHubWorkflow();
         if (!triggered) {
             throw new Error('Failed to trigger Supabase sync');
         }
 
-        this.addStatusMessage('✅ Sync completed successfully', 'success');
-        this.updateProgress(40, 'Loading data...');
+        this.updateProgress(30, 'Loading data...');
 
         // Step 2: Load data from Supabase
-        this.addStatusMessage('📥 Loading data from Supabase...', 'info');
-
         const contents = await this.loadGitHubData();
-        this.addStatusMessage('✅ Data loaded', 'success');
-        this.updateProgress(60, 'Analyzing data...');
+        this.updateProgress(50, 'Merging data...');
 
         // Step 3: Process and analyze data
         await this.processAndAnalyze(contents);
