@@ -239,17 +239,23 @@ class CreatorAnalysisTool {
             creatorId: row['creator_id'] || '',
             creatorUsername: row['creator_username'] || '',
 
+            // Creator Type
+            creatorType: row['creator_type'] || 'Regular',
+
             // Core Outcome Metrics
             totalCopies: this.cleanNumeric(row['total_copies']),
             totalSubscriptions: this.cleanNumeric(row['total_subscriptions']),
 
-            // Engagement Metrics
+            // Engagement Metrics (from Insights)
             totalProfileViews: this.cleanNumeric(row['total_profile_views']),
             totalPDPViews: this.cleanNumeric(row['total_pdp_views']),
             totalPaywallViews: this.cleanNumeric(row['total_paywall_views']),
             totalStripeViews: this.cleanNumeric(row['total_stripe_views']),
+            totalSubscriptionRevenue: this.cleanNumeric(row['total_subscription_revenue']),
+            totalCancelledSubscriptions: this.cleanNumeric(row['total_cancelled_subscriptions']),
+            totalExpiredSubscriptions: this.cleanNumeric(row['total_expired_subscriptions']),
 
-            // Portfolio Metrics
+            // Portfolio Metrics (from Funnels)
             totalPortfoliosCreated: this.cleanNumeric(row['total_portfolios_created']),
             totalPortfolioPDPViews: this.cleanNumeric(row['total_portfolio_pdp_views']),
             avgCopiesPerPortfolio: this.cleanNumeric(row['avg_copies_per_portfolio']),
@@ -259,17 +265,11 @@ class CreatorAnalysisTool {
             creatorProfileViewsFunnel: this.cleanNumeric(row['creator_profile_views_funnel']),
             creatorSubscriptionsFunnel: this.cleanNumeric(row['creator_subscriptions_funnel']),
 
-            // Conversion Rates
+            // Conversion Rates (derived)
             overallCopyConversionRate: this.cleanNumeric(row['overall_copy_conversion_rate']),
             overallSubscriptionConversionRate: this.cleanNumeric(row['overall_subscription_conversion_rate']),
             paywallViewRate: this.cleanNumeric(row['paywall_view_rate']),
-            stripeViewRate: this.cleanNumeric(row['stripe_view_rate']),
-
-            // Creator Type (placeholder - will be populated when data source is defined)
-            creatorType: row['creator_type'] || 'Regular',
-
-            // Subscription Price (placeholder - will be populated when data source is defined)
-            subscriptionPrice: this.cleanNumeric(row['subscription_price'])
+            stripeViewRate: this.cleanNumeric(row['stripe_view_rate'])
         })).filter(row => row.creatorId);
     }
 
@@ -346,6 +346,9 @@ class CreatorAnalysisTool {
             'totalPDPViews',
             'totalPaywallViews',
             'totalStripeViews',
+            'totalSubscriptionRevenue',
+            'totalCancelledSubscriptions',
+            'totalExpiredSubscriptions',
             'totalPortfoliosCreated',
             'totalPortfolioPDPViews',
             'avgCopiesPerPortfolio',
@@ -553,8 +556,7 @@ class CreatorAnalysisTool {
         const metrics = [
             ['Total Creators', stats.totalCreators.toLocaleString(), '18px'],
             ['Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString(), '18px'],
-            ['Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString(), '18px'],
-            ['Sponsored Creators', (stats.creatorTypes['Sponsored'] || 0).toLocaleString(), '18px']
+            ['Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString(), '18px']
         ];
 
         metrics.forEach(([title, content, size]) => {
@@ -781,6 +783,9 @@ class CreatorAnalysisTool {
             'totalPDPViews': 'Total PDP Views',
             'totalPaywallViews': 'Total Paywall Views',
             'totalStripeViews': 'Total Stripe Views',
+            'totalSubscriptionRevenue': 'Total Subscription Revenue',
+            'totalCancelledSubscriptions': 'Total Cancelled Subscriptions',
+            'totalExpiredSubscriptions': 'Total Expired Subscriptions',
             'totalPortfoliosCreated': 'Total Portfolios Created',
             'totalPortfolioPDPViews': 'Total Portfolio PDP Views',
             'avgCopiesPerPortfolio': 'Avg Copies Per Portfolio',

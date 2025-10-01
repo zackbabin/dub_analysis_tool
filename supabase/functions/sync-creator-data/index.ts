@@ -361,49 +361,110 @@ function processCreatorInsightsData(data: any): any[] {
 
       const creatorMetrics = metricData[creatorId]
 
-      // Find the username (it's the key that's not "$overall")
-      const username = Object.keys(creatorMetrics).find(k => k !== '$overall')
+      // The structure can have multiple levels:
+      // creatorId -> "$overall" -> creatorType -> username -> {all: count}
+      // OR
+      // creatorId -> creatorType -> username -> {all: count}
 
-      if (!username) return
-
-      // Get the count value
-      const count = creatorMetrics[username]?.all || 0
-
-      // Initialize or update creator data
-      if (!creatorDataMap.has(creatorId)) {
-        creatorDataMap.set(creatorId, {
-          creator_id: creatorId,
-          creator_username: username,
-        })
-      }
-
-      const creatorData = creatorDataMap.get(creatorId)
-
-      // Map metric name to database field
-      if (metricName === 'A. Total Profile Views') {
-        creatorData.total_profile_views = count
-      } else if (metricName === 'B. Total PDP Views') {
-        creatorData.total_pdp_views = count
-      } else if (metricName === 'C. Total Paywall Views') {
-        creatorData.total_paywall_views = count
-      } else if (metricName === 'D. Total Stripe Views') {
-        creatorData.total_stripe_views = count
-      } else if (metricName === 'E. Total Subscriptions') {
-        creatorData.total_subscriptions = count
-      }
+      // Handle nested structure with creatorType
+      Object.keys(creatorMetrics).forEach(key1 => {
+        if (key1 === '$overall') {
+          // Handle $overall nesting
+          const overallData = creatorMetrics[key1]
+          Object.keys(overallData).forEach(key2 => {
+            if (key2.startsWith('@')) {
+              // This is username
+              processCreatorMetric(creatorDataMap, creatorId, key2, null, overallData[key2]?.all || 0, metricName)
+            } else {
+              // This might be creatorType
+              const typeData = overallData[key2]
+              Object.keys(typeData).forEach(username => {
+                if (username.startsWith('@')) {
+                  processCreatorMetric(creatorDataMap, creatorId, username, key2, typeData[username]?.all || 0, metricName)
+                }
+              })
+            }
+          })
+        } else if (key1.startsWith('@')) {
+          // Direct username
+          processCreatorMetric(creatorDataMap, creatorId, key1, null, creatorMetrics[key1]?.all || 0, metricName)
+        } else {
+          // This might be creatorType
+          const typeData = creatorMetrics[key1]
+          Object.keys(typeData).forEach(username => {
+            if (username.startsWith('@')) {
+              processCreatorMetric(creatorDataMap, creatorId, username, key1, typeData[username]?.all || 0, metricName)
+            }
+          })
+        }
+      })
     })
   })
+
+  function processCreatorMetric(
+    map: Map<string, any>,
+    creatorId: string,
+    username: string,
+    creatorType: string | null,
+    count: number,
+    metricName: string
+  ) {
+    // Create unique key: creatorId + creatorType (to handle multiple types per creator)
+    const mapKey = creatorType ? `${creatorId}_${creatorType}` : creatorId
+
+    // Initialize or update creator data
+    if (!map.has(mapKey)) {
+      map.set(mapKey, {
+        creator_id: creatorId,
+        creator_username: username,
+        creator_type: creatorType || 'Regular',
+        total_profile_views: 0,
+        total_pdp_views: 0,
+        total_paywall_views: 0,
+        total_stripe_views: 0,
+        total_subscriptions: 0,
+        total_subscription_revenue: 0,
+        total_cancelled_subscriptions: 0,
+        total_expired_subscriptions: 0,
+      })
+    }
+
+    const creatorData = map.get(mapKey)
+
+    // Map metric name to database field and aggregate
+    if (metricName === 'A. Total Profile Views') {
+      creatorData.total_profile_views += count
+    } else if (metricName === 'B. Total PDP Views') {
+      creatorData.total_pdp_views += count
+    } else if (metricName === 'C. Total Paywall Views') {
+      creatorData.total_paywall_views += count
+    } else if (metricName === 'D. Total Stripe Views') {
+      creatorData.total_stripe_views += count
+    } else if (metricName === 'E. Total Subscriptions') {
+      creatorData.total_subscriptions += count
+    } else if (metricName === 'F. Total Subscription Revenue') {
+      creatorData.total_subscription_revenue += count
+    } else if (metricName === 'G. Total Cancelled Subscriptions') {
+      creatorData.total_cancelled_subscriptions += count
+    } else if (metricName === 'H. Total Expired Subscriptions') {
+      creatorData.total_expired_subscriptions += count
+    }
+  }
 
   // Convert map to array
   creatorDataMap.forEach(creatorData => {
     rows.push({
       creator_id: String(creatorData.creator_id),
       creator_username: creatorData.creator_username,
+      creator_type: creatorData.creator_type || 'Regular',
       total_profile_views: creatorData.total_profile_views || 0,
       total_pdp_views: creatorData.total_pdp_views || 0,
       total_paywall_views: creatorData.total_paywall_views || 0,
       total_stripe_views: creatorData.total_stripe_views || 0,
       total_subscriptions: creatorData.total_subscriptions || 0,
+      total_subscription_revenue: creatorData.total_subscription_revenue || 0,
+      total_cancelled_subscriptions: creatorData.total_cancelled_subscriptions || 0,
+      total_expired_subscriptions: creatorData.total_expired_subscriptions || 0,
     })
   })
 

@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS creators_insights (
     creator_id TEXT NOT NULL,
     creator_username TEXT,
 
+    -- Creator Classification
+    creator_type TEXT DEFAULT 'Regular',
+
     -- Engagement Metrics - Views
     total_profile_views INTEGER DEFAULT 0,
     total_pdp_views INTEGER DEFAULT 0,
@@ -22,6 +25,9 @@ CREATE TABLE IF NOT EXISTS creators_insights (
 
     -- Conversion Metrics
     total_subscriptions INTEGER DEFAULT 0,
+    total_subscription_revenue NUMERIC DEFAULT 0,
+    total_cancelled_subscriptions INTEGER DEFAULT 0,
+    total_expired_subscriptions INTEGER DEFAULT 0,
 
     -- Metadata
     synced_at TIMESTAMPTZ DEFAULT NOW(),
@@ -128,12 +134,18 @@ SELECT
     ci.creator_id,
     ci.creator_username,
 
+    -- Creator Classification
+    ci.creator_type,
+
     -- Core Metrics from creators_insights
     ci.total_profile_views,
     ci.total_pdp_views,
     ci.total_paywall_views,
     ci.total_stripe_views,
     ci.total_subscriptions,
+    ci.total_subscription_revenue,
+    ci.total_cancelled_subscriptions,
+    ci.total_expired_subscriptions,
 
     -- Aggregated Portfolio Metrics (sum across all portfolios by creator)
     COALESCE(SUM(cp.pdp_views), 0)::INTEGER as total_portfolio_pdp_views,
@@ -202,11 +214,15 @@ WHERE ci.synced_at = (
 GROUP BY
     ci.creator_id,
     ci.creator_username,
+    ci.creator_type,
     ci.total_profile_views,
     ci.total_pdp_views,
     ci.total_paywall_views,
     ci.total_stripe_views,
     ci.total_subscriptions,
+    ci.total_subscription_revenue,
+    ci.total_cancelled_subscriptions,
+    ci.total_expired_subscriptions,
     cpc.profile_views,
     cpc.subscriptions,
     ci.synced_at,
