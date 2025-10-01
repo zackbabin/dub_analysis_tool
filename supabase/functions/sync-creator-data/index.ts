@@ -141,7 +141,7 @@ serve(async (req) => {
       }
 
       // Process and insert breakdown data (Portfolio Copies)
-      const portfolioRows = processPortfolioCopiesData(portfolioCopiesData, creatorRows)
+      const portfolioRows = processPortfolioCopiesData(portfolioCopiesData)
       console.log(`Processed ${portfolioRows.length} portfolio copy rows, inserting...`)
 
       if (portfolioRows.length > 0) {
@@ -173,7 +173,7 @@ serve(async (req) => {
       }
 
       // Process and insert breakdown data (Subscription Pricing)
-      const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData, creatorRows)
+      const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData)
       console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
 
       if (subscriptionRows.length > 0) {
@@ -476,7 +476,7 @@ function processCreatorInsightsData(data: any): any[] {
   return rows
 }
 
-function processPortfolioCopiesData(data: any, creatorRows: any[]): any[] {
+function processPortfolioCopiesData(data: any): any[] {
   if (!data || !data.series) {
     console.log('No portfolio copies data')
     return []
@@ -491,33 +491,18 @@ function processPortfolioCopiesData(data: any, creatorRows: any[]): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Create a map of creator metrics for lookup
-  const creatorMetricsMap = new Map<string, any>()
-  creatorRows.forEach(creator => {
-    creatorMetricsMap.set(String(creator.creator_id), {
-      total_copies: creator.total_copies || 0,
-      total_pdp_views: creator.total_pdp_views || 0,
-      total_profile_views: creator.total_profile_views || 0,
-    })
-  })
+  // Structure: series -> "A. Total Copies" -> creatorId -> creatorUsername -> portfolioTicker -> count
+  const totalCopiesMetric = data.series['A. Total Copies']
 
-  // Structure: series -> "Total Events of Copied Portfolio" -> creatorId -> creatorUsername -> portfolioTicker -> count
-  const metric = data.series['Total Events of Copied Portfolio']
-
-  if (!metric) {
-    console.log('No "Total Events of Copied Portfolio" metric found')
+  if (!totalCopiesMetric) {
+    console.log('No "A. Total Copies" metric found')
     return []
   }
 
-  Object.keys(metric).forEach(creatorId => {
+  Object.keys(totalCopiesMetric).forEach(creatorId => {
     if (creatorId === '$overall') return
 
-    const creatorData = metric[creatorId]
-    const metrics = creatorMetricsMap.get(String(creatorId)) || {
-      total_copies: 0,
-      total_pdp_views: 0,
-      total_profile_views: 0,
-    }
+    const creatorData = totalCopiesMetric[creatorId]
 
     Object.keys(creatorData).forEach(username => {
       if (username === '$overall') return
@@ -528,20 +513,15 @@ function processPortfolioCopiesData(data: any, creatorRows: any[]): any[] {
         if (portfolioTicker === '$overall') return
 
         const portfolioData = usernameData[portfolioTicker]
-        const count = portfolioData?.all || 0
+        const totalCopies = portfolioData?.all || 0
 
-        if (count > 0) {
-          rows.push({
-            creator_id: String(creatorId),
-            creator_username: username,
-            portfolio_ticker: portfolioTicker,
-            copy_count: count,
-            total_copies: metrics.total_copies,
-            total_pdp_views: metrics.total_pdp_views,
-            total_profile_views: metrics.total_profile_views,
-            synced_at: syncedAt,
-          })
-        }
+        rows.push({
+          creator_id: String(creatorId),
+          creator_username: username,
+          portfolio_ticker: portfolioTicker,
+          total_copies: totalCopies,
+          synced_at: syncedAt,
+        })
       })
     })
   })
@@ -550,7 +530,7 @@ function processPortfolioCopiesData(data: any, creatorRows: any[]): any[] {
   return rows
 }
 
-function processSubscriptionPricingData(data: any, creatorRows: any[]): any[] {
+function processSubscriptionPricingData(data: any): any[] {
   if (!data || !data.series) {
     console.log('No subscription pricing data')
     return []
@@ -565,60 +545,37 @@ function processSubscriptionPricingData(data: any, creatorRows: any[]): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Create a map of creator metrics for lookup
-  const creatorMetricsMap = new Map<string, any>()
-  creatorRows.forEach(creator => {
-    creatorMetricsMap.set(String(creator.creator_id), {
-      total_subscriptions: creator.total_subscriptions || 0,
-      total_paywall_views: creator.total_paywall_views || 0,
-      total_profile_views: creator.total_profile_views || 0,
-      total_stripe_views: creator.total_stripe_views || 0,
-    })
-  })
+  // Structure: series -> "A. Total Subscriptions" -> creatorId -> price -> interval -> count
+  const totalSubscriptionsMetric = data.series['A. Total Subscriptions']
 
-  // Structure: series -> "Total Events of Subscribed to Creator" -> creatorId -> price -> interval -> count
-  const metric = data.series['Total Events of Subscribed to Creator']
-
-  if (!metric) {
-    console.log('No "Total Events of Subscribed to Creator" metric found')
+  if (!totalSubscriptionsMetric) {
+    console.log('No "A. Total Subscriptions" metric found')
     return []
   }
 
-  Object.keys(metric).forEach(creatorId => {
+  Object.keys(totalSubscriptionsMetric).forEach(creatorId => {
     if (creatorId === '$overall') return
 
-    const creatorData = metric[creatorId]
-    const metrics = creatorMetricsMap.get(String(creatorId)) || {
-      total_subscriptions: 0,
-      total_paywall_views: 0,
-      total_profile_views: 0,
-      total_stripe_views: 0,
-    }
+    const creatorData = totalSubscriptionsMetric[creatorId]
 
     Object.keys(creatorData).forEach(price => {
-      if (price === '$overall') return
+      if (price === '$overall' || price === '$non_numeric_values') return
 
       const priceData = creatorData[price]
 
       Object.keys(priceData).forEach(interval => {
-        if (interval === '$overall') return
+        if (interval === '$overall' || interval === 'undefined') return
 
         const intervalData = priceData[interval]
-        const count = intervalData?.all || 0
+        const totalSubscriptions = intervalData?.all || 0
 
-        if (count > 0) {
-          rows.push({
-            creator_id: String(creatorId),
-            subscription_price: parseFloat(price),
-            subscription_interval: interval,
-            subscription_count: count,
-            total_subscriptions: metrics.total_subscriptions,
-            total_paywall_views: metrics.total_paywall_views,
-            total_profile_views: metrics.total_profile_views,
-            total_stripe_views: metrics.total_stripe_views,
-            synced_at: syncedAt,
-          })
-        }
+        rows.push({
+          creator_id: String(creatorId),
+          subscription_price: parseFloat(price),
+          subscription_interval: interval,
+          total_subscriptions: totalSubscriptions,
+          synced_at: syncedAt,
+        })
       })
     })
   })

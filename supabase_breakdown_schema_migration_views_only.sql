@@ -1,14 +1,7 @@
 -- ============================================================================
--- Migration Script: Update Breakdown Tables and Views
--- Changes column names to match data from breakdown-specific Insights charts
+-- Migration Script: Update Breakdown Views Only
+-- Just updates the views to use correct column names and filters
 -- ============================================================================
-
--- Rename columns in existing tables
-ALTER TABLE creator_subscriptions_by_price
-RENAME COLUMN subscription_count TO total_subscriptions;
-
-ALTER TABLE creator_portfolio_copies
-RENAME COLUMN copy_count TO total_copies;
 
 -- Drop and recreate views with correct logic
 
@@ -57,8 +50,7 @@ LIMIT 10;
 -- ============================================================================
 -- Summary of changes:
 -- ============================================================================
--- ✅ Simplified views to show only event counts from the breakdown charts
--- ✅ Subscription distribution: Shows subscription events per monthly price
--- ✅ Top creators: Shows copy events per creator
--- ✅ Top portfolios: Shows copy events per portfolio
+-- ✅ Updated views to use total_subscriptions and total_copies columns
+-- ✅ Added filters to exclude 'undefined' values
+-- ✅ Views now use data from breakdown-specific Insights charts
 -- ============================================================================
