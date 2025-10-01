@@ -85,7 +85,7 @@ serve(async (req) => {
       const toDate = today.toISOString().split('T')[0]
       const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
 
-      console.log(\`Fetching data from \${fromDate} to \${toDate}\`)
+      console.log(`Fetching data from ${fromDate} to ${toDate}`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
@@ -133,7 +133,7 @@ serve(async (req) => {
       let totalProcessed = 0
 
       const allSubscribersRows = processInsightsData(subscribersData)
-      console.log(\`Processed \${allSubscribersRows.length} subscriber rows, inserting in batches...\`)
+      console.log(`Processed ${allSubscribersRows.length} subscriber rows, inserting in batches...`)
 
       for (let i = 0; i < allSubscribersRows.length; i += batchSize) {
         const batch = allSubscribersRows.slice(i, i + batchSize)
@@ -152,7 +152,7 @@ serve(async (req) => {
           }
 
           totalProcessed += batch.length
-          console.log(\`Upserted batch: \${totalProcessed}/\${allSubscribersRows.length} records\`)
+          console.log(`Upserted batch: ${totalProcessed}/${allSubscribersRows.length} records`)
         }
       }
 
@@ -182,7 +182,7 @@ serve(async (req) => {
 
         stats.timeFunnelsFetched = timeFunnelRows.length
         stats.totalRecordsInserted += timeFunnelRows.length
-        console.log(\`Upserted \${timeFunnelRows.length} time funnel records\`)
+        console.log(`Upserted ${timeFunnelRows.length} time funnel records`)
       }
 
       // Refresh materialized view
@@ -258,7 +258,7 @@ async function fetchInsightsData(
   chartId: string,
   name: string
 ) {
-  console.log(\`Fetching \${name} insights data (ID: \${chartId})...\`)
+  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
 
   const params = new URLSearchParams({
     project_id: PROJECT_ID,
@@ -266,10 +266,10 @@ async function fetchInsightsData(
     limit: '50000',
   })
 
-  const authString = \`\${credentials.username}:\${credentials.secret}\`
-  const authHeader = \`Basic \${btoa(authString)}\`
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
 
-  const response = await fetch(\`\${MIXPANEL_API_BASE}/query/insights?\${params}\`, {
+  const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
     method: 'GET',
     headers: {
       Authorization: authHeader,
@@ -279,11 +279,11 @@ async function fetchInsightsData(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(\`Mixpanel API error (\${response.status}): \${errorText}\`)
+    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
   }
 
   const data = await response.json()
-  console.log(\`✓ \${name} fetch successful\`)
+  console.log(`✓ ${name} fetch successful`)
   return data
 }
 
@@ -294,7 +294,7 @@ async function fetchFunnelData(
   fromDate: string,
   toDate: string
 ) {
-  console.log(\`Fetching \${name} funnel data (ID: \${funnelId})...\`)
+  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
 
   const params = new URLSearchParams({
     project_id: PROJECT_ID,
@@ -303,10 +303,10 @@ async function fetchFunnelData(
     to_date: toDate,
   })
 
-  const authString = \`\${credentials.username}:\${credentials.secret}\`
-  const authHeader = \`Basic \${btoa(authString)}\`
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
 
-  const response = await fetch(\`\${MIXPANEL_API_BASE}/query/funnels?\${params}\`, {
+  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
     method: 'GET',
     headers: {
       Authorization: authHeader,
@@ -316,11 +316,11 @@ async function fetchFunnelData(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(\`Mixpanel API error (\${response.status}): \${errorText}\`)
+    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
   }
 
   const data = await response.json()
-  console.log(\`✓ \${name} fetch successful\`)
+  console.log(`✓ ${name} fetch successful`)
   return data
 }
 
@@ -351,8 +351,8 @@ function processInsightsData(data: any): any[] {
   // Handle Query API nested object format (PRIORITY CHECK - This is what Mixpanel returns!)
   if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
     console.log('Processing Query API nested object format for user profiles')
-    console.log(\`Headers (\${data.headers.length})\`)
-    console.log(\`Series metrics (\${Object.keys(data.series).length})\`)
+    console.log(`Headers (${data.headers.length})`)
+    console.log(`Series metrics (${Object.keys(data.series).length})`)
 
     const userDataMap = new Map()
     const propertyHeaders = data.headers.slice(2)
@@ -419,13 +419,13 @@ function processInsightsData(data: any): any[] {
       }
     }
 
-    console.log(\`Processing \${metricNames.length} metrics...\`)
+    console.log(`Processing ${metricNames.length} metrics...`)
     metricNames.forEach((metricName, idx) => {
-      if (idx < 3) console.log(\`  Processing metric: \${metricName}\`)
+      if (idx < 3) console.log(`  Processing metric: ${metricName}`)
       extractUserDataRecursive(data.series[metricName], [], null, metricName, 0)
     })
 
-    console.log(\`Extracted \${userDataMap.size} user profiles from nested structure\`)
+    console.log(`Extracted ${userDataMap.size} user profiles from nested structure`)
 
     const allColumns = new Set(['$distinct_id'])
     propertyHeaders.forEach((h: string) => allColumns.add(h))
@@ -443,7 +443,7 @@ function processInsightsData(data: any): any[] {
   // Handle Query API tabular format (fallback)
   else if (Array.isArray(data.headers) && Array.isArray(data.series)) {
     console.log('Processing Query API tabular format')
-    console.log(\`Processing \${data.series.length} subscriber rows\`)
+    console.log(`Processing ${data.series.length} subscriber rows`)
 
     const distinctIdIndex = data.headers.indexOf('$distinct_id')
     if (distinctIdIndex === -1) {
@@ -465,7 +465,7 @@ function processInsightsData(data: any): any[] {
     })
   }
 
-  console.log(\`Processed \${rows.length} insights rows, converting to DB format...\`)
+  console.log(`Processed ${rows.length} insights rows, converting to DB format...`)
 
   // Convert to database format
   return rows.map(row => ({
@@ -508,14 +508,14 @@ function processInsightsData(data: any): any[] {
 
 function processFunnelData(data: any, funnelType: string): any[] {
   if (!data || !data.headers || !data.series) {
-    console.log(\`No valid funnel data for \${funnelType}\`)
+    console.log(`No valid funnel data for ${funnelType}`)
     return []
   }
 
   const rows: any[] = []
 
   if (Array.isArray(data.headers) && Array.isArray(data.series)) {
-    console.log(\`Processing \${data.series.length} \${funnelType} rows\`)
+    console.log(`Processing ${data.series.length} ${funnelType} rows`)
 
     const distinctIdIndex = data.headers.indexOf('$distinct_id')
     if (distinctIdIndex === -1) {
@@ -542,6 +542,6 @@ function processFunnelData(data: any, funnelType: string): any[] {
     })
   }
 
-  console.log(\`Processed \${rows.length} \${funnelType} records\`)
+  console.log(`Processed ${rows.length} ${funnelType} records`)
   return rows
 }
