@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dub Advanced Product Analytics - Supabase</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
+    <meta name="description" content="Advanced product analytics and user behavioral analysis for dub - Powered by Supabase">
+    <meta name="author" content="dub">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            color: white;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+
+        .page-header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* Container for the unified tool */
+        .unified-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .results-container {
+            max-width: 1200px;
+            margin: 40px auto 0 auto;
+        }
+
+        /* Reuse styles from analysis_tool.js */
+        .qda-inline-widget {
+            background: white;
+            border: 2px solid #6c757d;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 4px 4px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .qda-header {
+            background: #17a2b8;
+            color: white;
+            padding: 15px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+        }
+
+        .qda-content {
+            padding: 20px;
+            background: white;
+        }
+
+        .qda-btn {
+            background: #17a2b8;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .qda-btn:hover {
+            background: #138496;
+        }
+
+        .qda-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Analysis results styling */
+        .qda-analysis-results {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border: 2px solid #17a2b8;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .qda-timestamp {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #6c757d;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .qda-result-section {
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .qda-result-section h1 {
+            margin: 0 0 20px 0;
+            padding: 10px 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .qda-result-section h4 {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0 15px 0;
+            color: #333;
+        }
+
+        .qda-metric-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .qda-metric-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .qda-regression-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 12px;
+        }
+
+        .qda-regression-table th,
+        .qda-regression-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: left;
+        }
+
+        .qda-regression-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        /* Strength indicators */
+        .qda-strength-very-weak { background-color: #D9D9D9; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-weak { background-color: #E8E5A3; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-weak-moderate { background-color: #F6F16E; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-moderate { background-color: #FFE787; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-moderate-strong { background-color: #B3E4A1; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-strong { background-color: #66E1BB; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .qda-strength-very-strong { background-color: #00CF84; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+
+        /* Info message */
+        .info-message {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #0c5460;
+        }
+
+        .info-message strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>dub Advanced Product Analytics</h1>
+        <p>Complete end-to-end workflow: Data Fetch → Merge → Analyze | Powered by Supabase ⚡</p>
+    </div>
+
+    <div class="unified-container">
+        <div id="unifiedToolContainer"></div>
+    </div>
+
+    <div class="results-container">
+        <div id="unifiedResultsContainer"></div>
+    </div>
+
+    <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Load Supabase Integration Module -->
+    <script src="supabase_integration.js"></script>
+
+    <!-- Load Original Unified Tool (base class - kept intact) -->
+    <script src="unified_tool.js"></script>
+
+    <!-- Load Supabase Version (extends unified_tool.js) -->
+    <script src="unified_tool_supabase.js"></script>
+
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
+
+        // Initialize the Supabase-powered unified tool
+        window.onload = function() {
+            // Initialize Supabase Integration with credentials
+            window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            // Use UnifiedAnalysisToolSupabase instead of UnifiedAnalysisTool
+            const tool = new UnifiedAnalysisToolSupabase();
+
+            tool.createUI(
+                document.getElementById('unifiedToolContainer'),
+                document.getElementById('unifiedResultsContainer')
+            );
+
+            console.log('✅ Unified Analysis Tool (Supabase) initialized');
+        };
+    </script>
+</body>
+</html>
