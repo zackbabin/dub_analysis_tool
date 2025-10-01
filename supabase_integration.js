@@ -61,22 +61,38 @@ class SupabaseIntegration {
         console.log('Loading data from Supabase...');
 
         try {
-            // Query with increased limit to reduce roundtrips
-            // Supabase default is 1000, but we can safely increase to 10000+
-            const { data, error } = await this.supabase
-                .from('main_analysis')
-                .select('*')
-                .limit(20000);  // Support up to 20k records in single query
+            // IMPORTANT: We must paginate to ensure we get ALL records
+            // Using .limit() alone can miss records or get duplicates without ordering
+            let allData = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
 
-            if (error) {
-                console.error('Supabase query error:', error);
-                throw error;
+            while (hasMore) {
+                const { data, error } = await this.supabase
+                    .from('main_analysis')
+                    .select('*')
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (error) {
+                    console.error('Supabase query error:', error);
+                    throw error;
+                }
+
+                if (data && data.length > 0) {
+                    allData = allData.concat(data);
+                    console.log(`✅ Loaded page ${page + 1}: ${data.length} records (total: ${allData.length})`);
+                    hasMore = data.length === pageSize; // Continue if we got a full page
+                    page++;
+                } else {
+                    hasMore = false;
+                }
             }
 
-            console.log(`✅ Loaded ${data.length} records from Supabase in single query`);
+            console.log(`✅ Finished loading ${allData.length} total records from Supabase`);
 
             // Convert to CSV format for compatibility with existing analysis code
-            return this.convertToCSVFormat(data);
+            return this.convertToCSVFormat(allData);
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
             throw error;
@@ -279,6 +295,162 @@ class SupabaseIntegration {
 
         return csvRows.join('\n');
     }
+
+    // ========================================================================
+    // CREATOR ANALYSIS METHODS
+    // ========================================================================
+
+    /**
+     * Trigger Creator data sync via Supabase Edge Function
+     * Fetches creator insights, portfolio copies, and profile subscriptions
+     */
+    async triggerCreatorSync() {
+        console.log('Triggering Creator sync via Supabase Edge Function...');
+
+        try {
+            // Call the Edge Function (no credentials needed - they're in Supabase secrets)
+            const { data, error } = await this.supabase.functions.invoke('sync-creator-data', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Creator sync failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during creator sync');
+            }
+
+            console.log('✅ Creator sync completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling Creator sync Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load creator data from Supabase database
+     * Queries the creator_analysis materialized view
+     */
+    async loadCreatorDataFromSupabase() {
+        console.log('Loading creator data from Supabase...');
+
+        try {
+            // Query with increased limit to reduce roundtrips
+            const { data, error } = await this.supabase
+                .from('creator_analysis')
+                .select('*')
+                .limit(20000);  // Support up to 20k creators in single query
+
+            if (error) {
+                console.error('Supabase query error:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} creator records from Supabase in single query`);
+
+            // Convert to CSV format for compatibility with existing analysis code
+            return this.convertCreatorDataToCSVFormat(data);
+        } catch (error) {
+            console.error('Error loading creator data from Supabase:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get latest creator sync status
+     */
+    async getLatestCreatorSyncStatus() {
+        try {
+            const { data, error } = await this.supabase
+                .from('latest_creator_sync_status')
+                .select('*')
+                .single();
+
+            if (error) {
+                console.error('Error fetching creator sync status:', error);
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error getting creator sync status:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Convert Supabase creator JSON data to CSV format
+     * This maintains compatibility with the creator analysis functions
+     */
+    convertCreatorDataToCSVFormat(data) {
+        if (!data || data.length === 0) {
+            return ['', '', '']; // Return empty CSV strings for 3 files
+        }
+
+        // The creator_analysis view already has everything aggregated,
+        // but we'll create a main CSV that contains all the data the analysis tool needs
+
+        const creatorCSV = this.createCreatorAnalysisCSV(data);
+
+        // Return array with single CSV (creator analysis tool will handle it differently than user tool)
+        return [creatorCSV];
+    }
+
+    /**
+     * Create creator analysis CSV with all metrics
+     */
+    createCreatorAnalysisCSV(data) {
+        const headers = [
+            'creator_id',
+            'creator_username',
+            'total_profile_views',
+            'total_pdp_views',
+            'total_paywall_views',
+            'total_stripe_views',
+            'total_subscriptions',
+            'total_portfolio_pdp_views',
+            'total_copies',
+            'total_portfolios_created',
+            'avg_copies_per_portfolio',
+            'avg_portfolio_conversion_rate',
+            'creator_profile_views_funnel',
+            'creator_subscriptions_funnel',
+            'overall_copy_conversion_rate',
+            'overall_subscription_conversion_rate',
+            'paywall_view_rate',
+            'stripe_view_rate'
+        ];
+
+        const rows = data.map(row => [
+            row.creator_id || '',
+            row.creator_username || '',
+            row.total_profile_views || 0,
+            row.total_pdp_views || 0,
+            row.total_paywall_views || 0,
+            row.total_stripe_views || 0,
+            row.total_subscriptions || 0,
+            row.total_portfolio_pdp_views || 0,
+            row.total_copies || 0,
+            row.total_portfolios_created || 0,
+            row.avg_copies_per_portfolio || 0,
+            row.avg_portfolio_conversion_rate || 0,
+            row.creator_profile_views_funnel || 0,
+            row.creator_subscriptions_funnel || 0,
+            row.overall_copy_conversion_rate || 0,
+            row.overall_subscription_conversion_rate || 0,
+            row.paywall_view_rate || 0,
+            row.stripe_view_rate || 0
+        ]);
+
+        return this.arrayToCSV(headers, rows);
+    }
+
+    // ========================================================================
+    // DEPRECATED METHODS
+    // ========================================================================
 
     /**
      * DEPRECATED: Credentials are now stored in Supabase secrets
