@@ -391,25 +391,27 @@ function processInsightsData(data: any): any[] {
             if (userData) userData[currentMetric] = value
           }
         } else if (currentUserId) {
-          if (key === '$non_numeric_values') {
-            continue
-          }
+          // We're inside a user's data - collect property values
+          // Handle $non_numeric_values as null/0
+          const actualKey = key === '$non_numeric_values' ? null : key
+          const newPath = actualKey !== null ? [...pathValues, actualKey] : pathValues
 
+          // Map path values to property headers (dimensions)
           const userData = userDataMap.get(currentUserId)
-          if (userData) {
-            const propIndex = pathValues.length
-            if (propIndex < propertyHeaders.length) {
-              const propName = propertyHeaders[propIndex]
-              if (propName && !userData[propName]) {
-                userData[propName] = key
+          if (userData && actualKey !== null) {
+            newPath.forEach((val, idx) => {
+              if (idx < propertyHeaders.length) {
+                const propName = propertyHeaders[idx]
+                if (propName && !userData[propName]) {
+                  userData[propName] = val
+                }
               }
-            }
+            })
           }
 
+          // Continue recursing
           if (typeof value === 'object') {
-            pathValues.push(key)
-            extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
-            pathValues.pop()
+            extractUserDataRecursive(value, newPath, currentUserId, currentMetric, depth + 1)
           }
         } else {
           if (typeof value === 'object') {
