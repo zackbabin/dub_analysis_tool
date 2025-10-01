@@ -80,7 +80,7 @@ class CreatorAnalysisTool {
 
         // Sync Live Data button
         const syncBtn = this.createModeButton(
-            'Sync Creator Data',
+            'Sync Live Data',
             'Fetch latest creator data from Mixpanel',
             '#28a745',
             '#28a745',
@@ -543,7 +543,7 @@ class CreatorAnalysisTool {
         section.className = 'qda-result-section';
 
         const title = document.createElement('h1');
-        title.textContent = 'Creator Summary Statistics';
+        title.textContent = 'Summary Statistics';
         section.appendChild(title);
 
         const metricSummary = document.createElement('div');
