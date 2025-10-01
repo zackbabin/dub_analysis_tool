@@ -62,19 +62,37 @@ class SupabaseIntegration {
 
         try {
             // Query the materialized view which has all data pre-joined
-            const { data, error } = await this.supabase
-                .from('main_analysis')
-                .select('*');
+            // IMPORTANT: Supabase has a default 1000 row limit, so we need to paginate or increase the limit
+            let allData = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
 
-            if (error) {
-                console.error('Supabase query error:', error);
-                throw error;
+            while (hasMore) {
+                const { data, error } = await this.supabase
+                    .from('main_analysis')
+                    .select('*')
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (error) {
+                    console.error('Supabase query error:', error);
+                    throw error;
+                }
+
+                if (data && data.length > 0) {
+                    allData = allData.concat(data);
+                    console.log(`✅ Loaded page ${page + 1}: ${data.length} records (total: ${allData.length})`);
+                    hasMore = data.length === pageSize; // Continue if we got a full page
+                    page++;
+                } else {
+                    hasMore = false;
+                }
             }
 
-            console.log(`✅ Loaded ${data.length} records from Supabase`);
+            console.log(`✅ Finished loading ${allData.length} total records from Supabase`);
 
             // Convert to CSV format for compatibility with existing analysis code
-            return this.convertToCSVFormat(data);
+            return this.convertToCSVFormat(allData);
         } catch (error) {
             console.error('Error loading data from Supabase:', error);
             throw error;
