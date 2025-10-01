@@ -415,12 +415,15 @@ function processCreatorInsightsData(data: any): any[] {
                   total_subscription_revenue: 0,
                   total_cancelled_subscriptions: 0,
                   total_expired_subscriptions: 0,
+                  total_copies: 0,
+                  total_investment_count: 0,
+                  total_investments: 0,
                 })
               }
 
               const creatorData = creatorDataMap.get(creatorId)
 
-              // Aggregate metrics
+              // Aggregate all 11 metrics from Insights by Creators
               if (metricName === 'A. Total Profile Views') {
                 creatorData.total_profile_views += count
               } else if (metricName === 'B. Total PDP Views') {
@@ -437,6 +440,12 @@ function processCreatorInsightsData(data: any): any[] {
                 creatorData.total_cancelled_subscriptions += count
               } else if (metricName === 'H. Total Expired Subscriptions') {
                 creatorData.total_expired_subscriptions += count
+              } else if (metricName === 'I. Total Copies') {
+                creatorData.total_copies += count
+              } else if (metricName === 'J. Total Investment Count') {
+                creatorData.total_investment_count += count
+              } else if (metricName === 'K. Total Investments ($)') {
+                creatorData.total_investments += count
               }
             }
           })
@@ -472,6 +481,9 @@ function processCreatorInsightsData(data: any): any[] {
       total_subscription_revenue: creatorData.total_subscription_revenue || 0,
       total_cancelled_subscriptions: creatorData.total_cancelled_subscriptions || 0,
       total_expired_subscriptions: creatorData.total_expired_subscriptions || 0,
+      total_copies: creatorData.total_copies || 0,
+      total_investment_count: creatorData.total_investment_count || 0,
+      total_investments: creatorData.total_investments || 0,
     })
   })
 

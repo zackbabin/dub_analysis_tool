@@ -238,38 +238,20 @@ class CreatorAnalysisTool {
             // Identifiers
             creatorId: row['creator_id'] || '',
             creatorUsername: row['creator_username'] || '',
-
-            // Creator Type
             creatorType: row['creator_type'] || 'Regular',
 
-            // Core Outcome Metrics
-            totalCopies: this.cleanNumeric(row['total_copies']),
-            totalSubscriptions: this.cleanNumeric(row['total_subscriptions']),
-
-            // Engagement Metrics (from Insights)
+            // All 11 metrics from Insights by Creators chart
             totalProfileViews: this.cleanNumeric(row['total_profile_views']),
             totalPDPViews: this.cleanNumeric(row['total_pdp_views']),
             totalPaywallViews: this.cleanNumeric(row['total_paywall_views']),
             totalStripeViews: this.cleanNumeric(row['total_stripe_views']),
+            totalSubscriptions: this.cleanNumeric(row['total_subscriptions']),
             totalSubscriptionRevenue: this.cleanNumeric(row['total_subscription_revenue']),
             totalCancelledSubscriptions: this.cleanNumeric(row['total_cancelled_subscriptions']),
             totalExpiredSubscriptions: this.cleanNumeric(row['total_expired_subscriptions']),
-
-            // Portfolio Metrics (from Funnels)
-            totalPortfoliosCreated: this.cleanNumeric(row['total_portfolios_created']),
-            totalPortfolioPDPViews: this.cleanNumeric(row['total_portfolio_pdp_views']),
-            avgCopiesPerPortfolio: this.cleanNumeric(row['avg_copies_per_portfolio']),
-            avgPortfolioConversionRate: this.cleanNumeric(row['avg_portfolio_conversion_rate']),
-
-            // Funnel Metrics
-            creatorProfileViewsFunnel: this.cleanNumeric(row['creator_profile_views_funnel']),
-            creatorSubscriptionsFunnel: this.cleanNumeric(row['creator_subscriptions_funnel']),
-
-            // Conversion Rates (derived)
-            overallCopyConversionRate: this.cleanNumeric(row['overall_copy_conversion_rate']),
-            overallSubscriptionConversionRate: this.cleanNumeric(row['overall_subscription_conversion_rate']),
-            paywallViewRate: this.cleanNumeric(row['paywall_view_rate']),
-            stripeViewRate: this.cleanNumeric(row['stripe_view_rate'])
+            totalCopies: this.cleanNumeric(row['total_copies']),
+            totalInvestmentCount: this.cleanNumeric(row['total_investment_count']),
+            totalInvestments: this.cleanNumeric(row['total_investments'])
         })).filter(row => row.creatorId);
     }
 
@@ -341,6 +323,8 @@ class CreatorAnalysisTool {
      * Calculate correlations for creator variables
      */
     calculateCorrelations(data) {
+        // All 11 metrics from Insights by Creators chart
+        // Note: We exclude totalCopies and totalSubscriptions since they are the outcome variables
         const variables = [
             'totalProfileViews',
             'totalPDPViews',
@@ -349,16 +333,8 @@ class CreatorAnalysisTool {
             'totalSubscriptionRevenue',
             'totalCancelledSubscriptions',
             'totalExpiredSubscriptions',
-            'totalPortfoliosCreated',
-            'totalPortfolioPDPViews',
-            'avgCopiesPerPortfolio',
-            'avgPortfolioConversionRate',
-            'creatorProfileViewsFunnel',
-            'creatorSubscriptionsFunnel',
-            'overallCopyConversionRate',
-            'overallSubscriptionConversionRate',
-            'paywallViewRate',
-            'stripeViewRate'
+            'totalInvestmentCount',
+            'totalInvestments'
         ];
 
         const correlations = {};
@@ -786,16 +762,8 @@ class CreatorAnalysisTool {
             'totalSubscriptionRevenue': 'Total Subscription Revenue',
             'totalCancelledSubscriptions': 'Total Cancelled Subscriptions',
             'totalExpiredSubscriptions': 'Total Expired Subscriptions',
-            'totalPortfoliosCreated': 'Total Portfolios Created',
-            'totalPortfolioPDPViews': 'Total Portfolio PDP Views',
-            'avgCopiesPerPortfolio': 'Avg Copies Per Portfolio',
-            'avgPortfolioConversionRate': 'Avg Portfolio Conversion Rate',
-            'creatorProfileViewsFunnel': 'Creator Profile Views (Funnel)',
-            'creatorSubscriptionsFunnel': 'Creator Subscriptions (Funnel)',
-            'overallCopyConversionRate': 'Overall Copy Conversion Rate',
-            'overallSubscriptionConversionRate': 'Overall Subscription Conversion Rate',
-            'paywallViewRate': 'Paywall View Rate',
-            'stripeViewRate': 'Stripe View Rate'
+            'totalInvestmentCount': 'Total Investment Count',
+            'totalInvestments': 'Total Investments ($)'
         };
 
         return labels[variable] || variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());

@@ -133,7 +133,10 @@ ALTER TABLE creators_insights
 ADD COLUMN IF NOT EXISTS creator_type TEXT DEFAULT 'Regular',
 ADD COLUMN IF NOT EXISTS total_subscription_revenue NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS total_cancelled_subscriptions INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS total_expired_subscriptions INTEGER DEFAULT 0;
+ADD COLUMN IF NOT EXISTS total_expired_subscriptions INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_copies INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_investment_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_investments NUMERIC DEFAULT 0;
 
 -- ============================================================================
 -- Materialized View: creator_analysis
@@ -147,11 +150,9 @@ CREATE MATERIALIZED VIEW creator_analysis AS
 SELECT
     ci.creator_id,
     ci.creator_username,
-
-    -- Creator Classification
     ci.creator_type,
 
-    -- Core Metrics from creators_insights
+    -- All 11 metrics from Insights by Creators chart
     ci.total_profile_views,
     ci.total_pdp_views,
     ci.total_paywall_views,
@@ -160,87 +161,20 @@ SELECT
     ci.total_subscription_revenue,
     ci.total_cancelled_subscriptions,
     ci.total_expired_subscriptions,
-
-    -- Aggregated Portfolio Metrics (sum across all portfolios by creator)
-    COALESCE(SUM(cp.pdp_views), 0)::INTEGER as total_portfolio_pdp_views,
-    COALESCE(SUM(cp.copies), 0)::INTEGER as total_copies,
-    COALESCE(COUNT(DISTINCT cp.portfolio_name), 0)::INTEGER as total_portfolios_created,
-
-    -- Average portfolio performance
-    CASE
-        WHEN COUNT(DISTINCT cp.portfolio_name) > 0
-        THEN ROUND(AVG(cp.copies), 2)
-        ELSE 0
-    END as avg_copies_per_portfolio,
-
-    CASE
-        WHEN COUNT(DISTINCT cp.portfolio_name) > 0
-        THEN ROUND(AVG(cp.conversion_rate), 2)
-        ELSE 0
-    END as avg_portfolio_conversion_rate,
-
-    -- Profile Conversion Metrics
-    COALESCE(cpc.profile_views, 0)::INTEGER as creator_profile_views_funnel,
-    COALESCE(cpc.subscriptions, 0)::INTEGER as creator_subscriptions_funnel,
-
-    -- Derived Conversion Rates
-    CASE
-        WHEN SUM(cp.pdp_views) > 0
-        THEN ROUND((SUM(cp.copies)::NUMERIC / SUM(cp.pdp_views)) * 100, 2)
-        ELSE 0
-    END as overall_copy_conversion_rate,
-
-    CASE
-        WHEN cpc.profile_views > 0
-        THEN ROUND((cpc.subscriptions::NUMERIC / cpc.profile_views) * 100, 2)
-        ELSE 0
-    END as overall_subscription_conversion_rate,
-
-    -- Engagement Ratios
-    CASE
-        WHEN ci.total_profile_views > 0
-        THEN ROUND((ci.total_paywall_views::NUMERIC / ci.total_profile_views) * 100, 2)
-        ELSE 0
-    END as paywall_view_rate,
-
-    CASE
-        WHEN ci.total_paywall_views > 0
-        THEN ROUND((ci.total_stripe_views::NUMERIC / ci.total_paywall_views) * 100, 2)
-        ELSE 0
-    END as stripe_view_rate,
+    ci.total_copies,
+    ci.total_investment_count,
+    ci.total_investments,
 
     -- Metadata
     ci.synced_at,
     ci.updated_at
 
 FROM creators_insights ci
-LEFT JOIN creator_portfolios cp
-    ON ci.creator_username = cp.creator_username
-    AND ci.synced_at = cp.synced_at
-LEFT JOIN creator_profile_conversions cpc
-    ON ci.creator_username = cpc.creator_username
-    AND ci.synced_at = cpc.synced_at
 WHERE ci.synced_at = (
     SELECT MAX(synced_at)
     FROM creators_insights
     WHERE creator_id = ci.creator_id
-)
-GROUP BY
-    ci.creator_id,
-    ci.creator_username,
-    ci.creator_type,
-    ci.total_profile_views,
-    ci.total_pdp_views,
-    ci.total_paywall_views,
-    ci.total_stripe_views,
-    ci.total_subscriptions,
-    ci.total_subscription_revenue,
-    ci.total_cancelled_subscriptions,
-    ci.total_expired_subscriptions,
-    cpc.profile_views,
-    cpc.subscriptions,
-    ci.synced_at,
-    ci.updated_at;
+);
 
 -- Index on materialized view for fast queries
 CREATE UNIQUE INDEX IF NOT EXISTS idx_creator_analysis_creator_id
@@ -254,6 +188,9 @@ CREATE INDEX IF NOT EXISTS idx_creator_analysis_copies
 
 CREATE INDEX IF NOT EXISTS idx_creator_analysis_subscriptions
     ON creator_analysis(total_subscriptions DESC);
+
+CREATE INDEX IF NOT EXISTS idx_creator_analysis_type
+    ON creator_analysis(creator_type);
 
 -- ============================================================================
 -- Helper Functions

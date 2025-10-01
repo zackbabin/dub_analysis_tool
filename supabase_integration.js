@@ -431,17 +431,9 @@ class SupabaseIntegration {
             'total_subscription_revenue',
             'total_cancelled_subscriptions',
             'total_expired_subscriptions',
-            'total_portfolio_pdp_views',
             'total_copies',
-            'total_portfolios_created',
-            'avg_copies_per_portfolio',
-            'avg_portfolio_conversion_rate',
-            'creator_profile_views_funnel',
-            'creator_subscriptions_funnel',
-            'overall_copy_conversion_rate',
-            'overall_subscription_conversion_rate',
-            'paywall_view_rate',
-            'stripe_view_rate'
+            'total_investment_count',
+            'total_investments'
         ];
 
         const rows = data.map(row => [
@@ -456,17 +448,9 @@ class SupabaseIntegration {
             row.total_subscription_revenue || 0,
             row.total_cancelled_subscriptions || 0,
             row.total_expired_subscriptions || 0,
-            row.total_portfolio_pdp_views || 0,
             row.total_copies || 0,
-            row.total_portfolios_created || 0,
-            row.avg_copies_per_portfolio || 0,
-            row.avg_portfolio_conversion_rate || 0,
-            row.creator_profile_views_funnel || 0,
-            row.creator_subscriptions_funnel || 0,
-            row.overall_copy_conversion_rate || 0,
-            row.overall_subscription_conversion_rate || 0,
-            row.paywall_view_rate || 0,
-            row.stripe_view_rate || 0
+            row.total_investment_count || 0,
+            row.total_investments || 0
         ]);
 
         return this.arrayToCSV(headers, rows);
