@@ -338,21 +338,37 @@ class SupabaseIntegration {
         console.log('Loading creator data from Supabase...');
 
         try {
-            // Query with increased limit to reduce roundtrips
-            const { data, error } = await this.supabase
-                .from('creator_analysis')
-                .select('*')
-                .limit(20000);  // Support up to 20k creators in single query
+            // IMPORTANT: Paginate to ensure we get ALL records
+            let allData = [];
+            let page = 0;
+            const pageSize = 1000;
+            let hasMore = true;
 
-            if (error) {
-                console.error('Supabase query error:', error);
-                throw error;
+            while (hasMore) {
+                const { data, error } = await this.supabase
+                    .from('creator_analysis')
+                    .select('*')
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                if (error) {
+                    console.error('Supabase query error:', error);
+                    throw error;
+                }
+
+                if (data && data.length > 0) {
+                    allData = allData.concat(data);
+                    console.log(`✅ Loaded page ${page + 1}: ${data.length} records (total: ${allData.length})`);
+                    hasMore = data.length === pageSize; // Continue if we got a full page
+                    page++;
+                } else {
+                    hasMore = false;
+                }
             }
 
-            console.log(`✅ Loaded ${data.length} creator records from Supabase in single query`);
+            console.log(`✅ Finished loading ${allData.length} total creator records from Supabase`);
 
             // Convert to CSV format for compatibility with existing analysis code
-            return this.convertCreatorDataToCSVFormat(data);
+            return this.convertCreatorDataToCSVFormat(allData);
         } catch (error) {
             console.error('Error loading creator data from Supabase:', error);
             throw error;
