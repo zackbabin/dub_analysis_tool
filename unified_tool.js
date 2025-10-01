@@ -399,12 +399,7 @@ class UnifiedAnalysisTool {
         // Clear cleanData reference to free memory (it's large and no longer needed)
         results.cleanData = null;
 
-        // Step 4: Save results to localStorage (cleanData excluded - too large for storage)
-        localStorage.setItem('qdaSummaryStats', JSON.stringify(results.summaryStats));
-        localStorage.setItem('qdaCorrelationResults', JSON.stringify(results.correlationResults));
-        localStorage.setItem('qdaRegressionResults', JSON.stringify(results.regressionResults));
-        localStorage.setItem('qdaTippingPoints', JSON.stringify(tippingPoints));
-
+        // Step 4: Save results to localStorage in single batch write
         const now = new Date();
         const timestamp = now.toLocaleString('en-US', {
             month: 'short',
@@ -414,7 +409,15 @@ class UnifiedAnalysisTool {
             minute: '2-digit',
             hour12: true
         });
-        localStorage.setItem('qdaLastUpdated', timestamp);
+
+        // Batch all results into single localStorage write (reduces I/O operations)
+        localStorage.setItem('qdaAnalysisResults', JSON.stringify({
+            summaryStats: results.summaryStats,
+            correlationResults: results.correlationResults,
+            regressionResults: results.regressionResults,
+            tippingPoints: tippingPoints,
+            lastUpdated: timestamp
+        }));
 
         // Step 5: Display results
         this.displayResults(results);
@@ -476,7 +479,20 @@ class UnifiedAnalysisTool {
         // Add timestamp
         const timestamp = document.createElement('div');
         timestamp.className = 'qda-timestamp';
-        const lastUpdated = localStorage.getItem('qdaLastUpdated');
+
+        // Load from batched localStorage (with fallback to old format for backward compatibility)
+        let analysisData = null;
+        try {
+            const batchedData = localStorage.getItem('qdaAnalysisResults');
+            if (batchedData) {
+                analysisData = JSON.parse(batchedData);
+            }
+        } catch (e) {
+            console.warn('Failed to load batched analysis data:', e);
+        }
+
+        // Use batched data or fall back to old format
+        const lastUpdated = analysisData?.lastUpdated || localStorage.getItem('qdaLastUpdated');
         if (lastUpdated) {
             timestamp.textContent = `Last updated: ${lastUpdated}`;
             resultsDiv.appendChild(timestamp);
@@ -498,8 +514,8 @@ class UnifiedAnalysisTool {
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
 
-        // Load tipping points from localStorage
-        const tippingPoints = JSON.parse(localStorage.getItem('qdaTippingPoints'));
+        // Load tipping points from batched data (with fallback to old format)
+        const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
         resultsDiv.style.display = 'block';
