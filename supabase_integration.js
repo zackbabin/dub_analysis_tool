@@ -186,7 +186,12 @@ class SupabaseIntegration {
             'M. Total Subscriptions',
             'R. Stripe Modal Views',
             'S. Creator Card Taps',
-            'T. Portfolio Card Taps'
+            'T. Portfolio Card Taps',
+            // Additional calculated fields that the analysis expects
+            'Total Stripe Views',
+            'Total Copy Starts',
+            'Unique Creators Interacted',
+            'Unique Portfolios Interacted'
         ];
 
         const rows = data.map(row => [
@@ -223,7 +228,13 @@ class SupabaseIntegration {
             row.total_subscriptions || 0,
             row.stripe_modal_views || 0,
             row.creator_card_taps || 0,
-            row.portfolio_card_taps || 0
+            row.portfolio_card_taps || 0,
+            // Additional calculated fields (currently set to 0 as placeholder)
+            // These match what unified_tool.js lines 1008-1017 expect
+            row.stripe_modal_views || 0, // Total Stripe Views = R. Stripe Modal Views
+            0, // Total Copy Starts (no data source in unified_tool.js either)
+            0, // Unique Creators Interacted (no data source in unified_tool.js either)
+            0  // Unique Portfolios Interacted (no data source in unified_tool.js either)
         ]);
 
         return this.arrayToCSV(headers, rows);
