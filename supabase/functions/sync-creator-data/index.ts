@@ -142,14 +142,26 @@ serve(async (req) => {
 
       // Process and insert breakdown data (Portfolio Copies)
       const portfolioRows = processPortfolioCopiesData(portfolioCopiesData)
-      console.log(`Processed ${portfolioRows.length} portfolio copy rows, inserting...`)
+      console.log(`Processed ${portfolioRows.length} portfolio copy rows, deduplicating...`)
 
-      if (portfolioRows.length > 0) {
+      // Deduplicate by creator_id + portfolio_ticker (keep last occurrence with highest value)
+      const portfolioMap = new Map<string, any>()
+      portfolioRows.forEach(row => {
+        const key = `${row.creator_id}|${row.portfolio_ticker}`
+        const existing = portfolioMap.get(key)
+        if (!existing || row.total_copies > existing.total_copies) {
+          portfolioMap.set(key, row)
+        }
+      })
+      const uniquePortfolioRows = Array.from(portfolioMap.values())
+      console.log(`Deduplicated to ${uniquePortfolioRows.length} unique portfolio copy rows, inserting...`)
+
+      if (uniquePortfolioRows.length > 0) {
         const batchSize = 500
         let totalProcessed = 0
 
-        for (let i = 0; i < portfolioRows.length; i += batchSize) {
-          const batch = portfolioRows.slice(i, i + batchSize)
+        for (let i = 0; i < uniquePortfolioRows.length; i += batchSize) {
+          const batch = uniquePortfolioRows.slice(i, i + batchSize)
 
           if (batch.length > 0) {
             const { error: insertError } = await supabase
@@ -165,7 +177,7 @@ serve(async (req) => {
             }
 
             totalProcessed += batch.length
-            console.log(`Upserted portfolio copies batch: ${totalProcessed}/${portfolioRows.length} records`)
+            console.log(`Upserted portfolio copies batch: ${totalProcessed}/${uniquePortfolioRows.length} records`)
           }
         }
 
@@ -174,14 +186,26 @@ serve(async (req) => {
 
       // Process and insert breakdown data (Subscription Pricing)
       const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData)
-      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
+      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, deduplicating...`)
 
-      if (subscriptionRows.length > 0) {
+      // Deduplicate by creator_id + price + interval (keep last occurrence with highest value)
+      const subscriptionMap = new Map<string, any>()
+      subscriptionRows.forEach(row => {
+        const key = `${row.creator_id}|${row.subscription_price}|${row.subscription_interval}`
+        const existing = subscriptionMap.get(key)
+        if (!existing || row.total_subscriptions > existing.total_subscriptions) {
+          subscriptionMap.set(key, row)
+        }
+      })
+      const uniqueSubscriptionRows = Array.from(subscriptionMap.values())
+      console.log(`Deduplicated to ${uniqueSubscriptionRows.length} unique subscription pricing rows, inserting...`)
+
+      if (uniqueSubscriptionRows.length > 0) {
         const batchSize = 500
         let totalProcessed = 0
 
-        for (let i = 0; i < subscriptionRows.length; i += batchSize) {
-          const batch = subscriptionRows.slice(i, i + batchSize)
+        for (let i = 0; i < uniqueSubscriptionRows.length; i += batchSize) {
+          const batch = uniqueSubscriptionRows.slice(i, i + batchSize)
 
           if (batch.length > 0) {
             const { error: insertError } = await supabase
@@ -197,7 +221,7 @@ serve(async (req) => {
             }
 
             totalProcessed += batch.length
-            console.log(`Upserted subscriptions batch: ${totalProcessed}/${subscriptionRows.length} records`)
+            console.log(`Upserted subscriptions batch: ${totalProcessed}/${uniqueSubscriptionRows.length} records`)
           }
         }
 
@@ -482,7 +506,6 @@ function processPortfolioCopiesData(data: any): any[] {
     return []
   }
 
-  const rows: any[] = []
   const syncedAt = new Date().toISOString()
 
   console.log('Portfolio copies data structure:', {
@@ -491,41 +514,60 @@ function processPortfolioCopiesData(data: any): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Structure: series -> "A. Total Copies" -> creatorId -> creatorUsername -> portfolioTicker -> count
-  const totalCopiesMetric = data.series['A. Total Copies']
+  // Build a map to aggregate all metrics for each creator+portfolio combination
+  const dataMap = new Map<string, any>()
 
-  if (!totalCopiesMetric) {
-    console.log('No "A. Total Copies" metric found')
-    return []
+  // Process all three metrics: A. Total Copies, B. Total PDP Views, C. Total Profile Views
+  const metrics = {
+    'A. Total Copies': 'total_copies',
+    'B. Total PDP Views': 'total_pdp_views',
+    'C. Total Profile Views': 'total_profile_views',
   }
 
-  Object.keys(totalCopiesMetric).forEach(creatorId => {
-    if (creatorId === '$overall') return
+  Object.entries(metrics).forEach(([metricName, fieldName]) => {
+    const metric = data.series[metricName]
+    if (!metric) {
+      console.log(`No "${metricName}" metric found`)
+      return
+    }
 
-    const creatorData = totalCopiesMetric[creatorId]
+    Object.keys(metric).forEach(creatorId => {
+      if (creatorId === '$overall') return
 
-    Object.keys(creatorData).forEach(username => {
-      if (username === '$overall') return
+      const creatorData = metric[creatorId]
 
-      const usernameData = creatorData[username]
+      Object.keys(creatorData).forEach(username => {
+        if (username === '$overall') return
 
-      Object.keys(usernameData).forEach(portfolioTicker => {
-        if (portfolioTicker === '$overall') return
+        const usernameData = creatorData[username]
 
-        const portfolioData = usernameData[portfolioTicker]
-        const totalCopies = portfolioData?.all || 0
+        Object.keys(usernameData).forEach(portfolioTicker => {
+          if (portfolioTicker === '$overall') return
 
-        rows.push({
-          creator_id: String(creatorId),
-          creator_username: username,
-          portfolio_ticker: portfolioTicker,
-          total_copies: totalCopies,
-          synced_at: syncedAt,
+          const portfolioData = usernameData[portfolioTicker]
+          const value = portfolioData?.all || 0
+
+          const key = `${creatorId}|${username}|${portfolioTicker}`
+
+          if (!dataMap.has(key)) {
+            dataMap.set(key, {
+              creator_id: String(creatorId),
+              creator_username: username,
+              portfolio_ticker: portfolioTicker,
+              total_copies: 0,
+              total_pdp_views: 0,
+              total_profile_views: 0,
+              synced_at: syncedAt,
+            })
+          }
+
+          dataMap.get(key)[fieldName] = value
         })
       })
     })
   })
 
+  const rows = Array.from(dataMap.values())
   console.log(`Processed ${rows.length} portfolio copy rows`)
   return rows
 }

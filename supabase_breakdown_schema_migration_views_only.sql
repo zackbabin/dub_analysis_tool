@@ -1,7 +1,12 @@
 -- ============================================================================
--- Migration Script: Update Breakdown Views Only
--- Just updates the views to use correct column names and filters
+-- Migration Script: Add Missing Columns and Update Views
+-- Adds total_pdp_views and total_profile_views columns, then updates views
 -- ============================================================================
+
+-- Add missing columns to creator_portfolio_copies
+ALTER TABLE creator_portfolio_copies
+ADD COLUMN IF NOT EXISTS total_pdp_views INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS total_profile_views INTEGER DEFAULT 0;
 
 -- Drop and recreate views with correct logic
 

@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS creator_portfolio_copies (
     creator_username TEXT,
     portfolio_ticker TEXT,
     total_copies INTEGER DEFAULT 0,
+    total_pdp_views INTEGER DEFAULT 0,
+    total_profile_views INTEGER DEFAULT 0,
     synced_at TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT unique_portfolio_copy_per_sync UNIQUE (creator_id, portfolio_ticker, synced_at)
