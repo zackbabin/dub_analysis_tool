@@ -1,14 +1,14 @@
-// Unified Analysis Tool - Supabase Version
-// Extends UnifiedAnalysisTool to use Supabase instead of GitHub Actions
-// Keeps original unified_tool.js intact for backward compatibility
+// User Analysis Tool - Supabase Version
+// Extends UserAnalysisTool to use Supabase instead of GitHub Actions
+// Keeps original user_analysis_tool.js intact for backward compatibility
 
 'use strict';
 
 /**
- * Supabase-powered version of UnifiedAnalysisTool
+ * Supabase-powered version of UserAnalysisTool
  * Overrides specific methods to use Supabase Edge Functions and database
  */
-class UnifiedAnalysisToolSupabase extends UnifiedAnalysisTool {
+class UserAnalysisToolSupabase extends UserAnalysisTool {
     constructor() {
         super();
         this.supabaseIntegration = null;
@@ -112,6 +112,6 @@ class UnifiedAnalysisToolSupabase extends UnifiedAnalysisTool {
 }
 
 // Export to window
-window.UnifiedAnalysisToolSupabase = UnifiedAnalysisToolSupabase;
+window.UserAnalysisToolSupabase = UserAnalysisToolSupabase;
 
-console.log('✅ Unified Analysis Tool (Supabase) loaded successfully!');
+console.log('✅ User Analysis Tool (Supabase) loaded successfully!');

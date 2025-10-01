@@ -8,7 +8,7 @@
  * 3. Analysis execution (statistical analysis and visualization)
  */
 
-class UnifiedAnalysisTool {
+class UserAnalysisTool {
     constructor() {
         this.mixpanelSync = null; // Lazy-loaded when GitHub workflow is used
         this.container = null;
@@ -2031,6 +2031,6 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 // ============================================================================
 
 // Export to window
-window.UnifiedAnalysisTool = UnifiedAnalysisTool;
+window.UserAnalysisTool = UserAnalysisTool;
 
-console.log('✅ Unified Analysis Tool loaded successfully!');
+console.log('✅ User Analysis Tool loaded successfully!');

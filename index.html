@@ -312,11 +312,11 @@
     <!-- Load Supabase Integration Module -->
     <script src="supabase_integration.js"></script>
 
-    <!-- Load Original Unified Tool (base class - kept intact) -->
-    <script src="unified_tool.js"></script>
+    <!-- Load User Analysis Tool (base class - kept intact) -->
+    <script src="user_analysis_tool.js"></script>
 
-    <!-- Load Supabase Version (extends unified_tool.js) -->
-    <script src="unified_tool_supabase.js"></script>
+    <!-- Load Supabase Version (extends user_analysis_tool.js) -->
+    <script src="user_analysis_tool_supabase.js"></script>
 
     <!-- Creator Analysis Tool Scripts -->
     <script src="creator_analysis_tool.js"></script>
@@ -361,7 +361,7 @@
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // ===== USER ANALYSIS TOOL (Existing - Unchanged) =====
-            const userTool = new UnifiedAnalysisToolSupabase();
+            const userTool = new UserAnalysisToolSupabase();
 
             userTool.createUI(
                 document.getElementById('unifiedToolContainer'),
