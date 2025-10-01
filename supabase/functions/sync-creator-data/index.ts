@@ -144,13 +144,20 @@ serve(async (req) => {
       const portfolioRows = processPortfolioCopiesData(portfolioCopiesData)
       console.log(`Processed ${portfolioRows.length} portfolio copy rows, deduplicating...`)
 
-      // Deduplicate by creator_id + portfolio_ticker (keep last occurrence with highest value)
+      // Deduplicate by creator_id + portfolio_ticker (keep row with highest total across all metrics)
       const portfolioMap = new Map<string, any>()
       portfolioRows.forEach(row => {
         const key = `${row.creator_id}|${row.portfolio_ticker}`
         const existing = portfolioMap.get(key)
-        if (!existing || row.total_copies > existing.total_copies) {
+        if (!existing) {
           portfolioMap.set(key, row)
+        } else {
+          // Keep the row with higher total across all metrics
+          const existingTotal = (existing.total_copies || 0) + (existing.total_pdp_views || 0) + (existing.total_profile_views || 0)
+          const newTotal = (row.total_copies || 0) + (row.total_pdp_views || 0) + (row.total_profile_views || 0)
+          if (newTotal > existingTotal) {
+            portfolioMap.set(key, row)
+          }
         }
       })
       const uniquePortfolioRows = Array.from(portfolioMap.values())
