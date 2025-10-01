@@ -499,7 +499,7 @@ class UnifiedAnalysisTool {
      */
     async triggerGitHubWorkflow() {
         // Always use hardcoded token for shared access (ignore any previously stored tokens)
-        const githubToken = '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';
+        const githubToken = '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';
 
         const owner = 'zackbabin';
         const repo = 'dub_analysis_tool';
@@ -533,7 +533,7 @@ class UnifiedAnalysisTool {
      */
     async waitForWorkflowCompletion() {
         // Always use hardcoded token for shared access
-        const githubToken = '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';
+        const githubToken = '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';
 
         const owner = 'zackbabin';
         const repo = 'dub_analysis_tool';
