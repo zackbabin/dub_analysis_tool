@@ -11,7 +11,7 @@ $device:875AEFDD-B74C-4AA1-A3A4-F3201601E5EB,1,undefined,undefined,0,4.61,0,0,0,
 $device:D84E5619-DC63-4B91-8402-1A180C957E91,1,undefined,undefined,0,0,0,0,1,196.53,undefined,undefined,undefined,undefined,undefined,396.53,2,2,2,2,15,,32,3,7,4,,,,1,,,,,0.015023148148148148,0.014270833333333333,0.013599537037037037
 535844905713070080,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,7,,,,,,,,,,,,,,0.008900462962962962
 $device:187C3DE9-6583-4FA0-8A85-0E3B6B047FE3,1,100k–200k,<100k,0,0.07000000000000001,0,0,0,0,occasional,5–10,balanced,growth,Facebook,500,1,2,,14,8,1,14,3,1,,,2,9,4,,2,,,0.008229166666666666,0.005983796296296296,0.005347222222222222
-$device:12F20B78-9CF9-4E75-83E1-41F859C50ACD,1,<25k,<100k,2,300,0,0,0,0,day-trade,0,preservation,moderately-conservative,Other -  YouTube,300,2,2,,12,4,,25,8,9,9,,2,2,6,,2,,,,3.364236111111111,
+$device:12F20B78-9CF9-4E75-83E1-41F859C50ACD,1,<25k,<100k,2,300,0,0,0,0,day-trade,0,preservation,moderately-conservative,Other -  YouTube,300,2,2,,12,4,,25,8,9,9,,2,2,6,,2,,,4.486493055555556,,13.333113425925927
 549546167588999168,1,50k–100k,100k–250k,1,0,0,0,0,0,passive,0,capital-appreciation,growth,Other - tv interview,1000,1,1,,15,5,3,32,3,1,,,1,9,10,,,,,2.534710648148148,3.916284722222222,2.5324537037037036
 $device:EBCD2BCD-3E03-4628-8B30-AAACE003393E,1,undefined,undefined,0,100.12,0,0,0,0,undefined,undefined,undefined,undefined,undefined,400,3,3,2,7,19,,25,3,12,3,,1,4,8,1,1,,,0.02829861111111111,0.025324074074074075,0.02505787037037037
 542895815234560000,1,undefined,undefined,2,0,1,1,0,0,undefined,undefined,undefined,undefined,undefined,200,1,,,7,11,1,21,1,8,3,,,,1,,,,,,1.2702893518518519,0.02849537037037037
@@ -29,7 +29,7 @@ $device:8916045a-3efa-4f45-9353-6d759470c746,1,undefined,undefined,1,0,0,0,0,0,u
 $device:bb639dce-d829-4279-a836-4106e1777fb7,1,50k–100k,<100k,1,0,0,0,1,194.65,passive,<1,growth,growth,Facebook,394.65,2,1,1,11,21,2,22,5,6,5,,,,2,,,,,4.005150462962963,4.003125,1.6486458333333334
 $device:2827571A-FC4F-4456-85DF-156A2F88EB6D,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,5,13,,25,2,5,1,,,,2,,,,,,,0.655150462962963
 $device:B9B88464-8AFB-4504-9F45-DB3848287C38,1,undefined,undefined,1,1.8,0,0,1,100,undefined,undefined,undefined,undefined,undefined,200,2,1,,9,,,60,,2,,,1,,1,,,,,1.228611111111111,1.4976851851851851,0.045208333333333336
-$device:3ce98870-b44a-45ed-8400-fc75f50466ff,1,undefined,undefined,1,100,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,1,,4,,2,13,3,12,3,,1,,6,,,,,3.123738425925926,1.7344560185185185,0.006701388888888889
+$device:3ce98870-b44a-45ed-8400-fc75f50466ff,1,undefined,undefined,1,100,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,1,,4,,2,13,3,12,3,,1,,6,,,,,,,
 $device:52928EE2-3B0D-4675-A349-3B82E091BF56,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,1,,5,,,,,,,1,,,,,,,0.002476851851851852
 $device:5033C56C-9475-440C-8F01-C7677FD959F4,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,1,,3,,1,,,,,,,,,,,,0.003715277777777778
 $device:DEBDA5E1-1833-4EDC-9B1F-8A597928E117,1,undefined,undefined,2,0,0,0,1,200,undefined,undefined,undefined,undefined,undefined,400,2,,,14,5,1,15,3,2,2,,,,12,,,,,,0.059722222222222225,0.01318287037037037
@@ -76,7 +76,7 @@ $device:a54edab2-5383-4ad7-9070-dea947daf38e,1,undefined,undefined,2,0,0,0,0,0,u
 $device:1C5AEF9F-2257-4F07-B5E6-3B67310F2125,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,1,,3,,1,,,,,,,,,,,,0.00400462962962963
 $device:975B4AE8-0BE3-4B0B-8A9C-98B65DEEA52D,1,50k–100k,<100k,0,0.05,0,0,0,0,occasional,0,capital-appreciation,growth,Other - news,200,1,3,3,2,26,,96,1,9,1,,,,,,,,,0.010891203703703703,0.00866898148148148,0.008171296296296296
 $device:8f6d3b64-500d-4599-bcc5-d4165fe3fbdf,1,200k–300k,>1M,1,0.04,0,0,0,0,occasional,1–3,growth,growth,Friend,1700,3,1,1,,9,3,15,,,,,,1,,1,1,,,0.05523148148148148,0.051412037037037034,0.05116898148148148
-$device:0520B87D-6168-4B62-ADC8-2520C5C1A321,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,4,1,1,1,,,,,,,,,,,0.003414351851851852
+$device:0520B87D-6168-4B62-ADC8-2520C5C1A321,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,4,1,1,1,,,,,,,,,,,
 $device:BC893A2C-A704-4073-BAFE-DE53B6A3EBAC,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,4,5,,12,,2,1,,,,1,,,,,,,0.4931828703703704
 CB9EC1BB-A29D-4C52-AB95-C6AEB929AF5D,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,1,1,25,14,9,45,3,3,,,,4,7,1,3,,,,,
 $device:5534CE78-861B-4CCE-A813-9B434C487DC0,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,7,,,,,,,,,,,,,,0.007175925925925926
@@ -116,7 +116,7 @@ $device:F1C9FB92-6B67-4E35-99DD-1B4413B5C335,1,undefined,undefined,0,0.02,0,0,0,
 $device:3f6933f3-15c8-4c13-922e-3a245ff9403f,1,undefined,undefined,0,0.3,0,0,1,195,undefined,undefined,undefined,undefined,undefined,395,2,2,2,1,21,1,28,1,4,3,,,,3,,,,,,,
 $device:C1C3D44C-3703-4978-9E64-A0A4F553C92D,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,7,2,17,,2,,,,,,,,,,,,
 $device:be4775fe-df50-4334-aba7-4713acf2b5cb,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,4,1,,1,,,,3,,,,,,,
-$device:8416B5B7-FE3E-4011-B133-3A21C8F27282,1,undefined,undefined,1,0.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,250,1,1,1,11,19,,37,1,3,1,1,,2,8,1,1,,,2.0572453703703704,1.514837962962963,0.017361111111111112
+$device:8416B5B7-FE3E-4011-B133-3A21C8F27282,1,undefined,undefined,1,0.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,250,1,1,1,11,19,,37,1,3,1,1,,2,8,1,1,,,,,
 $device:107AF8C2-AA0B-44FA-99C4-49F18161AAB6,1,undefined,undefined,0,13.23,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,,6,,,11,1,1,,,2,,,,,,,0.007581018518518518,0.6940509259259259,0.005740740740740741
 $device:29539EAA-BE24-4E81-83F1-842F80ED741C,1,25k–50k,<100k,2,0,0,0,0,0,day-trade,<1,capital-appreciation,growth,Instagram,,,,,3,2,1,2,4,3,1,,,,4,,,2,,,,0.004525462962962963
 $device:9442FCBE-FDF7-41D6-AD59-6AFC85E4D68C,1,100k–200k,500k–1M,2,500,0,0,0,0,occasional,3–5,growth,growth,Facebook,500,1,,,,3,,11,1,1,,,,,,,,,,,1.7867824074074075,1.2641782407407407
@@ -126,7 +126,7 @@ $device:D2AA3E5F-810E-49ED-B587-D20F6685438E,1,100k–200k,<100k,2,0,0,0,0,0,occ
 537058217606729728,1,undefined,undefined,1,3.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,43,35,1,45,4,9,1,,1,,8,,,,,,,
 $device:007280fd-f3f5-4695-af4d-71ece4af483a,1,undefined,undefined,0,0.31,0,0,2,1614.61,undefined,undefined,undefined,undefined,undefined,12214.61,4,15,13,73,187,19,69,25,7,6,,2,12,3,4,4,1,,,,
 $device:53e43850-e383-4837-b9c7-04097ef66043,1,undefined,undefined,0,0,0,0,1,198.41,undefined,undefined,undefined,undefined,undefined,398.41,2,2,,20,,,10,2,4,1,,2,,1,,,,,0.011898148148148149,0.010416666666666666,0.009780092592592592
-$device:23F9BAD7-AF14-4A34-B00C-45758B0DB767,1,undefined,undefined,2,0,0,0,1,20000,undefined,undefined,undefined,undefined,undefined,400,2,,,1,3,1,47,4,1,1,,,,4,,,,,,1.3098726851851852,0.08658564814814815
+$device:23F9BAD7-AF14-4A34-B00C-45758B0DB767,1,undefined,undefined,2,0,0,0,1,20000,undefined,undefined,undefined,undefined,undefined,400,2,,,1,3,1,47,4,1,1,,,,4,,,,,,,
 $device:56C40ECF-C743-4602-8F83-DFADDD00B257,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,8,2,,,,,,1,,,,,,,2.021122685185185
 539878849186291712,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,5,,,,,,,,,,,,,,
 $device:492D855B-F419-4534-9B13-B0FE8F272A0B,1,50k–100k,<100k,2,0,0,0,0,0,passive,<1,balanced,moderate,TikTok,,,,,2,,1,11,1,1,1,,,,,,,,,,,0.01269675925925926
@@ -136,7 +136,7 @@ $device:990F7B5D-3088-4371-B5BB-F465F83F2360,1,undefined,undefined,2,0,0,0,0,0,u
 $device:6D6E42AA-6E45-4D75-ADC9-0AF29277CC70,1,100k–200k,100k–250k,2,200,0,0,0,0,day-trade,1–3,preservation,moderate,Other - Fox News,200,1,,,5,,,6,1,,,,,,4,,,,,,3.9518287037037036,3.9512847222222223
 $device:D44EABEF-4136-4000-9ACF-CBEF9C5EDBFA,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,1,7,,,,,,1,1,,,,,,,7.0621527777777775
 $device:43e0a9e1-cec6-47ca-8a2e-6c82f00dcc83,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,,,19,,,,,,,,,,,,,,0.014386574074074074
-$device:8BA8F4ED-4106-4367-B807-6694DC75535E,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,18,,,,,,,,,,,,,,0.016909722222222222
+$device:8BA8F4ED-4106-4367-B807-6694DC75535E,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,18,,,,,,,,,,,,,,
 $device:B0BBF7C0-B3CF-49B1-8C19-AD8F435F7590,1,200k–300k,<100k,2,0,0,0,0,0,occasional,<1,capital-appreciation,aggressive,Website,,,,,17,43,9,25,3,11,5,,,,11,,,,,,,0.835949074074074
 $device:1a65cd4d-f6c5-4c55-8918-d065d4c20c28,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,1,,3,1,1,1,,,,,,,,,,,0.003587962962962963
 $device:4ED59171-29EC-4484-988D-22C88A2AD611,1,<25k,<100k,1,0,0,0,0,0,passive,0,growth,aggressive,Website,2000,2,2,1,5,15,9,9,5,7,6,,1,5,3,1,1,,,0.574849537037037,0.5741898148148148,0.5739351851851852
@@ -174,9 +174,9 @@ $device:A2B5D119-A73E-44D8-B293-F662C8A6A340,1,undefined,undefined,1,203.4,0,0,0
 $device:402A7F69-4424-4372-A976-66A8479AEAB4,1,100k–200k,<100k,2,0,0,0,0,0,occasional,<1,preservation,moderate,Friend,,,,,5,,,9,,,1,,,,1,,,,,,,2.6667708333333335
 $device:6A8844F2-B5E4-4A55-B0E6-32C434B6936F,1,100k–200k,<100k,2,0,0,0,0,0,passive,0,income,moderate,Instagram,,,,,,1,,4,1,2,,,,,,,,,,,,0.005115740740740741
 428368217488560128,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,0.0037731481481481483
-549545041871360000,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,1–3,growth,aggressive,Other - fox news,200,1,,,2,7,,15,,2,,,,2,,,,,,,5.121597222222222,2.8929050925925925
+549545041871360000,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,1–3,growth,aggressive,Other - fox news,200,1,,,2,7,,15,,2,,,,2,,,,,,,2.8932060185185184,2.8929050925925925
 $device:27AFC4FB-2190-4329-8E1A-81B66BE12DBC,1,100k–200k,250k–500k,1,400,0,0,0,0,passive,0,growth,moderate,Other - Fox,900,2,1,,2,,,15,,,,,1,,,,,,,3.533275462962963,3.9153356481481483,3.531840277777778
-$device:F144CF87-9FD0-4693-98A9-134F70EB3D1D,1,undefined,undefined,1,0,0,0,1,20,undefined,undefined,undefined,undefined,undefined,220,2,1,,14,1,,61,10,4,2,,1,,,,,,,3.9994791666666667,1.744236111111111,1.7407060185185186
+$device:F144CF87-9FD0-4693-98A9-134F70EB3D1D,1,undefined,undefined,1,0,0,0,1,20,undefined,undefined,undefined,undefined,undefined,220,2,1,,14,1,,61,10,4,2,,1,,,,,,,2.759675925925926,0.5044328703703703,0.5008912037037037
 $device:E827590B-BF33-4E58-8722-DA8A7B5CEEAA,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,
 $device:76978C52-4DE6-4CD9-B946-9E685DBE88D6,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,12,2,,42,3,3,1,,1,3,,,,,,,,
 $device:7b51781b-1790-439d-9cf7-1803ccda43c2,1,100k–200k,<100k,2,0,0,0,0,0,occasional,<1,income,moderately-conservative,Facebook,,,,,,,,5,,,,,,,,,,,,,,0.7614120370370371
@@ -194,7 +194,7 @@ $device:4EF714C5-64E5-4905-AC96-055E37F9AA02,1,undefined,undefined,1,0.06,0,0,0,
 $device:a5be9b39-bdbc-4b39-afe2-b81e8fcd02c3,1,undefined,undefined,undefined,undefined,undefined,undefined,undefined,,,,,,,,,,,2,1,,8,,,,,,,,,,,,,,0.08168981481481481
 $device:1606546A-BA88-4E85-B67D-CFD7A6B45D9E,1,100k–200k,<100k,2,0,0,0,0,0,day-trade,<1,growth,growth,TikTok,,,,,,,,6,,1,,,,,3,,,1,,,,0.01721064814814815
 $device:459b8a97-a835-47cf-9e62-5aae12fb175f,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,5,1,1,1,,,,,,,,,,,0.008368055555555556
-$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,3.507962962962963,2.4889004629629627,
+$device:31b10379-d929-4f74-882a-87a8bb2175ab,1,50k–100k,<100k,1,150,0,0,0,0,passive,1–3,growth,moderate,TikTok,250,1,1,1,1,7,,10,2,1,,,,3,,1,2,,,0.9260532407407407,,2.5908333333333333
 $device:5E7EC410-ED87-4A13-9382-C304347A3B39,1,undefined,undefined,0,100.04,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,2,1,13,10,20,1,,6,,,1,,1,1,,1,7.429131944444444,7.422233796296296,0.4298958333333333
 6cdf0bca-f129-4f92-a3c9-24fb7acacaca,1,<25k,<100k,1,0,0,0,1,198.37,passive,0,income,moderate,TikTok,398.37,2,1,1,1,16,1,9,4,5,2,,,,,,,,,0.4832523148148148,0.503275462962963,0.4807060185185185
 $device:D03995E4-03BB-43B7-AAD4-8D386BC91493,1,undefined,undefined,1,0.01,0,0,0,0,undefined,undefined,undefined,undefined,undefined,9000,2,1,,33,7,3,57,15,2,13,,1,,3,,,,,,,
@@ -212,11 +212,11 @@ $device:2903f821-65a0-4b59-8f35-3d3f9c346dd3,1,undefined,undefined,2,0,0,0,0,0,u
 $device:9a99f74e-6994-4e19-aa9f-b91227675efb,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,6,2,9,1,3,5,,,,9,,,,,,,0.34934027777777776
 $device:d58e646e-8676-4bd8-b6ad-05e4315a672c,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,1,,12,1,1,,,,,3,,,,,,,0.02712962962962963
 $device:B4F903B5-87E6-4CB9-B77B-CB91EABD4480,1,undefined,undefined,0,250.44,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,2,,19,11,,35,5,13,2,,2,11,,,3,,,,,
-538732127767511040,1,undefined,undefined,0,0,0,0,2,20674.03,undefined,undefined,undefined,undefined,undefined,40174.03,6,2,2,42,410,3,214,12,40,7,,,14,3,2,2,,,0.7341782407407408,1.5750925925925925,0.723125
+538732127767511040,1,undefined,undefined,0,0,0,0,2,20674.03,undefined,undefined,undefined,undefined,undefined,40174.03,6,2,2,42,410,3,214,12,40,7,,,14,3,2,2,,,,,
 $device:B01BFC0F-EC8C-4556-8EAE-D4C0575D04A7,1,undefined,undefined,1,1.24,0,0,0,0,undefined,undefined,undefined,undefined,undefined,1000,1,1,,14,16,,22,2,6,,,1,7,4,,,,,1.1768981481481482,1.8355787037037037,1.1695601851851851
 $device:3451bfe8-69a9-4686-805d-0d3e6efd7589,1,undefined,undefined,0,0,0,0,1,197.95,undefined,undefined,undefined,undefined,undefined,397.95,2,2,2,5,18,1,34,7,11,6,,,,3,,,2,2,0.5737731481481482,2.2050578703703705,0.4048611111111111
 $device:CC106644-B806-4B2C-9C70-53EE9DD03093,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,5,3,,4,2,1,,,,,4,,,,,,,
-$device:F477DBBE-7C3F-405B-969B-9E8330528F41,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,1,,24,1,4,,,,,,,,,,,,3.730208333333333
+$device:F477DBBE-7C3F-405B-969B-9E8330528F41,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,1,,24,1,4,,,,,,,,,,,,2.4292824074074075
 $device:889b83a2-b6c2-404b-a1be-ec24b1d8a93e,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,13,,,,,,,,,,,,,,0.007118055555555555
 $device:cda0af38-f911-4993-84eb-abd2170c771b,1,undefined,undefined,0,0,0,0,1,24260,undefined,undefined,undefined,undefined,undefined,492.6,2,2,,9,3,,10,2,3,1,,2,,,,,,,,,
 $device:2CF42DDB-0716-49DD-92FF-3A030DF33944,1,50k–100k,<100k,1,100,0,0,0,0,occasional,1–3,preservation,growth,Friend,200,1,1,1,,14,11,14,1,8,8,1,,10,,1,1,,,0.17707175925925925,0.17310185185185184,0.17273148148148149
@@ -229,7 +229,7 @@ $device:E29A5355-75F4-4A05-8548-07E4E8FA8F2E,1,100k–200k,<100k,2,200,0,0,0,0,p
 $device:C183B539-19E7-41C7-ADE6-9024219792E8,1,25k–50k,<100k,2,0,0,0,0,0,occasional,1–3,income,growth,Facebook,,,,,1,,,41,12,3,2,,,,1,,,,,,,0.022430555555555554
 $device:c89f5a8d-55bf-4e8f-9c44-2ed5f8435958,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,5,,,,,,,,,,,,,,
 543517683813191680,1,undefined,undefined,1,0,0,0,1,999.91,undefined,undefined,undefined,undefined,undefined,2499.91,2,1,1,,19,,41,1,6,,,,,,,,,,0.008483796296296297,0.007453703703703704,0.007210648148148148
-$device:68527D91-F0A8-4FA1-95E8-01A2927EAF39,1,undefined,undefined,1,0,0,0,2,299.99,undefined,undefined,undefined,undefined,undefined,599.99,4,1,,5,,,28,5,5,2,,1,,,,,,,0.012141203703703704,1.2796527777777778,0.009351851851851853
+$device:68527D91-F0A8-4FA1-95E8-01A2927EAF39,1,undefined,undefined,1,0,0,0,2,299.99,undefined,undefined,undefined,undefined,undefined,599.99,4,1,,5,,,28,5,5,2,,1,,,,,,,,,
 $device:1D69B068-9B3F-4BD4-B2F5-20030E9AE8CD,1,100k–200k,<100k,2,200,0,0,0,0,occasional,5–10,balanced,moderate,Website,200,1,2,,6,2,,15,1,4,1,,2,3,7,,,,,0.9385416666666667,0.9388657407407407,0.6091435185185186
 $device:8C842189-BDF8-4925-BD98-2DFB9CB58513,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,2,1,,,,,,,,,,,,,
 $device:720AE215-0E4F-4668-AA75-EB221C7C65C8,1,<25k,<100k,2,0,0,0,0,0,passive,0,income,moderate,Instagram,,,,,,,,5,,,,,,,,,,,,,,2.6186226851851853
@@ -241,7 +241,7 @@ $device:B62997E8-C178-4BD8-A42B-B2CEE0C9D159,1,undefined,undefined,2,0,0,0,0,0,u
 $device:F77A24E7-4E80-4F61-B78C-D283EAB88663,1,undefined,undefined,1,4.19,0,0,0,0,undefined,undefined,undefined,undefined,undefined,700,3,1,,41,15,4,38,10,5,4,,1,,9,,,,1,,,
 $device:11FD31C9-1D64-4F62-9771-1EF7A04FE17C,1,undefined,undefined,1,0.93,0,0,1,249,undefined,undefined,undefined,undefined,undefined,549,2,1,1,,17,1,41,1,5,1,,,,,,,,,,,
 $device:69BB5F72-F8E5-4606-B5AC-0A55379A5C29,1,undefined,undefined,1,1000,0,0,0,0,undefined,undefined,undefined,undefined,undefined,2000,1,1,1,2,5,1,31,2,7,2,1,,3,,1,1,,,0.006539351851851852,1.611747685185185,0.0038773148148148148
-$device:EA46F59E-0FC2-4CCF-A0C8-062D898B41C3,1,undefined,undefined,2,0,0,0,1,200,undefined,undefined,undefined,undefined,undefined,400,2,4,,26,9,1,29,5,5,4,,4,,12,,,,,0.020625,2.2125347222222222,0.004837962962962963
+$device:EA46F59E-0FC2-4CCF-A0C8-062D898B41C3,1,undefined,undefined,2,0,0,0,1,200,undefined,undefined,undefined,undefined,undefined,400,2,4,,26,9,1,29,5,5,4,,4,,12,,,,,,,
 550029290777485312,1,25k–50k,<100k,2,0,0,0,0,0,passive,0,growth,moderately-conservative,TikTok,,,,,,,,5,,,,,,,,,,,,,,0.006898148148148148
 $device:3AD96876-D9E2-4AC3-8252-9719BFCA4893,1,200k–300k,100k–250k,1,0,0,0,0,0,passive,1–3,capital-appreciation,growth,Friend,500,1,1,1,1,18,1,17,3,14,4,1,,3,2,1,1,,,0.008032407407407408,0.7799074074074074,0.007476851851851852
 $device:F84CF90F-5599-4B68-906D-4BB64F38B255,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,6,1,1,,,,,,,,,,,,0.010405092592592593
@@ -291,7 +291,7 @@ $device:0152C791-189E-48F8-8A84-FF15E67AF14D,1,50k–100k,<100k,2,0,0,0,0,0,pass
 $device:58CC1EF4-5108-4D2B-8866-592E6F89142A,1,undefined,undefined,1,0,0,0,1,204.34,undefined,undefined,undefined,undefined,undefined,404.34,2,1,,15,8,6,33,3,8,5,,1,,5,,,,,0.8731712962962963,1.4016666666666666,0.8708217592592593
 $device:F32E5E56-83BC-44D7-813F-71F554CD28C9,1,50k–100k,<100k,passive,5–10,growth,aggressive,Friend,,,,,,,,,,,1,2,,2,1,2,,,,,1,,,,,,,0.002916666666666667
 $device:D3536BC8-1F74-4125-B1CC-861384F67F8D,1,50k–100k,250k–500k,0,0.04,0,0,0,0,day-trade,1–3,growth,growth,TikTok,500,1,3,2,2,6,,7,2,3,,,1,6,2,1,1,,,0.008333333333333333,0.551412037037037,0.004583333333333333
-$device:bd60ec0a-acd6-41a7-b0f8-92c5c3414f9e,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,,,8,2,,1,,,,7,,,,,,,0.645613425925926
+$device:bd60ec0a-acd6-41a7-b0f8-92c5c3414f9e,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,,,8,2,,1,,,,7,,,,,,,
 $device:11381788-7D63-434D-9E08-DE37E61C4C7E,1,200k–300k,100k–250k,passive,10+,balanced,moderate,Other - Fox News,,,,,,,1000,1,,,,1,,13,,,,,,,7,,,,,,0.03553240740740741,0.03519675925925926
 $device:C73E3452-9AF6-4AD7-89CF-4511D38FB734,1,undefined,undefined,0,0.34,0,0,0,0,undefined,undefined,undefined,undefined,undefined,1500,2,4,2,15,14,1,51,4,8,2,1,2,8,3,1,1,,,,,
 $device:B5328AC8-6BBC-4BA1-8331-6A70AA911F89,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,8,2,,,,,,1,,,,,,,
@@ -336,12 +336,12 @@ $device:E8AF7B07-B309-4B93-B501-BEAEFCD8C2A9,1,undefined,undefined,2,0,0,0,0,0,u
 $device:DD9D96A8-E455-41BD-868C-F953040E46AD,1,undefined,undefined,0,0.08,0,0,0,0,undefined,undefined,undefined,undefined,undefined,700,2,3,2,20,29,3,43,3,15,4,,1,,9,,,1,,13.987199074074073,13.10494212962963,13.104710648148147
 $device:47855901-03F2-4307-A6CC-BD53683E9C66,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,1.8314814814814815
 $device:8C5B7529-6007-4FAD-BA75-E005318A8B32,1,undefined,undefined,1,0.24,0,0,0,0,undefined,undefined,undefined,undefined,undefined,9000,2,1,1,2,9,,110,4,4,1,1,,4,2,1,1,,,,,
-$device:2745E9D3-0A75-4621-9A75-4FCB765CDC2B,1,undefined,undefined,0,0.02,0,0,0,0,undefined,undefined,undefined,undefined,undefined,900,3,3,2,16,20,8,64,5,35,10,1,1,4,8,2,2,,,0.18167824074074074,1.3525694444444445,0.17229166666666668
+$device:2745E9D3-0A75-4621-9A75-4FCB765CDC2B,1,undefined,undefined,0,0.02,0,0,0,0,undefined,undefined,undefined,undefined,undefined,900,3,3,2,16,20,8,64,5,35,10,1,1,4,8,2,2,,,,,
 $device:532161F8-9764-47A8-A0AC-2E844F1576E7,1,undefined,undefined,2,0,0,0,1,400,undefined,undefined,undefined,undefined,undefined,800,2,,,3,2,,15,3,,1,,,,,,,,,,0.5807291666666666,0.010439814814814815
 $device:773457DF-267A-478B-8F97-66E53DE5EC17,1,undefined,undefined,1,0.07000000000000001,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,5,,,5,,,,,1,,2,,,,,,,
 $device:DB9CD01C-82D5-4AC1-B3F0-F95CC1BEDEB0,1,undefined,undefined,undefined,undefined,undefined,undefined,undefined,,,,,,,,,,,1,,,5,,,,,,,1,,,,,,,0.005358796296296296
 $device:0c4f293d-0eb0-42d4-94d7-ced7aae0da89,1,25k–50k,<100k,2,0,0,0,0,0,occasional,0,income,growth,Facebook,,,,,,,,5,,,,,,,,,,,,,,0.011909722222222223
-540581320615452672,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,2,,5,4,2,1,,,,,,,,,,,0.018090277777777778
+540581320615452672,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,2,,5,4,2,1,,,,,,,,,,,
 $device:8C9F2601-0344-4FDC-801E-05D9A3B72312,1,100k–200k,500k–1M,0,0,0,0,0,0,occasional,10+,balanced,growth,Other - Fox and Friends,500,1,2,,7,2,,24,1,1,1,,2,3,,,,,,0.019039351851851852,0.006585648148148148,0.006412037037037037
 $device:FCCC6CD8-5522-49D4-BAE0-38D9FADEB903,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,1,8,1,1,2,,,,9,,,,,,,
 540159356075696128,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,7,13,1,3,1,1,1,,,,1,,,,,,,
@@ -370,7 +370,7 @@ $device:48ead213-18a8-4f22-9550-005ba37187f9,1,undefined,undefined,2,0,0,0,0,0,u
 $device:a20a8f9a-b3c3-4356-b293-c1d026a3dd5f,1,50k–100k,<100k,2,0,0,0,0,0,occasional,<1,capital-appreciation,growth,Facebook,,,,,2,1,,5,2,1,2,,,,,,,,,,,0.007280092592592592
 $device:2ad10007-7a83-4569-817e-228b692381d6,1,25k–50k,<100k,2,0,0,0,0,0,day-trade,0,capital-appreciation,aggressive,Facebook,,,,,1,3,,2,,,1,,,,1,,,,,,,0.005613425925925926
 544023044374306816,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,3,,7,1,1,,,,,,,,,,,,0.006377314814814815
-$device:3194797C-CCFC-43F0-8857-551A9BA35D60,1,undefined,undefined,0,103.69,0,0,0,0,undefined,undefined,undefined,undefined,undefined,501,4,4,2,24,18,,51,7,2,4,,2,,6,,,1,,5.373287037037037,5.371851851851852,5.371585648148148
+$device:3194797C-CCFC-43F0-8857-551A9BA35D60,1,undefined,undefined,0,103.69,0,0,0,0,undefined,undefined,undefined,undefined,undefined,501,4,4,2,24,18,,51,7,2,4,,2,,6,,,1,,,,
 549639793300066304,1,100k–200k,<100k,1,100,0,0,0,0,passive,0,income,moderate,Other - Fox and Friends,200,1,1,,4,3,,15,3,2,3,,1,1,1,,1,,,0.1959375,0.7411805555555555,0.14836805555555554
 $device:77E9FC8E-600F-4D11-90E6-5139CECED4B0,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,1,,4,,,,,,,2,,,,,,,
 $device:D513D769-D1C7-4122-9C84-A18C9A84DCE2,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,5,,8,,1,3,,,,,,,,,,,0.009027777777777777
@@ -386,7 +386,7 @@ $device:F745D657-0AE1-49D9-85B9-52FA9728BC57,1,undefined,undefined,2,0,0,0,0,0,u
 544187308879814656,1,undefined,undefined,0,0,0,0,1,50407,undefined,undefined,undefined,undefined,undefined,1004.07,2,3,2,4,11,,15,,3,1,,1,,2,,,,,0.013842592592592592,0.011087962962962963,0.010821759259259258
 $device:F5B0B67F-CDAB-494F-A103-F3038AB413A7,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,6,13,1,39,3,3,2,,,,7,,,,,,,5.868460648148148
 $device:385E69E8-5271-4A1D-9025-88BF1568286B,1,undefined,undefined,2,200,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,,,1,2,,14,,2,1,,,1,6,,,,,,0.004016203703703704,0.0037962962962962963
-$device:688E43EB-D27B-4FD4-9B13-B029E8B88A85,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,,,7,,,1,,,,1,,,,,,,1.3176041666666667
+$device:688E43EB-D27B-4FD4-9B13-B029E8B88A85,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,,,7,,,1,,,,1,,,,,,,
 $device:f2dd774c-ea82-4aa3-97c4-2dabf7d66b99,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,2,,4,2,2,1,,,,1,,,,,,,0.050347222222222224
 $device:03AA2D18-4FD5-4DD6-8F98-58FC30F8E19E,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,28,8,,58,3,14,2,,1,,3,,,,,0.012638888888888889,0.7720601851851852,0.011909722222222223
 $device:b3cdf946-9797-4991-8ddc-66d1dc068502,1,undefined,undefined,1,0,0,0,1,2400.08,undefined,undefined,undefined,undefined,undefined,4801.21,2,1,1,4,13,,70,12,3,12,,,,,,,,,1.7651041666666667,1.7096412037037036,0.012175925925925925
@@ -445,7 +445,7 @@ $device:AE069318-315D-492A-A644-C34BF2D966AF,1,50k–100k,<100k,1,100,0,0,0,0,da
 $device:54bc230c-8f39-4655-a476-947f1cd5b959,1,<25k,<100k,1,0,0,0,0,0,occasional,0,balanced,moderate,Twitter,200,1,1,,2,2,,6,1,2,1,,1,1,1,,,,,0.005046296296296296,0.5064120370370371,0.004340277777777778
 $device:82469EFC-4BB6-4396-B301-170FE6F0DA5E,1,<25k,<100k,0,0,0,0,0,0,passive,0,balanced,moderate,TikTok,410,3,4,4,,31,20,63,15,4,33,,,,3,,,,,0.010162037037037037,0.18459490740740742,0.0025925925925925925
 $device:696BFEA0-1A39-4536-971F-5DDA4E392FA1,1,undefined,undefined,2,200,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,,,,,,10,1,,,,,,,,,,,,,
-$device:D04A3BF3-2D23-456F-85FE-1330EDFEA1C8,1,50k–100k,<100k,2,200,0,0,0,0,passive,0,growth,growth,Other - Fox News,200,1,,,,,,6,,,,,,,3,,,,,,1.8941087962962964,1.8938194444444445
+$device:D04A3BF3-2D23-456F-85FE-1330EDFEA1C8,1,50k–100k,<100k,2,200,0,0,0,0,passive,0,growth,growth,Other - Fox News,200,1,,,,,,6,,,,,,,3,,,,,3.1839930555555553,1.8941087962962964,1.8938194444444445
 $device:D4BCEB2E-8AC3-4157-AAD9-E12A3EDCFFED,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,4,,9,,1,1,,,,1,,,,,,,0.9279050925925926
 $device:BEF8728C-66F0-4AE3-B2DA-5E42D4F57E97,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,15,1,3,1,,,,,,,,,,,0.012835648148148148
 $device:B039E699-0C89-43D7-B573-ECA449071562,1,100k–200k,<100k,2,0,0,0,0,0,occasional,1–3,preservation,moderate,Friend,,,,,1,2,,12,4,,,,,1,1,1,1,,1,,,0.009108796296296297
@@ -479,7 +479,7 @@ $device:D5033FC9-1FD4-42A1-BFA9-6B23AD1526D6,1,25k–50k,<100k,2,0,0,0,0,0,occas
 543502025377849344,1,undefined,undefined,1,0.01,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,6,5,,30,8,7,3,,1,,1,,,,,0.005439814814814815,0.004537037037037037,0.004340277777777778
 $device:09AC121B-B437-46D6-8BA4-104FD988F499,1,100k–200k,100k–250k,1,0,0,0,0,0,day-trade,5–10,growth,aggressive,TikTok,500,1,1,1,2,5,1,17,,,2,,,,5,,,3,,1.2255439814814815,1.5097453703703703,1.2249074074074073
 $device:B72FBB32-763E-4A83-BBDA-71537D86F977,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,2,2,6,,1,,,,,1,,,,,,,0.008402777777777778
-$device:B29F61FA-9BED-428F-9780-316CA40B6457,1,undefined,undefined,0,0.48,0,0,0,0,undefined,undefined,undefined,undefined,undefined,400,2,5,5,1,29,6,113,6,12,9,,,,1,,,,,3.9841203703703703,4.340115740740741,3.981099537037037
+$device:B29F61FA-9BED-428F-9780-316CA40B6457,1,undefined,undefined,0,0.48,0,0,0,0,undefined,undefined,undefined,undefined,undefined,400,2,5,5,1,29,6,113,6,12,9,,,,1,,,,,,,
 $device:D8AE9C15-99AD-4FDB-972A-B7E73A002128,1,25k–50k,<100k,2,0,0,0,0,0,passive,0,income,growth,Instagram,,,,,,,,3,,,,,,,,,,,,,,0.0044675925925925924
 $device:1aec33af-219a-41d4-a956-18c88180a952,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,1,1,2,6,,18,2,4,6,,,3,,1,2,,,,,
 $device:c91e3366-99ea-484e-b30e-38a10c64799c,1,200k–300k,<100k,0,0.01,0,0,0,0,passive,0,income,moderate,Other - youtube,200,1,3,2,5,8,,15,2,2,,,1,,4,,,,,0.007256944444444444,0.20489583333333333,0.005671296296296297
@@ -504,7 +504,7 @@ $device:59D92052-75D8-49AE-B05F-F3F7D439D5E6,1,undefined,undefined,0,2501.58,0,0
 $device:7A3BD97E-65F4-4617-899C-40434DE569B5,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,3,3,,5,1,1,,,,,,,,,,,,
 $device:4378B0AF-B31F-4550-9E43-9C88BB09490C,1,undefined,undefined,2,5000,0,0,0,0,undefined,undefined,undefined,undefined,undefined,5000,1,,,1,2,,12,2,1,1,,,6,1,,,1,1,,,
 543514590405337088,1,undefined,undefined,2,0,0,0,1,200,undefined,undefined,undefined,undefined,undefined,400,2,,,,2,,17,1,,,,,,,,,,,,0.005636574074074074,0.005115740740740741
-$device:134fbd6a-101c-47cd-94e9-b24a706c539f,1,undefined,undefined,1,0.99,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,14,5,2,19,6,3,4,,1,5,10,,1,,,2.0960763888888887,1.611886574074074,0.045625
+$device:134fbd6a-101c-47cd-94e9-b24a706c539f,1,undefined,undefined,1,0.99,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,,14,5,2,19,6,3,4,,1,5,10,,1,,,,,
 $device:D0CB6190-224F-4B66-97EE-919EB1CE761F,1,100k–200k,<100k,1,0,0,0,0,0,passive,0,capital-appreciation,growth,Podcast,200,1,1,1,,4,,21,,3,1,1,,2,,1,1,,,0.011006944444444444,0.0077546296296296295,0.007118055555555555
 $device:AC949862-7F93-4C01-9535-5F539954C7AC,1,100k–200k,100k–250k,2,2701,0,0,0,0,passive,<1,growth,growth,Instagram,2701,1,3,1,5,11,,26,5,3,2,,2,19,3,1,2,,,6.8994328703703705,0.02267361111111111,0.02236111111111111
 $device:2A3184CA-26CF-4FE3-8C32-787CFBAF2883,1,<25k,>1M,1,0,0,0,0,0,passive,5–10,balanced,moderate,Facebook,200,1,1,1,1,2,,8,,,,1,,3,,1,1,,,0.014733796296296297,0.010289351851851852,0.009189814814814816
@@ -521,7 +521,7 @@ $device:A1DA6D9E-D643-4D4B-86E7-6BE69B795361,1,<25k,<100k,2,0,0,0,0,0,day-trade,
 $device:9e4c1901-4c96-4336-bb63-5450ce8b8b9f,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,3,,,,,,,,,,,,,,0.01204861111111111
 $device:B68590C2-45FB-4780-9AF4-3B2B3D1DCDAF,1,undefined,undefined,0,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,,10,1,,28,3,3,1,,2,1,,,,,,0.0070023148148148145,1.6746296296296297,0.006342592592592592
 $device:E44AC2D6-BB01-49D4-B88E-BA41D8C941B2,1,<25k,<100k,2,0,0,0,0,0,passive,0,growth,moderate,App Store,,,,,,,,8,,,,,,,,,,,,,,0.007905092592592592
-$device:14BC4626-DEAB-483D-8481-BACE237B8CD4,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,6,,,,,,,1,,,,,,,0.003981481481481482
+$device:14BC4626-DEAB-483D-8481-BACE237B8CD4,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,6,,,,,,,1,,,,,,,
 $device:F3D5344E-0F8E-4828-9B0D-167A151D8122,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,3,,5,,1,,,,,,,,,,,,4.107060185185185
 $device:B72B8D14-FD3E-4B13-97D1-4BE9580A8EE8,1,<25k,100k–250k,2,0,0,0,0,0,passive,0,balanced,moderate,Facebook,,,,,,,1,8,,,,,,,7,,,7,,,,0.06456018518518518
 $device:5FDFFECB-A651-48C1-A7FF-AF8A330A5996,1,25k–50k,<100k,2,0,0,0,0,0,day-trade,<1,capital-appreciation,aggressive,Instagram,,,,,12,14,,2,2,,4,,,,4,,,1,,,,0.00636574074074074
@@ -542,7 +542,7 @@ $device:C09F3660-15B8-4590-AF4E-D0E114EA8E3E,1,undefined,undefined,2,0,0,0,0,0,u
 $device:5D474283-0B75-4B71-9AD7-6D97ACBAB8A7,1,<25k,<100k,1,150,0,0,0,0,passive,0,preservation,moderately-conservative,dub Championships,200,1,1,1,3,10,1,34,1,2,1,,,23,,1,10,,,6.781990740740741,2.1993055555555556,1.615011574074074
 $device:583CEA67-2BD4-43DD-8AE3-41B35AEA55E3,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,2,,8,2,3,,,,,2,,,,,,,3.9334837962962963
 540909508180762624,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,5,,,,,,,,,,,,,,0.0059490740740740745
-$device:D638E6DD-F4AC-40A4-BF67-859A5D435F75,1,undefined,undefined,0,0.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,1758,4,2,2,3,43,4,55,3,4,3,1,,8,2,2,2,,,0.006585648148148148,1.2757060185185185,0.003587962962962963
+$device:D638E6DD-F4AC-40A4-BF67-859A5D435F75,1,undefined,undefined,0,0.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,1758,4,2,2,3,43,4,55,3,4,3,1,,8,2,2,2,,,,,
 539506652802068480,1,undefined,undefined,0,0.17,0,0,0,0,undefined,undefined,undefined,undefined,undefined,2000,2,4,3,40,57,5,33,9,11,7,1,1,7,6,1,1,,,,,
 $device:D9049209-79FA-4C10-9C54-7B8067122F65,1,undefined,undefined,undefined,undefined,undefined,undefined,undefined,,,,,,,,,,,,1,1,8,,,1,,,,,,,,,,,0.007060185185185185
 $device:18898D25-EE7B-4BDF-BF05-DDF25523BD30,1,undefined,undefined,0,100.15,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,,25,3,,26,4,5,1,,2,4,1,,,,,0.10903935185185185,0.6988425925925926,0.09143518518518519
@@ -557,7 +557,7 @@ $device:47DE5983-A392-467D-B617-89FAF5E04911,1,undefined,undefined,0,197.14,0,0,
 $device:ADFE5EC1-9A96-4A98-95BB-A6E928FC7AB6,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,11,23,,15,1,6,1,,,,3,,,,,,,3.4949652777777778
 $device:B74D9FAC-00E4-4BB0-9FE5-B23DFE0C512E,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,4,,5,3,3,,,,,3,,,,,,,0.00494212962962963
 $device:0A2AB4FD-D8C9-4EA0-A0C8-945DEE2AFA2E,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,2,1,,11,3,3,1,,,,,,,,,,,1.0359837962962963
-$device:BF50F31A-AED2-4BB1-8528-6EAF739FE03A,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,13,,1,1,,,,,,,,,,,0.011550925925925926
+$device:BF50F31A-AED2-4BB1-8528-6EAF739FE03A,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,1,,,13,,1,1,,,,,,,,,,,
 $device:86d73821-dd11-411f-8e8c-638fb4efda7d,1,200k–300k,500k–1M,1,400,0,0,0,0,occasional,3–5,growth,growth,Website,500,1,2,,21,2,3,11,12,21,8,,2,3,6,,,,,1.180636574074074,1.5577662037037037,1.136412037037037
 544406495875964928,1,undefined,undefined,0,50.02,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,2,2,,9,,19,3,5,4,,,,,,,,,0.009976851851851851,0.1838773148148148,0.005162037037037037
 $device:AC03AD64-49BC-4236-810C-6D3634EF766F,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,200,1,1,1,,5,1,18,1,2,,1,,7,,1,1,,,3.7181712962962963,5.193680555555556,3.7144560185185185
@@ -651,7 +651,7 @@ $device:46690820-9FA5-4094-99DC-934C3D2ED468,1,undefined,undefined,2,200,0,0,0,0
 $device:587F7FC0-8B7A-4A64-8244-21CBF1806163,1,undefined,undefined,0,0.2,0,0,0,0,undefined,undefined,undefined,undefined,undefined,10000,2,3,3,1,36,,64,2,17,6,,,,2,,,,,2.1916782407407407,1.4984143518518518,1.010011574074074
 $device:7A203B71-2779-40B1-8ADB-B804C83E90E1,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,7,,,14,,,,,,,,,,,1,,,1.4909953703703704
 $device:EBA8AE7B-C9F1-4B1E-8492-D58FDF8388C7,1,undefined,undefined,1,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,500,1,1,1,2,33,11,60,5,6,11,,,,2,,,,,,,
-$device:C3D579C2-1565-49EA-BD15-AA0B93D5A6CD,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,3,,,11,1,,,,,,7,,,,,,,0.011967592592592592
+$device:C3D579C2-1565-49EA-BD15-AA0B93D5A6CD,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,3,,,11,1,,,,,,7,,,,,,,
 $device:21211137-DD50-4067-9394-BB47AECB7BB6,1,undefined,undefined,2,0,0,0,0,0,undefined,undefined,undefined,undefined,undefined,,,,,,,,7,,,,,,,,,,,,,,6.944618055555556
 541767578642812928,1,undefined,undefined,1,0.03,0,0,0,0,undefined,undefined,undefined,undefined,undefined,250,1,1,,5,1,,26,,,1,,1,,1,,,,,0.6087268518518518,0.6076736111111111,0.6075
 $device:35e35f62-ec8e-46f6-bcb5-f9a223a02a71,1,50k–100k,<100k,2,0,0,0,0,0,occasional,<1,growth,moderately-conservative,Facebook,,,,,9,4,,5,1,3,,,,,2,,,,,,,0.005914351851851852
