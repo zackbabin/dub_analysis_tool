@@ -501,7 +501,7 @@ class UnifiedAnalysisTool {
         let githubToken = localStorage.getItem('github_pat');
 
         if (!githubToken) {
-            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):', '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');
+            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):');
             if (!githubToken) {
                 throw new Error('GitHub token is required');
             }
@@ -967,7 +967,7 @@ const ALL_VARIABLES = [
 
 const SECTION_EXCLUSIONS = {
     'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank', 'totalRegularCopies', 'buyingPower'],
-    'totalCopies': ['hasLinkedBank', 'totalRegularCopies', 'totalPremiumCopies'],
+    'totalCopies': ['hasLinkedBank', 'totalRegularCopies'],
     'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
 };
 
