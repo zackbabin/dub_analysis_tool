@@ -108,60 +108,11 @@ class UnifiedAnalysisToolSupabase extends UnifiedAnalysisTool {
     }
 
     /**
-     * Add data freshness info to results
+     * Override: Don't add Supabase metadata section
      */
     async displayResults(results) {
-        // Call parent method first
+        // Just call parent method - no Supabase metadata
         super.displayResults(results);
-
-        // Add Supabase-specific info
-        if (this.supabaseIntegration) {
-            const freshness = await this.supabaseIntegration.getDataFreshness();
-            const syncStatus = await this.supabaseIntegration.getLatestSyncStatus();
-
-            if (freshness || syncStatus) {
-                this.addSupabaseMetadata(freshness, syncStatus);
-            }
-        }
-    }
-
-    /**
-     * Add Supabase metadata section to results
-     */
-    addSupabaseMetadata(freshness, syncStatus) {
-        const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
-        if (!resultsDiv) return;
-
-        const metadataDiv = document.createElement('div');
-        metadataDiv.style.cssText = 'margin: 20px 0; padding: 15px; background: #f0f9ff; border-left: 4px solid #2196F3; border-radius: 4px;';
-
-        const title = document.createElement('h4');
-        title.textContent = 'Data Source: Supabase';
-        title.style.cssText = 'margin: 0 0 10px 0; color: #1565C0;';
-        metadataDiv.appendChild(title);
-
-        if (freshness) {
-            const freshnessInfo = document.createElement('div');
-            freshnessInfo.style.cssText = 'font-size: 13px; color: #333; margin-bottom: 8px;';
-            freshnessInfo.innerHTML = `
-                <strong>Last Sync:</strong> ${new Date(freshness.last_data_sync).toLocaleString()}<br>
-                <strong>Total Users:</strong> ${freshness.total_users?.toLocaleString() || 'N/A'}
-            `;
-            metadataDiv.appendChild(freshnessInfo);
-        }
-
-        if (syncStatus) {
-            const statusInfo = document.createElement('div');
-            statusInfo.style.cssText = 'font-size: 13px; color: #333;';
-            statusInfo.innerHTML = `
-                <strong>Sync Duration:</strong> ${syncStatus.duration_seconds ? syncStatus.duration_seconds.toFixed(1) + 's' : 'N/A'}<br>
-                <strong>Records Synced:</strong> ${syncStatus.total_records_inserted?.toLocaleString() || 'N/A'}
-            `;
-            metadataDiv.appendChild(statusInfo);
-        }
-
-        // Insert at the top of results
-        resultsDiv.insertBefore(metadataDiv, resultsDiv.firstChild);
     }
 }
 

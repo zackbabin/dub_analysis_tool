@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dub Advanced Product Analytics - Supabase</title>
+    <title>dub Advanced Product Analytics</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
-    <meta name="description" content="Advanced product analytics and user behavioral analysis for dub - Powered by Supabase">
+    <meta name="description" content="Advanced product analytics and user behavioral analysis for dub">
     <meta name="author" content="dub">
     <style>
         body {
@@ -194,7 +194,7 @@
 <body>
     <div class="page-header">
         <h1>dub Advanced Product Analytics</h1>
-        <p>Ingests real-time data from Mixpanel and runs deep analysis to identify the drivers of key app behavior</p>
+        <p>Complete end-to-end workflow: Data Fetch → Merge → Analyze</p>
     </div>
 
     <div class="unified-container">
@@ -205,37 +205,20 @@
         <div id="unifiedResultsContainer"></div>
     </div>
 
-    <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js"></script>
-
-    <!-- Load Original Unified Tool (base class - kept intact) -->
+    <!-- Load dependencies -->
+    <script src="mixpanel_sync.js"></script>
     <script src="unified_tool.js"></script>
 
-    <!-- Load Supabase Version (extends unified_tool.js) -->
-    <script src="unified_tool_supabase.js"></script>
-
     <script>
-        // Supabase Configuration
-        const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
-
-        // Initialize the Supabase-powered unified tool
+        // Initialize the unified tool
         window.onload = function() {
-            // Initialize Supabase Integration with credentials
-            window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-            // Use UnifiedAnalysisToolSupabase instead of UnifiedAnalysisTool
-            const tool = new UnifiedAnalysisToolSupabase();
-
+            const tool = new UnifiedAnalysisTool();
             tool.createUI(
                 document.getElementById('unifiedToolContainer'),
                 document.getElementById('unifiedResultsContainer')
             );
 
-            console.log('✅ Unified Analysis Tool (Supabase) initialized');
+            console.log('✅ Unified Analysis Tool initialized');
         };
     </script>
 </body>
