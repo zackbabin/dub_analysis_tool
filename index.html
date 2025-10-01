@@ -280,10 +280,7 @@
     <!-- Tab Navigation -->
     <div class="tab-navigation">
         <button class="tab-btn active" data-tab="user">User Analysis</button>
-        <button class="tab-btn" data-tab="creator">
-            Creator Analysis
-            <span class="coming-soon-badge">COMING SOON</span>
-        </button>
+        <button class="tab-btn" data-tab="creator">Creator Analysis</button>
     </div>
 
     <!-- User Analysis Tab (ACTIVE - Existing Functionality) -->
@@ -297,14 +294,14 @@
         </div>
     </div>
 
-    <!-- Creator Analysis Tab (PLACEHOLDER - Not Functional Yet) -->
+    <!-- Creator Analysis Tab (NOW ACTIVE) -->
     <div id="creator-analysis-tab" class="tab-pane">
-        <div class="placeholder-message">
-            <h2>🚧 Creator Analysis Tool - Under Construction</h2>
-            <p>This feature is currently being built and will be available soon.</p>
-            <p style="margin-top: 20px; font-size: 12px; color: #adb5bd;">
-                The creator analysis tool will analyze creator performance including copies, subscriptions, and behavioral patterns.
-            </p>
+        <div class="tab-container">
+            <div id="creatorToolContainer"></div>
+        </div>
+
+        <div class="tab-results-container">
+            <div id="creatorResultsContainer"></div>
         </div>
     </div>
 
@@ -320,9 +317,9 @@
     <!-- Load Supabase Version (extends unified_tool.js) -->
     <script src="unified_tool_supabase.js"></script>
 
-    <!-- Creator Analysis Tool Scripts (NOT LOADED YET - Commented Out) -->
-    <!-- <script src="creator_analysis_tool.js"></script> -->
-    <!-- <script src="creator_analysis_tool_supabase.js"></script> -->
+    <!-- Creator Analysis Tool Scripts -->
+    <script src="creator_analysis_tool.js"></script>
+    <script src="creator_analysis_tool_supabase.js"></script>
 
     <script>
         // Supabase Configuration
@@ -354,15 +351,15 @@
             });
         }
 
-        // Initialize the Supabase-powered unified tool (USER ANALYSIS ONLY)
+        // Initialize both User and Creator Analysis tools
         window.onload = function() {
             // Initialize tab switching
             initializeTabs();
 
-            // Initialize Supabase Integration with credentials
+            // Initialize Supabase Integration with credentials (shared by both tools)
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Use UnifiedAnalysisToolSupabase instead of UnifiedAnalysisTool
+            // ===== USER ANALYSIS TOOL (Existing - Unchanged) =====
             const userTool = new UnifiedAnalysisToolSupabase();
 
             userTool.createUI(
@@ -372,8 +369,15 @@
 
             console.log('✅ User Analysis Tool (Supabase) initialized');
 
-            // Creator tool NOT initialized yet - will be added later
-            console.log('⏳ Creator Analysis Tool - Coming Soon');
+            // ===== CREATOR ANALYSIS TOOL (New) =====
+            const creatorTool = new CreatorAnalysisToolSupabase();
+
+            creatorTool.createUI(
+                document.getElementById('creatorToolContainer'),
+                document.getElementById('creatorResultsContainer')
+            );
+
+            console.log('✅ Creator Analysis Tool (Supabase) initialized');
         };
     </script>
 </body>
