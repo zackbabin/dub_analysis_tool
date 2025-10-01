@@ -35,7 +35,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         // Step 1: Trigger Supabase Edge Function
-        this.updateProgress(15, 'Syncing creator data...');
+        this.updateProgress(15, 'Syncing data...');
 
         console.log('Triggering Supabase creator sync...');
         const result = await this.supabaseIntegration.triggerCreatorSync();
