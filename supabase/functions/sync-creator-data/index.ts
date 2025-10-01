@@ -59,6 +59,26 @@ serve(async (req) => {
       secret: mixpanelSecret,
     }
 
+    // Create sync log entry
+    const { data: syncLog, error: syncLogError } = await supabase
+      .from('sync_logs')
+      .insert({
+        tool_type: 'creator',
+        sync_started_at: syncStartTime.toISOString(),
+        sync_status: 'in_progress',
+        source: 'mixpanel',
+        triggered_by: 'manual',
+      })
+      .select()
+      .single()
+
+    if (syncLogError) {
+      console.error('Failed to create sync log:', syncLogError)
+      throw syncLogError
+    }
+
+    console.log(`Created sync log with ID: ${syncLog.id}`)
+
     try {
       // Date range (last 30 days) - for funnels
       const today = new Date()
@@ -128,6 +148,21 @@ serve(async (req) => {
 
       console.log('Creator sync completed successfully')
 
+      // Update sync log with success
+      const syncEndTime = new Date()
+      const durationSeconds = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000)
+
+      await supabase
+        .from('sync_logs')
+        .update({
+          sync_completed_at: syncEndTime.toISOString(),
+          sync_status: 'completed',
+          subscribers_fetched: stats.creatorsFetched,
+          total_records_inserted: stats.totalRecordsInserted,
+          duration_seconds: durationSeconds,
+        })
+        .eq('id', syncLog.id)
+
       return new Response(
         JSON.stringify({
           success: true,
@@ -141,6 +176,17 @@ serve(async (req) => {
       )
     } catch (error) {
       console.error('Error during creator sync:', error)
+
+      // Update sync log with failure
+      await supabase
+        .from('sync_logs')
+        .update({
+          sync_completed_at: new Date().toISOString(),
+          sync_status: 'failed',
+          error_message: error.message,
+        })
+        .eq('id', syncLog.id)
+
       throw error
     }
   } catch (error) {

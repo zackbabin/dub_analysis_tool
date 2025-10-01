@@ -61,6 +61,7 @@ serve(async (req) => {
     const { data: syncLog, error: syncLogError } = await supabase
       .from('sync_logs')
       .insert({
+        tool_type: 'user',
         sync_started_at: syncStartTime.toISOString(),
         sync_status: 'in_progress',
         source: 'mixpanel',
