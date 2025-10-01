@@ -601,7 +601,7 @@ class UnifiedAnalysisTool {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/vnd.github+json',
-                    'Authorization': `Bearer ${githubToken}`,
+                    'Authorization': 'Bearer ' + githubToken,
                     'X-GitHub-Api-Version': '2022-11-28'
                 },
                 body: JSON.stringify({ ref: 'main' })
@@ -642,7 +642,7 @@ class UnifiedAnalysisTool {
                 {
                     headers: {
                         'Accept': 'application/vnd.github+json',
-                        'Authorization': `Bearer ${githubToken}`,
+                        'Authorization': 'Bearer ' + githubToken,
                         'X-GitHub-Api-Version': '2022-11-28'
                     }
                 }
