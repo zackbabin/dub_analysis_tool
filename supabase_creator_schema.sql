@@ -290,10 +290,10 @@ CREATE OR REPLACE VIEW top_creators_by_copies AS
 SELECT
     creator_id,
     creator_username,
+    creator_type,
     total_copies,
-    total_portfolios_created,
-    avg_copies_per_portfolio,
-    overall_copy_conversion_rate
+    total_profile_views,
+    total_pdp_views
 FROM creator_analysis
 ORDER BY total_copies DESC
 LIMIT 50;
@@ -303,9 +303,10 @@ CREATE OR REPLACE VIEW top_creators_by_subscriptions AS
 SELECT
     creator_id,
     creator_username,
+    creator_type,
     total_subscriptions,
     total_profile_views,
-    overall_subscription_conversion_rate
+    total_subscription_revenue
 FROM creator_analysis
 ORDER BY total_subscriptions DESC
 LIMIT 50;
@@ -314,15 +315,13 @@ LIMIT 50;
 -- Comments for documentation
 -- ============================================================================
 
-COMMENT ON TABLE creators_insights IS 'Creator profile data with engagement metrics from Mixpanel';
-COMMENT ON TABLE creator_portfolios IS 'Portfolio-level data tracking copies and views per creator';
-COMMENT ON TABLE creator_profile_conversions IS 'Creator profile view to subscription conversion funnel';
-COMMENT ON MATERIALIZED VIEW creator_analysis IS 'Pre-computed view joining all creator data for analysis';
+COMMENT ON TABLE creators_insights IS 'Creator profile data with all 11 metrics from Insights by Creators chart in Mixpanel';
+COMMENT ON MATERIALIZED VIEW creator_analysis IS 'Pre-computed view of latest creator data for analysis';
 
 COMMENT ON COLUMN creators_insights.creator_id IS 'Mixpanel creator_id, primary creator identifier';
-COMMENT ON COLUMN creator_portfolios.conversion_rate IS 'Calculated conversion rate: (copies / pdp_views) * 100';
-COMMENT ON COLUMN creator_analysis.total_copies IS 'Sum of all copies across all portfolios for this creator';
-COMMENT ON COLUMN creator_analysis.total_portfolios_created IS 'Number of distinct portfolios created by this creator';
+COMMENT ON COLUMN creators_insights.creator_type IS 'Creator type: Premium if any Premium activity, otherwise Regular';
+COMMENT ON COLUMN creator_analysis.total_copies IS 'Total copies from metric I in Insights by Creators';
+COMMENT ON COLUMN creator_analysis.total_subscriptions IS 'Total subscriptions from metric E in Insights by Creators';
 
 -- ============================================================================
 -- Grant permissions
@@ -331,13 +330,9 @@ COMMENT ON COLUMN creator_analysis.total_portfolios_created IS 'Number of distin
 -- Grant usage to authenticated users
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT SELECT ON creators_insights TO authenticated;
-GRANT SELECT ON creator_portfolios TO authenticated;
-GRANT SELECT ON creator_profile_conversions TO authenticated;
 
 -- Grant full access to service role
 GRANT ALL ON creators_insights TO service_role;
-GRANT ALL ON creator_portfolios TO service_role;
-GRANT ALL ON creator_profile_conversions TO service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
 -- ============================================================================
