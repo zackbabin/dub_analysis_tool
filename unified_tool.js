@@ -187,7 +187,7 @@ class UnifiedAnalysisTool {
         tokenDisplay.style.cssText = 'display: flex; align-items: center; gap: 10px;';
 
         const tokenText = document.createElement('code');
-        tokenText.textContent = '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';
+        tokenText.textContent = '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';
         tokenText.style.cssText = 'flex: 1; padding: 8px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-size: 12px; word-break: break-all;';
         tokenDisplay.appendChild(tokenText);
 
@@ -196,7 +196,7 @@ class UnifiedAnalysisTool {
         copyBtn.className = 'qda-btn';
         copyBtn.style.cssText = 'background: #007bff; padding: 8px 15px; font-size: 12px;';
         copyBtn.onclick = () => {
-            navigator.clipboard.writeText('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').then(() => {
+            navigator.clipboard.writeText('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').then(() => {
                 copyBtn.textContent = '✅ Copied!';
                 setTimeout(() => {
                     copyBtn.textContent = '📋 Copy';
