@@ -17,6 +17,8 @@ const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 // Mixpanel Chart IDs
 const CHART_IDS = {
   creatorInsights: '85130412',      // Insights: All 11 metrics from Insights by Creators chart
+  portfolioCopies: '85154534',      // Portfolio Copies by Creator (for Breakdown section)
+  subscriptionPricing: '85154450',  // Subscriptions by Price (for Breakdown section)
 }
 
 interface MixpanelCredentials {
@@ -90,14 +92,14 @@ serve(async (req) => {
 
       console.log(`Fetching data from ${fromDate} to ${toDate}`)
 
-      // Fetch creator insights data (all 11 metrics)
-      const creatorInsightsData = await fetchInsightsData(
-        credentials,
-        CHART_IDS.creatorInsights,
-        'Creator Insights'
-      )
+      // Fetch all charts in parallel
+      const [creatorInsightsData, portfolioCopiesData, subscriptionPricingData] = await Promise.all([
+        fetchInsightsData(credentials, CHART_IDS.creatorInsights, 'Creator Insights'),
+        fetchInsightsData(credentials, CHART_IDS.portfolioCopies, 'Portfolio Copies'),
+        fetchInsightsData(credentials, CHART_IDS.subscriptionPricing, 'Subscription Pricing'),
+      ])
 
-      console.log('Creator insights data fetched successfully')
+      console.log('All chart data fetched successfully')
 
       // Process and insert data into database
       const stats: CreatorSyncStats = {
@@ -135,6 +137,70 @@ serve(async (req) => {
         }
 
         stats.creatorsFetched = totalProcessed
+        stats.totalRecordsInserted += totalProcessed
+      }
+
+      // Process and insert breakdown data (Portfolio Copies)
+      const portfolioRows = processPortfolioCopiesData(portfolioCopiesData, creatorRows)
+      console.log(`Processed ${portfolioRows.length} portfolio copy rows, inserting...`)
+
+      if (portfolioRows.length > 0) {
+        const batchSize = 500
+        let totalProcessed = 0
+
+        for (let i = 0; i < portfolioRows.length; i += batchSize) {
+          const batch = portfolioRows.slice(i, i + batchSize)
+
+          if (batch.length > 0) {
+            const { error: insertError } = await supabase
+              .from('creator_portfolio_copies')
+              .upsert(batch, {
+                onConflict: 'creator_id,portfolio_ticker,synced_at',
+                ignoreDuplicates: false,
+              })
+
+            if (insertError) {
+              console.error('Error upserting portfolio copies batch:', insertError)
+              throw insertError
+            }
+
+            totalProcessed += batch.length
+            console.log(`Upserted portfolio copies batch: ${totalProcessed}/${portfolioRows.length} records`)
+          }
+        }
+
+        stats.totalRecordsInserted += totalProcessed
+      }
+
+      // Process and insert breakdown data (Subscription Pricing)
+      const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData, creatorRows)
+      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
+
+      if (subscriptionRows.length > 0) {
+        const batchSize = 500
+        let totalProcessed = 0
+
+        for (let i = 0; i < subscriptionRows.length; i += batchSize) {
+          const batch = subscriptionRows.slice(i, i + batchSize)
+
+          if (batch.length > 0) {
+            const { error: insertError } = await supabase
+              .from('creator_subscriptions_by_price')
+              .upsert(batch, {
+                onConflict: 'creator_id,subscription_price,subscription_interval,synced_at',
+                ignoreDuplicates: false,
+              })
+
+            if (insertError) {
+              console.error('Error upserting subscriptions batch:', insertError)
+              throw insertError
+            }
+
+            totalProcessed += batch.length
+            console.log(`Upserted subscriptions batch: ${totalProcessed}/${subscriptionRows.length} records`)
+          }
+        }
+
         stats.totalRecordsInserted += totalProcessed
       }
 
@@ -407,5 +473,156 @@ function processCreatorInsightsData(data: any): any[] {
   })
 
   console.log(`Processed ${rows.length} creator insights rows`)
+  return rows
+}
+
+function processPortfolioCopiesData(data: any, creatorRows: any[]): any[] {
+  if (!data || !data.series) {
+    console.log('No portfolio copies data')
+    return []
+  }
+
+  const rows: any[] = []
+  const syncedAt = new Date().toISOString()
+
+  console.log('Portfolio copies data structure:', {
+    hasHeaders: !!data.headers,
+    headers: data.headers,
+    metricsCount: Object.keys(data.series || {}).length,
+  })
+
+  // Create a map of creator metrics for lookup
+  const creatorMetricsMap = new Map<string, any>()
+  creatorRows.forEach(creator => {
+    creatorMetricsMap.set(String(creator.creator_id), {
+      total_copies: creator.total_copies || 0,
+      total_pdp_views: creator.total_pdp_views || 0,
+      total_profile_views: creator.total_profile_views || 0,
+    })
+  })
+
+  // Structure: series -> "Total Events of Copied Portfolio" -> creatorId -> creatorUsername -> portfolioTicker -> count
+  const metric = data.series['Total Events of Copied Portfolio']
+
+  if (!metric) {
+    console.log('No "Total Events of Copied Portfolio" metric found')
+    return []
+  }
+
+  Object.keys(metric).forEach(creatorId => {
+    if (creatorId === '$overall') return
+
+    const creatorData = metric[creatorId]
+    const metrics = creatorMetricsMap.get(String(creatorId)) || {
+      total_copies: 0,
+      total_pdp_views: 0,
+      total_profile_views: 0,
+    }
+
+    Object.keys(creatorData).forEach(username => {
+      if (username === '$overall') return
+
+      const usernameData = creatorData[username]
+
+      Object.keys(usernameData).forEach(portfolioTicker => {
+        if (portfolioTicker === '$overall') return
+
+        const portfolioData = usernameData[portfolioTicker]
+        const count = portfolioData?.all || 0
+
+        if (count > 0) {
+          rows.push({
+            creator_id: String(creatorId),
+            creator_username: username,
+            portfolio_ticker: portfolioTicker,
+            copy_count: count,
+            total_copies: metrics.total_copies,
+            total_pdp_views: metrics.total_pdp_views,
+            total_profile_views: metrics.total_profile_views,
+            synced_at: syncedAt,
+          })
+        }
+      })
+    })
+  })
+
+  console.log(`Processed ${rows.length} portfolio copy rows`)
+  return rows
+}
+
+function processSubscriptionPricingData(data: any, creatorRows: any[]): any[] {
+  if (!data || !data.series) {
+    console.log('No subscription pricing data')
+    return []
+  }
+
+  const rows: any[] = []
+  const syncedAt = new Date().toISOString()
+
+  console.log('Subscription pricing data structure:', {
+    hasHeaders: !!data.headers,
+    headers: data.headers,
+    metricsCount: Object.keys(data.series || {}).length,
+  })
+
+  // Create a map of creator metrics for lookup
+  const creatorMetricsMap = new Map<string, any>()
+  creatorRows.forEach(creator => {
+    creatorMetricsMap.set(String(creator.creator_id), {
+      total_subscriptions: creator.total_subscriptions || 0,
+      total_paywall_views: creator.total_paywall_views || 0,
+      total_profile_views: creator.total_profile_views || 0,
+      total_stripe_views: creator.total_stripe_views || 0,
+    })
+  })
+
+  // Structure: series -> "Total Events of Subscribed to Creator" -> creatorId -> price -> interval -> count
+  const metric = data.series['Total Events of Subscribed to Creator']
+
+  if (!metric) {
+    console.log('No "Total Events of Subscribed to Creator" metric found')
+    return []
+  }
+
+  Object.keys(metric).forEach(creatorId => {
+    if (creatorId === '$overall') return
+
+    const creatorData = metric[creatorId]
+    const metrics = creatorMetricsMap.get(String(creatorId)) || {
+      total_subscriptions: 0,
+      total_paywall_views: 0,
+      total_profile_views: 0,
+      total_stripe_views: 0,
+    }
+
+    Object.keys(creatorData).forEach(price => {
+      if (price === '$overall') return
+
+      const priceData = creatorData[price]
+
+      Object.keys(priceData).forEach(interval => {
+        if (interval === '$overall') return
+
+        const intervalData = priceData[interval]
+        const count = intervalData?.all || 0
+
+        if (count > 0) {
+          rows.push({
+            creator_id: String(creatorId),
+            subscription_price: parseFloat(price),
+            subscription_interval: interval,
+            subscription_count: count,
+            total_subscriptions: metrics.total_subscriptions,
+            total_paywall_views: metrics.total_paywall_views,
+            total_profile_views: metrics.total_profile_views,
+            total_stripe_views: metrics.total_stripe_views,
+            synced_at: syncedAt,
+          })
+        }
+      })
+    })
+  })
+
+  console.log(`Processed ${rows.length} subscription pricing rows`)
   return rows
 }

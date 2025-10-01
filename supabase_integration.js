@@ -381,8 +381,9 @@ class SupabaseIntegration {
     async getLatestCreatorSyncStatus() {
         try {
             const { data, error } = await this.supabase
-                .from('latest_creator_sync_status')
+                .from('latest_sync_status')
                 .select('*')
+                .eq('tool_type', 'creator')
                 .single();
 
             if (error) {
@@ -394,6 +395,80 @@ class SupabaseIntegration {
         } catch (error) {
             console.error('Error getting creator sync status:', error);
             return null;
+        }
+    }
+
+    /**
+     * Load subscription price distribution data
+     * Returns data grouped by normalized monthly price
+     */
+    async loadSubscriptionDistribution() {
+        console.log('Loading subscription price distribution...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('latest_subscription_distribution')
+                .select('*')
+                .order('monthly_price_rounded');
+
+            if (error) {
+                console.error('Error loading subscription distribution:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} price points`);
+            return data;
+        } catch (error) {
+            console.error('Error loading subscription distribution:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load top 10 creators by portfolio copies
+     */
+    async loadTopCreatorsByPortfolioCopies() {
+        console.log('Loading top creators by portfolio copies...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('top_creators_by_portfolio_copies')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading top creators:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} top creators`);
+            return data;
+        } catch (error) {
+            console.error('Error loading top creators:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load top 10 portfolios by copies
+     */
+    async loadTopPortfoliosByCopies() {
+        console.log('Loading top portfolios by copies...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('top_portfolios_by_copies')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading top portfolios:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} top portfolios`);
+            return data;
+        } catch (error) {
+            console.error('Error loading top portfolios:', error);
+            throw error;
         }
     }
 
