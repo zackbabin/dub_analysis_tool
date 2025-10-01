@@ -501,7 +501,7 @@ class UnifiedAnalysisTool {
         let githubToken = localStorage.getItem('github_pat');
 
         if (!githubToken) {
-            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):\n\nDefault token: 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');
+            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):', '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');
             if (!githubToken) {
                 throw new Error('GitHub token is required');
             }
