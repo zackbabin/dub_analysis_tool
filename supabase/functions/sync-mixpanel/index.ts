@@ -85,7 +85,7 @@ serve(async (req) => {
       const toDate = today.toISOString().split('T')[0]
       const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
 
-      console.log(`Fetching data from ${fromDate} to ${toDate}`)
+      console.log(\`Fetching data from \${fromDate} to \${toDate}\`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
@@ -128,12 +128,12 @@ serve(async (req) => {
         totalRecordsInserted: 0,
       }
 
-      const currentSyncTime = new Date().toISOString()
-
       // Process subscribers insights
       const subscribersRows = processInsightsData(subscribersData)
+      console.log(\`Processed \${subscribersRows.length} subscriber rows\`)
+      
       if (subscribersRows.length > 0) {
-        // Use upsert to handle duplicates (insert or update based on unique constraint)
+        // Use upsert to handle duplicates
         const { error: insertError } = await supabase
           .from('subscribers_insights')
           .upsert(subscribersRows, {
@@ -148,7 +148,7 @@ serve(async (req) => {
 
         stats.subscribersFetched = subscribersRows.length
         stats.totalRecordsInserted += subscribersRows.length
-        console.log(`Upserted ${subscribersRows.length} subscriber records`)
+        console.log(\`Upserted \${subscribersRows.length} subscriber records\`)
       }
 
       // Process time funnels
@@ -174,7 +174,7 @@ serve(async (req) => {
 
         stats.timeFunnelsFetched = timeFunnelRows.length
         stats.totalRecordsInserted += timeFunnelRows.length
-        console.log(`Upserted ${timeFunnelRows.length} time funnel records`)
+        console.log(\`Upserted \${timeFunnelRows.length} time funnel records\`)
       }
 
       // Refresh materialized view
@@ -250,18 +250,18 @@ async function fetchInsightsData(
   chartId: string,
   name: string
 ) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
+  console.log(\`Fetching \${name} insights data (ID: \${chartId})...\`)
 
   const params = new URLSearchParams({
     project_id: PROJECT_ID,
     bookmark_id: chartId,
-    limit: '100000',
+    limit: '50000',
   })
 
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
+  const authString = \`\${credentials.username}:\${credentials.secret}\`
+  const authHeader = \`Basic \${btoa(authString)}\`
 
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
+  const response = await fetch(\`\${MIXPANEL_API_BASE}/query/insights?\${params}\`, {
     method: 'GET',
     headers: {
       Authorization: authHeader,
@@ -271,11 +271,11 @@ async function fetchInsightsData(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+    throw new Error(\`Mixpanel API error (\${response.status}): \${errorText}\`)
   }
 
   const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
+  console.log(\`✓ \${name} fetch successful\`)
   return data
 }
 
@@ -286,7 +286,7 @@ async function fetchFunnelData(
   fromDate: string,
   toDate: string
 ) {
-  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
+  console.log(\`Fetching \${name} funnel data (ID: \${funnelId})...\`)
 
   const params = new URLSearchParams({
     project_id: PROJECT_ID,
@@ -295,10 +295,10 @@ async function fetchFunnelData(
     to_date: toDate,
   })
 
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
+  const authString = \`\${credentials.username}:\${credentials.secret}\`
+  const authHeader = \`Basic \${btoa(authString)}\`
 
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
+  const response = await fetch(\`\${MIXPANEL_API_BASE}/query/funnels?\${params}\`, {
     method: 'GET',
     headers: {
       Authorization: authHeader,
@@ -308,11 +308,11 @@ async function fetchFunnelData(
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+    throw new Error(\`Mixpanel API error (\${response.status}): \${errorText}\`)
   }
 
   const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
+  console.log(\`✓ \${name} fetch successful\`)
   return data
 }
 
@@ -321,16 +321,120 @@ async function fetchFunnelData(
 // ============================================================================
 
 function processInsightsData(data: any): any[] {
-  if (!data || !data.headers || !data.series) {
-    console.log('No valid insights data to process')
+  if (!data) {
+    console.log('No insights data')
     return []
   }
 
   const rows: any[] = []
 
-  // Handle Query API tabular format
-  if (Array.isArray(data.headers) && Array.isArray(data.series)) {
-    console.log(`Processing ${data.series.length} subscriber rows`)
+  // Check if we have headers
+  if (!data.headers) {
+    console.log('No headers found in Insights data')
+    return []
+  }
+
+  console.log('Insights data structure:', {
+    hasHeaders: !!data.headers,
+    headersCount: data.headers?.length,
+    seriesType: Array.isArray(data.series) ? 'array' : typeof data.series,
+  })
+
+  // Handle Query API nested object format (PRIORITY CHECK - This is what Mixpanel returns!)
+  if (data.headers && data.series && typeof data.series === 'object' && !Array.isArray(data.series)) {
+    console.log('Processing Query API nested object format for user profiles')
+    console.log(\`Headers (\${data.headers.length})\`)
+    console.log(\`Series metrics (\${Object.keys(data.series).length})\`)
+
+    const userDataMap = new Map()
+    const propertyHeaders = data.headers.slice(2)
+    const metricNames = Object.keys(data.series)
+
+    function extractUserDataRecursive(obj: any, pathValues: any[] = [], currentUserId: any = null, currentMetric: any = null, depth: number = 0) {
+      if (depth > 30) return
+
+      if (obj && typeof obj === 'object') {
+        Object.entries(obj).forEach(([key, value]) => {
+          if (key === '$overall') {
+            if (typeof value === 'object') {
+              extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+            }
+            return
+          }
+
+          if (key === 'all' && typeof value === 'number' && currentUserId && currentMetric) {
+            const userData = userDataMap.get(currentUserId)
+            if (userData) {
+              userData[currentMetric] = value
+            }
+            return
+          }
+
+          const isUserId = !currentUserId && key !== '$overall' && key !== 'all'
+
+          if (isUserId) {
+            if (!userDataMap.has(key)) {
+              userDataMap.set(key, { '$distinct_id': key })
+            }
+
+            if (typeof value === 'object') {
+              extractUserDataRecursive(value, pathValues, key, currentMetric, depth + 1)
+            } else if (typeof value === 'number' && currentMetric) {
+              userDataMap.get(key)[currentMetric] = value
+            }
+          } else if (currentUserId) {
+            const actualKey = key === '$non_numeric_values' ? null : key
+            const newPath = actualKey !== null ? [...pathValues, actualKey] : pathValues
+
+            const userData = userDataMap.get(currentUserId)
+            if (userData && actualKey !== null) {
+              newPath.forEach((val, idx) => {
+                if (idx < propertyHeaders.length) {
+                  const propName = propertyHeaders[idx]
+                  if (propName && !userData[propName]) {
+                    userData[propName] = val
+                  }
+                }
+              })
+            }
+
+            if (typeof value === 'object') {
+              extractUserDataRecursive(value, newPath, currentUserId, currentMetric, depth + 1)
+            }
+          } else {
+            if (typeof value === 'object') {
+              extractUserDataRecursive(value, pathValues, currentUserId, currentMetric, depth + 1)
+            }
+          }
+        })
+      }
+    }
+
+    console.log(\`Processing \${metricNames.length} metrics...\`)
+    metricNames.forEach((metricName, idx) => {
+      if (idx < 3) console.log(\`  Processing metric: \${metricName}\`)
+      extractUserDataRecursive(data.series[metricName], [], null, metricName, 0)
+    })
+
+    console.log(\`Extracted \${userDataMap.size} user profiles from nested structure\`)
+
+    const allColumns = new Set(['$distinct_id'])
+    propertyHeaders.forEach((h: string) => allColumns.add(h))
+    metricNames.forEach((m: string) => allColumns.add(m))
+
+    userDataMap.forEach((userData) => {
+      metricNames.forEach(metricName => {
+        if (!(metricName in userData)) {
+          userData[metricName] = undefined
+        }
+      })
+      rows.push(userData)
+    })
+  }
+  // Handle Query API tabular format (fallback)
+  else if (Array.isArray(data.headers) && Array.isArray(data.series)) {
+    console.log('Processing Query API tabular format')
+    console.log(\`Processing \${data.series.length} subscriber rows\`)
 
     const distinctIdIndex = data.headers.indexOf('$distinct_id')
     if (distinctIdIndex === -1) {
@@ -342,73 +446,67 @@ function processInsightsData(data: any): any[] {
       if (!Array.isArray(rowData)) return
 
       const row: any = {}
-
-      // Map headers to values
       data.headers.forEach((header: string, idx: number) => {
         if (idx < rowData.length) {
           row[header] = rowData[idx]
         }
       })
 
-      // Convert to database column format
-      const dbRow = {
-        distinct_id: row['$distinct_id'] || row['distinct_id'],
-        income: row['income'] || null,
-        net_worth: row['netWorth'] || null,
-        investing_activity: row['investingActivity'] || null,
-        investing_experience_years: row['investingExperienceYears'] || null,
-        investing_objective: row['investingObjective'] || null,
-        investment_type: row['investmentType'] || null,
-        acquisition_survey: row['acquisitionSurvey'] || null,
-        linked_bank_account: row['A. Linked Bank Account'] === 1 || row['A. Linked Bank Account'] === '1',
-        available_copy_credits: parseFloat(row['availableCopyCredits'] || 0),
-        buying_power: parseFloat(row['buyingPower'] || 0),
-        total_deposits: parseFloat(row['B. Total Deposits ($)'] || 0),
-        total_deposit_count: parseInt(row['C. Total Deposit Count'] || 0),
-        total_withdrawals: parseFloat(row['totalWithdrawals'] || 0),
-        total_withdrawal_count: parseInt(row['totalWithdrawalCount'] || 0),
-        active_created_portfolios: parseInt(row['activeCreatedPortfolios'] || 0),
-        lifetime_created_portfolios: parseInt(row['lifetimeCreatedPortfolios'] || 0),
-        total_copies: parseInt(row['E. Total Copies'] || 0),
-        total_regular_copies: parseInt(row['F. Total Regular Copies'] || 0),
-        total_premium_copies: parseInt(row['G. Total Premium Copies'] || 0),
-        regular_pdp_views: parseInt(row['H. Regular PDP Views'] || 0),
-        premium_pdp_views: parseInt(row['I. Premium PDP Views'] || 0),
-        paywall_views: parseInt(row['J. Paywall Views'] || 0),
-        regular_creator_profile_views: parseInt(row['K. Regular Creator Profile Views'] || 0),
-        premium_creator_profile_views: parseInt(row['L. Premium Creator Profile Views'] || 0),
-        stripe_modal_views: parseInt(row['R. Stripe Modal Views'] || 0),
-        app_sessions: parseInt(row['N. App Sessions'] || 0),
-        discover_tab_views: parseInt(row['O. Discover Tab Views'] || 0),
-        leaderboard_tab_views: parseInt(row['P. Leaderboard Tab Views'] || 0),
-        premium_tab_views: parseInt(row['Q. Premium Tab Views'] || 0),
-        creator_card_taps: parseInt(row['S. Creator Card Taps'] || 0),
-        portfolio_card_taps: parseInt(row['T. Portfolio Card Taps'] || 0),
-        total_subscriptions: parseInt(row['M. Total Subscriptions'] || 0),
-        subscribed_within_7_days: row['D. Subscribed within 7 days'] === 1 || row['D. Subscribed within 7 days'] === '1',
-      }
-
-      if (dbRow.distinct_id) {
-        rows.push(dbRow)
-      }
+      rows.push(row)
     })
   }
 
-  console.log(`Processed ${rows.length} subscriber records`)
-  return rows
+  console.log(\`Processed \${rows.length} insights rows, converting to DB format...\`)
+
+  // Convert to database format
+  return rows.map(row => ({
+    distinct_id: row['$distinct_id'] || row['distinct_id'],
+    income: row['income'] || null,
+    net_worth: row['netWorth'] || null,
+    investing_activity: row['investingActivity'] || null,
+    investing_experience_years: row['investingExperienceYears'] || null,
+    investing_objective: row['investingObjective'] || null,
+    investment_type: row['investmentType'] || null,
+    acquisition_survey: row['acquisitionSurvey'] || null,
+    linked_bank_account: row['A. Linked Bank Account'] === 1 || row['A. Linked Bank Account'] === '1',
+    available_copy_credits: parseFloat(row['availableCopyCredits'] || 0),
+    buying_power: parseFloat(row['buyingPower'] || 0),
+    total_deposits: parseFloat(row['B. Total Deposits ($)'] || 0),
+    total_deposit_count: parseInt(row['C. Total Deposit Count'] || 0),
+    total_withdrawals: parseFloat(row['totalWithdrawals'] || 0),
+    total_withdrawal_count: parseInt(row['totalWithdrawalCount'] || 0),
+    active_created_portfolios: parseInt(row['activeCreatedPortfolios'] || 0),
+    lifetime_created_portfolios: parseInt(row['lifetimeCreatedPortfolios'] || 0),
+    total_copies: parseInt(row['E. Total Copies'] || 0),
+    total_regular_copies: parseInt(row['F. Total Regular Copies'] || 0),
+    total_premium_copies: parseInt(row['G. Total Premium Copies'] || 0),
+    regular_pdp_views: parseInt(row['H. Regular PDP Views'] || 0),
+    premium_pdp_views: parseInt(row['I. Premium PDP Views'] || 0),
+    paywall_views: parseInt(row['J. Paywall Views'] || 0),
+    regular_creator_profile_views: parseInt(row['K. Regular Creator Profile Views'] || 0),
+    premium_creator_profile_views: parseInt(row['L. Premium Creator Profile Views'] || 0),
+    stripe_modal_views: parseInt(row['R. Stripe Modal Views'] || 0),
+    app_sessions: parseInt(row['N. App Sessions'] || 0),
+    discover_tab_views: parseInt(row['O. Discover Tab Views'] || 0),
+    leaderboard_tab_views: parseInt(row['P. Leaderboard Tab Views'] || 0),
+    premium_tab_views: parseInt(row['Q. Premium Tab Views'] || 0),
+    creator_card_taps: parseInt(row['S. Creator Card Taps'] || 0),
+    portfolio_card_taps: parseInt(row['T. Portfolio Card Taps'] || 0),
+    total_subscriptions: parseInt(row['M. Total Subscriptions'] || 0),
+    subscribed_within_7_days: row['D. Subscribed within 7 days'] === 1 || row['D. Subscribed within 7 days'] === '1',
+  })).filter(row => row.distinct_id)
 }
 
 function processFunnelData(data: any, funnelType: string): any[] {
   if (!data || !data.headers || !data.series) {
-    console.log(`No valid funnel data for ${funnelType}`)
+    console.log(\`No valid funnel data for \${funnelType}\`)
     return []
   }
 
   const rows: any[] = []
 
-  // Handle Query API tabular format
   if (Array.isArray(data.headers) && Array.isArray(data.series)) {
-    console.log(`Processing ${data.series.length} ${funnelType} rows`)
+    console.log(\`Processing \${data.series.length} \${funnelType} rows\`)
 
     const distinctIdIndex = data.headers.indexOf('$distinct_id')
     if (distinctIdIndex === -1) {
@@ -416,7 +514,6 @@ function processFunnelData(data: any, funnelType: string): any[] {
       return []
     }
 
-    // Find the time column (usually the 3rd column)
     const timeColumnIndex = data.headers.length > 2 ? 2 : -1
 
     data.series.forEach((rowData: any[]) => {
@@ -430,12 +527,12 @@ function processFunnelData(data: any, funnelType: string): any[] {
           distinct_id: distinctId,
           funnel_type: funnelType,
           time_in_seconds: timeInSeconds,
-          time_in_days: timeInSeconds / 86400, // Convert seconds to days
+          time_in_days: timeInSeconds / 86400,
         })
       }
     })
   }
 
-  console.log(`Processed ${rows.length} ${funnelType} records`)
+  console.log(\`Processed \${rows.length} \${funnelType} records\`)
   return rows
 }
