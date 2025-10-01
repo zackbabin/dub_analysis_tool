@@ -498,14 +498,21 @@ class UnifiedAnalysisTool {
      * Helper: Trigger GitHub workflow
      */
     async triggerGitHubWorkflow() {
-        // Use token from config file (no user interaction needed)
-        const githubToken = window.GITHUB_CONFIG?.token;
+        let githubToken = localStorage.getItem('github_pat');
+
         if (!githubToken) {
-            throw new Error('GitHub configuration not loaded');
+            githubToken = prompt('Enter your GitHub Personal Access Token (with "workflow" scope):', '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');
+            if (!githubToken) {
+                throw new Error('GitHub token is required');
+            }
+
+            if (confirm('Save this token for future use?')) {
+                localStorage.setItem('github_pat', githubToken);
+            }
         }
 
-        const owner = window.GITHUB_CONFIG.owner;
-        const repo = window.GITHUB_CONFIG.repo;
+        const owner = 'zackbabin';
+        const repo = 'dub_analysis_tool';
         const workflow_id = 'mixpanel-sync.yml';
 
         const response = await fetch(
@@ -536,7 +543,7 @@ class UnifiedAnalysisTool {
      * Helper: Wait for workflow completion with simple polling
      */
     async waitForWorkflowCompletion() {
-        const githubToken = window.GITHUB_CONFIG?.token;
+        const githubToken = localStorage.getItem('github_pat');
         if (!githubToken) return false;
 
         const owner = 'zackbabin';
