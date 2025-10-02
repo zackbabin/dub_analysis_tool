@@ -17,6 +17,7 @@ interface PortfolioCreatorPair {
   creator_id: string
   creator_username: string | null
   pdp_view_count: number
+  profile_view_count: number
   did_subscribe: boolean
   synced_at: string
 }
@@ -65,8 +66,10 @@ function processPortfolioCreatorPairs(
 ): PortfolioCreatorPair[] {
   const pairs: PortfolioCreatorPair[] = []
 
-  // Build creator ID to username mapping from profile views
+  // Build creator ID to username mapping and profile view counts
   const creatorIdToUsername = new Map<string, string>()
+  // Map: distinctId -> creatorId -> profile_view_count
+  const profileViewCounts = new Map<string, Map<string, number>>()
 
   const profileMetric = profileViewsData?.series?.['Total Profile Views']
   if (profileMetric) {
@@ -78,10 +81,24 @@ function processPortfolioCreatorPairs(
       Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
         if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
 
-        Object.keys(usernameData).forEach((username: string) => {
+        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
           if (username && username !== '$overall' && username !== 'undefined') {
+            // Store username mapping
             if (!creatorIdToUsername.has(creatorId)) {
               creatorIdToUsername.set(creatorId, username)
+            }
+
+            // Store profile view count
+            const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+              ? parseInt(String((viewCount as any).all))
+              : parseInt(String(viewCount)) || 0
+
+            if (count > 0) {
+              if (!profileViewCounts.has(distinctId)) {
+                profileViewCounts.set(distinctId, new Map())
+              }
+              const userCounts = profileViewCounts.get(distinctId)!
+              userCounts.set(creatorId, (userCounts.get(creatorId) || 0) + count)
             }
           }
         })
@@ -123,6 +140,9 @@ function processPortfolioCreatorPairs(
             : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
 
+          // Get profile view count for this user-creator pair
+          const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
+
           if (count > 0) {
             pairs.push({
               distinct_id: distinctId,
@@ -130,6 +150,7 @@ function processPortfolioCreatorPairs(
               creator_id: creatorId,
               creator_username: creatorUsername,
               pdp_view_count: count,
+              profile_view_count: profileViewCount,
               did_subscribe: didSubscribe,
               synced_at: syncedAt,
             })

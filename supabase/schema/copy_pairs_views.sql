@@ -93,7 +93,7 @@ SELECT
   portfolio_ticker,
   creator_id,
   creator_username,
-  SUM(pdp_view_count) as total_views,
+  SUM(pdp_view_count + profile_view_count) as total_views,
   COUNT(DISTINCT distinct_id) as unique_viewers,
   SUM(CASE WHEN did_copy THEN 1 ELSE 0 END) as copiers,
   ROUND(
