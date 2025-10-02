@@ -1,9 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const MIXPANEL_PROJECT_ID = Deno.env.get('MIXPANEL_PROJECT_ID') || ''
-const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_USERNAME') || ''
-const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_PASSWORD') || ''
+const MIXPANEL_PROJECT_ID = '2599235'
+const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
+const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
 
 const CHART_IDS = {
   profileViewsByCreator: '85165590',

@@ -38,7 +38,22 @@ class SupabaseIntegration {
 
             if (error) {
                 console.error('Edge Function error:', error);
-                throw new Error(`Sync failed: ${error.message}`);
+                console.error('Error details:', {
+                    message: error.message,
+                    context: error.context,
+                    name: error.name
+                });
+
+                // Provide more specific error messages
+                if (error.message?.includes('Failed to send')) {
+                    throw new Error(`Sync failed: Edge Function 'sync-mixpanel' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel`);
+                }
+
+                throw new Error(`Sync failed: ${error.message || JSON.stringify(error)}`);
+            }
+
+            if (!data) {
+                throw new Error('Sync failed: Edge Function returned no data');
             }
 
             if (!data.success) {
