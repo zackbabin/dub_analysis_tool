@@ -122,7 +122,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      */
     createSubscriptionDistributionChart(data, containerId) {
         const categories = data.map(d => `$${parseFloat(d.monthly_price).toFixed(2)}`);
-        const values = data.map(d => parseInt(d.total_subscriptions));
+        const subscriptions = data.map(d => parseInt(d.total_subscriptions));
         const paywallViews = data.map(d => parseInt(d.total_paywall_views || 0));
         const usernames = data.map(d => d.creator_usernames || []);
 
@@ -134,7 +134,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 title: { text: 'Monthly Subscription Price' }
             },
             yAxis: {
-                title: { text: 'Total Subscriptions' },
+                title: { text: 'Count' },
                 min: 0
             },
             tooltip: {
@@ -145,8 +145,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     const topCreators = creators.slice(0, 10);
 
                     let tooltip = `<b>${this.x}</b><br/>`;
-                    tooltip += `Subscriptions: ${this.y.toLocaleString()}<br/>`;
-                    tooltip += `Paywall Views: ${paywallViews[index].toLocaleString()}<br/>`;
+                    tooltip += `<span style="color:${this.series.color}">\u25CF</span> ${this.series.name}: <b>${this.y.toLocaleString()}</b><br/>`;
 
                     if (topCreators.length > 0) {
                         tooltip += '<br/><b>Top Creators:</b><br/>';
@@ -161,11 +160,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     return tooltip;
                 }
             },
-            legend: { enabled: false },
+            legend: {
+                enabled: true,
+                align: 'center',
+                verticalAlign: 'bottom'
+            },
+            plotOptions: {
+                column: {
+                    grouping: true,
+                    shadow: false,
+                    borderWidth: 0
+                }
+            },
             series: [{
-                name: 'Subscriptions',
-                data: values,
+                name: 'Total Subscriptions',
+                data: subscriptions,
                 color: '#2563eb'
+            }, {
+                name: 'Total Paywall Views',
+                data: paywallViews,
+                color: '#10b981'
             }]
         });
     }
