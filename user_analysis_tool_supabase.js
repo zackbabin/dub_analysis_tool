@@ -139,11 +139,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         try {
             // Load engagement data from Supabase
+            console.log('Loading engagement analysis data...');
             const [conversionData, summaryData, topPairs] = await Promise.all([
                 this.supabaseIntegration.loadSubscriptionConversionAnalysis(),
                 this.supabaseIntegration.loadEngagementSummary(),
                 this.supabaseIntegration.loadTopConvertingPairs()
             ]);
+
+            console.log('Engagement data loaded:', {
+                conversionData: conversionData?.length || 0,
+                summaryData: summaryData?.length || 0,
+                topPairs: topPairs?.length || 0
+            });
 
             // Summary Stats Card
             if (summaryData && summaryData.length === 2) {

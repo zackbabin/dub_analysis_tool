@@ -724,11 +724,19 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
   // Process Subscriptions (distinct_id -> creatorId -> creatorUsername -> count)
   const subsMetric = subscriptionsData.series['Total Subscriptions']
   if (subsMetric) {
+    const allKeys = Object.keys(subsMetric)
+    console.log(`Subscription data has ${allKeys.length} keys (including $overall)`)
+
     Object.keys(subsMetric).forEach(distinctId => {
       if (distinctId === '$overall') return
 
+      // User has subscription if they appear in this metric at all
       userSubscriptionsMap.set(distinctId, true)
     })
+
+    console.log(`Identified ${userSubscriptionsMap.size} users with subscriptions`)
+  } else {
+    console.warn('Total Subscriptions metric not found')
   }
 
   // Combine all data at user level
@@ -738,11 +746,19 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
     ...userSubscriptionsMap.keys()
   ])
 
+  console.log(`Total unique users across all metrics: ${allUserIds.size}`)
+
   const rows: any[] = []
+  let subscriberCount = 0
+  let nonSubscriberCount = 0
+
   allUserIds.forEach(distinctId => {
     const profileData = userProfileViewsMap.get(distinctId)
     const pdpData = userPdpViewsMap.get(distinctId)
     const didSubscribe = userSubscriptionsMap.has(distinctId)
+
+    if (didSubscribe) subscriberCount++
+    else nonSubscriberCount++
 
     rows.push({
       distinct_id: distinctId,
@@ -758,6 +774,7 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
   })
 
   console.log(`Processed ${rows.length} user engagement records`)
-  console.log(`Subscribers: ${Array.from(userSubscriptionsMap.keys()).length}`)
+  console.log(`  - Subscribers: ${subscriberCount}`)
+  console.log(`  - Non-subscribers: ${nonSubscriberCount}`)
   return rows
 }
