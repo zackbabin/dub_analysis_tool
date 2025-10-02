@@ -57,12 +57,20 @@ DROP VIEW IF EXISTS top_portfolios_by_copies;
 -- View: Latest subscription price distribution (normalized monthly)
 CREATE VIEW latest_subscription_distribution AS
 SELECT
-    ROUND(monthly_price, 2) as monthly_price_rounded,
+    ROUND(
+        CASE subscription_interval
+            WHEN 'Quarterly' THEN subscription_price / 3
+            WHEN 'Annual' THEN subscription_price / 12
+            WHEN 'Annually' THEN subscription_price / 12
+            ELSE subscription_price
+        END,
+        2
+    ) as monthly_price,
     SUM(total_subscriptions) as total_subscriptions
 FROM creator_subscriptions_by_price
 WHERE synced_at = (SELECT MAX(synced_at) FROM creator_subscriptions_by_price)
-GROUP BY monthly_price_rounded
-ORDER BY monthly_price_rounded;
+GROUP BY monthly_price
+ORDER BY monthly_price;
 
 -- View: Top 10 creators by portfolio copies
 CREATE VIEW top_creators_by_portfolio_copies AS

@@ -409,7 +409,7 @@ class SupabaseIntegration {
             const { data, error } = await this.supabase
                 .from('latest_subscription_distribution')
                 .select('*')
-                .order('subscription_price');
+                .order('monthly_price');
 
             if (error) {
                 console.error('Error loading subscription distribution:', error);
@@ -420,6 +420,56 @@ class SupabaseIntegration {
             return data;
         } catch (error) {
             console.error('Error loading subscription distribution:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load subscription conversion analysis data
+     * Returns conversion rates by profile views and PDP views buckets
+     */
+    async loadSubscriptionConversionAnalysis() {
+        console.log('Loading subscription conversion analysis...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('subscription_conversion_by_engagement')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading conversion analysis:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} conversion data points`);
+            return data;
+        } catch (error) {
+            console.error('Error loading conversion analysis:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load engagement summary statistics
+     * Returns summary comparing subscribers vs non-subscribers
+     */
+    async loadEngagementSummary() {
+        console.log('Loading engagement summary...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('subscription_engagement_summary')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading engagement summary:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded engagement summary`);
+            return data;
+        } catch (error) {
+            console.error('Error loading engagement summary:', error);
             throw error;
         }
     }
