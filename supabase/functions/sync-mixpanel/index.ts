@@ -231,6 +231,27 @@ serve(async (req) => {
         console.warn('⚠️ Failed to trigger engagement pairs sync (non-critical):', pairError.message)
       }
 
+      // Trigger sync-copy-pairs edge function
+      console.log('Triggering sync-copy-pairs edge function...')
+      try {
+        const copyPairSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-copy-pairs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (copyPairSyncResponse.ok) {
+          const copyPairResult = await copyPairSyncResponse.json()
+          console.log(`✓ Copy pairs sync triggered successfully: ${copyPairResult.stats?.pairs_processed || 0} pairs`)
+        } else {
+          console.warn(`⚠️ Copy pairs sync failed (non-critical): ${copyPairSyncResponse.statusText}`)
+        }
+      } catch (copyPairError) {
+        console.warn('⚠️ Failed to trigger copy pairs sync (non-critical):', copyPairError.message)
+      }
+
       // Process user-level engagement summary
       const engagementRows = processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)
       console.log(`Processed ${engagementRows.length} user engagement records`)
@@ -330,7 +351,8 @@ serve(async (req) => {
 async function fetchInsightsData(
   credentials: MixpanelCredentials,
   chartId: string,
-  name: string
+  name: string,
+  retries = 2
 ) {
   console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
 
@@ -343,22 +365,41 @@ async function fetchInsightsData(
   const authString = `${credentials.username}:${credentials.secret}`
   const authHeader = `Basic ${btoa(authString)}`
 
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
+        method: 'GET',
+        headers: {
+          Authorization: authHeader,
+          Accept: 'application/json',
+        },
+      })
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+
+        // Retry on 502/503/504 errors (server issues)
+        if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
+          console.warn(`⚠️ ${name} returned ${response.status}, retrying (attempt ${attempt + 1}/${retries})...`)
+          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2s before retry
+          continue
+        }
+
+        throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log(`✓ ${name} fetch successful`)
+      return data
+    } catch (error) {
+      if (attempt < retries) {
+        console.warn(`⚠️ ${name} fetch failed, retrying (attempt ${attempt + 1}/${retries})...`)
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        continue
+      }
+      throw error
+    }
   }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  return data
 }
 
 async function fetchFunnelData(
