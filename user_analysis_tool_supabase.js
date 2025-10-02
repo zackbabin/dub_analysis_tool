@@ -174,8 +174,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 summaryCard.style.marginBottom = '2rem';
 
                 summaryCard.innerHTML = `
-                    <h4 style="margin-top: 0;">Key Insights: Subscribers vs Non-Subscribers</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+                    <h4 style="margin-top: 0; font-size: 0.875rem; color: #2563eb; font-weight: 600;">Key Insights: Subscribers vs Non-Subscribers</h4>
+                    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
                         <div>
                             <div style="font-weight: bold; color: #2563eb;">Avg Profile Views</div>
                             <div style="font-size: 1.5rem;">
@@ -184,21 +184,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             </div>
                         </div>
                         <div>
-                            <div style="font-weight: bold; color: #10b981;">Avg PDP Views</div>
+                            <div style="font-weight: bold; color: #2563eb;">Avg PDP Views</div>
                             <div style="font-size: 1.5rem;">
                                 ${parseFloat(subscribersData.avg_pdp_views || 0).toFixed(1)}
                                 <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_pdp_views || 0).toFixed(1)}</span>
                             </div>
                         </div>
                         <div>
-                            <div style="font-weight: bold; color: #f59e0b;">Unique Creators</div>
+                            <div style="font-weight: bold; color: #2563eb;">Unique Creators</div>
                             <div style="font-size: 1.5rem;">
                                 ${parseFloat(subscribersData.avg_unique_creators || 0).toFixed(1)}
                                 <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_unique_creators || 0).toFixed(1)}</span>
                             </div>
                         </div>
                         <div>
-                            <div style="font-weight: bold; color: #8b5cf6;">Unique Portfolios</div>
+                            <div style="font-weight: bold; color: #2563eb;">Unique Portfolios</div>
                             <div style="font-size: 1.5rem;">
                                 ${parseFloat(subscribersData.avg_unique_portfolios || 0).toFixed(1)}
                                 <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_unique_portfolios || 0).toFixed(1)}</span>
@@ -209,8 +209,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(summaryCard);
             }
 
-            // Top Converting Portfolio-Creator Pairs
-            if (topPairs && topPairs.length > 0) {
+            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 users)
+            const filteredPairs = topPairs && topPairs.length > 0
+                ? topPairs.filter(pair => parseInt(pair.total_users) >= 10)
+                : [];
+
+            if (filteredPairs.length > 0) {
                 const pairsSection = document.createElement('div');
                 pairsSection.style.marginTop = '2rem';
 
@@ -231,28 +235,32 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             <th style="padding: 0.75rem; text-align: right;">Users</th>
                             <th style="padding: 0.75rem; text-align: right;">Subscribers</th>
                             <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Views</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${topPairs.map((pair, index) => `
+                        ${filteredPairs.map((pair, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem; font-weight: bold; color: #2563eb;">${pair.portfolio_ticker || 'N/A'}</td>
-                                <td style="padding: 0.75rem; color: #10b981;">${pair.creator_username || 'N/A'}</td>
+                                <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
+                                <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_users).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.subscribers).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: bold;">
-                                    <span style="background-color: ${pair.conversion_rate_pct >= 50 ? '#10b981' : pair.conversion_rate_pct >= 25 ? '#f59e0b' : '#6c757d'}; color: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
-                                        ${parseFloat(pair.conversion_rate_pct).toFixed(1)}%
-                                    </span>
-                                </td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 `;
 
                 pairsSection.appendChild(pairsTable);
+
+                // Add footnote
+                const footnote = document.createElement('p');
+                footnote.style.fontSize = '0.875rem';
+                footnote.style.color = '#6c757d';
+                footnote.style.fontStyle = 'italic';
+                footnote.style.marginTop = '0.5rem';
+                footnote.textContent = 'Portfolios with a minimum of 10 copies';
+                pairsSection.appendChild(footnote);
+
                 section.appendChild(pairsSection);
             }
 
