@@ -70,6 +70,8 @@ function processPortfolioCreatorPairs(
 
   const profileMetric = profileViewsData?.series?.['Total Profile Views']
   if (profileMetric) {
+    console.log(`Building creator ID to username mapping from ${Object.keys(profileMetric).length} users`)
+
     Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
       if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
@@ -78,11 +80,17 @@ function processPortfolioCreatorPairs(
 
         Object.keys(usernameData).forEach((username: string) => {
           if (username && username !== '$overall' && username !== 'undefined') {
-            creatorIdToUsername.set(creatorId, username)
+            if (!creatorIdToUsername.has(creatorId)) {
+              creatorIdToUsername.set(creatorId, username)
+            }
           }
         })
       })
     })
+
+    console.log(`Mapped ${creatorIdToUsername.size} creator IDs to usernames`)
+  } else {
+    console.warn('Profile Views data not available or has unexpected structure')
   }
 
   // Build set of users who subscribed
@@ -162,6 +170,10 @@ serve(async (req) => {
     )
 
     console.log(`Processed ${pairRows.length} portfolio-creator pairs`)
+    const pairsWithUsername = pairRows.filter(p => p.creator_username !== null).length
+    const pairsWithoutUsername = pairRows.filter(p => p.creator_username === null).length
+    console.log(`  - With username: ${pairsWithUsername}`)
+    console.log(`  - Without username: ${pairsWithoutUsername}`)
 
     // Insert pairs in batches of 500
     const batchSize = 500
