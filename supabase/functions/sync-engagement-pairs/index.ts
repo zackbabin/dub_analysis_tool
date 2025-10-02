@@ -24,15 +24,23 @@ interface PortfolioCreatorPair {
 /**
  * Fetch Mixpanel insights data
  */
-async function fetchMixpanelChart(chartId: string): Promise<any> {
-  const url = `https://mixpanel.com/api/app/projects/${MIXPANEL_PROJECT_ID}/view/${chartId}/insights`
-  const auth = btoa(`${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`)
+async function fetchMixpanelChart(chartId: string, name: string): Promise<any> {
+  console.log(`Fetching ${name} (ID: ${chartId})...`)
 
-  const response = await fetch(url, {
+  const params = new URLSearchParams({
+    project_id: MIXPANEL_PROJECT_ID,
+    bookmark_id: chartId,
+    limit: '50000',
+  })
+
+  const authString = `${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  const response = await fetch(`https://mixpanel.com/api/query/insights?${params}`, {
     method: 'GET',
     headers: {
-      'Authorization': `Basic ${auth}`,
-      'Accept': 'application/json',
+      Authorization: authHeader,
+      Accept: 'application/json',
     },
   })
 
@@ -41,7 +49,9 @@ async function fetchMixpanelChart(chartId: string): Promise<any> {
     throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
   }
 
-  return await response.json()
+  const data = await response.json()
+  console.log(`✓ ${name} fetch successful`)
+  return data
 }
 
 /**
@@ -58,56 +68,62 @@ function processPortfolioCreatorPairs(
   // Build creator ID to username mapping from profile views
   const creatorIdToUsername = new Map<string, string>()
 
-  if (profileViewsData?.series?.[0]) {
-    const series = profileViewsData.series[0]
-    Object.entries(series).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (typeof creatorData === 'object' && creatorData !== null) {
-        Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-          if (typeof usernameData === 'object' && usernameData !== null) {
-            Object.keys(usernameData).forEach((username: string) => {
-              if (username && username !== 'undefined') {
-                creatorIdToUsername.set(creatorId, username)
-              }
-            })
+  const profileMetric = profileViewsData?.series?.['Total Profile Views']
+  if (profileMetric) {
+    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        Object.keys(usernameData).forEach((username: string) => {
+          if (username && username !== '$overall' && username !== 'undefined') {
+            creatorIdToUsername.set(creatorId, username)
           }
         })
-      }
+      })
     })
   }
 
   // Build set of users who subscribed
   const subscribedUsers = new Set<string>()
-  if (subscriptionsData?.series?.[0]) {
-    const series = subscriptionsData.series[0]
-    Object.keys(series).forEach((distinctId: string) => {
-      subscribedUsers.add(distinctId)
+  const subsMetric = subscriptionsData?.series?.['Total Subscriptions']
+  if (subsMetric) {
+    Object.keys(subsMetric).forEach((distinctId: string) => {
+      if (distinctId !== '$overall') {
+        subscribedUsers.add(distinctId)
+      }
     })
   }
 
   // Process PDP views: distinct_id -> portfolioTicker -> creatorId -> count
-  if (pdpViewsData?.series?.[0]) {
-    const series = pdpViewsData.series[0]
+  const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
+  if (pdpMetric) {
+    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
 
-    Object.entries(series).forEach(([distinctId, portfolioData]: [string, any]) => {
-      if (typeof portfolioData !== 'object' || portfolioData === null) return
+      const didSubscribe = subscribedUsers.has(distinctId)
 
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
-        if (typeof creatorData !== 'object' || creatorData === null) return
+        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
         Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
+          if (creatorId === '$overall') return
+
           const count = typeof viewCount === 'object' && viewCount?.all ? parseInt(viewCount.all) : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
-          const didSubscribe = subscribedUsers.has(distinctId)
 
-          pairs.push({
-            distinct_id: distinctId,
-            portfolio_ticker: portfolioTicker,
-            creator_id: creatorId,
-            creator_username: creatorUsername,
-            pdp_view_count: count,
-            did_subscribe: didSubscribe,
-            synced_at: syncedAt,
-          })
+          if (count > 0) {
+            pairs.push({
+              distinct_id: distinctId,
+              portfolio_ticker: portfolioTicker,
+              creator_id: creatorId,
+              creator_username: creatorUsername,
+              pdp_view_count: count,
+              did_subscribe: didSubscribe,
+              synced_at: syncedAt,
+            })
+          }
         })
       })
     })
@@ -132,9 +148,9 @@ serve(async (req) => {
 
     // Fetch all 3 charts (under rate limit since only 3 concurrent calls)
     const [profileViewsData, pdpViewsData, subscriptionsData] = await Promise.all([
-      fetchMixpanelChart(CHART_IDS.profileViewsByCreator),
-      fetchMixpanelChart(CHART_IDS.pdpViewsByPortfolio),
-      fetchMixpanelChart(CHART_IDS.subscriptionsByCreator),
+      fetchMixpanelChart(CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+      fetchMixpanelChart(CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
+      fetchMixpanelChart(CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
     ])
 
     console.log('Processing portfolio-creator pairs...')

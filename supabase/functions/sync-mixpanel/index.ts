@@ -243,10 +243,7 @@ serve(async (req) => {
 
           const { error: insertError } = await supabase
             .from('user_engagement_for_subscriptions')
-            .upsert(batch, {
-              onConflict: 'distinct_id,synced_at',
-              ignoreDuplicates: false
-            })
+            .insert(batch)
 
           if (insertError) {
             console.error('Error upserting user engagement:', insertError)
