@@ -524,14 +524,13 @@ function processPortfolioCopiesData(data: any): any[] {
   // Build a map to aggregate all metrics for each creator+portfolio combination
   const dataMap = new Map<string, any>()
 
-  // Process all three metrics: A. Total Copies, B. Total PDP Views, C. Total Profile Views
-  const metrics = {
+  // Process A. Total Copies and B. Total PDP Views (both have portfolio-level breakdown)
+  const portfolioMetrics = {
     'A. Total Copies': 'total_copies',
     'B. Total PDP Views': 'total_pdp_views',
-    'C. Total Profile Views': 'total_profile_views',
   }
 
-  Object.entries(metrics).forEach(([metricName, fieldName]) => {
+  Object.entries(portfolioMetrics).forEach(([metricName, fieldName]) => {
     const metric = data.series[metricName]
     if (!metric) {
       console.log(`No "${metricName}" metric found`)
@@ -544,12 +543,12 @@ function processPortfolioCopiesData(data: any): any[] {
       const creatorData = metric[creatorId]
 
       Object.keys(creatorData).forEach(username => {
-        if (username === '$overall') return
+        if (username === '$overall' || username === 'undefined') return
 
         const usernameData = creatorData[username]
 
         Object.keys(usernameData).forEach(portfolioTicker => {
-          if (portfolioTicker === '$overall') return
+          if (portfolioTicker === '$overall' || portfolioTicker === 'undefined') return
 
           const portfolioData = usernameData[portfolioTicker]
           const value = portfolioData?.all || 0
@@ -579,6 +578,9 @@ function processPortfolioCopiesData(data: any): any[] {
       })
     })
   })
+
+  // Note: C. Total Profile Views is at creator level (no portfolio breakdown)
+  // so we don't include it in portfolio-level rows
 
   const rows = Array.from(dataMap.values())
   console.log(`Processed ${rows.length} portfolio copy rows`)
