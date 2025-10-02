@@ -95,7 +95,7 @@ function processPortfolioCreatorPairs(
         if (typeof creatorData !== 'object' || creatorData === null) return
 
         Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
-          const count = parseInt(viewCount) || 0
+          const count = typeof viewCount === 'object' && viewCount?.all ? parseInt(viewCount.all) : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
           const didSubscribe = subscribedUsers.has(distinctId)
 
