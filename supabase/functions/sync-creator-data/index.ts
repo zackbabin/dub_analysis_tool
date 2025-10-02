@@ -351,7 +351,7 @@ function processCreatorInsightsData(data: any): any[] {
               if (!creatorTypesMap.has(creatorId)) {
                 creatorTypesMap.set(creatorId, new Set())
               }
-              creatorTypesMap.get(creatorId).add(typeKey)
+              creatorTypesMap.get(creatorId)!.add(typeKey)
 
               const count = usernameData[typeKey]?.all || 0
 
