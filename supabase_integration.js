@@ -621,6 +621,57 @@ class SupabaseIntegration {
         }
     }
 
+    /**
+     * Load hidden gems portfolios
+     * Returns portfolios with high engagement but low copy conversion
+     */
+    async loadHiddenGems() {
+        console.log('Loading hidden gems portfolios...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('hidden_gems_portfolios')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading hidden gems:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} hidden gems portfolios`);
+            return data;
+        } catch (error) {
+            console.error('Error loading hidden gems:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load hidden gems summary statistics
+     * Returns aggregate stats for hidden gems analysis
+     */
+    async loadHiddenGemsSummary() {
+        console.log('Loading hidden gems summary...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('hidden_gems_summary')
+                .select('*')
+                .single();
+
+            if (error) {
+                console.error('Error loading hidden gems summary:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded hidden gems summary`);
+            return data;
+        } catch (error) {
+            console.error('Error loading hidden gems summary:', error);
+            throw error;
+        }
+    }
+
 
     /**
      * Convert Supabase creator JSON data to CSV format
