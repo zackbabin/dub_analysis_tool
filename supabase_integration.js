@@ -424,53 +424,6 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Load top 10 creators by portfolio copies
-     */
-    async loadTopCreatorsByPortfolioCopies() {
-        console.log('Loading top creators by portfolio copies...');
-
-        try {
-            const { data, error } = await this.supabase
-                .from('top_creators_by_portfolio_copies')
-                .select('*');
-
-            if (error) {
-                console.error('Error loading top creators:', error);
-                throw error;
-            }
-
-            console.log(`✅ Loaded ${data.length} top creators`);
-            return data;
-        } catch (error) {
-            console.error('Error loading top creators:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Load top 10 portfolios by copies
-     */
-    async loadTopPortfoliosByCopies() {
-        console.log('Loading top portfolios by copies...');
-
-        try {
-            const { data, error } = await this.supabase
-                .from('top_portfolios_by_copies')
-                .select('*');
-
-            if (error) {
-                console.error('Error loading top portfolios:', error);
-                throw error;
-            }
-
-            console.log(`✅ Loaded ${data.length} top portfolios`);
-            return data;
-        } catch (error) {
-            console.error('Error loading top portfolios:', error);
-            throw error;
-        }
-    }
 
     /**
      * Convert Supabase creator JSON data to CSV format

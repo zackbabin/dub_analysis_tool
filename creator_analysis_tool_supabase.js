@@ -74,13 +74,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         try {
             // Load breakdown data from Supabase
-            const [subscriptionDist, topCreators, topPortfolios] = await Promise.all([
-                this.supabaseIntegration.loadSubscriptionDistribution(),
-                this.supabaseIntegration.loadTopCreatorsByPortfolioCopies(),
-                this.supabaseIntegration.loadTopPortfoliosByCopies()
-            ]);
+            const subscriptionDist = await this.supabaseIntegration.loadSubscriptionDistribution();
 
-            // 1. Subscription Price Distribution Chart
+            // Subscription Price Distribution Chart
             const subSection = document.createElement('div');
             subSection.style.marginBottom = '2rem';
 
@@ -106,60 +102,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             section.appendChild(subSection);
-
-            // 2. Top 10 Creators by Portfolio Copies
-            const creatorSection = document.createElement('div');
-            creatorSection.style.marginBottom = '2rem';
-
-            const creatorTitle = document.createElement('h4');
-            creatorTitle.textContent = 'Top 10 Creators by Portfolio Copies';
-            creatorSection.appendChild(creatorTitle);
-
-            if (topCreators && topCreators.length > 0) {
-                const creatorChartContainer = document.createElement('div');
-                creatorChartContainer.id = 'topCreatorsChart';
-                creatorChartContainer.style.width = '100%';
-                creatorChartContainer.style.height = '400px';
-                creatorSection.appendChild(creatorChartContainer);
-
-                // Create chart
-                this.createTopCreatorsChart(topCreators, 'topCreatorsChart');
-            } else {
-                const placeholder = document.createElement('p');
-                placeholder.textContent = 'No creator copy data available.';
-                placeholder.style.fontStyle = 'italic';
-                placeholder.style.color = '#6c757d';
-                creatorSection.appendChild(placeholder);
-            }
-
-            section.appendChild(creatorSection);
-
-            // 3. Top 10 Portfolios by Copies
-            const portfolioSection = document.createElement('div');
-            portfolioSection.style.marginBottom = '2rem';
-
-            const portfolioTitle = document.createElement('h4');
-            portfolioTitle.textContent = 'Top 10 Portfolios by Copies';
-            portfolioSection.appendChild(portfolioTitle);
-
-            if (topPortfolios && topPortfolios.length > 0) {
-                const portfolioChartContainer = document.createElement('div');
-                portfolioChartContainer.id = 'topPortfoliosChart';
-                portfolioChartContainer.style.width = '100%';
-                portfolioChartContainer.style.height = '400px';
-                portfolioSection.appendChild(portfolioChartContainer);
-
-                // Create chart
-                this.createTopPortfoliosChart(topPortfolios, 'topPortfoliosChart');
-            } else {
-                const placeholder = document.createElement('p');
-                placeholder.textContent = 'No portfolio copy data available.';
-                placeholder.style.fontStyle = 'italic';
-                placeholder.style.color = '#6c757d';
-                portfolioSection.appendChild(placeholder);
-            }
-
-            section.appendChild(portfolioSection);
 
         } catch (error) {
             console.error('Error loading breakdown data:', error);
@@ -204,69 +146,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         });
     }
 
-    /**
-     * Create top creators chart
-     */
-    createTopCreatorsChart(data, containerId) {
-        const categories = data.map(d => d.creator_username || 'Unknown');
-        const values = data.map(d => parseInt(d.total_copies));
-
-        Highcharts.chart(containerId, {
-            chart: { type: 'bar' },
-            title: { text: null },
-            xAxis: {
-                categories: categories,
-                title: { text: null }
-            },
-            yAxis: {
-                title: { text: 'Total Portfolio Copies' },
-                min: 0
-            },
-            tooltip: {
-                formatter: function() {
-                    return `<b>${this.x}</b><br/>Copies: ${this.y.toLocaleString()}`;
-                }
-            },
-            legend: { enabled: false },
-            series: [{
-                name: 'Copies',
-                data: values,
-                color: '#10b981'
-            }]
-        });
-    }
-
-    /**
-     * Create top portfolios chart
-     */
-    createTopPortfoliosChart(data, containerId) {
-        const categories = data.map(d => d.portfolio_ticker || 'Unknown');
-        const values = data.map(d => parseInt(d.total_copies));
-
-        Highcharts.chart(containerId, {
-            chart: { type: 'bar' },
-            title: { text: null },
-            xAxis: {
-                categories: categories,
-                title: { text: null }
-            },
-            yAxis: {
-                title: { text: 'Total Copies' },
-                min: 0
-            },
-            tooltip: {
-                formatter: function() {
-                    return `<b>${this.x}</b><br/>Copies: ${this.y.toLocaleString()}`;
-                }
-            },
-            legend: { enabled: false },
-            series: [{
-                name: 'Copies',
-                data: values,
-                color: '#f59e0b'
-            }]
-        });
-    }
 }
 
 // Export to window
