@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
         END
     ) STORED,
     total_subscriptions INTEGER DEFAULT 0,
+    total_paywall_views INTEGER DEFAULT 0,
+    total_profile_views INTEGER DEFAULT 0,
+    total_stripe_views INTEGER DEFAULT 0,
     synced_at TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT unique_subscription_per_sync UNIQUE (creator_id, subscription_price, subscription_interval, synced_at)
