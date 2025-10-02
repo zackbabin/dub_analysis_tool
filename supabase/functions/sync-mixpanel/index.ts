@@ -20,9 +20,9 @@ const CHART_IDS = {
   timeToFundedAccount: '84999267',
   timeToLinkedBank: '84999265',
   // User engagement analysis for subscriptions
-  profileViewsByCreator: '85165590',
-  pdpViewsByPortfolio: '85165580',
-  subscriptionsByCreator: '85165851',
+  profileViewsByCreator: '85165851',  // Total Profile Views
+  pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
+  subscriptionsByCreator: '85165590',  // Total Subscriptions
 }
 
 interface MixpanelCredentials {
@@ -722,6 +722,13 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
   }
 
   // Process Subscriptions (distinct_id -> creatorId -> creatorUsername -> count)
+  console.log('Subscriptions data structure:', {
+    hasSeries: !!subscriptionsData?.series,
+    seriesType: typeof subscriptionsData?.series,
+    seriesKeys: subscriptionsData?.series ? Object.keys(subscriptionsData.series) : [],
+    isArray: Array.isArray(subscriptionsData?.series)
+  })
+
   const subsMetric = subscriptionsData.series['Total Subscriptions']
   if (subsMetric) {
     const allKeys = Object.keys(subsMetric)
@@ -736,7 +743,7 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
 
     console.log(`Identified ${userSubscriptionsMap.size} users with subscriptions`)
   } else {
-    console.warn('Total Subscriptions metric not found')
+    console.warn('Total Subscriptions metric not found in subscriptionsData.series')
   }
 
   // Combine all data at user level

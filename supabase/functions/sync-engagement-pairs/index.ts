@@ -6,9 +6,9 @@ const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
 const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
 
 const CHART_IDS = {
-  profileViewsByCreator: '85165590',
-  pdpViewsByPortfolio: '85165580',
-  subscriptionsByCreator: '85165851',
+  profileViewsByCreator: '85165851',  // Total Profile Views
+  pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
+  subscriptionsByCreator: '85165590',  // Total Subscriptions
 }
 
 interface PortfolioCreatorPair {
