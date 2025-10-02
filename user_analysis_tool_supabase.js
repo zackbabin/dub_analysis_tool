@@ -181,50 +181,45 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
                 const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
 
-                // Title outside the card
-                const summaryTitle = document.createElement('h4');
+                // Title with smaller font
+                const summaryTitle = document.createElement('h5');
                 summaryTitle.textContent = 'Key Insights: Subscribers vs Non-Subscribers';
+                summaryTitle.style.fontSize = '0.95rem';
+                summaryTitle.style.fontWeight = '600';
+                summaryTitle.style.marginTop = '1rem';
                 section.appendChild(summaryTitle);
 
-                const summaryCard = document.createElement('div');
-                summaryCard.style.backgroundColor = '#f8f9fa';
-                summaryCard.style.padding = '1.5rem';
-                summaryCard.style.borderRadius = '8px';
-                summaryCard.style.marginBottom = '2rem';
+                // Container for the 4 separate cards
+                const cardsContainer = document.createElement('div');
+                cardsContainer.style.display = 'grid';
+                cardsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                cardsContainer.style.gap = '1rem';
+                cardsContainer.style.marginBottom = '2rem';
 
-                summaryCard.innerHTML = `
-                    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
-                        <div>
-                            <div style="font-weight: bold; color: #2563eb;">Avg Profile Views</div>
-                            <div style="font-size: 1.5rem;">
-                                ${parseFloat(subscribersData.avg_profile_views || 0).toFixed(1)}
-                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_profile_views || 0).toFixed(1)}</span>
-                            </div>
+                // Create 4 separate cards
+                const metrics = [
+                    { label: 'Avg Profile Views', subscriberValue: subscribersData.avg_profile_views || 0, nonSubscriberValue: nonSubscribersData.avg_profile_views || 0 },
+                    { label: 'Avg PDP Views', subscriberValue: subscribersData.avg_pdp_views || 0, nonSubscriberValue: nonSubscribersData.avg_pdp_views || 0 },
+                    { label: 'Unique Creators', subscriberValue: subscribersData.avg_unique_creators || 0, nonSubscriberValue: nonSubscribersData.avg_unique_creators || 0 },
+                    { label: 'Unique Portfolios', subscriberValue: subscribersData.avg_unique_portfolios || 0, nonSubscriberValue: nonSubscribersData.avg_unique_portfolios || 0 }
+                ];
+
+                metrics.forEach(metric => {
+                    const card = document.createElement('div');
+                    card.style.backgroundColor = '#f8f9fa';
+                    card.style.padding = '1rem';
+                    card.style.borderRadius = '8px';
+                    card.innerHTML = `
+                        <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
+                        <div style="font-size: 1.5rem; font-weight: bold;">
+                            ${parseFloat(metric.subscriberValue).toFixed(1)}
+                            <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.nonSubscriberValue).toFixed(1)}</span>
                         </div>
-                        <div>
-                            <div style="font-weight: bold; color: #2563eb;">Avg PDP Views</div>
-                            <div style="font-size: 1.5rem;">
-                                ${parseFloat(subscribersData.avg_pdp_views || 0).toFixed(1)}
-                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_pdp_views || 0).toFixed(1)}</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-weight: bold; color: #2563eb;">Unique Creators</div>
-                            <div style="font-size: 1.5rem;">
-                                ${parseFloat(subscribersData.avg_unique_creators || 0).toFixed(1)}
-                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_unique_creators || 0).toFixed(1)}</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div style="font-weight: bold; color: #2563eb;">Unique Portfolios</div>
-                            <div style="font-size: 1.5rem;">
-                                ${parseFloat(subscribersData.avg_unique_portfolios || 0).toFixed(1)}
-                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonSubscribersData.avg_unique_portfolios || 0).toFixed(1)}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                section.appendChild(summaryCard);
+                    `;
+                    cardsContainer.appendChild(card);
+                });
+
+                section.appendChild(cardsContainer);
             }
 
             // Top Converting Portfolio-Creator Pairs (filter for minimum 10 PDP views)
@@ -236,8 +231,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pairsSection = document.createElement('div');
                 pairsSection.style.marginTop = '2rem';
 
-                const pairsTitle = document.createElement('h4');
+                const pairsTitle = document.createElement('h5');
                 pairsTitle.textContent = 'Top Converting Portfolio-Creator Combinations';
+                pairsTitle.style.fontSize = '0.95rem';
+                pairsTitle.style.fontWeight = '600';
                 pairsSection.appendChild(pairsTitle);
 
                 const pairsTable = document.createElement('table');
