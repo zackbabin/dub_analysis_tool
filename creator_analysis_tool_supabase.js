@@ -105,8 +105,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         } catch (error) {
             console.error('Error loading breakdown data:', error);
+            console.error('Error details:', error.message, error.stack);
             const errorMsg = document.createElement('p');
-            errorMsg.textContent = 'Error loading breakdown data. Please try syncing again.';
+            errorMsg.textContent = `Error loading breakdown data: ${error.message || 'Please try syncing again.'}`;
             errorMsg.style.color = '#dc3545';
             section.appendChild(errorMsg);
         }
