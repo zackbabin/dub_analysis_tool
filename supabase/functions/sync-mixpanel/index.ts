@@ -227,8 +227,8 @@ serve(async (req) => {
         } else {
           console.warn(`⚠️ Engagement pairs sync failed (non-critical): ${pairSyncResponse.statusText}`)
         }
-      } catch (pairError) {
-        console.warn('⚠️ Failed to trigger engagement pairs sync (non-critical):', pairError.message)
+      } catch (pairError: any) {
+        console.warn('⚠️ Failed to trigger engagement pairs sync (non-critical):', pairError?.message || String(pairError))
       }
 
       // Trigger sync-copy-pairs edge function
@@ -248,8 +248,8 @@ serve(async (req) => {
         } else {
           console.warn(`⚠️ Copy pairs sync failed (non-critical): ${copyPairSyncResponse.statusText}`)
         }
-      } catch (copyPairError) {
-        console.warn('⚠️ Failed to trigger copy pairs sync (non-critical):', copyPairError.message)
+      } catch (copyPairError: any) {
+        console.warn('⚠️ Failed to trigger copy pairs sync (non-critical):', copyPairError?.message || String(copyPairError))
       }
 
       // Process user-level engagement summary
@@ -302,6 +302,21 @@ serve(async (req) => {
         .eq('id', syncLogId)
 
       console.log('Sync completed successfully')
+
+      // Refresh materialized view for subscription engagement summary
+      console.log('Refreshing subscription_engagement_summary materialized view...')
+      try {
+        const { error: refreshError } = await supabase.rpc('refresh_subscription_engagement_summary')
+        if (refreshError) {
+          // If the function doesn't exist, try direct SQL
+          await supabase.from('subscription_engagement_summary').select('count').limit(1)
+          console.log('Note: Materialized view may need manual refresh. Run: REFRESH MATERIALIZED VIEW subscription_engagement_summary;')
+        } else {
+          console.log('✓ Materialized view refreshed successfully')
+        }
+      } catch (refreshErr) {
+        console.warn('Could not refresh materialized view automatically:', refreshErr)
+      }
 
       return new Response(
         JSON.stringify({
