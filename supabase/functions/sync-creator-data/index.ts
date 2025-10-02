@@ -17,7 +17,6 @@ const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 // Mixpanel Chart IDs
 const CHART_IDS = {
   creatorInsights: '85130412',      // Insights: All 11 metrics from Insights by Creators chart
-  portfolioCopies: '85154534',      // Portfolio Copies by Creator (for Breakdown section)
   subscriptionPricing: '85154450',  // Subscriptions by Price (for Breakdown section)
 }
 
@@ -93,9 +92,8 @@ serve(async (req) => {
       console.log(`Fetching data from ${fromDate} to ${toDate}`)
 
       // Fetch all charts in parallel
-      const [creatorInsightsData, portfolioCopiesData, subscriptionPricingData] = await Promise.all([
+      const [creatorInsightsData, subscriptionPricingData] = await Promise.all([
         fetchInsightsData(credentials, CHART_IDS.creatorInsights, 'Creator Insights'),
-        fetchInsightsData(credentials, CHART_IDS.portfolioCopies, 'Portfolio Copies'),
         fetchInsightsData(credentials, CHART_IDS.subscriptionPricing, 'Subscription Pricing'),
       ])
 
@@ -137,57 +135,6 @@ serve(async (req) => {
         }
 
         stats.creatorsFetched = totalProcessed
-        stats.totalRecordsInserted += totalProcessed
-      }
-
-      // Process and insert breakdown data (Portfolio Copies)
-      const portfolioRows = processPortfolioCopiesData(portfolioCopiesData)
-      console.log(`Processed ${portfolioRows.length} portfolio copy rows, deduplicating...`)
-
-      // Deduplicate by creator_id + portfolio_ticker (keep row with highest total across all metrics)
-      const portfolioMap = new Map<string, any>()
-      portfolioRows.forEach(row => {
-        const key = `${row.creator_id}|${row.portfolio_ticker}`
-        const existing = portfolioMap.get(key)
-        if (!existing) {
-          portfolioMap.set(key, row)
-        } else {
-          // Keep the row with higher total across all metrics
-          const existingTotal = (existing.total_copies || 0) + (existing.total_pdp_views || 0) + (existing.total_profile_views || 0)
-          const newTotal = (row.total_copies || 0) + (row.total_pdp_views || 0) + (row.total_profile_views || 0)
-          if (newTotal > existingTotal) {
-            portfolioMap.set(key, row)
-          }
-        }
-      })
-      const uniquePortfolioRows = Array.from(portfolioMap.values())
-      console.log(`Deduplicated to ${uniquePortfolioRows.length} unique portfolio copy rows, inserting...`)
-
-      if (uniquePortfolioRows.length > 0) {
-        const batchSize = 500
-        let totalProcessed = 0
-
-        for (let i = 0; i < uniquePortfolioRows.length; i += batchSize) {
-          const batch = uniquePortfolioRows.slice(i, i + batchSize)
-
-          if (batch.length > 0) {
-            const { error: insertError } = await supabase
-              .from('creator_portfolio_copies')
-              .upsert(batch, {
-                onConflict: 'creator_id,portfolio_ticker,synced_at',
-                ignoreDuplicates: false,
-              })
-
-            if (insertError) {
-              console.error('Error upserting portfolio copies batch:', insertError)
-              throw insertError
-            }
-
-            totalProcessed += batch.length
-            console.log(`Upserted portfolio copies batch: ${totalProcessed}/${uniquePortfolioRows.length} records`)
-          }
-        }
-
         stats.totalRecordsInserted += totalProcessed
       }
 
@@ -507,85 +454,6 @@ function processCreatorInsightsData(data: any): any[] {
   return rows
 }
 
-function processPortfolioCopiesData(data: any): any[] {
-  if (!data || !data.series) {
-    console.log('No portfolio copies data')
-    return []
-  }
-
-  const syncedAt = new Date().toISOString()
-
-  console.log('Portfolio copies data structure:', {
-    hasHeaders: !!data.headers,
-    headers: data.headers,
-    metricsCount: Object.keys(data.series || {}).length,
-  })
-
-  // Build a map to aggregate all metrics for each creator+portfolio combination
-  const dataMap = new Map<string, any>()
-
-  // Process A. Total Copies and B. Total PDP Views (both have portfolio-level breakdown)
-  const portfolioMetrics = {
-    'A. Total Copies': 'total_copies',
-    'B. Total PDP Views': 'total_pdp_views',
-  }
-
-  Object.entries(portfolioMetrics).forEach(([metricName, fieldName]) => {
-    const metric = data.series[metricName]
-    if (!metric) {
-      console.log(`No "${metricName}" metric found`)
-      return
-    }
-
-    Object.keys(metric).forEach(creatorId => {
-      if (creatorId === '$overall') return
-
-      const creatorData = metric[creatorId]
-
-      Object.keys(creatorData).forEach(username => {
-        if (username === '$overall' || username === 'undefined') return
-
-        const usernameData = creatorData[username]
-
-        Object.keys(usernameData).forEach(portfolioTicker => {
-          if (portfolioTicker === '$overall' || portfolioTicker === 'undefined') return
-
-          const portfolioData = usernameData[portfolioTicker]
-          const value = portfolioData?.all || 0
-
-          // Normalize username and ticker by removing @ and $ prefixes for consistent aggregation
-          const normalizedUsername = username.startsWith('@') ? username.substring(1) : username
-          const normalizedTicker = portfolioTicker.startsWith('$') ? portfolioTicker.substring(1) : portfolioTicker
-
-          const key = `${creatorId}|${normalizedUsername}|${normalizedTicker}`
-
-          if (!dataMap.has(key)) {
-            dataMap.set(key, {
-              creator_id: String(creatorId),
-              creator_username: normalizedUsername,
-              portfolio_ticker: normalizedTicker,
-              total_copies: 0,
-              total_pdp_views: 0,
-              total_profile_views: 0,
-              synced_at: syncedAt,
-            })
-          }
-
-          // Aggregate values across different username/ticker variations
-          const existing = dataMap.get(key)
-          existing[fieldName] = (existing[fieldName] || 0) + value
-        })
-      })
-    })
-  })
-
-  // Note: C. Total Profile Views is at creator level (no portfolio breakdown)
-  // so we don't include it in portfolio-level rows
-
-  const rows = Array.from(dataMap.values())
-  console.log(`Processed ${rows.length} portfolio copy rows`)
-  return rows
-}
 
 function processSubscriptionPricingData(data: any): any[] {
   if (!data || !data.series) {
@@ -601,58 +469,42 @@ function processSubscriptionPricingData(data: any): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Build a map to aggregate all metrics for each creator+price+interval combination
+  // Build a map to store each creator+price+interval combination
   const dataMap = new Map<string, any>()
 
-  // Process all 4 metrics from the Subscriptions by Price breakdown
-  const metrics = {
-    'A. Total Subscriptions': 'total_subscriptions',
-    'B. Total Paywall Views': 'total_paywall_views',
-    'C. Total Profile Views': 'total_profile_views',
-    'D. Total Stripe Views': 'total_stripe_views',
+  // New structure: series -> "Total Subscriptions" -> creatorId -> $overall + prices
+  const metric = data.series['Total Subscriptions']
+  if (!metric) {
+    console.log('No "Total Subscriptions" metric found')
+    return []
   }
 
-  Object.entries(metrics).forEach(([metricName, fieldName]) => {
-    const metric = data.series[metricName]
-    if (!metric) {
-      console.log(`No "${metricName}" metric found`)
-      return
-    }
+  Object.keys(metric).forEach(creatorId => {
+    if (creatorId === '$overall') return
 
-    Object.keys(metric).forEach(creatorId => {
-      if (creatorId === '$overall') return
+    const creatorData = metric[creatorId]
 
-      const creatorData = metric[creatorId]
+    // Iterate through price levels (skip $overall)
+    Object.keys(creatorData).forEach(price => {
+      if (price === '$overall') return
 
-      Object.keys(creatorData).forEach(price => {
-        if (price === '$overall' || price === '$non_numeric_values') return
+      const priceData = creatorData[price]
 
-        const priceData = creatorData[price]
+      // Iterate through interval levels (skip $overall)
+      Object.keys(priceData).forEach(interval => {
+        if (interval === '$overall') return
 
-        Object.keys(priceData).forEach(interval => {
-          if (interval === '$overall' || interval === 'undefined') return
+        const intervalData = priceData[interval]
+        const count = intervalData?.all || 0
 
-          const intervalData = priceData[interval]
-          const value = intervalData?.all || 0
+        const key = `${creatorId}|${price}|${interval}`
 
-          const key = `${creatorId}|${price}|${interval}`
-
-          if (!dataMap.has(key)) {
-            dataMap.set(key, {
-              creator_id: String(creatorId),
-              subscription_price: parseFloat(price),
-              subscription_interval: interval,
-              total_subscriptions: 0,
-              total_paywall_views: 0,
-              total_profile_views: 0,
-              total_stripe_views: 0,
-              synced_at: syncedAt,
-            })
-          }
-
-          // Aggregate values
-          const existing = dataMap.get(key)
-          existing[fieldName] = (existing[fieldName] || 0) + value
+        dataMap.set(key, {
+          creator_id: String(creatorId),
+          subscription_price: parseFloat(price),
+          subscription_interval: interval,
+          total_subscriptions: count,
+          synced_at: syncedAt,
         })
       })
     })
