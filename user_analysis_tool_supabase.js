@@ -103,16 +103,20 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Override: Add engagement analysis section after standard results
+     * Override: Add engagement analysis section after Subscription section in Behavioral Analysis
      */
     async displayResults(results) {
         // Call parent method to display standard results
         super.displayResults(results);
 
-        // Add engagement analysis section BEFORE the footer
+        // Add engagement analysis section after Subscriptions section, before footer
         const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
         if (resultsDiv) {
-            // Find the footer (look for element with Predictive Strength text)
+            // Find all h4 elements to locate the Subscriptions section
+            const headings = Array.from(resultsDiv.querySelectorAll('h4'));
+            const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
+
+            // Find the footer (element with Predictive Strength text)
             const footer = Array.from(resultsDiv.children).find(child =>
                 child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
             );
@@ -120,11 +124,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const engagementSection = document.createElement('div');
             engagementSection.id = 'qdaEngagementAnalysisInline';
 
-            // Insert before footer if found, otherwise append to end
-            if (footer) {
+            // Insert after subscriptions table but before footer
+            if (subscriptionsHeading && footer) {
                 resultsDiv.insertBefore(engagementSection, footer);
 
                 // Remove blue left border from footer
+                footer.style.borderLeft = 'none';
+            } else if (footer) {
+                resultsDiv.insertBefore(engagementSection, footer);
                 footer.style.borderLeft = 'none';
             } else {
                 resultsDiv.appendChild(engagementSection);
@@ -150,14 +157,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         try {
             // Load engagement data from Supabase
             console.log('Loading engagement analysis data...');
-            const [conversionData, summaryData, topPairs] = await Promise.all([
-                this.supabaseIntegration.loadSubscriptionConversionAnalysis(),
+            const [summaryData, topPairs] = await Promise.all([
                 this.supabaseIntegration.loadEngagementSummary(),
                 this.supabaseIntegration.loadTopConvertingPairs()
             ]);
 
             console.log('Engagement data loaded:', {
-                conversionData: conversionData?.length || 0,
                 summaryData: summaryData?.length || 0,
                 topPairs: topPairs?.length || 0
             });
@@ -167,6 +172,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
                 const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
 
+                // Title outside the card
+                const summaryTitle = document.createElement('h4');
+                summaryTitle.textContent = 'Key Insights: Subscribers vs Non-Subscribers';
+                section.appendChild(summaryTitle);
+
                 const summaryCard = document.createElement('div');
                 summaryCard.style.backgroundColor = '#f8f9fa';
                 summaryCard.style.padding = '1.5rem';
@@ -174,7 +184,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 summaryCard.style.marginBottom = '2rem';
 
                 summaryCard.innerHTML = `
-                    <h4 style="margin-top: 0; font-size: 0.875rem; color: #2563eb; font-weight: 600;">Key Insights: Subscribers vs Non-Subscribers</h4>
                     <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
                         <div>
                             <div style="font-weight: bold; color: #2563eb;">Avg Profile Views</div>
@@ -209,9 +218,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(summaryCard);
             }
 
-            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 users)
+            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 PDP views)
             const filteredPairs = topPairs && topPairs.length > 0
-                ? topPairs.filter(pair => parseInt(pair.total_users) >= 10)
+                ? topPairs.filter(pair => parseInt(pair.total_views) >= 10)
                 : [];
 
             if (filteredPairs.length > 0) {
@@ -258,45 +267,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 footnote.style.color = '#6c757d';
                 footnote.style.fontStyle = 'italic';
                 footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Portfolios with a minimum of 10 copies';
+                footnote.textContent = 'Portfolios with a minimum of 10 PDP views';
                 pairsSection.appendChild(footnote);
 
                 section.appendChild(pairsSection);
             }
 
-            // Conversion Heatmap
-            if (conversionData && conversionData.length > 0) {
-                const heatmapSection = document.createElement('div');
-                heatmapSection.style.marginTop = '2rem';
-
-                const heatmapTitle = document.createElement('h4');
-                heatmapTitle.textContent = 'Conversion Rate by Engagement Level';
-                heatmapSection.appendChild(heatmapTitle);
-
-                const chartContainer = document.createElement('div');
-                chartContainer.id = 'subscriptionConversionHeatmap';
-                chartContainer.style.width = '100%';
-                chartContainer.style.height = '500px';
-                heatmapSection.appendChild(chartContainer);
-
-                section.appendChild(heatmapSection);
-            } else {
-                const placeholder = document.createElement('p');
-                placeholder.textContent = 'No conversion data available. Please sync data first.';
-                placeholder.style.fontStyle = 'italic';
-                placeholder.style.color = '#6c757d';
-                section.appendChild(placeholder);
-            }
-
-            // Append section to container BEFORE creating charts
+            // Append section to container
             container.appendChild(section);
-
-            // Now create the chart after DOM is updated
-            if (conversionData && conversionData.length > 0) {
-                setTimeout(() => {
-                    this.createConversionHeatmap(conversionData, 'subscriptionConversionHeatmap');
-                }, 100);
-            }
 
         } catch (error) {
             console.error('Error loading engagement analysis:', error);
@@ -308,87 +286,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
     }
 
-    /**
-     * Create conversion rate heatmap
-     */
-    createConversionHeatmap(data, containerId) {
-        // Define bucket order
-        const bucketOrder = ['0', '1-2', '3-5', '6-10', '10+'];
-
-        // Transform data into heatmap format
-        const heatmapData = [];
-        bucketOrder.forEach((profileBucket, yIndex) => {
-            bucketOrder.forEach((pdpBucket, xIndex) => {
-                const dataPoint = data.find(d =>
-                    d.profile_views_bucket === profileBucket &&
-                    d.pdp_views_bucket === pdpBucket
-                );
-
-                if (dataPoint) {
-                    heatmapData.push([
-                        xIndex,
-                        yIndex,
-                        parseFloat(dataPoint.conversion_rate_pct) || 0
-                    ]);
-                }
-            });
-        });
-
-        Highcharts.chart(containerId, {
-            chart: {
-                type: 'heatmap',
-                plotBorderWidth: 1
-            },
-            title: {
-                text: null
-            },
-            xAxis: {
-                categories: bucketOrder,
-                title: {
-                    text: 'PDP Views'
-                }
-            },
-            yAxis: {
-                categories: bucketOrder,
-                title: {
-                    text: 'Profile Views'
-                },
-                reversed: true
-            },
-            colorAxis: {
-                min: 0,
-                minColor: '#FFFFFF',
-                maxColor: '#2563eb'
-            },
-            legend: {
-                align: 'right',
-                layout: 'vertical',
-                margin: 0,
-                verticalAlign: 'top',
-                y: 25,
-                symbolHeight: 280
-            },
-            tooltip: {
-                formatter: function () {
-                    return `<b>Profile Views:</b> ${bucketOrder[this.point.y]}<br/>` +
-                           `<b>PDP Views:</b> ${bucketOrder[this.point.x]}<br/>` +
-                           `<b>Conversion Rate:</b> ${this.point.value.toFixed(2)}%`;
-                }
-            },
-            series: [{
-                name: 'Conversion Rate',
-                borderWidth: 1,
-                data: heatmapData,
-                dataLabels: {
-                    enabled: true,
-                    color: '#000000',
-                    formatter: function() {
-                        return this.point.value > 0 ? this.point.value.toFixed(1) + '%' : '';
-                    }
-                }
-            }]
-        });
-    }
 }
 
 // Export to window

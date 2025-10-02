@@ -514,6 +514,113 @@ class SupabaseIntegration {
         }
     }
 
+    /**
+     * Load copy conversion analysis data
+     * Returns conversion rates by profile views and PDP views buckets
+     */
+    async loadCopyConversionAnalysis() {
+        console.log('Loading copy conversion analysis...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('copy_conversion_by_engagement')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading copy conversion analysis:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} copy conversion data points`);
+            return data;
+        } catch (error) {
+            console.error('Error loading copy conversion analysis:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load copy engagement summary statistics
+     * Returns summary comparing copiers vs non-copiers
+     */
+    async loadCopyEngagementSummary() {
+        console.log('Loading copy engagement summary...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('copy_engagement_summary')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading copy engagement summary:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded copy engagement summary`);
+            return data;
+        } catch (error) {
+            console.error('Error loading copy engagement summary:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load top converting portfolio-creator copy pairs
+     * Returns pairs ranked by conversion rate for copies
+     */
+    async loadTopConvertingCopyPairs() {
+        console.log('Loading top converting portfolio-creator copy pairs...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('top_converting_portfolio_creator_copy_pairs')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading top converting copy pairs:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} top converting copy pairs`);
+            return data;
+        } catch (error) {
+            console.error('Error loading top converting copy pairs:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Trigger the sync-copy-pairs Edge Function
+     */
+    async triggerCopyPairsSync() {
+        console.log('Triggering copy pairs sync...');
+
+        try {
+            const response = await fetch(
+                `${this.supabaseUrl}/functions/v1/sync-copy-pairs`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.supabaseAnonKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Failed to trigger copy pairs sync: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Copy pairs sync completed:', result);
+            return result;
+        } catch (error) {
+            console.error('Error triggering copy pairs sync:', error);
+            throw error;
+        }
+    }
+
 
     /**
      * Convert Supabase creator JSON data to CSV format
