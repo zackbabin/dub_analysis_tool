@@ -232,7 +232,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                             <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users</th>
+                            <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
                             <th style="padding: 0.75rem; text-align: right;">Subscribers</th>
                             <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
                         </tr>
