@@ -118,7 +118,9 @@ function processPortfolioCreatorPairs(
         Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
           if (creatorId === '$overall') return
 
-          const count = typeof viewCount === 'object' && viewCount?.all ? parseInt(viewCount.all) : parseInt(String(viewCount)) || 0
+          const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+            ? parseInt((viewCount as any).all)
+            : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
 
           if (count > 0) {
