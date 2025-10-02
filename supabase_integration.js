@@ -409,7 +409,7 @@ class SupabaseIntegration {
             const { data, error } = await this.supabase
                 .from('latest_subscription_distribution')
                 .select('*')
-                .order('monthly_price_rounded');
+                .order('subscription_price');
 
             if (error) {
                 console.error('Error loading subscription distribution:', error);

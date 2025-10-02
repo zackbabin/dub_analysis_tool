@@ -13,25 +13,14 @@ CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
     creator_id TEXT,
     subscription_price NUMERIC,
     subscription_interval TEXT,
-    monthly_price NUMERIC GENERATED ALWAYS AS (
-        CASE subscription_interval
-            WHEN 'Quarterly' THEN subscription_price / 3
-            WHEN 'Annual' THEN subscription_price / 12
-            WHEN 'Annually' THEN subscription_price / 12
-            ELSE subscription_price
-        END
-    ) STORED,
     total_subscriptions INTEGER DEFAULT 0,
-    total_paywall_views INTEGER DEFAULT 0,
-    total_profile_views INTEGER DEFAULT 0,
-    total_stripe_views INTEGER DEFAULT 0,
     synced_at TIMESTAMPTZ DEFAULT NOW(),
 
     CONSTRAINT unique_subscription_per_sync UNIQUE (creator_id, subscription_price, subscription_interval, synced_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_synced_at ON creator_subscriptions_by_price(synced_at DESC);
-CREATE INDEX IF NOT EXISTS idx_subscriptions_monthly_price ON creator_subscriptions_by_price(monthly_price);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_price ON creator_subscriptions_by_price(subscription_price);
 
 -- ============================================================================
 -- Table 2: creator_portfolio_copies

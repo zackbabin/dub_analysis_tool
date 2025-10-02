@@ -81,7 +81,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             subSection.style.marginBottom = '2rem';
 
             const subTitle = document.createElement('h4');
-            subTitle.textContent = 'Subscription Price Distribution (Monthly)';
+            subTitle.textContent = 'Subscription Price Distribution';
             subSection.appendChild(subTitle);
 
             if (subscriptionDist && subscriptionDist.length > 0) {
@@ -118,7 +118,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Create subscription price distribution chart
      */
     createSubscriptionDistributionChart(data, containerId) {
-        const categories = data.map(d => `$${parseFloat(d.monthly_price_rounded).toFixed(2)}`);
+        const categories = data.map(d => `$${parseFloat(d.subscription_price).toFixed(2)}`);
         const values = data.map(d => parseInt(d.total_subscriptions));
 
         Highcharts.chart(containerId, {
@@ -126,10 +126,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             title: { text: null },
             xAxis: {
                 categories: categories,
-                title: { text: 'Monthly Subscription Price' }
+                title: { text: 'Subscription Price' }
             },
             yAxis: {
-                title: { text: 'Number of Subscriptions' },
+                title: { text: 'Total Subscriptions' },
                 min: 0
             },
             tooltip: {
