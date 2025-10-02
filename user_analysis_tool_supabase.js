@@ -255,9 +255,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 heatmapSection.appendChild(chartContainer);
 
                 section.appendChild(heatmapSection);
-
-                // Create heatmap
-                this.createConversionHeatmap(conversionData, 'subscriptionConversionHeatmap');
             } else {
                 const placeholder = document.createElement('p');
                 placeholder.textContent = 'No conversion data available. Please sync data first.';
@@ -266,15 +263,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(placeholder);
             }
 
+            // Append section to container BEFORE creating charts
+            container.appendChild(section);
+
+            // Now create the chart after DOM is updated
+            if (conversionData && conversionData.length > 0) {
+                setTimeout(() => {
+                    this.createConversionHeatmap(conversionData, 'subscriptionConversionHeatmap');
+                }, 100);
+            }
+
         } catch (error) {
             console.error('Error loading engagement analysis:', error);
             const errorMsg = document.createElement('p');
             errorMsg.textContent = `Error loading engagement analysis: ${error.message}`;
             errorMsg.style.color = '#dc3545';
             section.appendChild(errorMsg);
+            container.appendChild(section);
         }
-
-        container.appendChild(section);
     }
 
     /**
