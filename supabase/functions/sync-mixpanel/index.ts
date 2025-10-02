@@ -209,33 +209,26 @@ serve(async (req) => {
       // Process user engagement data for subscription analysis
       console.log('Processing user engagement data...')
 
-      // Process portfolio-creator pairs
-      const pairRows = processPortfolioCreatorPairs(profileViewsData, pdpViewsData, subscriptionsData)
-      console.log(`Processed ${pairRows.length} portfolio-creator pair records`)
+      // Trigger separate edge function for portfolio-creator pair processing
+      // This runs asynchronously to avoid timeout in main sync
+      console.log('Triggering sync-engagement-pairs edge function...')
+      try {
+        const pairSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-engagement-pairs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
 
-      if (pairRows.length > 0) {
-        // Insert pairs in batches
-        let pairProcessed = 0
-        for (let i = 0; i < pairRows.length; i += batchSize) {
-          const batch = pairRows.slice(i, i + batchSize)
-
-          const { error: insertError } = await supabase
-            .from('user_portfolio_creator_views')
-            .upsert(batch, {
-              onConflict: 'distinct_id,portfolio_ticker,creator_id,synced_at',
-              ignoreDuplicates: false
-            })
-
-          if (insertError) {
-            console.error('Error upserting portfolio-creator pairs:', insertError)
-            throw insertError
-          }
-
-          pairProcessed += batch.length
-          console.log(`Upserted pair batch: ${pairProcessed}/${pairRows.length} records`)
+        if (pairSyncResponse.ok) {
+          const pairResult = await pairSyncResponse.json()
+          console.log(`✓ Engagement pairs sync triggered successfully: ${pairResult.stats?.pairs_processed || 0} pairs`)
+        } else {
+          console.warn(`⚠️ Engagement pairs sync failed (non-critical): ${pairSyncResponse.statusText}`)
         }
-
-        stats.totalRecordsInserted += pairRows.length
+      } catch (pairError) {
+        console.warn('⚠️ Failed to trigger engagement pairs sync (non-critical):', pairError.message)
       }
 
       // Process user-level engagement summary
@@ -630,98 +623,6 @@ function processFunnelData(data: any, funnelType: string): any[] {
 
   console.log(`Processed ${rows.length} ${funnelType} records`)
   return rows
-}
-
-/**
- * Process user engagement data for subscription conversion analysis
- * Tracks portfolio-creator pairs that each user viewed
- */
-function processUserEngagementData(profileViewsData: any, pdpViewsData: any, subscriptionsData: any): any[] {
-  // First, get portfolio-creator pair data
-  const pairRows = processPortfolioCreatorPairs(profileViewsData, pdpViewsData, subscriptionsData)
-
-  // Then aggregate to user level for summary stats
-  return processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)
-}
-
-/**
- * Process portfolio-creator pairs viewed by each user
- * Returns rows for user_portfolio_creator_views table
- */
-function processPortfolioCreatorPairs(profileViewsData: any, pdpViewsData: any, subscriptionsData: any): any[] {
-  if (!profileViewsData?.series || !pdpViewsData?.series || !subscriptionsData?.series) {
-    console.log('Missing required data for pair processing')
-    return []
-  }
-
-  const syncedAt = new Date().toISOString()
-  const userSubscriptionsMap = new Map<string, boolean>()
-
-  // Build subscription map
-  const subsMetric = subscriptionsData.series['Total Subscriptions']
-  if (subsMetric) {
-    Object.keys(subsMetric).forEach(distinctId => {
-      if (distinctId === '$overall') return
-      userSubscriptionsMap.set(distinctId, true)
-    })
-  }
-
-  const pairRows: any[] = []
-
-  // Process PDP Views to extract portfolio-creator pairs
-  // Structure: distinct_id -> portfolioTicker -> creatorId -> count
-  const pdpMetric = pdpViewsData.series['Total PDP Views']
-  if (pdpMetric) {
-    Object.keys(pdpMetric).forEach(distinctId => {
-      if (distinctId === '$overall') return
-
-      const userData = pdpMetric[distinctId]
-      const didSubscribe = userSubscriptionsMap.has(distinctId)
-
-      Object.keys(userData).forEach(ticker => {
-        if (ticker === '$overall') return
-
-        const tickerData = userData[ticker]
-        Object.keys(tickerData).forEach(creatorId => {
-          if (creatorId === '$overall') return
-
-          const count = tickerData[creatorId]?.all || 0
-
-          // We need to get creatorUsername from profile views data
-          // Match creatorId to find username
-          const profileMetric = profileViewsData.series['Total Profile Views']
-          let creatorUsername = null
-
-          if (profileMetric && profileMetric[distinctId]) {
-            const userProfileData = profileMetric[distinctId]
-            if (userProfileData[creatorId]) {
-              const creatorData = userProfileData[creatorId]
-              // Get first username key (should only be one per creatorId)
-              const usernames = Object.keys(creatorData).filter(k => k !== '$overall')
-              if (usernames.length > 0) {
-                creatorUsername = usernames[0]
-              }
-            }
-          }
-
-          if (count > 0) {
-            pairRows.push({
-              distinct_id: distinctId,
-              portfolio_ticker: ticker,
-              creator_id: creatorId,
-              creator_username: creatorUsername,
-              pdp_view_count: count,
-              did_subscribe: didSubscribe,
-              synced_at: syncedAt,
-            })
-          }
-        })
-      })
-    })
-  }
-
-  console.log(`Processed ${pairRows.length} portfolio-creator pair views`)
-  return pairRows
 }
 
 /**
