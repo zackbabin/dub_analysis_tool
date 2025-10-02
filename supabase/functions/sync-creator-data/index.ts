@@ -140,32 +140,22 @@ serve(async (req) => {
 
       // Process and insert breakdown data (Subscription Pricing)
       const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData)
-      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, deduplicating...`)
+      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
 
-      // Deduplicate by creator_id + price + interval (keep last occurrence with highest value)
-      const subscriptionMap = new Map<string, any>()
-      subscriptionRows.forEach(row => {
-        const key = `${row.creator_id}|${row.subscription_price}|${row.subscription_interval}`
-        const existing = subscriptionMap.get(key)
-        if (!existing || row.total_subscriptions > existing.total_subscriptions) {
-          subscriptionMap.set(key, row)
-        }
-      })
-      const uniqueSubscriptionRows = Array.from(subscriptionMap.values())
-      console.log(`Deduplicated to ${uniqueSubscriptionRows.length} unique subscription pricing rows, inserting...`)
+      // No deduplication needed - data is already aggregated by price+interval in processing function
 
-      if (uniqueSubscriptionRows.length > 0) {
+      if (subscriptionRows.length > 0) {
         const batchSize = 500
         let totalProcessed = 0
 
-        for (let i = 0; i < uniqueSubscriptionRows.length; i += batchSize) {
-          const batch = uniqueSubscriptionRows.slice(i, i + batchSize)
+        for (let i = 0; i < subscriptionRows.length; i += batchSize) {
+          const batch = subscriptionRows.slice(i, i + batchSize)
 
           if (batch.length > 0) {
             const { error: insertError } = await supabase
               .from('creator_subscriptions_by_price')
               .upsert(batch, {
-                onConflict: 'creator_id,subscription_price,subscription_interval,synced_at',
+                onConflict: 'subscription_price,subscription_interval,synced_at',
                 ignoreDuplicates: false,
               })
 
@@ -175,7 +165,7 @@ serve(async (req) => {
             }
 
             totalProcessed += batch.length
-            console.log(`Upserted subscriptions batch: ${totalProcessed}/${uniqueSubscriptionRows.length} records`)
+            console.log(`Upserted subscriptions batch: ${totalProcessed}/${subscriptionRows.length} records`)
           }
         }
 
