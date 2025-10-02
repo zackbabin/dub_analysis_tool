@@ -98,8 +98,10 @@ serve(async (req) => {
         secret: mixpanelSecret,
       }
 
-      // Fetch all data in parallel
-      const [subscribersData, timeToFirstCopyData, timeToFundedData, timeToLinkedData, profileViewsData, pdpViewsData, subscriptionsData] =
+      // Fetch data in batches to avoid Mixpanel rate limits (max 5 concurrent queries)
+      // Batch 1: Original 4 charts
+      console.log('Fetching batch 1: Original user data (4 charts)...')
+      const [subscribersData, timeToFirstCopyData, timeToFundedData, timeToLinkedData] =
         await Promise.all([
           fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights'),
           fetchFunnelData(
@@ -123,10 +125,19 @@ serve(async (req) => {
             fromDate,
             toDate
           ),
-          fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
-          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
-          fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
         ])
+
+      console.log('✓ Batch 1 complete')
+
+      // Batch 2: Engagement analysis charts (3 charts)
+      console.log('Fetching batch 2: Engagement analysis data (3 charts)...')
+      const [profileViewsData, pdpViewsData, subscriptionsData] = await Promise.all([
+        fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+        fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
+        fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
+      ])
+
+      console.log('✓ Batch 2 complete')
 
       console.log('All data fetched successfully')
 
