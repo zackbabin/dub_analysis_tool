@@ -593,7 +593,6 @@ function processSubscriptionPricingData(data: any): any[] {
     return []
   }
 
-  const rows: any[] = []
   const syncedAt = new Date().toISOString()
 
   console.log('Subscription pricing data structure:', {
@@ -602,41 +601,64 @@ function processSubscriptionPricingData(data: any): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Structure: series -> "A. Total Subscriptions" -> creatorId -> price -> interval -> count
-  const totalSubscriptionsMetric = data.series['A. Total Subscriptions']
+  // Build a map to aggregate all metrics for each creator+price+interval combination
+  const dataMap = new Map<string, any>()
 
-  if (!totalSubscriptionsMetric) {
-    console.log('No "A. Total Subscriptions" metric found')
-    return []
+  // Process all 4 metrics from the Subscriptions by Price breakdown
+  const metrics = {
+    'A. Total Subscriptions': 'total_subscriptions',
+    'B. Total Paywall Views': 'total_paywall_views',
+    'C. Total Profile Views': 'total_profile_views',
+    'D. Total Stripe Views': 'total_stripe_views',
   }
 
-  Object.keys(totalSubscriptionsMetric).forEach(creatorId => {
-    if (creatorId === '$overall') return
+  Object.entries(metrics).forEach(([metricName, fieldName]) => {
+    const metric = data.series[metricName]
+    if (!metric) {
+      console.log(`No "${metricName}" metric found`)
+      return
+    }
 
-    const creatorData = totalSubscriptionsMetric[creatorId]
+    Object.keys(metric).forEach(creatorId => {
+      if (creatorId === '$overall') return
 
-    Object.keys(creatorData).forEach(price => {
-      if (price === '$overall' || price === '$non_numeric_values') return
+      const creatorData = metric[creatorId]
 
-      const priceData = creatorData[price]
+      Object.keys(creatorData).forEach(price => {
+        if (price === '$overall' || price === '$non_numeric_values') return
 
-      Object.keys(priceData).forEach(interval => {
-        if (interval === '$overall' || interval === 'undefined') return
+        const priceData = creatorData[price]
 
-        const intervalData = priceData[interval]
-        const totalSubscriptions = intervalData?.all || 0
+        Object.keys(priceData).forEach(interval => {
+          if (interval === '$overall' || interval === 'undefined') return
 
-        rows.push({
-          creator_id: String(creatorId),
-          subscription_price: parseFloat(price),
-          subscription_interval: interval,
-          total_subscriptions: totalSubscriptions,
-          synced_at: syncedAt,
+          const intervalData = priceData[interval]
+          const value = intervalData?.all || 0
+
+          const key = `${creatorId}|${price}|${interval}`
+
+          if (!dataMap.has(key)) {
+            dataMap.set(key, {
+              creator_id: String(creatorId),
+              subscription_price: parseFloat(price),
+              subscription_interval: interval,
+              total_subscriptions: 0,
+              total_paywall_views: 0,
+              total_profile_views: 0,
+              total_stripe_views: 0,
+              synced_at: syncedAt,
+            })
+          }
+
+          // Aggregate values
+          const existing = dataMap.get(key)
+          existing[fieldName] = (existing[fieldName] || 0) + value
         })
       })
     })
   })
 
+  const rows = Array.from(dataMap.values())
   console.log(`Processed ${rows.length} subscription pricing rows`)
   return rows
 }
