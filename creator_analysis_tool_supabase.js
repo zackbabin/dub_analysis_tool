@@ -91,8 +91,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 subChartContainer.style.height = '400px';
                 subSection.appendChild(subChartContainer);
 
-                // Create chart
-                this.createSubscriptionDistributionChart(subscriptionDist, 'subscriptionDistributionChart');
+                // Wait for DOM to update before creating chart
+                setTimeout(() => {
+                    this.createSubscriptionDistributionChart(subscriptionDist, 'subscriptionDistributionChart');
+                }, 100);
             } else {
                 const placeholder = document.createElement('p');
                 placeholder.textContent = 'No subscription price data available.';
