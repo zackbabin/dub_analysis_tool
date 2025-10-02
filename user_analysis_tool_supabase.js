@@ -114,8 +114,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (resultsDiv) {
             // Find all h4 elements to locate Portfolio Copies and Subscriptions sections
             const headings = Array.from(resultsDiv.querySelectorAll('h4'));
+            console.log('All h4 headings:', headings.map(h => h.textContent));
             const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
             const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
+            console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
+            console.log('Found Subscriptions heading:', !!subscriptionsHeading);
 
             // Create subscription engagement section
             const subscriptionEngagementSection = document.createElement('div');
@@ -170,13 +173,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Insert subscription engagement after Subscriptions section
             if (insertAfterSubs) {
+                console.log('Inserting subscription sections after element:', insertAfterSubs);
                 insertAfterSubs.parentNode.insertBefore(subscriptionEngagementSection, insertAfterSubs.nextElementSibling);
                 insertAfterSubs.parentNode.insertBefore(hiddenGemsSection, insertAfterSubs.nextElementSibling);
+            } else {
+                console.warn('Could not find insertion point for subscription sections');
             }
 
             // Insert copy engagement after Portfolio Copies section
             if (insertAfterCopies) {
+                console.log('Inserting copy sections after element:', insertAfterCopies);
                 insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
+            } else {
+                console.warn('Could not find insertion point for copy sections');
             }
 
             // Load and display all engagement analyses
