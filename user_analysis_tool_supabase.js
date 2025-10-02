@@ -297,12 +297,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.slice(0, 25).map((pair, index) => `
+                        ${filteredPairs.map((pair, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
                                 <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.subscribers).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_subscriptions).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
@@ -433,17 +433,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                             <th style="padding: 0.75rem; text-align: left;">Creator</th>
                             <th style="padding: 0.75rem; text-align: right;">Total Views</th>
-                            <th style="padding: 0.75rem; text-align: right;">Copiers</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
                             <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.slice(0, 25).map((pair, index) => `
+                        ${filteredPairs.map((pair, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
                                 <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.copiers).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_copies).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
@@ -514,15 +514,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (summaryData) {
                 const cardsContainer = document.createElement('div');
                 cardsContainer.style.display = 'grid';
-                cardsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+                cardsContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
                 cardsContainer.style.gap = '1rem';
                 cardsContainer.style.marginBottom = '2rem';
 
                 const metrics = [
                     { label: 'Total Hidden Gems', value: summaryData.total_hidden_gems || 0, format: 'number' },
                     { label: 'Avg PDP Views', value: summaryData.avg_pdp_views || 0, format: 'decimal' },
-                    { label: 'Avg Conversion Rate', value: summaryData.avg_conversion_rate || 0, format: 'percent' },
-                    { label: 'Missed Opportunities', value: summaryData.total_missed_opportunities || 0, format: 'number' }
+                    { label: 'Avg Conversion Rate', value: summaryData.avg_conversion_rate || 0, format: 'percent' }
                 ];
 
                 metrics.forEach(metric => {
@@ -571,11 +570,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                             <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">PDP Views</th>
-                            <th style="padding: 0.75rem; text-align: right;">Profile Views</th>
-                            <th style="padding: 0.75rem; text-align: right;">Unique Viewers</th>
-                            <th style="padding: 0.75rem; text-align: right;">Copies</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conversion %</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total PDP Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Profile Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -585,7 +584,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                                 <td style="padding: 0.75rem;">${gem.creator_username || 'N/A'}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_profile_views).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.unique_viewers).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
                             </tr>

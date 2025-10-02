@@ -95,7 +95,7 @@ SELECT
   creator_username,
   SUM(pdp_view_count + profile_view_count) as total_views,
   COUNT(DISTINCT distinct_id) as unique_viewers,
-  SUM(CASE WHEN did_copy THEN 1 ELSE 0 END) as copiers,
+  SUM(CASE WHEN did_copy THEN 1 ELSE 0 END) as total_copies,
   ROUND(
     (SUM(CASE WHEN did_copy THEN 1 ELSE 0 END)::NUMERIC / COUNT(DISTINCT distinct_id)) * 100,
     2
@@ -104,7 +104,7 @@ FROM user_portfolio_creator_copies
 GROUP BY portfolio_ticker, creator_id, creator_username
 HAVING COUNT(DISTINCT distinct_id) >= 5  -- Minimum 5 views to be included
 ORDER BY conversion_rate_pct DESC, total_views DESC
-LIMIT 100;
+LIMIT 10;
 
 -- Grant permissions (adjust as needed for your setup)
 -- GRANT SELECT ON user_portfolio_creator_copies TO authenticated;

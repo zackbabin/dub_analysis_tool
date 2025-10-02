@@ -43,26 +43,28 @@ WITH engagement_with_profile_views AS (
 ),
 percentile_thresholds AS (
   SELECT
-    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p75,
-    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_profile_views) as profile_views_p75
+    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p50,
+    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_profile_views) as profile_views_p50
   FROM engagement_with_profile_views
 )
 SELECT
   e.portfolio_ticker,
   e.creator_id,
   e.creator_username,
-  e.unique_viewers,
+  e.unique_viewers as unique_views,
   e.total_pdp_views,
   e.total_profile_views,
   e.total_copies,
-  e.conversion_rate_pct,
-  (e.unique_viewers - e.total_copies) as missed_opportunities
+  ROUND(
+    (e.total_copies::NUMERIC / NULLIF(e.unique_viewers, 0)) * 100,
+    2
+  ) as conversion_rate_pct
 FROM engagement_with_profile_views e
 CROSS JOIN percentile_thresholds p
 WHERE
-  e.total_pdp_views >= p.pdp_views_p75
-  AND e.total_profile_views >= p.profile_views_p75
-  AND e.conversion_rate_pct <= 10
+  e.total_pdp_views >= p.pdp_views_p50
+  AND e.total_profile_views >= p.profile_views_p50
+  AND ROUND((e.total_copies::NUMERIC / NULLIF(e.unique_viewers, 0)) * 100, 2) <= 10
   AND e.unique_viewers >= 5  -- Minimum sample size
 ORDER BY e.total_pdp_views DESC
 LIMIT 100;
@@ -72,8 +74,7 @@ CREATE OR REPLACE VIEW hidden_gems_summary AS
 SELECT
   COUNT(*) as total_hidden_gems,
   ROUND(AVG(total_pdp_views), 1) as avg_pdp_views,
-  ROUND(AVG(conversion_rate_pct), 2) as avg_conversion_rate,
-  SUM(missed_opportunities) as total_missed_opportunities
+  ROUND(AVG(conversion_rate_pct), 2) as avg_conversion_rate
 FROM hidden_gems_portfolios;
 
 -- Grant permissions (adjust as needed for your setup)
