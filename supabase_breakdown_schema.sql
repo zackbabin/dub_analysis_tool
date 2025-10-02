@@ -10,13 +10,14 @@
 
 CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
     id BIGSERIAL PRIMARY KEY,
-    creator_id TEXT,
     subscription_price NUMERIC,
     subscription_interval TEXT,
     total_subscriptions INTEGER DEFAULT 0,
+    total_paywall_views INTEGER DEFAULT 0,
+    creator_usernames TEXT[] DEFAULT '{}',
     synced_at TIMESTAMPTZ DEFAULT NOW(),
 
-    CONSTRAINT unique_subscription_per_sync UNIQUE (creator_id, subscription_price, subscription_interval, synced_at)
+    CONSTRAINT unique_subscription_per_sync UNIQUE (subscription_price, subscription_interval, synced_at)
 );
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_synced_at ON creator_subscriptions_by_price(synced_at DESC);
@@ -66,10 +67,29 @@ SELECT
         END,
         2
     ) as monthly_price,
-    SUM(total_subscriptions) as total_subscriptions
-FROM creator_subscriptions_by_price
-WHERE synced_at = (SELECT MAX(synced_at) FROM creator_subscriptions_by_price)
-GROUP BY monthly_price
+    SUM(total_subscriptions) as total_subscriptions,
+    SUM(total_paywall_views) as total_paywall_views,
+    ARRAY_AGG(DISTINCT creator_username) FILTER (WHERE creator_username IS NOT NULL AND creator_username != '') as creator_usernames
+FROM (
+    SELECT
+        subscription_price,
+        subscription_interval,
+        total_subscriptions,
+        total_paywall_views,
+        UNNEST(creator_usernames) as creator_username
+    FROM creator_subscriptions_by_price
+    WHERE synced_at = (SELECT MAX(synced_at) FROM creator_subscriptions_by_price)
+) subquery
+GROUP BY
+    ROUND(
+        CASE subscription_interval
+            WHEN 'Quarterly' THEN subscription_price / 3
+            WHEN 'Annual' THEN subscription_price / 12
+            WHEN 'Annually' THEN subscription_price / 12
+            ELSE subscription_price
+        END,
+        2
+    )
 ORDER BY monthly_price;
 
 -- View: Top 10 creators by portfolio copies

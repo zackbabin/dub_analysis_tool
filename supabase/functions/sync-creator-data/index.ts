@@ -469,48 +469,85 @@ function processSubscriptionPricingData(data: any): any[] {
     metricsCount: Object.keys(data.series || {}).length,
   })
 
-  // Build a map to store each creator+price+interval combination
+  // Build a map to aggregate metrics for each price+interval combination
   const dataMap = new Map<string, any>()
 
-  // New structure: series -> "Total Subscriptions" -> creatorId -> $overall + prices
-  const metric = data.series['Total Subscriptions']
-  if (!metric) {
-    console.log('No "Total Subscriptions" metric found')
-    return []
+  // Process both Total Subscriptions and Total Paywall Views metrics
+  const metrics = {
+    'A. Total Subscriptions': 'total_subscriptions',
+    'B. Total Paywall Views': 'total_paywall_views',
   }
 
-  Object.keys(metric).forEach(creatorId => {
-    if (creatorId === '$overall') return
+  Object.entries(metrics).forEach(([metricName, fieldName]) => {
+    const metric = data.series[metricName]
+    if (!metric) {
+      console.log(`No "${metricName}" metric found`)
+      return
+    }
 
-    const creatorData = metric[creatorId]
+    // Structure: creatorId -> username -> price -> interval -> count
+    Object.keys(metric).forEach(creatorId => {
+      if (creatorId === '$overall') return
 
-    // Iterate through price levels (skip $overall)
-    Object.keys(creatorData).forEach(price => {
-      if (price === '$overall') return
+      const creatorData = metric[creatorId]
 
-      const priceData = creatorData[price]
+      // Iterate through usernames
+      Object.keys(creatorData).forEach(username => {
+        if (username === '$overall') return
 
-      // Iterate through interval levels (skip $overall)
-      Object.keys(priceData).forEach(interval => {
-        if (interval === '$overall') return
+        const usernameData = creatorData[username]
 
-        const intervalData = priceData[interval]
-        const count = intervalData?.all || 0
+        // Normalize username by removing @ prefix
+        const normalizedUsername = username.startsWith('@') ? username.substring(1) : username
 
-        const key = `${creatorId}|${price}|${interval}`
+        // Iterate through price levels
+        Object.keys(usernameData).forEach(price => {
+          if (price === '$overall' || price === '$non_numeric_values') return
 
-        dataMap.set(key, {
-          creator_id: String(creatorId),
-          subscription_price: parseFloat(price),
-          subscription_interval: interval,
-          total_subscriptions: count,
-          synced_at: syncedAt,
+          const priceData = usernameData[price]
+
+          // Iterate through interval levels
+          Object.keys(priceData).forEach(interval => {
+            if (interval === '$overall' || interval === 'undefined') return
+
+            const intervalData = priceData[interval]
+            const value = intervalData?.all || 0
+
+            // Normalize interval: treat "Annual" and "Annually" the same
+            const normalizedInterval = interval === 'Annual' ? 'Annually' : interval
+
+            const key = `${price}|${normalizedInterval}`
+
+            if (!dataMap.has(key)) {
+              dataMap.set(key, {
+                subscription_price: parseFloat(price),
+                subscription_interval: normalizedInterval,
+                total_subscriptions: 0,
+                total_paywall_views: 0,
+                creator_usernames: new Set<string>(),
+                synced_at: syncedAt,
+              })
+            }
+
+            const existing = dataMap.get(key)
+            existing[fieldName] = (existing[fieldName] || 0) + value
+
+            // Add username if not undefined
+            if (normalizedUsername && normalizedUsername !== 'undefined') {
+              existing.creator_usernames.add(normalizedUsername)
+            }
+          })
         })
       })
     })
   })
 
-  const rows = Array.from(dataMap.values())
+  // Convert Set to Array for creator_usernames
+  const rows = Array.from(dataMap.values()).map(row => ({
+    ...row,
+    creator_usernames: Array.from(row.creator_usernames),
+  }))
+
   console.log(`Processed ${rows.length} subscription pricing rows`)
   return rows
 }

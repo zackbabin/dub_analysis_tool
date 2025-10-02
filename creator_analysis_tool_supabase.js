@@ -123,6 +123,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     createSubscriptionDistributionChart(data, containerId) {
         const categories = data.map(d => `$${parseFloat(d.monthly_price).toFixed(2)}`);
         const values = data.map(d => parseInt(d.total_subscriptions));
+        const paywallViews = data.map(d => parseInt(d.total_paywall_views || 0));
+        const usernames = data.map(d => d.creator_usernames || []);
 
         Highcharts.chart(containerId, {
             chart: { type: 'column' },
@@ -136,8 +138,27 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 min: 0
             },
             tooltip: {
+                useHTML: true,
                 formatter: function() {
-                    return `<b>${this.x}</b><br/>Subscriptions: ${this.y.toLocaleString()}`;
+                    const index = this.point.index;
+                    const creators = usernames[index] || [];
+                    const topCreators = creators.slice(0, 10);
+
+                    let tooltip = `<b>${this.x}</b><br/>`;
+                    tooltip += `Subscriptions: ${this.y.toLocaleString()}<br/>`;
+                    tooltip += `Paywall Views: ${paywallViews[index].toLocaleString()}<br/>`;
+
+                    if (topCreators.length > 0) {
+                        tooltip += '<br/><b>Top Creators:</b><br/>';
+                        topCreators.forEach(creator => {
+                            tooltip += `• ${creator}<br/>`;
+                        });
+                        if (creators.length > 10) {
+                            tooltip += `<i>... and ${creators.length - 10} more</i>`;
+                        }
+                    }
+
+                    return tooltip;
                 }
             },
             legend: { enabled: false },
