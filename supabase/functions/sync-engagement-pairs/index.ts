@@ -119,7 +119,7 @@ function processPortfolioCreatorPairs(
           if (creatorId === '$overall') return
 
           const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
-            ? parseInt((viewCount as any).all)
+            ? parseInt(String((viewCount as any).all))
             : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
 

@@ -109,23 +109,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Call parent method to display standard results
         super.displayResults(results);
 
-        // Add engagement analysis sections after Subscriptions section, before footer
+        // Add engagement analysis sections in Behavioral Analysis section
         const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
         if (resultsDiv) {
-            // Find all h4 elements to locate the Subscriptions section
+            // Find all h4 elements to locate Portfolio Copies and Subscriptions sections
             const headings = Array.from(resultsDiv.querySelectorAll('h4'));
+            const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
             const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
-
-            // Find the footer (element with Predictive Strength text)
-            const footer = Array.from(resultsDiv.children).find(child =>
-                child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
-            );
 
             // Create subscription engagement section
             const subscriptionEngagementSection = document.createElement('div');
             subscriptionEngagementSection.id = 'qdaEngagementAnalysisInline';
 
-            // Create portfolio copies section
+            // Create portfolio copies engagement section
             const copyEngagementSection = document.createElement('div');
             copyEngagementSection.id = 'qdaCopyEngagementAnalysisInline';
 
@@ -133,23 +129,54 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const hiddenGemsSection = document.createElement('div');
             hiddenGemsSection.id = 'qdaHiddenGemsAnalysisInline';
 
-            // Insert all sections before footer
-            if (subscriptionsHeading && footer) {
-                resultsDiv.insertBefore(subscriptionEngagementSection, footer);
-                resultsDiv.insertBefore(copyEngagementSection, footer);
-                resultsDiv.insertBefore(hiddenGemsSection, footer);
+            // Find the next h4 after Subscriptions (or footer if none)
+            let insertAfterSubs = null;
+            if (subscriptionsHeading) {
+                const subscriptionsIndex = headings.indexOf(subscriptionsHeading);
+                const nextHeading = headings[subscriptionsIndex + 1];
 
-                // Remove blue left border from footer
-                footer.style.borderLeft = 'none';
-            } else if (footer) {
-                resultsDiv.insertBefore(subscriptionEngagementSection, footer);
-                resultsDiv.insertBefore(copyEngagementSection, footer);
-                resultsDiv.insertBefore(hiddenGemsSection, footer);
-                footer.style.borderLeft = 'none';
-            } else {
-                resultsDiv.appendChild(subscriptionEngagementSection);
-                resultsDiv.appendChild(copyEngagementSection);
-                resultsDiv.appendChild(hiddenGemsSection);
+                if (nextHeading) {
+                    // Find all elements between subscriptions heading and next heading
+                    let currentElement = subscriptionsHeading.nextElementSibling;
+                    while (currentElement && currentElement !== nextHeading) {
+                        insertAfterSubs = currentElement;
+                        currentElement = currentElement.nextElementSibling;
+                    }
+                } else {
+                    // No next heading, find last element before footer
+                    const footer = Array.from(resultsDiv.children).find(child =>
+                        child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
+                    );
+                    if (footer) {
+                        insertAfterSubs = footer.previousElementSibling;
+                    }
+                }
+            }
+
+            // Find the next h4 after Portfolio Copies
+            let insertAfterCopies = null;
+            if (portfolioCopiesHeading) {
+                const copiesIndex = headings.indexOf(portfolioCopiesHeading);
+                const nextHeading = headings[copiesIndex + 1];
+
+                if (nextHeading) {
+                    let currentElement = portfolioCopiesHeading.nextElementSibling;
+                    while (currentElement && currentElement !== nextHeading) {
+                        insertAfterCopies = currentElement;
+                        currentElement = currentElement.nextElementSibling;
+                    }
+                }
+            }
+
+            // Insert subscription engagement after Subscriptions section
+            if (insertAfterSubs) {
+                insertAfterSubs.parentNode.insertBefore(subscriptionEngagementSection, insertAfterSubs.nextElementSibling);
+                insertAfterSubs.parentNode.insertBefore(hiddenGemsSection, insertAfterSubs.nextElementSibling);
+            }
+
+            // Insert copy engagement after Portfolio Copies section
+            if (insertAfterCopies) {
+                insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
             }
 
             // Load and display all engagement analyses
@@ -255,17 +282,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                             <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Views</th>
                             <th style="padding: 0.75rem; text-align: right;">Subscribers</th>
                             <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.map((pair, index) => `
+                        ${filteredPairs.slice(0, 25).map((pair, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
                                 <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_users).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.subscribers).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
                             </tr>
@@ -396,13 +423,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                             <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Views</th>
                             <th style="padding: 0.75rem; text-align: right;">Copiers</th>
                             <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.map((pair, index) => `
+                        ${filteredPairs.slice(0, 25).map((pair, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
                                 <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
