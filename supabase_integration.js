@@ -474,6 +474,31 @@ class SupabaseIntegration {
         }
     }
 
+    /**
+     * Load top converting portfolio-creator pairs
+     * Returns pairs ranked by conversion rate
+     */
+    async loadTopConvertingPairs() {
+        console.log('Loading top converting portfolio-creator pairs...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('top_converting_portfolio_creator_pairs')
+                .select('*');
+
+            if (error) {
+                console.error('Error loading top converting pairs:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} top converting pairs`);
+            return data;
+        } catch (error) {
+            console.error('Error loading top converting pairs:', error);
+            throw error;
+        }
+    }
+
 
     /**
      * Convert Supabase creator JSON data to CSV format

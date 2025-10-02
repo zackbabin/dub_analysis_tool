@@ -19,6 +19,10 @@ const CHART_IDS = {
   timeToFirstCopy: '84999271',
   timeToFundedAccount: '84999267',
   timeToLinkedBank: '84999265',
+  // User engagement analysis for subscriptions
+  profileViewsByCreator: '85165590',
+  pdpViewsByPortfolio: '85165580',
+  subscriptionsByCreator: '85165851',
 }
 
 interface MixpanelCredentials {
@@ -29,6 +33,7 @@ interface MixpanelCredentials {
 interface SyncStats {
   subscribersFetched: number
   timeFunnelsFetched: number
+  engagementRecordsFetched: number
   totalRecordsInserted: number
 }
 
@@ -94,7 +99,7 @@ serve(async (req) => {
       }
 
       // Fetch all data in parallel
-      const [subscribersData, timeToFirstCopyData, timeToFundedData, timeToLinkedData] =
+      const [subscribersData, timeToFirstCopyData, timeToFundedData, timeToLinkedData, profileViewsData, pdpViewsData, subscriptionsData] =
         await Promise.all([
           fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights'),
           fetchFunnelData(
@@ -118,6 +123,9 @@ serve(async (req) => {
             fromDate,
             toDate
           ),
+          fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
+          fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
         ])
 
       console.log('All data fetched successfully')
@@ -126,6 +134,7 @@ serve(async (req) => {
       const stats: SyncStats = {
         subscribersFetched: 0,
         timeFunnelsFetched: 0,
+        engagementRecordsFetched: 0,
         totalRecordsInserted: 0,
       }
 
@@ -184,6 +193,69 @@ serve(async (req) => {
         stats.timeFunnelsFetched = timeFunnelRows.length
         stats.totalRecordsInserted += timeFunnelRows.length
         console.log(`Upserted ${timeFunnelRows.length} time funnel records`)
+      }
+
+      // Process user engagement data for subscription analysis
+      console.log('Processing user engagement data...')
+
+      // Process portfolio-creator pairs
+      const pairRows = processPortfolioCreatorPairs(profileViewsData, pdpViewsData, subscriptionsData)
+      console.log(`Processed ${pairRows.length} portfolio-creator pair records`)
+
+      if (pairRows.length > 0) {
+        // Insert pairs in batches
+        let pairProcessed = 0
+        for (let i = 0; i < pairRows.length; i += batchSize) {
+          const batch = pairRows.slice(i, i + batchSize)
+
+          const { error: insertError } = await supabase
+            .from('user_portfolio_creator_views')
+            .upsert(batch, {
+              onConflict: 'distinct_id,portfolio_ticker,creator_id,synced_at',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting portfolio-creator pairs:', insertError)
+            throw insertError
+          }
+
+          pairProcessed += batch.length
+          console.log(`Upserted pair batch: ${pairProcessed}/${pairRows.length} records`)
+        }
+
+        stats.totalRecordsInserted += pairRows.length
+      }
+
+      // Process user-level engagement summary
+      const engagementRows = processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)
+      console.log(`Processed ${engagementRows.length} user engagement records`)
+
+      if (engagementRows.length > 0) {
+        // Insert in batches
+        let userProcessed = 0
+        for (let i = 0; i < engagementRows.length; i += batchSize) {
+          const batch = engagementRows.slice(i, i + batchSize)
+
+          const { error: insertError } = await supabase
+            .from('user_engagement_for_subscriptions')
+            .upsert(batch, {
+              onConflict: 'distinct_id,synced_at',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting user engagement:', insertError)
+            throw insertError
+          }
+
+          userProcessed += batch.length
+          console.log(`Upserted engagement batch: ${userProcessed}/${engagementRows.length} records`)
+        }
+
+        stats.engagementRecordsFetched = engagementRows.length
+        stats.totalRecordsInserted += engagementRows.length
+        console.log(`Upserted ${engagementRows.length} user engagement records`)
       }
 
       // Refresh materialized view
@@ -546,5 +618,237 @@ function processFunnelData(data: any, funnelType: string): any[] {
   }
 
   console.log(`Processed ${rows.length} ${funnelType} records`)
+  return rows
+}
+
+/**
+ * Process user engagement data for subscription conversion analysis
+ * Tracks portfolio-creator pairs that each user viewed
+ */
+function processUserEngagementData(profileViewsData: any, pdpViewsData: any, subscriptionsData: any): any[] {
+  // First, get portfolio-creator pair data
+  const pairRows = processPortfolioCreatorPairs(profileViewsData, pdpViewsData, subscriptionsData)
+
+  // Then aggregate to user level for summary stats
+  return processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)
+}
+
+/**
+ * Process portfolio-creator pairs viewed by each user
+ * Returns rows for user_portfolio_creator_views table
+ */
+function processPortfolioCreatorPairs(profileViewsData: any, pdpViewsData: any, subscriptionsData: any): any[] {
+  if (!profileViewsData?.series || !pdpViewsData?.series || !subscriptionsData?.series) {
+    console.log('Missing required data for pair processing')
+    return []
+  }
+
+  const syncedAt = new Date().toISOString()
+  const userSubscriptionsMap = new Map<string, boolean>()
+
+  // Build subscription map
+  const subsMetric = subscriptionsData.series['Total Subscriptions']
+  if (subsMetric) {
+    Object.keys(subsMetric).forEach(distinctId => {
+      if (distinctId === '$overall') return
+      userSubscriptionsMap.set(distinctId, true)
+    })
+  }
+
+  const pairRows: any[] = []
+
+  // Process PDP Views to extract portfolio-creator pairs
+  // Structure: distinct_id -> portfolioTicker -> creatorId -> count
+  const pdpMetric = pdpViewsData.series['Total PDP Views']
+  if (pdpMetric) {
+    Object.keys(pdpMetric).forEach(distinctId => {
+      if (distinctId === '$overall') return
+
+      const userData = pdpMetric[distinctId]
+      const didSubscribe = userSubscriptionsMap.has(distinctId)
+
+      Object.keys(userData).forEach(ticker => {
+        if (ticker === '$overall') return
+
+        const tickerData = userData[ticker]
+        Object.keys(tickerData).forEach(creatorId => {
+          if (creatorId === '$overall') return
+
+          const count = tickerData[creatorId]?.all || 0
+
+          // We need to get creatorUsername from profile views data
+          // Match creatorId to find username
+          const profileMetric = profileViewsData.series['Total Profile Views']
+          let creatorUsername = null
+
+          if (profileMetric && profileMetric[distinctId]) {
+            const userProfileData = profileMetric[distinctId]
+            if (userProfileData[creatorId]) {
+              const creatorData = userProfileData[creatorId]
+              // Get first username key (should only be one per creatorId)
+              const usernames = Object.keys(creatorData).filter(k => k !== '$overall')
+              if (usernames.length > 0) {
+                creatorUsername = usernames[0]
+              }
+            }
+          }
+
+          if (count > 0) {
+            pairRows.push({
+              distinct_id: distinctId,
+              portfolio_ticker: ticker,
+              creator_id: creatorId,
+              creator_username: creatorUsername,
+              pdp_view_count: count,
+              did_subscribe: didSubscribe,
+              synced_at: syncedAt,
+            })
+          }
+        })
+      })
+    })
+  }
+
+  console.log(`Processed ${pairRows.length} portfolio-creator pair views`)
+  return pairRows
+}
+
+/**
+ * Process user-level engagement summary
+ * Returns rows for user_engagement_for_subscriptions table
+ */
+function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, subscriptionsData: any): any[] {
+  if (!profileViewsData?.series || !pdpViewsData?.series || !subscriptionsData?.series) {
+    console.log('Missing required data for user engagement processing')
+    return []
+  }
+
+  const syncedAt = new Date().toISOString()
+
+  // Build maps for each data source
+  const userProfileViewsMap = new Map<string, { total: number, uniqueCreators: Set<string>, topCreator: { username: string, count: number } }>()
+  const userPdpViewsMap = new Map<string, { total: number, uniquePortfolios: Set<string>, topPortfolio: { ticker: string, count: number } }>()
+  const userSubscriptionsMap = new Map<string, boolean>()
+
+  // Process Profile Views (distinct_id -> creatorId -> creatorUsername -> count)
+  const profileMetric = profileViewsData.series['Total Profile Views']
+  if (profileMetric) {
+    Object.keys(profileMetric).forEach(distinctId => {
+      if (distinctId === '$overall') return
+
+      const userData = profileMetric[distinctId]
+      let totalViews = 0
+      const creatorsViewed = new Set<string>()
+      const creatorCounts = new Map<string, number>()
+
+      Object.keys(userData).forEach(creatorId => {
+        if (creatorId === '$overall') return
+
+        const creatorData = userData[creatorId]
+        Object.keys(creatorData).forEach(username => {
+          if (username === '$overall') return
+
+          const count = creatorData[username]?.all || 0
+          totalViews += count
+          creatorsViewed.add(username)
+          creatorCounts.set(username, (creatorCounts.get(username) || 0) + count)
+        })
+      })
+
+      // Find top creator
+      let topCreator = { username: '', count: 0 }
+      creatorCounts.forEach((count, username) => {
+        if (count > topCreator.count) {
+          topCreator = { username, count }
+        }
+      })
+
+      userProfileViewsMap.set(distinctId, {
+        total: totalViews,
+        uniqueCreators: creatorsViewed,
+        topCreator
+      })
+    })
+  }
+
+  // Process PDP Views (distinct_id -> portfolioTicker -> creatorId -> count)
+  const pdpMetric = pdpViewsData.series['Total PDP Views']
+  if (pdpMetric) {
+    Object.keys(pdpMetric).forEach(distinctId => {
+      if (distinctId === '$overall') return
+
+      const userData = pdpMetric[distinctId]
+      let totalViews = 0
+      const portfoliosViewed = new Set<string>()
+      const portfolioCounts = new Map<string, number>()
+
+      Object.keys(userData).forEach(ticker => {
+        if (ticker === '$overall') return
+
+        const tickerData = userData[ticker]
+        Object.keys(tickerData).forEach(creatorId => {
+          if (creatorId === '$overall') return
+
+          const count = tickerData[creatorId]?.all || 0
+          totalViews += count
+          portfoliosViewed.add(ticker)
+          portfolioCounts.set(ticker, (portfolioCounts.get(ticker) || 0) + count)
+        })
+      })
+
+      // Find top portfolio
+      let topPortfolio = { ticker: '', count: 0 }
+      portfolioCounts.forEach((count, ticker) => {
+        if (count > topPortfolio.count) {
+          topPortfolio = { ticker, count }
+        }
+      })
+
+      userPdpViewsMap.set(distinctId, {
+        total: totalViews,
+        uniquePortfolios: portfoliosViewed,
+        topPortfolio
+      })
+    })
+  }
+
+  // Process Subscriptions (distinct_id -> creatorId -> creatorUsername -> count)
+  const subsMetric = subscriptionsData.series['Total Subscriptions']
+  if (subsMetric) {
+    Object.keys(subsMetric).forEach(distinctId => {
+      if (distinctId === '$overall') return
+
+      userSubscriptionsMap.set(distinctId, true)
+    })
+  }
+
+  // Combine all data at user level
+  const allUserIds = new Set<string>([
+    ...userProfileViewsMap.keys(),
+    ...userPdpViewsMap.keys(),
+    ...userSubscriptionsMap.keys()
+  ])
+
+  const rows: any[] = []
+  allUserIds.forEach(distinctId => {
+    const profileData = userProfileViewsMap.get(distinctId)
+    const pdpData = userPdpViewsMap.get(distinctId)
+    const didSubscribe = userSubscriptionsMap.has(distinctId)
+
+    rows.push({
+      distinct_id: distinctId,
+      did_subscribe: didSubscribe,
+      total_profile_views: profileData?.total || 0,
+      total_pdp_views: pdpData?.total || 0,
+      unique_creators_viewed: profileData?.uniqueCreators.size || 0,
+      unique_portfolios_viewed: pdpData?.uniquePortfolios.size || 0,
+      top_creator_username: profileData?.topCreator.username || null,
+      top_portfolio_ticker: pdpData?.topPortfolio.ticker || null,
+      synced_at: syncedAt,
+    })
+  })
+
+  console.log(`Processed ${rows.length} user engagement records`)
+  console.log(`Subscribers: ${Array.from(userSubscriptionsMap.keys()).length}`)
   return rows
 }
