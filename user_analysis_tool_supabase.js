@@ -103,13 +103,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Override: Add engagement analysis section after Subscription section in Behavioral Analysis
+     * Override: Add engagement analysis sections after Subscription section in Behavioral Analysis
      */
     async displayResults(results) {
         // Call parent method to display standard results
         super.displayResults(results);
 
-        // Add engagement analysis section after Subscriptions section, before footer
+        // Add engagement analysis sections after Subscriptions section, before footer
         const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
         if (resultsDiv) {
             // Find all h4 elements to locate the Subscriptions section
@@ -121,24 +121,33 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
             );
 
-            const engagementSection = document.createElement('div');
-            engagementSection.id = 'qdaEngagementAnalysisInline';
+            // Create subscription engagement section
+            const subscriptionEngagementSection = document.createElement('div');
+            subscriptionEngagementSection.id = 'qdaEngagementAnalysisInline';
 
-            // Insert after subscriptions table but before footer
+            // Create portfolio copies section
+            const copyEngagementSection = document.createElement('div');
+            copyEngagementSection.id = 'qdaCopyEngagementAnalysisInline';
+
+            // Insert both sections before footer
             if (subscriptionsHeading && footer) {
-                resultsDiv.insertBefore(engagementSection, footer);
+                resultsDiv.insertBefore(subscriptionEngagementSection, footer);
+                resultsDiv.insertBefore(copyEngagementSection, footer);
 
                 // Remove blue left border from footer
                 footer.style.borderLeft = 'none';
             } else if (footer) {
-                resultsDiv.insertBefore(engagementSection, footer);
+                resultsDiv.insertBefore(subscriptionEngagementSection, footer);
+                resultsDiv.insertBefore(copyEngagementSection, footer);
                 footer.style.borderLeft = 'none';
             } else {
-                resultsDiv.appendChild(engagementSection);
+                resultsDiv.appendChild(subscriptionEngagementSection);
+                resultsDiv.appendChild(copyEngagementSection);
             }
 
-            // Load and display engagement analysis
+            // Load and display both engagement analyses
             this.displayEngagementAnalysis();
+            this.displayCopyEngagementAnalysis();
         }
     }
 
@@ -280,6 +289,160 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.error('Error loading engagement analysis:', error);
             const errorMsg = document.createElement('p');
             errorMsg.textContent = `Error loading engagement analysis: ${error.message}`;
+            errorMsg.style.color = '#dc3545';
+            section.appendChild(errorMsg);
+            container.appendChild(section);
+        }
+    }
+
+    /**
+     * Display portfolio copies conversion analysis
+     */
+    async displayCopyEngagementAnalysis() {
+        const container = document.getElementById('qdaCopyEngagementAnalysisInline');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+
+        try {
+            // Load copy engagement data from Supabase
+            console.log('Loading copy engagement analysis data...');
+            const [summaryData, topPairs] = await Promise.all([
+                this.supabaseIntegration.loadCopyEngagementSummary(),
+                this.supabaseIntegration.loadTopConvertingCopyPairs()
+            ]);
+
+            console.log('Copy engagement data loaded:', {
+                summaryData: summaryData?.length || 0,
+                topPairs: topPairs?.length || 0
+            });
+
+            // Summary Stats Card
+            if (summaryData && summaryData.length === 2) {
+                const copiersData = summaryData.find(d => d.did_copy === true) || {};
+                const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
+
+                // Title outside the card
+                const summaryTitle = document.createElement('h4');
+                summaryTitle.textContent = 'Portfolio Copies';
+                section.appendChild(summaryTitle);
+
+                const insightsTitle = document.createElement('h5');
+                insightsTitle.textContent = 'Key Insights: Copiers vs Non-Copiers';
+                insightsTitle.style.marginTop = '1rem';
+                insightsTitle.style.fontSize = '0.95rem';
+                insightsTitle.style.color = '#2563eb';
+                insightsTitle.style.fontWeight = '600';
+                section.appendChild(insightsTitle);
+
+                const summaryCard = document.createElement('div');
+                summaryCard.style.backgroundColor = '#f8f9fa';
+                summaryCard.style.padding = '1.5rem';
+                summaryCard.style.borderRadius = '8px';
+                summaryCard.style.marginBottom = '2rem';
+
+                summaryCard.innerHTML = `
+                    <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                        <div>
+                            <div style="font-weight: bold; color: #2563eb;">Avg Profile Views</div>
+                            <div style="font-size: 1.5rem;">
+                                ${parseFloat(copiersData.avg_profile_views || 0).toFixed(1)}
+                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonCopiersData.avg_profile_views || 0).toFixed(1)}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; color: #2563eb;">Avg PDP Views</div>
+                            <div style="font-size: 1.5rem;">
+                                ${parseFloat(copiersData.avg_pdp_views || 0).toFixed(1)}
+                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonCopiersData.avg_pdp_views || 0).toFixed(1)}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; color: #2563eb;">Unique Creators</div>
+                            <div style="font-size: 1.5rem;">
+                                ${parseFloat(copiersData.avg_unique_creators || 0).toFixed(1)}
+                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonCopiersData.avg_unique_creators || 0).toFixed(1)}</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; color: #2563eb;">Unique Portfolios</div>
+                            <div style="font-size: 1.5rem;">
+                                ${parseFloat(copiersData.avg_unique_portfolios || 0).toFixed(1)}
+                                <span style="font-size: 0.9rem; color: #6c757d;">vs ${parseFloat(nonCopiersData.avg_unique_portfolios || 0).toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                section.appendChild(summaryCard);
+            }
+
+            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 views)
+            const filteredPairs = topPairs && topPairs.length > 0
+                ? topPairs.filter(pair => parseInt(pair.total_views) >= 10)
+                : [];
+
+            if (filteredPairs.length > 0) {
+                const pairsSection = document.createElement('div');
+                pairsSection.style.marginTop = '2rem';
+
+                const pairsTitle = document.createElement('h5');
+                pairsTitle.textContent = 'Top Converting Portfolio-Creator Combinations';
+                pairsTitle.style.fontSize = '0.95rem';
+                pairsTitle.style.fontWeight = '600';
+                pairsSection.appendChild(pairsTitle);
+
+                const pairsTable = document.createElement('table');
+                pairsTable.style.width = '100%';
+                pairsTable.style.borderCollapse = 'collapse';
+                pairsTable.style.marginTop = '1rem';
+
+                pairsTable.innerHTML = `
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
+                            <th style="padding: 0.75rem; text-align: left;">Creator</th>
+                            <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
+                            <th style="padding: 0.75rem; text-align: right;">Copiers</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filteredPairs.map((pair, index) => `
+                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
+                                <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
+                                <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.copiers).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+
+                pairsSection.appendChild(pairsTable);
+
+                // Add footnote
+                const footnote = document.createElement('p');
+                footnote.style.fontSize = '0.875rem';
+                footnote.style.color = '#6c757d';
+                footnote.style.fontStyle = 'italic';
+                footnote.style.marginTop = '0.5rem';
+                footnote.textContent = 'Portfolios with a minimum of 10 views';
+                pairsSection.appendChild(footnote);
+
+                section.appendChild(pairsSection);
+            }
+
+            // Append section to container
+            container.appendChild(section);
+
+        } catch (error) {
+            console.error('Error loading copy engagement analysis:', error);
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = `Error loading copy engagement analysis: ${error.message}`;
             errorMsg.style.color = '#dc3545';
             section.appendChild(errorMsg);
             container.appendChild(section);
