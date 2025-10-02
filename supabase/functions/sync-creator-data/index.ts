@@ -554,13 +554,17 @@ function processPortfolioCopiesData(data: any): any[] {
           const portfolioData = usernameData[portfolioTicker]
           const value = portfolioData?.all || 0
 
-          const key = `${creatorId}|${username}|${portfolioTicker}`
+          // Normalize username and ticker by removing @ and $ prefixes for consistent aggregation
+          const normalizedUsername = username.startsWith('@') ? username.substring(1) : username
+          const normalizedTicker = portfolioTicker.startsWith('$') ? portfolioTicker.substring(1) : portfolioTicker
+
+          const key = `${creatorId}|${normalizedUsername}|${normalizedTicker}`
 
           if (!dataMap.has(key)) {
             dataMap.set(key, {
               creator_id: String(creatorId),
-              creator_username: username,
-              portfolio_ticker: portfolioTicker,
+              creator_username: normalizedUsername,
+              portfolio_ticker: normalizedTicker,
               total_copies: 0,
               total_pdp_views: 0,
               total_profile_views: 0,
@@ -568,7 +572,9 @@ function processPortfolioCopiesData(data: any): any[] {
             })
           }
 
-          dataMap.get(key)[fieldName] = value
+          // Aggregate values across different username/ticker variations
+          const existing = dataMap.get(key)
+          existing[fieldName] = (existing[fieldName] || 0) + value
         })
       })
     })
