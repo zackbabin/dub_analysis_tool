@@ -139,13 +139,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             },
             tooltip: {
                 useHTML: true,
+                shared: true,
                 formatter: function() {
-                    const index = this.point.index;
+                    const index = this.points[0].point.index;
+                    const subs = subscriptions[index];
+                    const paywall = paywallViews[index];
+                    const ratio = paywall > 0 ? ((subs / paywall) * 100).toFixed(2) : '0.00';
                     const creators = usernames[index] || [];
                     const topCreators = creators.slice(0, 10);
 
                     let tooltip = `<b>${this.x}</b><br/>`;
-                    tooltip += `<span style="color:${this.series.color}">\u25CF</span> ${this.series.name}: <b>${this.y.toLocaleString()}</b><br/>`;
+                    tooltip += `<span style="color:#2563eb">\u25CF</span> Total Subscriptions: <b>${subs.toLocaleString()}</b><br/>`;
+                    tooltip += `<span style="color:#10b981">\u25CF</span> Total Paywall Views: <b>${paywall.toLocaleString()}</b><br/>`;
+                    tooltip += `<span style="color:#f59e0b">\u25CF</span> Subscriptions to Paywall Ratio: <b>${ratio}%</b><br/>`;
 
                     if (topCreators.length > 0) {
                         tooltip += '<br/><b>Top Creators:</b><br/>';
