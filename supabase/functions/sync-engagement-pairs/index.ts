@@ -15,7 +15,7 @@ interface PortfolioCreatorPair {
   distinct_id: string
   portfolio_ticker: string
   creator_id: string
-  creator_username: string
+  creator_username: string | null
   pdp_view_count: number
   did_subscribe: boolean
   synced_at: string
@@ -143,7 +143,7 @@ function processPortfolioCreatorPairs(
 /**
  * Main handler
  */
-serve(async (req) => {
+serve(async (_req) => {
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -206,12 +206,12 @@ serve(async (req) => {
         status: 200,
       }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in sync-engagement-pairs:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error?.message || String(error),
       }),
       {
         headers: { 'Content-Type': 'application/json' },
