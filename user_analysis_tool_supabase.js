@@ -109,12 +109,26 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Call parent method to display standard results
         super.displayResults(results);
 
-        // Add engagement analysis section
+        // Add engagement analysis section BEFORE the footer
         const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
         if (resultsDiv) {
+            // Find the footer (look for element with Predictive Strength text)
+            const footer = Array.from(resultsDiv.children).find(child =>
+                child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
+            );
+
             const engagementSection = document.createElement('div');
             engagementSection.id = 'qdaEngagementAnalysisInline';
-            resultsDiv.appendChild(engagementSection);
+
+            // Insert before footer if found, otherwise append to end
+            if (footer) {
+                resultsDiv.insertBefore(engagementSection, footer);
+
+                // Remove blue left border from footer
+                footer.style.borderLeft = 'none';
+            } else {
+                resultsDiv.appendChild(engagementSection);
+            }
 
             // Load and display engagement analysis
             this.displayEngagementAnalysis();
@@ -132,10 +146,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const section = document.createElement('div');
         section.className = 'qda-result-section';
-
-        const title = document.createElement('h1');
-        title.textContent = 'Subscription Conversion Analysis';
-        section.appendChild(title);
 
         try {
             // Load engagement data from Supabase
