@@ -217,6 +217,18 @@ serve(async (_req) => {
       console.log(`Inserted ${insertedCount}/${pairRows.length} pairs`)
     }
 
+    // Refresh copy engagement and hidden gems materialized views
+    console.log('Refreshing copy_engagement_summary and hidden_gems materialized views...')
+    try {
+      await supabaseClient.rpc('refresh_copy_engagement_summary')
+      console.log('✓ copy_engagement_summary refreshed')
+
+      await supabaseClient.rpc('refresh_hidden_gems')
+      console.log('✓ hidden_gems refreshed')
+    } catch (err) {
+      console.warn('Error refreshing materialized views:', err)
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

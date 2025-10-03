@@ -217,6 +217,19 @@ serve(async (_req) => {
       console.log(`Inserted ${insertedCount}/${pairRows.length} pairs`)
     }
 
+    // Refresh subscription engagement materialized view
+    console.log('Refreshing subscription_engagement_summary materialized view...')
+    try {
+      const { error: refreshError } = await supabaseClient.rpc('refresh_subscription_engagement_summary')
+      if (refreshError) {
+        console.warn('Failed to refresh materialized view:', refreshError)
+      } else {
+        console.log('✓ Materialized view refreshed')
+      }
+    } catch (err) {
+      console.warn('Error refreshing materialized view:', err)
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
