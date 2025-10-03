@@ -592,7 +592,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 footnote.style.color = '#6c757d';
                 footnote.style.fontStyle = 'italic';
                 footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Portfolios in top 25% of engagement (PDP & Profile views) with ≤10% conversion rate';
+                footnote.textContent = 'Portfolios in top 50% of engagement (PDP & Profile views) with ≤25% conversion rate';
                 tableSection.appendChild(footnote);
 
                 section.appendChild(tableSection);
