@@ -106,19 +106,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Add engagement analysis sections after Subscription section in Behavioral Analysis
      */
     async displayResults(results) {
-        // Try to restore from cache first (includes all sections)
+        // Try to restore from cache first (base results only)
         const cached = localStorage.getItem('dubAnalysisResults');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 if (this.outputContainer && data.html) {
                     this.outputContainer.innerHTML = data.html;
-                    console.log('✅ Restored complete analysis from cache (includes all sections)');
+                    console.log('✅ Restored base analysis from cache');
 
-                    // Re-attach event handlers if needed
-                    this.displayEngagementAnalysis();
-                    this.displayCopyEngagementAnalysis();
-                    this.displayHiddenGemsAnalysis();
+                    // After restoring, add engagement sections
+                    await this.addEngagementSections();
                     return;
                 }
             } catch (e) {
@@ -130,101 +128,164 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Call parent method to display standard results
         super.displayResults(results);
 
-        // Add engagement analysis sections in Behavioral Analysis section
+        // Add engagement analysis sections
+        await this.addEngagementSections();
+    }
+
+    /**
+     * Helper method to add engagement sections to the results
+     * This is called both when building fresh and when restoring from cache
+     */
+    async addEngagementSections() {
         const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
-        if (resultsDiv) {
-            // Find all h4 elements to locate Portfolio Copies and Subscriptions sections
-            const headings = Array.from(resultsDiv.querySelectorAll('h4'));
-            console.log('All h4 headings:', headings.map(h => h.textContent));
-            const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
-            const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
-            console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
-            console.log('Found Subscriptions heading:', !!subscriptionsHeading);
+        if (!resultsDiv) {
+            console.warn('Results div not found, cannot add engagement sections');
+            return;
+        }
 
-            // Create subscription engagement section
-            const subscriptionEngagementSection = document.createElement('div');
-            subscriptionEngagementSection.id = 'qdaEngagementAnalysisInline';
-
-            // Create portfolio copies engagement section
-            const copyEngagementSection = document.createElement('div');
-            copyEngagementSection.id = 'qdaCopyEngagementAnalysisInline';
-
-            // Create hidden gems section
-            const hiddenGemsSection = document.createElement('div');
-            hiddenGemsSection.id = 'qdaHiddenGemsAnalysisInline';
-
-            // Find the insertion point after Subscriptions (before footer)
-            let insertAfterSubs = null;
-            if (subscriptionsHeading) {
-                console.log('Found Subscriptions heading, looking for footer...');
-
-                // Find the footer element (it contains "Predictive Strength Calculation")
-                const footer = Array.from(resultsDiv.children).find(child =>
-                    child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
-                );
-
-                console.log('Footer found:', !!footer);
-
-                if (footer) {
-                    // Insert right before the footer
-                    insertAfterSubs = footer.previousElementSibling;
-                    console.log('Will insert before footer, after element:', insertAfterSubs?.tagName);
-                } else {
-                    // If no footer found, find last element after subscriptions heading
-                    let currentElement = subscriptionsHeading.nextElementSibling;
-                    while (currentElement && currentElement.nextElementSibling) {
-                        insertAfterSubs = currentElement;
-                        currentElement = currentElement.nextElementSibling;
-                    }
-                    console.log('No footer found, inserting at end');
-                }
-            }
-
-            // Find the next h4 after Portfolio Copies
-            let insertAfterCopies = null;
-            if (portfolioCopiesHeading) {
-                const copiesIndex = headings.indexOf(portfolioCopiesHeading);
-                const nextHeading = headings[copiesIndex + 1];
-
-                if (nextHeading) {
-                    let currentElement = portfolioCopiesHeading.nextElementSibling;
-                    while (currentElement && currentElement !== nextHeading) {
-                        insertAfterCopies = currentElement;
-                        currentElement = currentElement.nextElementSibling;
-                    }
-                }
-            }
-
-            // Insert subscription engagement after Subscriptions section
-            if (insertAfterSubs) {
-                console.log('Inserting subscription sections after element:', insertAfterSubs);
-                // Insert subscription engagement first
-                insertAfterSubs.parentNode.insertBefore(subscriptionEngagementSection, insertAfterSubs.nextElementSibling);
-                // Insert hidden gems after subscription engagement
-                subscriptionEngagementSection.parentNode.insertBefore(hiddenGemsSection, subscriptionEngagementSection.nextElementSibling);
-            } else {
-                console.warn('Could not find insertion point for subscription sections');
-            }
-
-            // Insert copy engagement after Portfolio Copies section
-            if (insertAfterCopies) {
-                console.log('Inserting copy sections after element:', insertAfterCopies);
-                insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
-            } else {
-                console.warn('Could not find insertion point for copy sections');
-            }
-
-            // Load and display all engagement analyses
+        // Check if sections already exist (from cache)
+        if (document.getElementById('qdaEngagementAnalysisInline')) {
+            console.log('Engagement sections already exist, refreshing data...');
+            // Just refresh the data in existing containers
             await Promise.all([
                 this.displayEngagementAnalysis(),
                 this.displayCopyEngagementAnalysis(),
                 this.displayHiddenGemsAnalysis()
             ]);
+            return;
+        }
 
-            // Save complete results to localStorage after all sections are loaded
-            if (resultsDiv) {
-                this.saveAnalysisResults(resultsDiv.outerHTML);
+        // Find all h4 elements to locate Portfolio Copies and Subscriptions sections
+        const headings = Array.from(resultsDiv.querySelectorAll('h4'));
+        console.log('All h4 headings:', headings.map(h => h.textContent));
+        const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
+        const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
+        console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
+        console.log('Found Subscriptions heading:', !!subscriptionsHeading);
+
+        // Create subscription engagement section
+        const subscriptionEngagementSection = document.createElement('div');
+        subscriptionEngagementSection.id = 'qdaEngagementAnalysisInline';
+
+        // Create portfolio copies engagement section
+        const copyEngagementSection = document.createElement('div');
+        copyEngagementSection.id = 'qdaCopyEngagementAnalysisInline';
+
+        // Create hidden gems section
+        const hiddenGemsSection = document.createElement('div');
+        hiddenGemsSection.id = 'qdaHiddenGemsAnalysisInline';
+
+        // Find the insertion point after Subscriptions (before footer)
+        let insertAfterSubs = null;
+        if (subscriptionsHeading) {
+            console.log('Found Subscriptions heading, looking for footer...');
+
+            // Find the footer element (it contains "Predictive Strength Calculation")
+            const footer = Array.from(resultsDiv.children).find(child =>
+                child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
+            );
+
+            console.log('Footer found:', !!footer);
+
+            if (footer) {
+                // Insert right before the footer
+                insertAfterSubs = footer.previousElementSibling;
+                console.log('Will insert before footer, after element:', insertAfterSubs?.tagName);
+            } else {
+                // If no footer found, find last element after subscriptions heading
+                let currentElement = subscriptionsHeading.nextElementSibling;
+                while (currentElement && currentElement.nextElementSibling) {
+                    insertAfterSubs = currentElement;
+                    currentElement = currentElement.nextElementSibling;
+                }
+                console.log('No footer found, inserting at end');
             }
+        }
+
+        // Find the next h4 after Portfolio Copies
+        let insertAfterCopies = null;
+        if (portfolioCopiesHeading) {
+            const copiesIndex = headings.indexOf(portfolioCopiesHeading);
+            const nextHeading = headings[copiesIndex + 1];
+
+            if (nextHeading) {
+                let currentElement = portfolioCopiesHeading.nextElementSibling;
+                while (currentElement && currentElement !== nextHeading) {
+                    insertAfterCopies = currentElement;
+                    currentElement = currentElement.nextElementSibling;
+                }
+            }
+        }
+
+        // Insert subscription engagement after Subscriptions section
+        if (insertAfterSubs) {
+            console.log('Inserting subscription sections after element:', insertAfterSubs);
+            // Insert subscription engagement first
+            insertAfterSubs.parentNode.insertBefore(subscriptionEngagementSection, insertAfterSubs.nextElementSibling);
+            // Insert hidden gems after subscription engagement
+            subscriptionEngagementSection.parentNode.insertBefore(hiddenGemsSection, subscriptionEngagementSection.nextElementSibling);
+        } else {
+            console.warn('Could not find insertion point for subscription sections');
+        }
+
+        // Insert copy engagement after Portfolio Copies section
+        if (insertAfterCopies) {
+            console.log('Inserting copy sections after element:', insertAfterCopies);
+            insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
+        } else {
+            console.warn('Could not find insertion point for copy sections');
+        }
+
+        // Load and display all engagement analyses
+        await Promise.all([
+            this.displayEngagementAnalysis(),
+            this.displayCopyEngagementAnalysis(),
+            this.displayHiddenGemsAnalysis()
+        ]);
+
+        // Save base results to localStorage (without engagement sections)
+        // This allows faster cache restore, and engagement sections are rebuilt fresh
+        if (resultsDiv && !cached) {
+            // Only save on first build, not when sections are added
+            this.saveBaseAnalysisResults();
+        }
+    }
+
+    /**
+     * Save only the base analysis results (without engagement sections)
+     * Engagement sections will be rebuilt from Supabase on each load
+     */
+    saveBaseAnalysisResults() {
+        // Find the base results div
+        const resultsDiv = document.getElementById('qdaAnalysisResultsInline');
+        if (!resultsDiv) return;
+
+        // Clone the results div
+        const clone = resultsDiv.cloneNode(true);
+
+        // Remove engagement sections from the clone
+        const sectionsToRemove = [
+            'qdaEngagementAnalysisInline',
+            'qdaCopyEngagementAnalysisInline',
+            'qdaHiddenGemsAnalysisInline'
+        ];
+
+        sectionsToRemove.forEach(id => {
+            const section = clone.querySelector(`#${id}`);
+            if (section) {
+                section.remove();
+            }
+        });
+
+        // Save the cleaned HTML
+        try {
+            localStorage.setItem('dubAnalysisResults', JSON.stringify({
+                html: clone.outerHTML,
+                timestamp: new Date().toISOString()
+            }));
+            console.log('✅ Saved base analysis results to cache (engagement sections excluded)');
+        } catch (error) {
+            console.warn('Failed to save to localStorage:', error);
         }
     }
 
