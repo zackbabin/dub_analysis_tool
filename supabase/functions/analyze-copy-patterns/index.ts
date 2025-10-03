@@ -13,7 +13,7 @@ const CHART_IDS = {
 
 interface UserData {
   distinct_id: string
-  creator_ids: Set<string>
+  portfolio_tickers: Set<string>
   did_copy: boolean
   copy_count: number
 }
@@ -265,7 +265,7 @@ function evaluateCombination(
   const y: number[] = []
 
   for (const user of users) {
-    const hasExposure = Array.from(user.creator_ids).some(id => combinationSet.has(id))
+    const hasExposure = Array.from(user.portfolio_tickers).some(ticker => combinationSet.has(ticker))
     X.push(hasExposure ? 1 : 0)
     y.push(user.did_copy ? 1 : 0)
   }
@@ -336,36 +336,36 @@ function pairsToUserData(pairs: PortfolioCreatorCopyPair[]): UserData[] {
     if (!userMap.has(pair.distinct_id)) {
       userMap.set(pair.distinct_id, {
         distinct_id: pair.distinct_id,
-        creator_ids: new Set(),
+        portfolio_tickers: new Set(),
         did_copy: pair.did_copy,
         copy_count: pair.copy_count,
       })
     }
-    userMap.get(pair.distinct_id)!.creator_ids.add(pair.creator_id)
+    userMap.get(pair.distinct_id)!.portfolio_tickers.add(pair.portfolio_ticker)
   }
 
   return Array.from(userMap.values())
 }
 
 /**
- * Get top creators with sufficient engagement
+ * Get top portfolios with sufficient engagement
  */
-function getTopCreators(users: UserData[], minUsers = 10): string[] {
-  const creatorCounts = new Map<string, number>()
+function getTopPortfolios(users: UserData[], minUsers = 10): string[] {
+  const portfolioCounts = new Map<string, number>()
 
   for (const user of users) {
-    for (const creatorId of user.creator_ids) {
-      creatorCounts.set(creatorId, (creatorCounts.get(creatorId) || 0) + 1)
+    for (const portfolioTicker of user.portfolio_tickers) {
+      portfolioCounts.set(portfolioTicker, (portfolioCounts.get(portfolioTicker) || 0) + 1)
     }
   }
 
-  const topCreators = Array.from(creatorCounts.entries())
+  const topPortfolios = Array.from(portfolioCounts.entries())
     .filter(([_, count]) => count >= minUsers)
     .sort((a, b) => b[1] - a[1])
-    .map(([id, _]) => id)
+    .map(([ticker, _]) => ticker)
 
-  console.log(`Found ${topCreators.length} creators with >=${minUsers} user exposures`)
-  return topCreators
+  console.log(`Found ${topPortfolios.length} portfolios with >=${minUsers} user exposures`)
+  return topPortfolios
 }
 
 /**
@@ -431,26 +431,26 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    const topCreators = getTopCreators(users, 10).slice(0, 25)
+    const topPortfolios = getTopPortfolios(users, 10).slice(0, 25)
 
-    if (topCreators.length < 3) {
+    if (topPortfolios.length < 3) {
       return new Response(
         JSON.stringify({
           success: true,
           stats: { pairs_synced: pairRows.length },
-          warning: 'Insufficient creators for pattern analysis (need 3+ with engagement)',
+          warning: 'Insufficient portfolios for pattern analysis (need 3+ with engagement)',
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    const totalCombinations = (topCreators.length * (topCreators.length - 1) * (topCreators.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators`)
+    const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
+    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios`)
 
     const results: CombinationResult[] = []
     let processed = 0
 
-    for (const combo of generateCombinations(topCreators, 3)) {
+    for (const combo of generateCombinations(topPortfolios, 3)) {
       const result = evaluateCombination(combo, users)
 
       if (result.users_with_exposure >= users.length * 0.05) {
