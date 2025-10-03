@@ -209,59 +209,39 @@ serve(async (req) => {
       // Process user engagement data for subscription analysis
       console.log('Processing user engagement data...')
 
-      // Trigger data collection and pattern analysis pipeline
+      // Trigger pattern analysis (includes data collection)
       // Fire and forget - don't wait for completion to avoid timeout
-      console.log('Triggering engagement data sync and analysis pipeline...')
+      console.log('Triggering pattern analysis (with data collection)...')
 
-      // Subscription pipeline: collect data → analyze patterns
-      fetch(`${supabaseUrl}/functions/v1/sync-engagement-pairs`, {
+      // Subscription analysis: fetch Mixpanel data → store → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${supabaseServiceKey}`,
           'Content-Type': 'application/json',
         },
-      }).then(() => {
-        console.log('✓ Engagement data synced, triggering pattern analysis...')
-        // Chain: run analysis after data collection completes
-        return fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
       }).then(() => {
         console.log('✓ Subscription pattern analysis completed')
       }).catch((err) => {
-        console.warn('⚠️ Subscription pipeline failed:', err)
+        console.warn('⚠️ Subscription analysis failed:', err)
       })
 
-      // Copy pipeline: collect data → analyze patterns
-      fetch(`${supabaseUrl}/functions/v1/sync-copy-pairs`, {
+      // Copy analysis: fetch Mixpanel data → store → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${supabaseServiceKey}`,
           'Content-Type': 'application/json',
         },
       }).then(() => {
-        console.log('✓ Copy data synced, triggering pattern analysis...')
-        // Chain: run analysis after data collection completes
-        return fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
-      }).then(() => {
         console.log('✓ Copy pattern analysis completed')
       }).catch((err) => {
-        console.warn('⚠️ Copy pipeline failed:', err)
+        console.warn('⚠️ Copy analysis failed:', err)
       })
 
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table
-      console.log('Pattern analysis will run after data collection completes')
+      console.log('Pattern analysis functions handle both data collection and analysis')
 
       // Refresh materialized view
       console.log('Refreshing main_analysis materialized view...')

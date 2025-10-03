@@ -1,6 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
+const MIXPANEL_PROJECT_ID = '2599235'
+const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
+const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
+
+const CHART_IDS = {
+  profileViewsByCreator: '85165851',
+  pdpViewsByPortfolio: '85165580',
+  copiesByCreator: '85172578',
+}
+
 interface UserData {
   distinct_id: string
   creator_ids: Set<string>
@@ -18,6 +28,144 @@ interface CombinationResult {
   users_with_exposure: number
   conversion_rate_in_group: number
   overall_conversion_rate: number
+}
+
+interface PortfolioCreatorCopyPair {
+  distinct_id: string
+  portfolio_ticker: string
+  creator_id: string
+  creator_username: string | null
+  pdp_view_count: number
+  profile_view_count: number
+  did_copy: boolean
+  synced_at: string
+}
+
+/**
+ * Fetch Mixpanel insights data
+ */
+async function fetchMixpanelChart(chartId: string, name: string): Promise<any> {
+  console.log(`Fetching ${name} (ID: ${chartId})...`)
+
+  const params = new URLSearchParams({
+    project_id: MIXPANEL_PROJECT_ID,
+    bookmark_id: chartId,
+    limit: '50000',
+  })
+
+  const authString = `${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  const response = await fetch(`https://mixpanel.com/api/query/insights?${params}`, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log(`✓ ${name} fetch successful`)
+  return data
+}
+
+/**
+ * Process portfolio-creator copy pairs from Mixpanel data
+ */
+function processPortfolioCreatorCopyPairs(
+  profileViewsData: any,
+  pdpViewsData: any,
+  copiesData: any,
+  syncedAt: string
+): PortfolioCreatorCopyPair[] {
+  const pairs: PortfolioCreatorCopyPair[] = []
+
+  const creatorIdToUsername = new Map<string, string>()
+  const profileViewCounts = new Map<string, Map<string, number>>()
+
+  const profileMetric = profileViewsData?.series?.['Total Profile Views']
+  if (profileMetric) {
+    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
+          if (username && username !== '$overall' && username !== 'undefined') {
+            if (!creatorIdToUsername.has(creatorId)) {
+              creatorIdToUsername.set(creatorId, username)
+            }
+
+            const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+              ? parseInt(String((viewCount as any).all))
+              : parseInt(String(viewCount)) || 0
+
+            if (count > 0) {
+              if (!profileViewCounts.has(distinctId)) {
+                profileViewCounts.set(distinctId, new Map())
+              }
+              const userCounts = profileViewCounts.get(distinctId)!
+              userCounts.set(creatorId, (userCounts.get(creatorId) || 0) + count)
+            }
+          }
+        })
+      })
+    })
+  }
+
+  const copiedUsers = new Set<string>()
+  const copiesMetric = copiesData?.series?.['Total Copies']
+  if (copiesMetric) {
+    Object.keys(copiesMetric).forEach((distinctId: string) => {
+      if (distinctId !== '$overall') {
+        copiedUsers.add(distinctId)
+      }
+    })
+  }
+
+  const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
+  if (pdpMetric) {
+    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+
+      const didCopy = copiedUsers.has(distinctId)
+
+      Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
+        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+        Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
+          if (creatorId === '$overall') return
+
+          const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+            ? parseInt(String((viewCount as any).all))
+            : parseInt(String(viewCount)) || 0
+          const creatorUsername = creatorIdToUsername.get(creatorId) || null
+          const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
+
+          if (count > 0) {
+            pairs.push({
+              distinct_id: distinctId,
+              portfolio_ticker: portfolioTicker,
+              creator_id: creatorId,
+              creator_username: creatorUsername,
+              pdp_view_count: count,
+              profile_view_count: profileViewCount,
+              did_copy: didCopy,
+              synced_at: syncedAt,
+            })
+          }
+        })
+      })
+    })
+  }
+
+  return pairs
 }
 
 /**
@@ -40,7 +188,6 @@ function* generateCombinations<T>(arr: T[], size: number): Generator<T[]> {
 
 /**
  * Simple logistic regression using Newton-Raphson method
- * Returns: { beta0: intercept, beta1: coefficient, log_likelihood }
  */
 function fitLogisticRegression(
   X: number[],
@@ -51,7 +198,6 @@ function fitLogisticRegression(
   let beta0 = 0
   let beta1 = 0
 
-  // Newton-Raphson iterations
   for (let iter = 0; iter < maxIterations; iter++) {
     let gradient0 = 0
     let gradient1 = 0
@@ -73,7 +219,6 @@ function fitLogisticRegression(
       hessian11 += w * X[i] * X[i]
     }
 
-    // Calculate inverse of Hessian and update
     const det = hessian00 * hessian11 - hessian01 * hessian01
     if (Math.abs(det) < 1e-10) break
 
@@ -83,11 +228,9 @@ function fitLogisticRegression(
     beta0 += delta0
     beta1 += delta1
 
-    // Check convergence
     if (Math.abs(delta0) < 1e-6 && Math.abs(delta1) < 1e-6) break
   }
 
-  // Calculate log-likelihood
   let logLikelihood = 0
   for (let i = 0; i < n; i++) {
     const z = beta0 + beta1 * X[i]
@@ -107,7 +250,6 @@ function evaluateCombination(
 ): CombinationResult {
   const combinationSet = new Set(combination)
 
-  // Create features: does user have exposure to any creator in combination?
   const X: number[] = []
   const y: number[] = []
 
@@ -117,12 +259,10 @@ function evaluateCombination(
     y.push(user.did_copy ? 1 : 0)
   }
 
-  // Fit logistic regression
   const model = fitLogisticRegression(X, y)
-  const aic = 2 * 2 - 2 * model.log_likelihood // 2 parameters (intercept + beta1)
+  const aic = 2 * 2 - 2 * model.log_likelihood
   const oddsRatio = Math.exp(model.beta1)
 
-  // Calculate metrics
   const overallConversionRate = y.filter(val => val === 1).length / y.length
 
   let truePositives = 0
@@ -133,7 +273,7 @@ function evaluateCombination(
   let exposedTotal = 0
 
   for (let i = 0; i < X.length; i++) {
-    const predicted = X[i] === 1 ? 1 : 0 // Simple threshold: exposed = predict positive
+    const predicted = X[i] === 1 ? 1 : 0
     const actual = y[i]
 
     if (predicted === 1 && actual === 1) truePositives++
@@ -171,37 +311,27 @@ function evaluateCombination(
 }
 
 /**
- * Load user copy engagement data
+ * Convert raw pairs to user-level data
  */
-async function loadUserData(supabaseClient: any): Promise<UserData[]> {
-  console.log('Loading user copy engagement data...')
-
-  const { data, error } = await supabaseClient
-    .from('user_portfolio_creator_copies')
-    .select('distinct_id, creator_id, did_copy')
-
-  if (error) throw error
-
-  // Aggregate by user
+function pairsToUserData(pairs: PortfolioCreatorCopyPair[]): UserData[] {
   const userMap = new Map<string, UserData>()
 
-  for (const row of data) {
-    if (!userMap.has(row.distinct_id)) {
-      userMap.set(row.distinct_id, {
-        distinct_id: row.distinct_id,
+  for (const pair of pairs) {
+    if (!userMap.has(pair.distinct_id)) {
+      userMap.set(pair.distinct_id, {
+        distinct_id: pair.distinct_id,
         creator_ids: new Set(),
-        did_copy: row.did_copy,
+        did_copy: pair.did_copy,
       })
     }
-    userMap.get(row.distinct_id)!.creator_ids.add(row.creator_id)
+    userMap.get(pair.distinct_id)!.creator_ids.add(pair.creator_id)
   }
 
-  console.log(`Loaded ${userMap.size} unique users`)
   return Array.from(userMap.values())
 }
 
 /**
- * Get all unique creator IDs with sufficient engagement
+ * Get top creators with sufficient engagement
  */
 function getTopCreators(users: UserData[], minUsers = 10): string[] {
   const creatorCounts = new Map<string, number>()
@@ -231,46 +361,91 @@ serve(async (_req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const analyzedAt = new Date().toISOString()
+    const syncedAt = new Date().toISOString()
 
-    // Load data
-    const users = await loadUserData(supabaseClient)
+    // Step 1: Fetch data from Mixpanel
+    console.log('Fetching copy engagement data from Mixpanel...')
+    const [profileViewsData, pdpViewsData, copiesData] = await Promise.all([
+      fetchMixpanelChart(CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+      fetchMixpanelChart(CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
+      fetchMixpanelChart(CHART_IDS.copiesByCreator, 'Copies by Creator'),
+    ])
+
+    // Step 2: Process and store raw pairs
+    console.log('Processing portfolio-creator copy pairs...')
+    const pairRows = processPortfolioCreatorCopyPairs(
+      profileViewsData,
+      pdpViewsData,
+      copiesData,
+      syncedAt
+    )
+
+    console.log(`Processed ${pairRows.length} portfolio-creator copy pairs`)
+
+    // Insert pairs in batches
+    const batchSize = 500
+    for (let i = 0; i < pairRows.length; i += batchSize) {
+      const batch = pairRows.slice(i, i + batchSize)
+      const { error: insertError } = await supabaseClient
+        .from('user_portfolio_creator_copies')
+        .insert(batch)
+
+      if (insertError) {
+        console.error(`Error inserting copy pair batch:`, insertError)
+        throw insertError
+      }
+    }
+
+    console.log('✓ Raw copy engagement data stored')
+
+    // Refresh materialized views
+    try {
+      await supabaseClient.rpc('refresh_copy_engagement_summary')
+      console.log('✓ copy_engagement_summary refreshed')
+
+      await supabaseClient.rpc('refresh_hidden_gems')
+      console.log('✓ hidden_gems refreshed')
+    } catch (err) {
+      console.warn('Warning: Failed to refresh materialized views:', err)
+    }
+
+    // Step 3: Run pattern analysis
+    console.log('Starting pattern analysis...')
+    const users = pairsToUserData(pairRows)
 
     if (users.length < 50) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: 'Insufficient data: need at least 50 users',
+          success: true,
+          stats: { pairs_synced: pairRows.length },
+          warning: 'Insufficient data for pattern analysis (need 50+ users)',
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    // Get top creators (limit to top 25 to keep combinations manageable)
     const topCreators = getTopCreators(users, 10).slice(0, 25)
 
     if (topCreators.length < 3) {
       return new Response(
         JSON.stringify({
-          success: false,
-          error: 'Insufficient creators: need at least 3 with enough engagement',
+          success: true,
+          stats: { pairs_synced: pairRows.length },
+          warning: 'Insufficient creators for pattern analysis (need 3+ with engagement)',
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    // Calculate total combinations
     const totalCombinations = (topCreators.length * (topCreators.length - 1) * (topCreators.length - 2)) / 6
     console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators`)
 
-    // Evaluate all combinations
     const results: CombinationResult[] = []
     let processed = 0
 
     for (const combo of generateCombinations(topCreators, 3)) {
       const result = evaluateCombination(combo, users)
 
-      // Only keep combinations with reasonable exposure (>5% of users)
       if (result.users_with_exposure >= users.length * 0.05) {
         results.push(result)
       }
@@ -281,13 +456,9 @@ serve(async (_req) => {
       }
     }
 
-    console.log(`Evaluated ${results.length} valid combinations`)
-
-    // Sort by AIC (lower is better) and keep top 100
     results.sort((a, b) => a.aic - b.aic)
     const topResults = results.slice(0, 100)
 
-    // Insert results into database
     const insertRows = topResults.map((result, index) => ({
       analysis_type: 'copy',
       combination_rank: index + 1,
@@ -303,17 +474,14 @@ serve(async (_req) => {
       users_with_exposure: result.users_with_exposure,
       conversion_rate_in_group: result.conversion_rate_in_group,
       overall_conversion_rate: result.overall_conversion_rate,
-      analyzed_at: analyzedAt,
+      analyzed_at: syncedAt,
     }))
 
-    // Delete old copy analysis results
     await supabaseClient
       .from('conversion_pattern_combinations')
       .delete()
       .eq('analysis_type', 'copy')
 
-    // Insert new results in batches
-    const batchSize = 100
     for (let i = 0; i < insertRows.length; i += batchSize) {
       const batch = insertRows.slice(i, i + batchSize)
       const { error: insertError } = await supabaseClient
@@ -326,24 +494,21 @@ serve(async (_req) => {
       }
     }
 
-    console.log(`✓ Inserted ${insertRows.length} combination results`)
+    console.log(`✓ Pattern analysis complete: ${insertRows.length} combinations stored`)
 
-    // Return top 10 results
     const top10 = topResults.slice(0, 10).map(r => ({
       creators: r.combination,
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,
       lift: Math.round(r.lift * 100) / 100,
-      precision: Math.round(r.precision * 100) / 100,
-      recall: Math.round(r.recall * 100) / 100,
       conversion_rate: Math.round(r.conversion_rate_in_group * 10000) / 100,
-      users_exposed: r.users_with_exposure,
     }))
 
     return new Response(
       JSON.stringify({
         success: true,
         stats: {
+          pairs_synced: pairRows.length,
           total_users: users.length,
           creators_tested: topCreators.length,
           combinations_evaluated: results.length,
