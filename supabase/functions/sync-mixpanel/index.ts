@@ -19,10 +19,11 @@ const CHART_IDS = {
   timeToFirstCopy: '84999271',
   timeToFundedAccount: '84999267',
   timeToLinkedBank: '84999265',
-  // User engagement analysis for subscriptions
+  // User engagement analysis for subscriptions/copies
   profileViewsByCreator: '85165851',  // Total Profile Views
   pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
   subscriptionsByCreator: '85165590',  // Total Subscriptions
+  copiesByCreator: '85172578',  // Total Copies
 }
 
 interface MixpanelCredentials {
@@ -129,12 +130,13 @@ serve(async (req) => {
 
       console.log('✓ Batch 1 complete')
 
-      // Batch 2: Engagement analysis charts (3 charts)
-      console.log('Fetching batch 2: Engagement analysis data (3 charts)...')
-      const [profileViewsData, pdpViewsData, subscriptionsData] = await Promise.all([
+      // Batch 2: Engagement analysis charts (4 charts now - added copies)
+      console.log('Fetching batch 2: Engagement analysis data (4 charts)...')
+      const [profileViewsData, pdpViewsData, subscriptionsData, copiesData] = await Promise.all([
         fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
         fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
         fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
+        fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator'),
       ])
 
       console.log('✓ Batch 2 complete')
@@ -206,14 +208,65 @@ serve(async (req) => {
         console.log(`Upserted ${timeFunnelRows.length} time funnel records`)
       }
 
-      // Process user engagement data for subscription analysis
-      console.log('Processing user engagement data...')
+      // Process and store portfolio-creator engagement pairs
+      console.log('Processing portfolio-creator engagement pairs...')
+      const [subscriptionPairs, copyPairs] = processPortfolioCreatorPairs(
+        profileViewsData,
+        pdpViewsData,
+        subscriptionsData,
+        copiesData,
+        syncedAt.toISOString()
+      )
 
-      // Trigger pattern analysis (includes data collection)
+      // Upsert subscription pairs in batches
+      if (subscriptionPairs.length > 0) {
+        console.log(`Upserting ${subscriptionPairs.length} subscription pairs...`)
+        for (let i = 0; i < subscriptionPairs.length; i += batchSize) {
+          const batch = subscriptionPairs.slice(i, i + batchSize)
+          const { error: insertError } = await supabase
+            .from('user_portfolio_creator_views')
+            .upsert(batch, {
+              onConflict: 'distinct_id,portfolio_ticker,creator_id',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting subscription pairs batch:', insertError)
+            throw insertError
+          }
+          console.log(`Upserted batch: ${i + batch.length}/${subscriptionPairs.length} subscription pairs`)
+        }
+        console.log('✓ Subscription pairs upserted successfully')
+        stats.engagementRecordsFetched += subscriptionPairs.length
+        stats.totalRecordsInserted += subscriptionPairs.length
+      }
+
+      // Upsert copy pairs in batches
+      if (copyPairs.length > 0) {
+        console.log(`Upserting ${copyPairs.length} copy pairs...`)
+        for (let i = 0; i < copyPairs.length; i += batchSize) {
+          const batch = copyPairs.slice(i, i + batchSize)
+          const { error: insertError } = await supabase
+            .from('user_portfolio_creator_copies')
+            .upsert(batch, {
+              onConflict: 'distinct_id,portfolio_ticker,creator_id',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting copy pairs batch:', insertError)
+            throw insertError
+          }
+          console.log(`Upserted batch: ${i + batch.length}/${copyPairs.length} copy pairs`)
+        }
+        console.log('✓ Copy pairs upserted successfully')
+      }
+
+      // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
       // Fire and forget - don't wait for completion to avoid timeout
-      console.log('Triggering pattern analysis (with data collection)...')
+      console.log('Triggering pattern analysis (using stored data)...')
 
-      // Subscription analysis: fetch Mixpanel data → store → analyze
+      // Subscription analysis: query stored data → analyze
       fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
         method: 'POST',
         headers: {
@@ -226,7 +279,7 @@ serve(async (req) => {
         console.warn('⚠️ Subscription analysis failed:', err)
       })
 
-      // Copy analysis: fetch Mixpanel data → store → analyze
+      // Copy analysis: query stored data → analyze
       fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
         method: 'POST',
         headers: {
@@ -239,9 +292,22 @@ serve(async (req) => {
         console.warn('⚠️ Copy analysis failed:', err)
       })
 
+      // Portfolio sequence analysis: query stored copies data → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(() => {
+        console.log('✓ Portfolio sequence analysis completed')
+      }).catch((err) => {
+        console.warn('⚠️ Portfolio sequence analysis failed:', err)
+      })
+
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table
-      console.log('Pattern analysis functions handle both data collection and analysis')
+      console.log('Pattern analysis functions use stored engagement data (no duplicate Mixpanel calls)')
 
       // Refresh materialized view
       console.log('Refreshing main_analysis materialized view...')
@@ -803,4 +869,158 @@ function processUserLevelEngagement(profileViewsData: any, pdpViewsData: any, su
   console.log(`  - Subscribers: ${subscriberCount}`)
   console.log(`  - Non-subscribers: ${nonSubscriberCount}`)
   return rows
+}
+
+/**
+ * Process portfolio-creator pairs for BOTH subscriptions AND copies
+ * Returns two arrays: [subscriptionPairs, copyPairs]
+ */
+function processPortfolioCreatorPairs(
+  profileViewsData: any,
+  pdpViewsData: any,
+  subscriptionsData: any,
+  copiesData: any,
+  syncedAt: string
+): [any[], any[]] {
+  const subscriptionPairs: any[] = []
+  const copyPairs: any[] = []
+
+  // Build creator username map
+  const creatorIdToUsername = new Map<string, string>()
+  const profileMetric = profileViewsData?.series?.['Total Profile Views']
+  if (profileMetric) {
+    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
+          if (username && username !== '$overall' && username !== 'undefined') {
+            if (!creatorIdToUsername.has(creatorId)) {
+              creatorIdToUsername.set(creatorId, username)
+            }
+          }
+        })
+      })
+    })
+  }
+
+  // Build profile view counts map
+  const profileViewCounts = new Map<string, Map<string, number>>()
+  if (profileMetric) {
+    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
+          if (username && username !== '$overall' && username !== 'undefined') {
+            const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+              ? parseInt(String((viewCount as any).all))
+              : parseInt(String(viewCount)) || 0
+
+            if (count > 0) {
+              if (!profileViewCounts.has(distinctId)) {
+                profileViewCounts.set(distinctId, new Map())
+              }
+              const userCounts = profileViewCounts.get(distinctId)!
+              userCounts.set(creatorId, (userCounts.get(creatorId) || 0) + count)
+            }
+          }
+        })
+      })
+    })
+  }
+
+  // Build subscription users and counts
+  const subscribedUsers = new Set<string>()
+  const subscriptionCounts = new Map<string, number>()
+  const subsMetric = subscriptionsData?.series?.['Total Subscriptions']
+  if (subsMetric) {
+    Object.entries(subsMetric).forEach(([distinctId, data]: [string, any]) => {
+      if (distinctId !== '$overall') {
+        subscribedUsers.add(distinctId)
+        const count = typeof data === 'object' && data !== null && '$overall' in data
+          ? parseInt(String(data['$overall'])) || 1
+          : parseInt(String(data)) || 1
+        subscriptionCounts.set(distinctId, count)
+      }
+    })
+  }
+
+  // Build copied users and counts
+  const copiedUsers = new Set<string>()
+  const copyCounts = new Map<string, number>()
+  const copiesMetric = copiesData?.series?.['Total Copies']
+  if (copiesMetric) {
+    Object.entries(copiesMetric).forEach(([distinctId, data]: [string, any]) => {
+      if (distinctId !== '$overall') {
+        copiedUsers.add(distinctId)
+        const count = typeof data === 'object' && data !== null && '$overall' in data
+          ? parseInt(String(data['$overall'])) || 1
+          : parseInt(String(data)) || 1
+        copyCounts.set(distinctId, count)
+      }
+    })
+  }
+
+  // Process PDP views to create pairs
+  const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
+  if (pdpMetric) {
+    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+
+      const didSubscribe = subscribedUsers.has(distinctId)
+      const subCount = subscriptionCounts.get(distinctId) || 0
+      const didCopy = copiedUsers.has(distinctId)
+      const copyCount = copyCounts.get(distinctId) || 0
+
+      Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
+        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+        Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
+          if (creatorId === '$overall') return
+
+          const pdpCount = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+            ? parseInt(String((viewCount as any).all))
+            : parseInt(String(viewCount)) || 0
+          const creatorUsername = creatorIdToUsername.get(creatorId) || null
+          const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
+
+          if (pdpCount > 0) {
+            // Add to subscription pairs
+            subscriptionPairs.push({
+              distinct_id: distinctId,
+              portfolio_ticker: portfolioTicker,
+              creator_id: creatorId,
+              creator_username: creatorUsername,
+              pdp_view_count: pdpCount,
+              profile_view_count: profileViewCount,
+              did_subscribe: didSubscribe,
+              subscription_count: subCount,
+              synced_at: syncedAt,
+            })
+
+            // Add to copy pairs
+            copyPairs.push({
+              distinct_id: distinctId,
+              portfolio_ticker: portfolioTicker,
+              creator_id: creatorId,
+              creator_username: creatorUsername,
+              pdp_view_count: pdpCount,
+              profile_view_count: profileViewCount,
+              did_copy: didCopy,
+              copy_count: copyCount,
+              synced_at: syncedAt,
+            })
+          }
+        })
+      })
+    })
+  }
+
+  console.log(`Processed ${subscriptionPairs.length} subscription pairs and ${copyPairs.length} copy pairs`)
+  return [subscriptionPairs, copyPairs]
 }

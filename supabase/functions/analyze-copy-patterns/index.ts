@@ -378,42 +378,29 @@ serve(async (_req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    const syncedAt = new Date().toISOString()
+    // Step 1: Load stored copy engagement data from Supabase
+    console.log('Loading stored copy engagement data from Supabase...')
+    const { data: pairRows, error: loadError } = await supabaseClient
+      .from('user_portfolio_creator_copies')
+      .select('*')
 
-    // Step 1: Fetch data from Mixpanel
-    console.log('Fetching copy engagement data from Mixpanel...')
-    const [profileViewsData, pdpViewsData, copiesData] = await Promise.all([
-      fetchMixpanelChart(CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
-      fetchMixpanelChart(CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
-      fetchMixpanelChart(CHART_IDS.copiesByCreator, 'Copies by Creator'),
-    ])
-
-    // Step 2: Process and store raw pairs
-    console.log('Processing portfolio-creator copy pairs...')
-    const pairRows = processPortfolioCreatorCopyPairs(
-      profileViewsData,
-      pdpViewsData,
-      copiesData,
-      syncedAt
-    )
-
-    console.log(`Processed ${pairRows.length} portfolio-creator copy pairs`)
-
-    // Insert pairs in batches
-    const batchSize = 500
-    for (let i = 0; i < pairRows.length; i += batchSize) {
-      const batch = pairRows.slice(i, i + batchSize)
-      const { error: insertError } = await supabaseClient
-        .from('user_portfolio_creator_copies')
-        .insert(batch)
-
-      if (insertError) {
-        console.error(`Error inserting copy pair batch:`, insertError)
-        throw insertError
-      }
+    if (loadError) {
+      console.error('Error loading copy engagement data:', loadError)
+      throw loadError
     }
 
-    console.log('✓ Raw copy engagement data stored')
+    if (!pairRows || pairRows.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          warning: 'No copy engagement data found. Run sync-mixpanel first.',
+          stats: { pairs_found: 0 }
+        }),
+        { headers: { 'Content-Type': 'application/json' }, status: 200 }
+      )
+    }
+
+    console.log(`✓ Loaded ${pairRows.length} portfolio-creator copy pairs from database`)
 
     // Refresh materialized views
     try {
@@ -426,7 +413,7 @@ serve(async (_req) => {
       console.warn('Warning: Failed to refresh materialized views:', err)
     }
 
-    // Step 3: Run pattern analysis
+    // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
     const users = pairsToUserData(pairRows)
 
