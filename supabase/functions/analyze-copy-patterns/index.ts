@@ -15,6 +15,7 @@ interface UserData {
   distinct_id: string
   creator_ids: Set<string>
   did_copy: boolean
+  copy_count: number
 }
 
 interface CombinationResult {
@@ -28,6 +29,7 @@ interface CombinationResult {
   users_with_exposure: number
   conversion_rate_in_group: number
   overall_conversion_rate: number
+  total_conversions: number
 }
 
 interface PortfolioCreatorCopyPair {
@@ -38,6 +40,7 @@ interface PortfolioCreatorCopyPair {
   pdp_view_count: number
   profile_view_count: number
   did_copy: boolean
+  copy_count: number
   synced_at: string
 }
 
@@ -120,11 +123,17 @@ function processPortfolioCreatorCopyPairs(
   }
 
   const copiedUsers = new Set<string>()
+  const copyCounts = new Map<string, number>()
   const copiesMetric = copiesData?.series?.['Total Copies']
   if (copiesMetric) {
-    Object.keys(copiesMetric).forEach((distinctId: string) => {
+    Object.entries(copiesMetric).forEach(([distinctId, data]: [string, any]) => {
       if (distinctId !== '$overall') {
         copiedUsers.add(distinctId)
+        // Extract copy count from the data structure
+        const count = typeof data === 'object' && data !== null && '$overall' in data
+          ? parseInt(String(data['$overall'])) || 1
+          : parseInt(String(data)) || 1
+        copyCounts.set(distinctId, count)
       }
     })
   }
@@ -135,6 +144,7 @@ function processPortfolioCreatorCopyPairs(
       if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
 
       const didCopy = copiedUsers.has(distinctId)
+      const copyCount = copyCounts.get(distinctId) || 0
 
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
@@ -157,6 +167,7 @@ function processPortfolioCreatorCopyPairs(
               pdp_view_count: count,
               profile_view_count: profileViewCount,
               did_copy: didCopy,
+              copy_count: copyCount,
               synced_at: syncedAt,
             })
           }
@@ -271,6 +282,7 @@ function evaluateCombination(
   let falseNegatives = 0
   let exposedConverters = 0
   let exposedTotal = 0
+  let totalConversions = 0
 
   for (let i = 0; i < X.length; i++) {
     const predicted = X[i] === 1 ? 1 : 0
@@ -283,7 +295,10 @@ function evaluateCombination(
 
     if (X[i] === 1) {
       exposedTotal++
-      if (actual === 1) exposedConverters++
+      if (actual === 1) {
+        exposedConverters++
+        totalConversions += users[i].copy_count
+      }
     }
   }
 
@@ -307,6 +322,7 @@ function evaluateCombination(
     users_with_exposure: exposedTotal,
     conversion_rate_in_group: conversionRateInGroup,
     overall_conversion_rate: overallConversionRate,
+    total_conversions: totalConversions,
   }
 }
 
@@ -322,6 +338,7 @@ function pairsToUserData(pairs: PortfolioCreatorCopyPair[]): UserData[] {
         distinct_id: pair.distinct_id,
         creator_ids: new Set(),
         did_copy: pair.did_copy,
+        copy_count: pair.copy_count,
       })
     }
     userMap.get(pair.distinct_id)!.creator_ids.add(pair.creator_id)
@@ -474,6 +491,7 @@ serve(async (_req) => {
       users_with_exposure: result.users_with_exposure,
       conversion_rate_in_group: result.conversion_rate_in_group,
       overall_conversion_rate: result.overall_conversion_rate,
+      total_conversions: result.total_conversions,
       analyzed_at: syncedAt,
     }))
 

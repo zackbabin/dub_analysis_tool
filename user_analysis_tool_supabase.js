@@ -360,16 +360,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // Top Creator Combinations (from logistic regression analysis)
+            // High-Impact Creator Combinations (Option B format)
             if (topCombinations && topCombinations.length > 0) {
                 const combinationsSection = document.createElement('div');
                 combinationsSection.style.marginTop = '2rem';
 
                 const combinationsTitle = document.createElement('h5');
-                combinationsTitle.textContent = 'Top Creator Combinations for Subscription (by Lift)';
+                combinationsTitle.textContent = 'High-Impact Creator Combinations';
                 combinationsTitle.style.fontSize = '0.95rem';
                 combinationsTitle.style.fontWeight = '600';
                 combinationsSection.appendChild(combinationsTitle);
+
+                const subtitle = document.createElement('p');
+                subtitle.textContent = 'Users who viewed these creator combinations were significantly more likely to subscribe';
+                subtitle.style.fontSize = '0.875rem';
+                subtitle.style.color = '#6c757d';
+                subtitle.style.marginTop = '0.25rem';
+                subtitle.style.marginBottom = '1rem';
+                combinationsSection.appendChild(subtitle);
 
                 const combinationsTable = document.createElement('table');
                 combinationsTable.style.width = '100%';
@@ -379,36 +387,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 combinationsTable.innerHTML = `
                     <thead>
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Creator Trio</th>
-                            <th style="padding: 0.75rem; text-align: right;">Lift</th>
-                            <th style="padding: 0.75rem; text-align: right;">Odds Ratio</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv. Rate</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users Exposed</th>
+                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                            <th style="padding: 0.75rem; text-align: left;">Creators Viewed</th>
+                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
+                            <th style="padding: 0.75rem; text-align: right;">Users</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Subs</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${topCombinations.map((combo, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
+                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
                                 <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">${parseFloat(combo.lift).toFixed(2)}x</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(combo.odds_ratio).toFixed(2)}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 `;
 
                 combinationsSection.appendChild(combinationsTable);
-
-                // Add footnote
-                const footnote = document.createElement('p');
-                footnote.style.fontSize = '0.875rem';
-                footnote.style.color = '#6c757d';
-                footnote.style.fontStyle = 'italic';
-                footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Results from exhaustive search with logistic regression (ranked by lift)';
-                combinationsSection.appendChild(footnote);
 
                 section.appendChild(combinationsSection);
             }
@@ -497,16 +498,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // Top Creator Combinations (from logistic regression analysis)
+            // High-Impact Creator Combinations (Option B format)
             if (topCombinations && topCombinations.length > 0) {
                 const combinationsSection = document.createElement('div');
                 combinationsSection.style.marginTop = '2rem';
 
                 const combinationsTitle = document.createElement('h5');
-                combinationsTitle.textContent = 'Top Creator Combinations for Copies (by Lift)';
+                combinationsTitle.textContent = 'High-Impact Creator Combinations';
                 combinationsTitle.style.fontSize = '0.95rem';
                 combinationsTitle.style.fontWeight = '600';
                 combinationsSection.appendChild(combinationsTitle);
+
+                const subtitle = document.createElement('p');
+                subtitle.textContent = 'Users who viewed these creator combinations were significantly more likely to copy';
+                subtitle.style.fontSize = '0.875rem';
+                subtitle.style.color = '#6c757d';
+                subtitle.style.marginTop = '0.25rem';
+                subtitle.style.marginBottom = '1rem';
+                combinationsSection.appendChild(subtitle);
 
                 const combinationsTable = document.createElement('table');
                 combinationsTable.style.width = '100%';
@@ -516,36 +525,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 combinationsTable.innerHTML = `
                     <thead>
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Creator Trio</th>
-                            <th style="padding: 0.75rem; text-align: right;">Lift</th>
-                            <th style="padding: 0.75rem; text-align: right;">Odds Ratio</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv. Rate</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users Exposed</th>
+                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                            <th style="padding: 0.75rem; text-align: left;">Creators Viewed</th>
+                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
+                            <th style="padding: 0.75rem; text-align: right;">Users</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${topCombinations.map((combo, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
+                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
                                 <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">${parseFloat(combo.lift).toFixed(2)}x</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(combo.odds_ratio).toFixed(2)}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 `;
 
                 combinationsSection.appendChild(combinationsTable);
-
-                // Add footnote
-                const footnote = document.createElement('p');
-                footnote.style.fontSize = '0.875rem';
-                footnote.style.color = '#6c757d';
-                footnote.style.fontStyle = 'italic';
-                footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Results from exhaustive search with logistic regression (ranked by lift)';
-                combinationsSection.appendChild(footnote);
 
                 section.appendChild(combinationsSection);
             }
