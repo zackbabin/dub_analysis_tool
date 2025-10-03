@@ -210,14 +210,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         try {
             // Load engagement data from Supabase
             console.log('Loading engagement analysis data...');
-            const [summaryData, topPairs] = await Promise.all([
+            const [summaryData, topCombinations] = await Promise.all([
                 this.supabaseIntegration.loadEngagementSummary(),
-                this.supabaseIntegration.loadTopConvertingPairs()
+                this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10)
             ]);
 
             console.log('Engagement data loaded:', {
                 summaryData: summaryData?.length || 0,
-                topPairs: topPairs?.length || 0
+                topCombinations: topCombinations?.length || 0
             });
 
             // Summary Stats Card
@@ -266,50 +266,46 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 PDP views)
-            const filteredPairs = topPairs && topPairs.length > 0
-                ? topPairs.filter(pair => parseInt(pair.total_views) >= 10)
-                : [];
+            // Top Creator Combinations (from logistic regression analysis)
+            if (topCombinations && topCombinations.length > 0) {
+                const combinationsSection = document.createElement('div');
+                combinationsSection.style.marginTop = '2rem';
 
-            if (filteredPairs.length > 0) {
-                const pairsSection = document.createElement('div');
-                pairsSection.style.marginTop = '2rem';
+                const combinationsTitle = document.createElement('h5');
+                combinationsTitle.textContent = 'Top Creator Combinations for Subscription (by Lift)';
+                combinationsTitle.style.fontSize = '0.95rem';
+                combinationsTitle.style.fontWeight = '600';
+                combinationsSection.appendChild(combinationsTitle);
 
-                const pairsTitle = document.createElement('h5');
-                pairsTitle.textContent = 'Top Converting Portfolio-Creator Combinations';
-                pairsTitle.style.fontSize = '0.95rem';
-                pairsTitle.style.fontWeight = '600';
-                pairsSection.appendChild(pairsTitle);
+                const combinationsTable = document.createElement('table');
+                combinationsTable.style.width = '100%';
+                combinationsTable.style.borderCollapse = 'collapse';
+                combinationsTable.style.marginTop = '1rem';
 
-                const pairsTable = document.createElement('table');
-                pairsTable.style.width = '100%';
-                pairsTable.style.borderCollapse = 'collapse';
-                pairsTable.style.marginTop = '1rem';
-
-                pairsTable.innerHTML = `
+                combinationsTable.innerHTML = `
                     <thead>
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
-                            <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Views</th>
-                            <th style="padding: 0.75rem; text-align: right;">Subscribers</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
+                            <th style="padding: 0.75rem; text-align: left;">Creator Trio</th>
+                            <th style="padding: 0.75rem; text-align: right;">Lift</th>
+                            <th style="padding: 0.75rem; text-align: right;">Odds Ratio</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conv. Rate</th>
+                            <th style="padding: 0.75rem; text-align: right;">Users Exposed</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.map((pair, index) => `
+                        ${topCombinations.map((combo, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
-                                <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_subscriptions).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
+                                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">${parseFloat(combo.lift).toFixed(2)}x</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(combo.odds_ratio).toFixed(2)}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 `;
 
-                pairsSection.appendChild(pairsTable);
+                combinationsSection.appendChild(combinationsTable);
 
                 // Add footnote
                 const footnote = document.createElement('p');
@@ -317,10 +313,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 footnote.style.color = '#6c757d';
                 footnote.style.fontStyle = 'italic';
                 footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Portfolios with a minimum of 10 PDP views';
-                pairsSection.appendChild(footnote);
+                footnote.textContent = 'Results from exhaustive search with logistic regression (ranked by lift)';
+                combinationsSection.appendChild(footnote);
 
-                section.appendChild(pairsSection);
+                section.appendChild(combinationsSection);
             }
 
             // Append section to container
@@ -351,14 +347,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         try {
             // Load copy engagement data from Supabase
             console.log('Loading copy engagement analysis data...');
-            const [summaryData, topPairs] = await Promise.all([
+            const [summaryData, topCombinations] = await Promise.all([
                 this.supabaseIntegration.loadCopyEngagementSummary(),
-                this.supabaseIntegration.loadTopConvertingCopyPairs()
+                this.supabaseIntegration.loadTopCopyCombinations('lift', 10)
             ]);
 
             console.log('Copy engagement data loaded:', {
                 summaryData: summaryData?.length || 0,
-                topPairs: topPairs?.length || 0
+                topCombinations: topCombinations?.length || 0
             });
 
             // Summary Stats Card
@@ -407,50 +403,46 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // Top Converting Portfolio-Creator Pairs (filter for minimum 10 views)
-            const filteredPairs = topPairs && topPairs.length > 0
-                ? topPairs.filter(pair => parseInt(pair.total_views) >= 10)
-                : [];
+            // Top Creator Combinations (from logistic regression analysis)
+            if (topCombinations && topCombinations.length > 0) {
+                const combinationsSection = document.createElement('div');
+                combinationsSection.style.marginTop = '2rem';
 
-            if (filteredPairs.length > 0) {
-                const pairsSection = document.createElement('div');
-                pairsSection.style.marginTop = '2rem';
+                const combinationsTitle = document.createElement('h5');
+                combinationsTitle.textContent = 'Top Creator Combinations for Copies (by Lift)';
+                combinationsTitle.style.fontSize = '0.95rem';
+                combinationsTitle.style.fontWeight = '600';
+                combinationsSection.appendChild(combinationsTitle);
 
-                const pairsTitle = document.createElement('h5');
-                pairsTitle.textContent = 'Top Converting Portfolio-Creator Combinations';
-                pairsTitle.style.fontSize = '0.95rem';
-                pairsTitle.style.fontWeight = '600';
-                pairsSection.appendChild(pairsTitle);
+                const combinationsTable = document.createElement('table');
+                combinationsTable.style.width = '100%';
+                combinationsTable.style.borderCollapse = 'collapse';
+                combinationsTable.style.marginTop = '1rem';
 
-                const pairsTable = document.createElement('table');
-                pairsTable.style.width = '100%';
-                pairsTable.style.borderCollapse = 'collapse';
-                pairsTable.style.marginTop = '1rem';
-
-                pairsTable.innerHTML = `
+                combinationsTable.innerHTML = `
                     <thead>
                         <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
-                            <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Views</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
+                            <th style="padding: 0.75rem; text-align: left;">Creator Trio</th>
+                            <th style="padding: 0.75rem; text-align: right;">Lift</th>
+                            <th style="padding: 0.75rem; text-align: right;">Odds Ratio</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conv. Rate</th>
+                            <th style="padding: 0.75rem; text-align: right;">Users Exposed</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filteredPairs.map((pair, index) => `
+                        ${topCombinations.map((combo, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem;">${pair.portfolio_ticker || 'N/A'}</td>
-                                <td style="padding: 0.75rem;">${pair.creator_username || 'N/A'}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_views).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(pair.total_copies).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(pair.conversion_rate_pct).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
+                                <td style="padding: 0.75rem; text-align: right; font-weight: 600;">${parseFloat(combo.lift).toFixed(2)}x</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseFloat(combo.odds_ratio).toFixed(2)}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 `;
 
-                pairsSection.appendChild(pairsTable);
+                combinationsSection.appendChild(combinationsTable);
 
                 // Add footnote
                 const footnote = document.createElement('p');
@@ -458,10 +450,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 footnote.style.color = '#6c757d';
                 footnote.style.fontStyle = 'italic';
                 footnote.style.marginTop = '0.5rem';
-                footnote.textContent = 'Portfolios with a minimum of 10 views';
-                pairsSection.appendChild(footnote);
+                footnote.textContent = 'Results from exhaustive search with logistic regression (ranked by lift)';
+                combinationsSection.appendChild(footnote);
 
-                section.appendChild(pairsSection);
+                section.appendChild(combinationsSection);
             }
 
             // Append section to container
