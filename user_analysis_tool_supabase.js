@@ -138,9 +138,28 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Build complete HTML including base analysis + engagement sections
+     * Build complete HTML including all analysis sections
      */
     async buildCompleteHTML(results) {
+        // Load all engagement data in parallel with base analysis
+        const [
+            engagementSummary,
+            topSubscriptionCombos,
+            hiddenGems,
+            hiddenGemsSummary,
+            copyEngagementSummary,
+            topCopyCombos,
+            topSequences
+        ] = await Promise.all([
+            this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
+            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
+            this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
+            this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
+            this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
+            this.supabaseIntegration.loadTopCopyCombinations('lift', 10).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10).catch(e => { console.warn('Failed to load sequences:', e); return []; })
+        ]);
+
         // Clear output container and create results div
         this.outputContainer.innerHTML = '';
 
@@ -176,30 +195,37 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
-        // Load all engagement data in parallel
-        const [
-            engagementSummary,
-            topSubscriptionCombos,
-            hiddenGems,
-            hiddenGemsSummary,
-            copyEngagementSummary,
-            topCopyCombos,
-            topSequences
-        ] = await Promise.all([
-            this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
-            this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
-            this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
-            this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('lift', 10).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10).catch(e => { console.warn('Failed to load sequences:', e); return []; })
-        ]);
+        // Inject Hidden Gems into Persona Breakdown section
+        const personaSection = document.getElementById('qdaPersonaBreakdownInline');
+        if (personaSection) {
+            personaSection.insertAdjacentHTML('beforeend', this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems));
+        }
 
-        // Append engagement sections
-        resultsDiv.innerHTML += this.generateSubscriptionEngagementHTML(engagementSummary, topSubscriptionCombos);
-        resultsDiv.innerHTML += this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-        resultsDiv.innerHTML += this.generateCopyEngagementHTML(copyEngagementSummary, topCopyCombos);
-        resultsDiv.innerHTML += this.generatePortfolioSequencesHTML(topSequences);
+        // Inject Copy Engagement and Portfolio Sequences into Portfolio Copies section in Behavioral Analysis
+        const behavioralSection = document.getElementById('qdaCombinedResultsInline');
+        if (behavioralSection) {
+            // Find the Portfolio Copies h2 and insert after its table
+            const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
+            if (portfolioCopiesH2) {
+                const table = portfolioCopiesH2.nextElementSibling;
+                if (table) {
+                    const copyEngagementHTML = this.generateCopyEngagementHTML(copyEngagementSummary, topCopyCombos);
+                    const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+                    table.insertAdjacentHTML('afterend', copyEngagementHTML + portfolioSequencesHTML);
+                }
+            }
+        }
+
+        // Inject Subscription Engagement into Subscriptions section in Behavioral Analysis
+        if (behavioralSection) {
+            const subscriptionsH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
+            if (subscriptionsH2) {
+                const table = subscriptionsH2.nextElementSibling;
+                if (table) {
+                    table.insertAdjacentHTML('afterend', this.generateSubscriptionEngagementHTML(engagementSummary, topSubscriptionCombos));
+                }
+            }
+        }
 
         return resultsDiv.outerHTML;
     }
@@ -226,7 +252,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
             ];
 
-            html += '<h5 style="font-size: 0.95rem; font-weight: 600; margin-top: 1rem;">Key Insights: Subscribers vs Non-Subscribers</h5>';
+            html += '<h3 style="margin-top: 1.5rem;">Subscription Engagement</h3>';
             html += '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">';
 
             metrics.forEach(metric => {
@@ -269,7 +295,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
-        html += '<h5 style="font-size: 0.95rem; font-weight: 600; margin-top: 1rem;">Hidden Gems</h5>';
+        html += '<h3 style="margin-top: 1.5rem;">Hidden Gems</h3>';
 
         // Summary Stats
         if (summaryData) {
@@ -368,7 +394,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
             ];
 
-            html += '<h5 style="font-size: 0.95rem; font-weight: 600; margin-top: 1rem;">Key Insights: Copiers vs Non-Copiers</h5>';
+            html += '<h3 style="margin-top: 1.5rem;">Copy Engagement</h3>';
             html += '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">';
 
             metrics.forEach(metric => {
@@ -411,6 +437,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
+        html += '<h3 style="margin-top: 1.5rem;">Portfolio Sequences</h3>';
 
         html += this.generateCombinationsTableHTML(
             'High-Impact Portfolio View Sequences',

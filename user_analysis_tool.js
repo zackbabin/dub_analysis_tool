@@ -1925,7 +1925,7 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         const outcome = config.outcome;
         const outcomeLabel = config.label;
 
-        const outcomeTitle = document.createElement('h4');
+        const outcomeTitle = document.createElement('h2');
         outcomeTitle.textContent = outcomeLabel;
         resultSection.appendChild(outcomeTitle);
 

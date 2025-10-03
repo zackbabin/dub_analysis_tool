@@ -1,8 +1,8 @@
 -- Create optimized function to get distinct creator usernames
 -- This avoids scanning millions of duplicate rows in the raw data tables
 
-CREATE OR REPLACE FUNCTION get_distinct_creator_usernames(creator_ids BIGINT[])
-RETURNS TABLE (creator_id BIGINT, creator_username TEXT)
+CREATE OR REPLACE FUNCTION get_distinct_creator_usernames(creator_ids TEXT[])
+RETURNS TABLE (creator_id TEXT, creator_username TEXT)
 LANGUAGE plpgsql
 AS $$
 BEGIN
