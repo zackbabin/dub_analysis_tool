@@ -490,26 +490,77 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top converting portfolio-creator pairs
-     * Returns pairs ranked by conversion rate
+     * Trigger subscription pattern analysis via Edge Function
+     * Runs exhaustive search + logistic regression to find best creator combinations
      */
-    async loadTopConvertingPairs() {
-        console.log('Loading top converting portfolio-creator pairs...');
+    async triggerSubscriptionAnalysis() {
+        console.log('Triggering subscription pattern analysis...');
 
         try {
-            const { data, error } = await this.supabase
-                .from('top_converting_portfolio_creator_pairs')
-                .select('*');
+            const { data, error } = await this.supabase.functions.invoke('analyze-subscription-patterns', {
+                body: {}
+            });
 
             if (error) {
-                console.error('Error loading top converting pairs:', error);
+                console.error('Edge Function error:', error);
+                throw new Error(`Subscription analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during subscription analysis');
+            }
+
+            console.log('✅ Subscription analysis completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling subscription analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load top subscription combinations from logistic regression analysis
+     * Returns creator trios ranked by specified metric (lift, aic, precision, odds_ratio)
+     */
+    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20) {
+        console.log(`Loading top subscription combinations by ${metric}...`);
+
+        try {
+            let query = this.supabase
+                .from('conversion_pattern_combinations')
+                .select('*')
+                .eq('analysis_type', 'subscription')
+                .limit(limit);
+
+            // Sort by the requested metric
+            switch (metric) {
+                case 'lift':
+                    query = query.order('lift', { ascending: false });
+                    break;
+                case 'aic':
+                    query = query.order('aic', { ascending: true }); // Lower AIC is better
+                    break;
+                case 'precision':
+                    query = query.order('precision', { ascending: false });
+                    break;
+                case 'odds_ratio':
+                    query = query.order('odds_ratio', { ascending: false });
+                    break;
+                default:
+                    query = query.order('combination_rank', { ascending: true });
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error loading subscription combinations:', error);
                 throw error;
             }
 
-            console.log(`✅ Loaded ${data.length} top converting pairs`);
+            console.log(`✅ Loaded ${data.length} subscription combinations`);
             return data;
         } catch (error) {
-            console.error('Error loading top converting pairs:', error);
+            console.error('Error loading subscription combinations:', error);
             throw error;
         }
     }
@@ -565,61 +616,81 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top converting portfolio-creator copy pairs
-     * Returns pairs ranked by conversion rate for copies
+     * Trigger copy pattern analysis via Edge Function
+     * Runs exhaustive search + logistic regression to find best creator combinations
      */
-    async loadTopConvertingCopyPairs() {
-        console.log('Loading top converting portfolio-creator copy pairs...');
+    async triggerCopyAnalysis() {
+        console.log('Triggering copy pattern analysis...');
 
         try {
-            const { data, error } = await this.supabase
-                .from('top_converting_portfolio_creator_copy_pairs')
-                .select('*');
+            const { data, error } = await this.supabase.functions.invoke('analyze-copy-patterns', {
+                body: {}
+            });
 
             if (error) {
-                console.error('Error loading top converting copy pairs:', error);
-                throw error;
+                console.error('Edge Function error:', error);
+                throw new Error(`Copy analysis failed: ${error.message}`);
             }
 
-            console.log(`✅ Loaded ${data.length} top converting copy pairs`);
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during copy analysis');
+            }
+
+            console.log('✅ Copy analysis completed successfully:', data.stats);
             return data;
         } catch (error) {
-            console.error('Error loading top converting copy pairs:', error);
+            console.error('Error calling copy analysis Edge Function:', error);
             throw error;
         }
     }
 
     /**
-     * Trigger the sync-copy-pairs Edge Function
+     * Load top copy combinations from logistic regression analysis
+     * Returns creator trios ranked by specified metric (lift, aic, precision, odds_ratio)
      */
-    async triggerCopyPairsSync() {
-        console.log('Triggering copy pairs sync...');
+    async loadTopCopyCombinations(metric = 'lift', limit = 20) {
+        console.log(`Loading top copy combinations by ${metric}...`);
 
         try {
-            const response = await fetch(
-                `${this.supabaseUrl}/functions/v1/sync-copy-pairs`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.supabaseAnonKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+            let query = this.supabase
+                .from('conversion_pattern_combinations')
+                .select('*')
+                .eq('analysis_type', 'copy')
+                .limit(limit);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to trigger copy pairs sync: ${errorText}`);
+            // Sort by the requested metric
+            switch (metric) {
+                case 'lift':
+                    query = query.order('lift', { ascending: false });
+                    break;
+                case 'aic':
+                    query = query.order('aic', { ascending: true }); // Lower AIC is better
+                    break;
+                case 'precision':
+                    query = query.order('precision', { ascending: false });
+                    break;
+                case 'odds_ratio':
+                    query = query.order('odds_ratio', { ascending: false });
+                    break;
+                default:
+                    query = query.order('combination_rank', { ascending: true });
             }
 
-            const result = await response.json();
-            console.log('✅ Copy pairs sync completed:', result);
-            return result;
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error loading copy combinations:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} copy combinations`);
+            return data;
         } catch (error) {
-            console.error('Error triggering copy pairs sync:', error);
+            console.error('Error loading copy combinations:', error);
             throw error;
         }
     }
+
 
     /**
      * Load hidden gems portfolios

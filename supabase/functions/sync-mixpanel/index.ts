@@ -209,11 +209,11 @@ serve(async (req) => {
       // Process user engagement data for subscription analysis
       console.log('Processing user engagement data...')
 
-      // Trigger separate edge functions for portfolio-creator pair processing
+      // Trigger data collection and pattern analysis pipeline
       // Fire and forget - don't wait for completion to avoid timeout
-      console.log('Triggering sync-engagement-pairs and sync-copy-pairs edge functions...')
+      console.log('Triggering engagement data sync and analysis pipeline...')
 
-      // Fire engagement pairs sync (don't await)
+      // Subscription pipeline: collect data → analyze patterns
       fetch(`${supabaseUrl}/functions/v1/sync-engagement-pairs`, {
         method: 'POST',
         headers: {
@@ -221,12 +221,22 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
       }).then(() => {
-        console.log('✓ Engagement pairs sync triggered')
+        console.log('✓ Engagement data synced, triggering pattern analysis...')
+        // Chain: run analysis after data collection completes
+        return fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      }).then(() => {
+        console.log('✓ Subscription pattern analysis completed')
       }).catch((err) => {
-        console.warn('⚠️ Failed to trigger engagement pairs sync:', err)
+        console.warn('⚠️ Subscription pipeline failed:', err)
       })
 
-      // Fire copy pairs sync (don't await)
+      // Copy pipeline: collect data → analyze patterns
       fetch(`${supabaseUrl}/functions/v1/sync-copy-pairs`, {
         method: 'POST',
         headers: {
@@ -234,14 +244,24 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
       }).then(() => {
-        console.log('✓ Copy pairs sync triggered')
+        console.log('✓ Copy data synced, triggering pattern analysis...')
+        // Chain: run analysis after data collection completes
+        return fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+      }).then(() => {
+        console.log('✓ Copy pattern analysis completed')
       }).catch((err) => {
-        console.warn('⚠️ Failed to trigger copy pairs sync:', err)
+        console.warn('⚠️ Copy pipeline failed:', err)
       })
 
-      // Note: User-level engagement summary is now calculated via materialized view
-      // from user_portfolio_creator_views table (populated by sync-engagement-pairs)
-      console.log('User engagement summary will be calculated from portfolio-creator views')
+      // Note: Pattern analysis uses exhaustive search + logistic regression
+      // Results stored in conversion_pattern_combinations table
+      console.log('Pattern analysis will run after data collection completes')
 
       // Refresh materialized view
       console.log('Refreshing main_analysis materialized view...')

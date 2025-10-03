@@ -26,26 +26,9 @@ FROM (
 ) user_engagement
 GROUP BY did_subscribe;
 
--- View: top_converting_portfolio_creator_pairs
--- Shows top 10 portfolio-creator combinations by subscription conversion rate
-CREATE OR REPLACE VIEW top_converting_portfolio_creator_pairs AS
-SELECT
-  portfolio_ticker,
-  creator_id,
-  creator_username,
-  SUM(pdp_view_count + profile_view_count) as total_views,
-  COUNT(DISTINCT distinct_id) as unique_viewers,
-  SUM(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as total_subscriptions,
-  ROUND(
-    (SUM(CASE WHEN did_subscribe THEN 1 ELSE 0 END)::NUMERIC / COUNT(DISTINCT distinct_id)) * 100,
-    2
-  ) as conversion_rate_pct
-FROM user_portfolio_creator_views
-GROUP BY portfolio_ticker, creator_id, creator_username
-HAVING COUNT(DISTINCT distinct_id) >= 5  -- Minimum 5 views to be included
-ORDER BY conversion_rate_pct DESC, total_views DESC
-LIMIT 10;
-
 -- Grant permissions (adjust as needed for your setup)
 GRANT SELECT ON subscription_engagement_summary TO authenticated, anon;
-GRANT SELECT ON top_converting_portfolio_creator_pairs TO authenticated, anon;
+
+-- Note: top_converting_portfolio_creator_pairs view has been replaced with
+-- logistic regression analysis in conversion_pattern_combinations table
+-- Use analyze-subscription-patterns edge function to populate results
