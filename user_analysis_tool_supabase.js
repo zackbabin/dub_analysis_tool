@@ -174,8 +174,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Insert subscription engagement after Subscriptions section
             if (insertAfterSubs) {
                 console.log('Inserting subscription sections after element:', insertAfterSubs);
+                // Insert subscription engagement first
                 insertAfterSubs.parentNode.insertBefore(subscriptionEngagementSection, insertAfterSubs.nextElementSibling);
-                insertAfterSubs.parentNode.insertBefore(hiddenGemsSection, insertAfterSubs.nextElementSibling);
+                // Insert hidden gems after subscription engagement
+                subscriptionEngagementSection.parentNode.insertBefore(hiddenGemsSection, subscriptionEngagementSection.nextElementSibling);
             } else {
                 console.warn('Could not find insertion point for subscription sections');
             }
