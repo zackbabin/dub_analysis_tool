@@ -65,8 +65,9 @@ FROM bucketed_engagement
 GROUP BY profile_views_bucket, pdp_views_bucket
 ORDER BY profile_views_bucket, pdp_views_bucket;
 
--- 3. Create view for copy engagement summary
-CREATE OR REPLACE VIEW copy_engagement_summary AS
+-- 3. Create materialized view for copy engagement summary
+DROP MATERIALIZED VIEW IF EXISTS copy_engagement_summary CASCADE;
+CREATE MATERIALIZED VIEW copy_engagement_summary AS
 SELECT
   did_copy,
   COUNT(DISTINCT distinct_id) as total_users,
@@ -78,7 +79,7 @@ FROM (
   SELECT
     distinct_id,
     did_copy,
-    COUNT(DISTINCT creator_id) as profile_views,
+    SUM(profile_view_count) as profile_views,
     SUM(pdp_view_count) as pdp_views,
     COUNT(DISTINCT creator_id) as unique_creators,
     COUNT(DISTINCT portfolio_ticker) as unique_portfolios

@@ -2,8 +2,10 @@
 -- Identifies portfolios with high engagement (top 25% PDP/Profile views) but low copy conversion
 -- Execute this in Supabase SQL Editor
 
--- Step 1: Create view that aggregates portfolio-creator engagement metrics
-CREATE OR REPLACE VIEW portfolio_creator_engagement_metrics AS
+-- Step 1: Create materialized view that aggregates portfolio-creator engagement metrics
+DROP MATERIALIZED VIEW IF EXISTS hidden_gems_portfolios CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS portfolio_creator_engagement_metrics CASCADE;
+CREATE MATERIALIZED VIEW portfolio_creator_engagement_metrics AS
 SELECT
   portfolio_ticker,
   creator_id,
@@ -26,8 +28,8 @@ SELECT
 FROM user_portfolio_creator_copies
 GROUP BY creator_id;
 
--- Step 3: Create hidden gems view with dynamic percentile thresholds
-CREATE OR REPLACE VIEW hidden_gems_portfolios AS
+-- Step 3: Create hidden gems materialized view with dynamic percentile thresholds
+CREATE MATERIALIZED VIEW hidden_gems_portfolios AS
 WITH engagement_with_profile_views AS (
   SELECT
     pce.portfolio_ticker,
