@@ -519,17 +519,20 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top subscription combinations from logistic regression analysis
-     * Returns creator trios ranked by specified metric (lift, aic, precision, odds_ratio)
+     * Generic function to load top combinations for any analysis type (DRY)
+     * @param {string} analysisType - 'subscription', 'copy', or 'portfolio_sequence'
+     * @param {string} metric - 'lift', 'aic', 'precision', or 'odds_ratio'
+     * @param {number} limit - Number of results to return
+     * @param {boolean} mapUsernames - Whether to map creator IDs to usernames
      */
-    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20) {
-        console.log(`Loading top subscription combinations by ${metric}...`);
+    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false) {
+        console.log(`Loading top ${analysisType} combinations by ${metric}...`);
 
         try {
             let query = this.supabase
                 .from('conversion_pattern_combinations')
                 .select('*')
-                .eq('analysis_type', 'subscription')
+                .eq('analysis_type', analysisType)
                 .limit(limit);
 
             // Sort by the requested metric
@@ -553,37 +556,26 @@ class SupabaseIntegration {
             const { data, error } = await query;
 
             if (error) {
-                console.error('Error loading subscription combinations:', error);
+                console.error(`Error loading ${analysisType} combinations:`, error);
                 throw error;
             }
 
-            // Map creator IDs to usernames by querying the raw data
-            if (data && data.length > 0) {
-                // Get all unique creator IDs from the combinations
-                const allCreatorIds = new Set();
-                data.forEach(combo => {
-                    allCreatorIds.add(combo.value_1);
-                    allCreatorIds.add(combo.value_2);
-                    allCreatorIds.add(combo.value_3);
-                });
+            // Map creator IDs to usernames if requested (only for subscription analysis)
+            if (mapUsernames && data && data.length > 0) {
+                const allCreatorIds = Array.from(new Set(
+                    data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
+                ));
 
-                // Fetch username mapping from raw data
                 const { data: rawData, error: rawError } = await this.supabase
-                    .from('user_portfolio_creator_views')
-                    .select('creator_id, creator_username')
-                    .in('creator_id', Array.from(allCreatorIds))
-                    .not('creator_username', 'is', null);
-
-                if (!rawError && rawData) {
-                    // Create ID to username map
-                    const idToUsername = new Map();
-                    rawData.forEach(row => {
-                        if (row.creator_username) {
-                            idToUsername.set(row.creator_id, row.creator_username);
-                        }
+                    .rpc('get_distinct_creator_usernames', {
+                        creator_ids: allCreatorIds
                     });
 
-                    // Add usernames to the results
+                if (!rawError && rawData) {
+                    const idToUsername = new Map(
+                        rawData.map(row => [row.creator_id, row.creator_username])
+                    );
+
                     data.forEach(combo => {
                         combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
                         combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
@@ -592,12 +584,19 @@ class SupabaseIntegration {
                 }
             }
 
-            console.log(`✅ Loaded ${data.length} subscription combinations`);
+            console.log(`✅ Loaded ${data.length} ${analysisType} combinations`);
             return data;
         } catch (error) {
-            console.error('Error loading subscription combinations:', error);
+            console.error(`Error loading ${analysisType} combinations:`, error);
             throw error;
         }
+    }
+
+    /**
+     * Load top subscription combinations (wrapper for backwards compatibility)
+     */
+    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20) {
+        return this.loadTopCombinations('subscription', metric, limit, true);
     }
 
     /**
@@ -680,85 +679,10 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top copy combinations from logistic regression analysis
-     * Returns creator trios ranked by specified metric (lift, aic, precision, odds_ratio)
+     * Load top copy combinations (wrapper for backwards compatibility)
      */
     async loadTopCopyCombinations(metric = 'lift', limit = 20) {
-        console.log(`Loading top copy combinations by ${metric}...`);
-
-        try {
-            let query = this.supabase
-                .from('conversion_pattern_combinations')
-                .select('*')
-                .eq('analysis_type', 'copy')
-                .limit(limit);
-
-            // Sort by the requested metric
-            switch (metric) {
-                case 'lift':
-                    query = query.order('lift', { ascending: false });
-                    break;
-                case 'aic':
-                    query = query.order('aic', { ascending: true }); // Lower AIC is better
-                    break;
-                case 'precision':
-                    query = query.order('precision', { ascending: false });
-                    break;
-                case 'odds_ratio':
-                    query = query.order('odds_ratio', { ascending: false });
-                    break;
-                default:
-                    query = query.order('combination_rank', { ascending: true });
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error('Error loading copy combinations:', error);
-                throw error;
-            }
-
-            // Map creator IDs to usernames by querying the raw data
-            if (data && data.length > 0) {
-                // Get all unique creator IDs from the combinations
-                const allCreatorIds = new Set();
-                data.forEach(combo => {
-                    allCreatorIds.add(combo.value_1);
-                    allCreatorIds.add(combo.value_2);
-                    allCreatorIds.add(combo.value_3);
-                });
-
-                // Fetch username mapping from raw data
-                const { data: rawData, error: rawError } = await this.supabase
-                    .from('user_portfolio_creator_copies')
-                    .select('creator_id, creator_username')
-                    .in('creator_id', Array.from(allCreatorIds))
-                    .not('creator_username', 'is', null);
-
-                if (!rawError && rawData) {
-                    // Create ID to username map
-                    const idToUsername = new Map();
-                    rawData.forEach(row => {
-                        if (row.creator_username) {
-                            idToUsername.set(row.creator_id, row.creator_username);
-                        }
-                    });
-
-                    // Add usernames to the results
-                    data.forEach(combo => {
-                        combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
-                        combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
-                        combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
-                    });
-                }
-            }
-
-            console.log(`✅ Loaded ${data.length} copy combinations`);
-            return data;
-        } catch (error) {
-            console.error('Error loading copy combinations:', error);
-            throw error;
-        }
+        return this.loadTopCombinations('copy', metric, limit, false);
     }
 
 
@@ -843,50 +767,10 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top portfolio sequence combinations from analysis
-     * Returns portfolio trios ranked by specified metric (lift, aic, precision, odds_ratio)
+     * Load top portfolio sequence combinations (wrapper for backwards compatibility)
      */
     async loadTopPortfolioSequenceCombinations(metric = 'lift', limit = 20) {
-        console.log(`Loading top portfolio sequence combinations by ${metric}...`);
-
-        try {
-            let query = this.supabase
-                .from('conversion_pattern_combinations')
-                .select('*')
-                .eq('analysis_type', 'portfolio_sequence')
-                .limit(limit);
-
-            // Sort by the requested metric
-            switch (metric) {
-                case 'lift':
-                    query = query.order('lift', { ascending: false });
-                    break;
-                case 'aic':
-                    query = query.order('aic', { ascending: true }); // Lower AIC is better
-                    break;
-                case 'precision':
-                    query = query.order('precision', { ascending: false });
-                    break;
-                case 'odds_ratio':
-                    query = query.order('odds_ratio', { ascending: false });
-                    break;
-                default:
-                    query = query.order('combination_rank', { ascending: true });
-            }
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error('Error loading portfolio sequence combinations:', error);
-                throw error;
-            }
-
-            console.log(`✅ Loaded ${data.length} portfolio sequence combinations`);
-            return data;
-        } catch (error) {
-            console.error('Error loading portfolio sequence combinations:', error);
-            throw error;
-        }
+        return this.loadTopCombinations('portfolio_sequence', metric, limit, false);
     }
 
 

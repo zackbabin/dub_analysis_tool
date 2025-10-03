@@ -146,41 +146,46 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Check if sections already exist (from cache)
         if (document.getElementById('qdaEngagementAnalysisInline')) {
             console.log('Engagement sections already exist, refreshing data...');
-            // Just refresh the data in existing containers (removed portfolio sequence)
+            // Just refresh the data in existing containers
             await Promise.all([
                 this.displayEngagementAnalysis(),
                 this.displayCopyEngagementAnalysis(),
+                this.displayPortfolioSequenceAnalysis(),
                 this.displayHiddenGemsAnalysis()
             ]);
             return;
         }
 
-        // Find the Behavioral Analysis section (h1)
-        const behavioralAnalysisHeading = Array.from(resultsDiv.querySelectorAll('h1')).find(h => h.textContent === 'Behavioral Analysis');
-        console.log('Found Behavioral Analysis section:', !!behavioralAnalysisHeading);
+        // Efficiently find Behavioral Analysis section and relevant headings in single pass
+        let behavioralAnalysisHeading = null;
+        let portfolioCopiesHeading = null;
+        let subscriptionsHeading = null;
+        let behavioralAnalysisIndex = -1;
 
-        // Find all h4 headings (try within Behavioral Analysis first, then fallback to all)
-        let headings;
-        if (behavioralAnalysisHeading) {
-            // Find all h4 elements WITHIN Behavioral Analysis section only
-            const allH4s = Array.from(resultsDiv.querySelectorAll('h4'));
-            const behavioralAnalysisIndex = Array.from(resultsDiv.children).indexOf(behavioralAnalysisHeading.parentElement);
+        const children = Array.from(resultsDiv.children);
 
-            // Filter h4s to only those after Behavioral Analysis h1
-            headings = allH4s.filter(h4 => {
-                const h4Parent = h4.parentElement;
-                const h4Index = Array.from(resultsDiv.children).indexOf(h4Parent);
-                return h4Index > behavioralAnalysisIndex;
-            });
-        } else {
-            // Fallback: use all h4 headings if Behavioral Analysis not found
-            console.warn('Behavioral Analysis section not found, using all h4 headings');
-            headings = Array.from(resultsDiv.querySelectorAll('h4'));
+        // Single pass through children to find all needed elements
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            const h1 = child.querySelector('h1');
+            const h4 = child.querySelector('h4');
+
+            if (h1 && h1.textContent === 'Behavioral Analysis') {
+                behavioralAnalysisHeading = h1;
+                behavioralAnalysisIndex = i;
+            }
+
+            if (h4) {
+                const isAfterBehavioral = behavioralAnalysisIndex === -1 || i > behavioralAnalysisIndex;
+                if (h4.textContent === 'Portfolio Copies' && isAfterBehavioral) {
+                    portfolioCopiesHeading = h4;
+                } else if (h4.textContent === 'Subscriptions' && isAfterBehavioral) {
+                    subscriptionsHeading = h4;
+                }
+            }
         }
 
-        console.log('H4 headings found:', headings.map(h => h.textContent));
-        const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
-        const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
+        console.log('Found Behavioral Analysis section:', !!behavioralAnalysisHeading);
         console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
         console.log('Found Subscriptions heading:', !!subscriptionsHeading);
 
@@ -253,19 +258,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.warn('Could not find insertion point for subscription sections');
         }
 
-        // Insert copy engagement after Portfolio Copies section (NO portfolio sequence section)
+        // Insert copy engagement and portfolio sequence after Portfolio Copies section
         if (insertAfterCopies) {
-            console.log('Inserting copy engagement section after element:', insertAfterCopies);
-            // Insert copy engagement only (removed portfolio sequence section)
+            console.log('Inserting copy sections after element:', insertAfterCopies);
+            // Insert copy engagement first
             insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
+            // Insert portfolio sequence after copy engagement
+            copyEngagementSection.parentNode.insertBefore(portfolioSequenceSection, copyEngagementSection.nextElementSibling);
         } else {
             console.warn('Could not find insertion point for copy sections');
         }
 
-        // Load and display all engagement analyses (removed portfolio sequence)
+        // Load and display all engagement analyses
         await Promise.all([
             this.displayEngagementAnalysis(),
             this.displayCopyEngagementAnalysis(),
+            this.displayPortfolioSequenceAnalysis(),
             this.displayHiddenGemsAnalysis()
         ]);
 
@@ -293,6 +301,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const sectionsToRemove = [
             'qdaEngagementAnalysisInline',
             'qdaCopyEngagementAnalysisInline',
+            'qdaPortfolioSequenceAnalysisInline',
             'qdaHiddenGemsAnalysisInline'
         ];
 
@@ -313,6 +322,109 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         } catch (error) {
             console.warn('Failed to save to localStorage:', error);
         }
+    }
+
+    /**
+     * Helper: Create summary stats cards (DRY)
+     */
+    createSummaryCards(title, metrics) {
+        const summaryTitle = document.createElement('h5');
+        summaryTitle.textContent = title;
+        summaryTitle.style.fontSize = '0.95rem';
+        summaryTitle.style.fontWeight = '600';
+        summaryTitle.style.marginTop = '1rem';
+
+        const cardsContainer = document.createElement('div');
+        cardsContainer.style.display = 'grid';
+        cardsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        cardsContainer.style.gap = '1rem';
+        cardsContainer.style.marginBottom = '2rem';
+
+        metrics.forEach(metric => {
+            const card = document.createElement('div');
+            card.style.backgroundColor = '#f8f9fa';
+            card.style.padding = '1rem';
+            card.style.borderRadius = '8px';
+            card.innerHTML = `
+                <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                    ${parseFloat(metric.primaryValue).toFixed(1)}
+                    <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
+                </div>
+            `;
+            cardsContainer.appendChild(card);
+        });
+
+        return { summaryTitle, cardsContainer };
+    }
+
+    /**
+     * Helper: Create combinations table (DRY)
+     */
+    createCombinationsTable(title, subtitle, data, valueFormatter) {
+        const section = document.createElement('div');
+        section.style.marginTop = '2rem';
+
+        const titleEl = document.createElement('h5');
+        titleEl.textContent = title;
+        titleEl.style.fontSize = '0.95rem';
+        titleEl.style.fontWeight = '600';
+        section.appendChild(titleEl);
+
+        const subtitleEl = document.createElement('p');
+        subtitleEl.textContent = subtitle;
+        subtitleEl.style.fontSize = '0.875rem';
+        subtitleEl.style.color = '#6c757d';
+        subtitleEl.style.marginTop = '0.25rem';
+        subtitleEl.style.marginBottom = '1rem';
+        section.appendChild(subtitleEl);
+
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.marginTop = '1rem';
+
+        const rows = data.map((combo, index) => {
+            const displayValue = valueFormatter(combo);
+            return `
+                <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
+                    <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
+                    <td style="padding: 0.75rem; font-size: 0.85rem;">${displayValue}</td>
+                    <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
+                    <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
+                    <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
+                    <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                </tr>
+            `;
+        }).join('');
+
+        // Determine column labels based on title
+        let portfolioColumnLabel = 'Portfolios Viewed';
+        let conversionColumnLabel = 'Total Copies';
+
+        if (title.includes('Creator')) {
+            portfolioColumnLabel = 'Creators Viewed';
+            conversionColumnLabel = 'Total Subs';
+        } else if (title.includes('Sequence')) {
+            portfolioColumnLabel = 'Portfolio Sequence';
+        }
+
+        table.innerHTML = `
+            <thead>
+                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                    <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                    <th style="padding: 0.75rem; text-align: left;">${portfolioColumnLabel}</th>
+                    <th style="padding: 0.75rem; text-align: right;">Impact</th>
+                    <th style="padding: 0.75rem; text-align: right;">Users</th>
+                    <th style="padding: 0.75rem; text-align: right;">${conversionColumnLabel}</th>
+                    <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        `;
+
+        section.appendChild(table);
+        return section;
     }
 
     /**
@@ -345,98 +457,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
                 const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
 
-                // Title with smaller font
-                const summaryTitle = document.createElement('h5');
-                summaryTitle.textContent = 'Key Insights: Subscribers vs Non-Subscribers';
-                summaryTitle.style.fontSize = '0.95rem';
-                summaryTitle.style.fontWeight = '600';
-                summaryTitle.style.marginTop = '1rem';
-                section.appendChild(summaryTitle);
-
-                // Container for the 4 separate cards
-                const cardsContainer = document.createElement('div');
-                cardsContainer.style.display = 'grid';
-                cardsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
-                cardsContainer.style.gap = '1rem';
-                cardsContainer.style.marginBottom = '2rem';
-
-                // Create 4 separate cards
                 const metrics = [
-                    { label: 'Avg Profile Views', subscriberValue: subscribersData.avg_profile_views || 0, nonSubscriberValue: nonSubscribersData.avg_profile_views || 0 },
-                    { label: 'Avg PDP Views', subscriberValue: subscribersData.avg_pdp_views || 0, nonSubscriberValue: nonSubscribersData.avg_pdp_views || 0 },
-                    { label: 'Unique Creators', subscriberValue: subscribersData.avg_unique_creators || 0, nonSubscriberValue: nonSubscribersData.avg_unique_creators || 0 },
-                    { label: 'Unique Portfolios', subscriberValue: subscribersData.avg_unique_portfolios || 0, nonSubscriberValue: nonSubscribersData.avg_unique_portfolios || 0 }
+                    { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
+                    { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
+                    { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
+                    { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
                 ];
 
-                metrics.forEach(metric => {
-                    const card = document.createElement('div');
-                    card.style.backgroundColor = '#f8f9fa';
-                    card.style.padding = '1rem';
-                    card.style.borderRadius = '8px';
-                    card.innerHTML = `
-                        <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                        <div style="font-size: 1.5rem; font-weight: bold;">
-                            ${parseFloat(metric.subscriberValue).toFixed(1)}
-                            <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.nonSubscriberValue).toFixed(1)}</span>
-                        </div>
-                    `;
-                    cardsContainer.appendChild(card);
-                });
-
+                const { summaryTitle, cardsContainer } = this.createSummaryCards(
+                    'Key Insights: Subscribers vs Non-Subscribers',
+                    metrics
+                );
+                section.appendChild(summaryTitle);
                 section.appendChild(cardsContainer);
             }
 
-            // High-Impact Creator Combinations (Option B format)
+            // High-Impact Creator Combinations
             if (topCombinations && topCombinations.length > 0) {
-                const combinationsSection = document.createElement('div');
-                combinationsSection.style.marginTop = '2rem';
-
-                const combinationsTitle = document.createElement('h5');
-                combinationsTitle.textContent = 'High-Impact Creator Combinations';
-                combinationsTitle.style.fontSize = '0.95rem';
-                combinationsTitle.style.fontWeight = '600';
-                combinationsSection.appendChild(combinationsTitle);
-
-                const subtitle = document.createElement('p');
-                subtitle.textContent = 'Users who viewed these creator combinations were significantly more likely to subscribe';
-                subtitle.style.fontSize = '0.875rem';
-                subtitle.style.color = '#6c757d';
-                subtitle.style.marginTop = '0.25rem';
-                subtitle.style.marginBottom = '1rem';
-                combinationsSection.appendChild(subtitle);
-
-                const combinationsTable = document.createElement('table');
-                combinationsTable.style.width = '100%';
-                combinationsTable.style.borderCollapse = 'collapse';
-                combinationsTable.style.marginTop = '1rem';
-
-                combinationsTable.innerHTML = `
-                    <thead>
-                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                            <th style="padding: 0.75rem; text-align: left;">Creators Viewed</th>
-                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Subs</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${topCombinations.map((combo, index) => `
-                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                `;
-
-                combinationsSection.appendChild(combinationsTable);
-
+                const combinationsSection = this.createCombinationsTable(
+                    'High-Impact Creator Combinations',
+                    'Users who viewed these creator combinations were significantly more likely to subscribe',
+                    topCombinations,
+                    (combo) => `${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}`
+                );
                 section.appendChild(combinationsSection);
             }
 
@@ -483,98 +526,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const copiersData = summaryData.find(d => d.did_copy === true) || {};
                 const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
 
-                // Title with smaller font
-                const summaryTitle = document.createElement('h5');
-                summaryTitle.textContent = 'Key Insights: Copiers vs Non-Copiers';
-                summaryTitle.style.fontSize = '0.95rem';
-                summaryTitle.style.fontWeight = '600';
-                summaryTitle.style.marginTop = '1rem';
-                section.appendChild(summaryTitle);
-
-                // Container for the 4 separate cards
-                const cardsContainer = document.createElement('div');
-                cardsContainer.style.display = 'grid';
-                cardsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
-                cardsContainer.style.gap = '1rem';
-                cardsContainer.style.marginBottom = '2rem';
-
-                // Create 4 separate cards
                 const metrics = [
-                    { label: 'Avg Profile Views', copierValue: copiersData.avg_profile_views || 0, nonCopierValue: nonCopiersData.avg_profile_views || 0 },
-                    { label: 'Avg PDP Views', copierValue: copiersData.avg_pdp_views || 0, nonCopierValue: nonCopiersData.avg_pdp_views || 0 },
-                    { label: 'Unique Creators', copierValue: copiersData.avg_unique_creators || 0, nonCopierValue: nonCopiersData.avg_unique_creators || 0 },
-                    { label: 'Unique Portfolios', copierValue: copiersData.avg_unique_portfolios || 0, nonCopierValue: nonCopiersData.avg_unique_portfolios || 0 }
+                    { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
+                    { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0 },
+                    { label: 'Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0 },
+                    { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
                 ];
 
-                metrics.forEach(metric => {
-                    const card = document.createElement('div');
-                    card.style.backgroundColor = '#f8f9fa';
-                    card.style.padding = '1rem';
-                    card.style.borderRadius = '8px';
-                    card.innerHTML = `
-                        <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                        <div style="font-size: 1.5rem; font-weight: bold;">
-                            ${parseFloat(metric.copierValue).toFixed(1)}
-                            <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.nonCopierValue).toFixed(1)}</span>
-                        </div>
-                    `;
-                    cardsContainer.appendChild(card);
-                });
-
+                const { summaryTitle, cardsContainer } = this.createSummaryCards(
+                    'Key Insights: Copiers vs Non-Copiers',
+                    metrics
+                );
+                section.appendChild(summaryTitle);
                 section.appendChild(cardsContainer);
             }
 
-            // High-Impact Portfolio Combinations (Option B format)
+            // High-Impact Portfolio Combinations
             if (topCombinations && topCombinations.length > 0) {
-                const combinationsSection = document.createElement('div');
-                combinationsSection.style.marginTop = '2rem';
-
-                const combinationsTitle = document.createElement('h5');
-                combinationsTitle.textContent = 'High-Impact Portfolio Combinations';
-                combinationsTitle.style.fontSize = '0.95rem';
-                combinationsTitle.style.fontWeight = '600';
-                combinationsSection.appendChild(combinationsTitle);
-
-                const subtitle = document.createElement('p');
-                subtitle.textContent = 'Users who viewed these portfolio combinations were significantly more likely to copy';
-                subtitle.style.fontSize = '0.875rem';
-                subtitle.style.color = '#6c757d';
-                subtitle.style.marginTop = '0.25rem';
-                subtitle.style.marginBottom = '1rem';
-                combinationsSection.appendChild(subtitle);
-
-                const combinationsTable = document.createElement('table');
-                combinationsTable.style.width = '100%';
-                combinationsTable.style.borderCollapse = 'collapse';
-                combinationsTable.style.marginTop = '1rem';
-
-                combinationsTable.innerHTML = `
-                    <thead>
-                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                            <th style="padding: 0.75rem; text-align: left;">Portfolios Viewed</th>
-                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${topCombinations.map((combo, index) => `
-                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                `;
-
-                combinationsSection.appendChild(combinationsTable);
-
+                const combinationsSection = this.createCombinationsTable(
+                    'High-Impact Portfolio Combinations',
+                    'Users who viewed these portfolio combinations were significantly more likely to copy',
+                    topCombinations,
+                    (combo) => `${combo.value_1}, ${combo.value_2}, ${combo.value_3}`
+                );
                 section.appendChild(combinationsSection);
             }
 
@@ -612,57 +586,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 topSequences: topSequences?.length || 0
             });
 
-            // High-Impact Portfolio Sequences
+            // High-Impact Portfolio View Sequences
             if (topSequences && topSequences.length > 0) {
-                const sequencesSection = document.createElement('div');
-                sequencesSection.style.marginTop = '2rem';
-
-                const sequencesTitle = document.createElement('h5');
-                sequencesTitle.textContent = 'High-Impact Portfolio View Sequences';
-                sequencesTitle.style.fontSize = '0.95rem';
-                sequencesTitle.style.fontWeight = '600';
-                sequencesSection.appendChild(sequencesTitle);
-
-                const subtitle = document.createElement('p');
-                subtitle.textContent = 'Users who viewed these portfolio sequences (first 3 PDP views) were significantly more likely to copy';
-                subtitle.style.fontSize = '0.875rem';
-                subtitle.style.color = '#6c757d';
-                subtitle.style.marginTop = '0.25rem';
-                subtitle.style.marginBottom = '1rem';
-                sequencesSection.appendChild(subtitle);
-
-                const sequencesTable = document.createElement('table');
-                sequencesTable.style.width = '100%';
-                sequencesTable.style.borderCollapse = 'collapse';
-                sequencesTable.style.marginTop = '1rem';
-
-                sequencesTable.innerHTML = `
-                    <thead>
-                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                            <th style="padding: 0.75rem; text-align: left;">Portfolio Sequence (1st → 2nd → 3rd)</th>
-                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${topSequences.map((seq, index) => `
-                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                                <td style="padding: 0.75rem; font-size: 0.85rem; font-family: monospace;">${seq.value_1} → ${seq.value_2} → ${seq.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(seq.lift).toFixed(2)}x lift</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.users_with_exposure).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.total_conversions || 0).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(seq.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                `;
-
-                sequencesSection.appendChild(sequencesTable);
-
+                const sequencesSection = this.createCombinationsTable(
+                    'High-Impact Portfolio View Sequences',
+                    'Users who viewed portfolios in these specific sequences (1st → 2nd → 3rd) were significantly more likely to copy',
+                    topSequences,
+                    (seq) => `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`
+                );
                 section.appendChild(sequencesSection);
             } else {
                 const noDataMsg = document.createElement('p');
