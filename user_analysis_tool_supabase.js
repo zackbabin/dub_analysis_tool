@@ -106,6 +106,27 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Add engagement analysis sections after Subscription section in Behavioral Analysis
      */
     async displayResults(results) {
+        // Try to restore from cache first (includes all sections)
+        const cached = localStorage.getItem('dubAnalysisResults');
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                if (this.outputContainer && data.html) {
+                    this.outputContainer.innerHTML = data.html;
+                    console.log('✅ Restored complete analysis from cache (includes all sections)');
+
+                    // Re-attach event handlers if needed
+                    this.displayEngagementAnalysis();
+                    this.displayCopyEngagementAnalysis();
+                    this.displayHiddenGemsAnalysis();
+                    return;
+                }
+            } catch (e) {
+                console.warn('Failed to restore from cache, rebuilding:', e);
+            }
+        }
+
+        // If no cache or cache failed, build from scratch
         // Call parent method to display standard results
         super.displayResults(results);
 
@@ -194,9 +215,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
 
             // Load and display all engagement analyses
-            this.displayEngagementAnalysis();
-            this.displayCopyEngagementAnalysis();
-            this.displayHiddenGemsAnalysis();
+            await Promise.all([
+                this.displayEngagementAnalysis(),
+                this.displayCopyEngagementAnalysis(),
+                this.displayHiddenGemsAnalysis()
+            ]);
+
+            // Save complete results to localStorage after all sections are loaded
+            if (resultsDiv) {
+                this.saveAnalysisResults(resultsDiv.outerHTML);
+            }
         }
     }
 
