@@ -100,11 +100,12 @@ serve(async (req) => {
       }
 
       // Fetch data in batches to avoid Mixpanel rate limits (max 5 concurrent queries)
-      // Batch 1: Original 4 charts
-      console.log('Fetching batch 1: Original user data (4 charts)...')
-      const [subscribersData, timeToFirstCopyData, timeToFundedData, timeToLinkedData] =
+      // Using 3 batches to ensure we never exceed 5 concurrent calls
+
+      // Batch 1: Time funnels (3 charts)
+      console.log('Fetching batch 1: Time funnels (3 charts)...')
+      const [timeToFirstCopyData, timeToFundedData, timeToLinkedData] =
         await Promise.all([
-          fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights'),
           fetchFunnelData(
             credentials,
             CHART_IDS.timeToFirstCopy,
@@ -130,16 +131,24 @@ serve(async (req) => {
 
       console.log('✓ Batch 1 complete')
 
-      // Batch 2: Engagement analysis charts (4 charts now - added copies)
-      console.log('Fetching batch 2: Engagement analysis data (4 charts)...')
-      const [profileViewsData, pdpViewsData, subscriptionsData, copiesData] = await Promise.all([
+      // Batch 2: User insights + profile views (2 charts)
+      console.log('Fetching batch 2: User insights (2 charts)...')
+      const [subscribersData, profileViewsData] = await Promise.all([
+        fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights'),
         fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+      ])
+
+      console.log('✓ Batch 2 complete')
+
+      // Batch 3: Engagement analysis (3 charts)
+      console.log('Fetching batch 3: Engagement analysis (3 charts)...')
+      const [pdpViewsData, subscriptionsData, copiesData] = await Promise.all([
         fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
         fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
         fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator'),
       ])
 
-      console.log('✓ Batch 2 complete')
+      console.log('✓ Batch 3 complete')
 
       console.log('All data fetched successfully')
 
