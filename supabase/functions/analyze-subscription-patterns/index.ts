@@ -425,6 +425,9 @@ serve(async (_req) => {
       )
     }
 
+    const analyzedAt = new Date().toISOString()
+    const batchSize = 500
+
     const topCreators = getTopCreators(users, 10).slice(0, 25)
 
     if (topCreators.length < 3) {
@@ -476,7 +479,7 @@ serve(async (_req) => {
       conversion_rate_in_group: result.conversion_rate_in_group,
       overall_conversion_rate: result.overall_conversion_rate,
       total_conversions: result.total_conversions,
-      analyzed_at: syncedAt,
+      analyzed_at: analyzedAt,
     }))
 
     await supabaseClient
