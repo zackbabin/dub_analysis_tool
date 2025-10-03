@@ -224,7 +224,7 @@ serve(async (req) => {
         pdpViewsData,
         subscriptionsData,
         copiesData,
-        syncedAt.toISOString()
+        syncStartTime.toISOString()
       )
 
       // Upsert subscription pairs in batches
