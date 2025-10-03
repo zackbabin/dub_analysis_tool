@@ -38,7 +38,7 @@ async function fetchMixpanelChart(chartId: string, name: string): Promise<any> {
 
   const params = new URLSearchParams({
     project_id: MIXPANEL_PROJECT_ID,
-    bookmark_id: chartId,
+    funnel_id: chartId,
     limit: '50000',
   })
 

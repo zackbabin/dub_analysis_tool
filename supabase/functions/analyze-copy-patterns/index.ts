@@ -518,7 +518,7 @@ serve(async (_req) => {
         stats: {
           pairs_synced: pairRows.length,
           total_users: users.length,
-          creators_tested: topCreators.length,
+          portfolios_tested: topPortfolios.length,
           combinations_evaluated: results.length,
           combinations_stored: insertRows.length,
         },
