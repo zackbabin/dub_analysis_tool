@@ -329,20 +329,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Hidden Gems Table
-        const topHiddenGems = hiddenGems && hiddenGems.length > 0 ? hiddenGems.slice(0, 25) : [];
+        const topHiddenGems = hiddenGems && hiddenGems.length > 0 ? hiddenGems.slice(0, 10) : [];
 
         if (topHiddenGems.length > 0) {
-            html += '<div style="margin-top: 2rem;"><table style="width: 100%; border-collapse: collapse;">';
+            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;">';
             html += `
                 <thead>
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                         <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                         <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                        <th style="padding: 0.75rem; text-align: right;">Total PDP Views</th>
-                        <th style="padding: 0.75rem; text-align: right;">Total Profile Views</th>
+                        <th style="padding: 0.75rem; text-align: right;">PDP Views</th>
                         <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
-                        <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                        <th style="padding: 0.75rem; text-align: right;">Conversion Rate</th>
+                        <th style="padding: 0.75rem; text-align: right;">Copies</th>
+                        <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -355,7 +354,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <td style="padding: 0.75rem;">${gem.portfolio_ticker || 'N/A'}</td>
                         <td style="padding: 0.75rem;">${gem.creator_username || 'N/A'}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
-                        <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_profile_views).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
@@ -364,8 +362,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
 
             html += '</tbody></table>';
-            html += '<p style="font-size: 0.875rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">Portfolios in top 50% of engagement (PDP & Profile views) with ≤25% conversion rate</p>';
-            html += '</div>';
+            html += '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">Portfolios in top 25% of PDP views with <15% conversion rate</p>';
         }
 
         html += '</div>';
@@ -460,7 +457,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         html += `<h5 style="font-size: 0.95rem; font-weight: 600;">${title}</h5>`;
         html += `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.25rem; margin-bottom: 1rem;">${subtitle}</p>`;
 
-        html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">';
+        html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;">';
         html += `
             <thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
@@ -481,7 +478,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             html += `
                 <tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
                     <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                    <td style="padding: 0.75rem; font-size: 0.85rem;">${displayValue}</td>
+                    <td style="padding: 0.75rem;">${displayValue}</td>
                     <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
                     <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
                     <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>

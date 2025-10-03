@@ -150,20 +150,29 @@
         .qda-regression-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
-            font-size: 12px;
+            margin: 1rem 0;
+            font-size: 0.85rem;
         }
 
         .qda-regression-table th,
         .qda-regression-table td {
-            border: 1px solid #ddd;
-            padding: 6px;
+            border: 1px solid #dee2e6;
+            padding: 0.75rem;
             text-align: left;
         }
 
         .qda-regression-table th {
-            background-color: #f2f2f2;
+            background-color: #f8f9fa;
             font-weight: bold;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .qda-regression-table tbody tr {
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .qda-regression-table tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
         }
 
         /* Strength indicators */

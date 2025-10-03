@@ -566,21 +566,36 @@ class SupabaseIntegration {
                     data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
                 ));
 
+                console.log(`🔍 Looking up usernames for ${allCreatorIds.length} creator IDs:`, allCreatorIds.slice(0, 5));
+
                 const { data: rawData, error: rawError } = await this.supabase
                     .rpc('get_distinct_creator_usernames', {
                         creator_ids: allCreatorIds
                     });
 
-                if (!rawError && rawData) {
+                if (rawError) {
+                    console.error('❌ Error fetching creator usernames:', rawError);
+                } else if (rawData) {
+                    console.log(`✅ RPC returned ${rawData.length} username mappings`);
                     const idToUsername = new Map(
                         rawData.map(row => [row.creator_id, row.creator_username])
                     );
+
+                    console.log(`✅ Mapped ${idToUsername.size} creator IDs to usernames`);
+                    console.log('Sample mappings:', Array.from(idToUsername.entries()).slice(0, 3));
 
                     data.forEach(combo => {
                         combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
                         combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
                         combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
                     });
+
+                    console.log('Sample combo after mapping:', {
+                        value_1: data[0].value_1,
+                        username_1: data[0].username_1
+                    });
+                } else {
+                    console.warn('⚠️ RPC returned no data');
                 }
             }
 

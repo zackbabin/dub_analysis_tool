@@ -30,46 +30,31 @@ GROUP BY creator_id;
 
 -- Step 3: Create hidden gems materialized view with dynamic percentile thresholds
 CREATE MATERIALIZED VIEW hidden_gems_portfolios AS
-WITH engagement_with_profile_views AS (
+WITH percentile_thresholds AS (
   SELECT
-    pce.portfolio_ticker,
-    pce.creator_id,
-    pce.creator_username,
-    pce.unique_viewers,
-    pce.total_pdp_views,
-    pce.total_copies,
-    pce.conversion_rate_pct,
-    COALESCE(cpv.total_profile_views, 0) as total_profile_views
-  FROM portfolio_creator_engagement_metrics pce
-  LEFT JOIN creator_profile_view_metrics cpv ON pce.creator_id = cpv.creator_id
-),
-percentile_thresholds AS (
-  SELECT
-    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p50,
-    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_profile_views) as profile_views_p50
-  FROM engagement_with_profile_views
+    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p75
+  FROM portfolio_creator_engagement_metrics
 )
 SELECT
-  e.portfolio_ticker,
-  e.creator_id,
-  e.creator_username,
-  e.unique_viewers as unique_views,
-  e.total_pdp_views,
-  e.total_profile_views,
-  e.total_copies,
+  pce.portfolio_ticker,
+  pce.creator_id,
+  pce.creator_username,
+  pce.unique_viewers as unique_views,
+  pce.total_pdp_views,
+  pce.total_copies,
   ROUND(
-    (e.total_copies::NUMERIC / NULLIF(e.unique_viewers, 0)) * 100,
+    (pce.total_copies::NUMERIC / NULLIF(pce.unique_viewers, 0)) * 100,
     2
   ) as conversion_rate_pct
-FROM engagement_with_profile_views e
+FROM portfolio_creator_engagement_metrics pce
 CROSS JOIN percentile_thresholds p
 WHERE
-  -- Must be in top 50% for either PDP views OR profile views
-  (e.total_pdp_views >= p.pdp_views_p50 OR e.total_profile_views >= p.profile_views_p50)
-  -- Low conversion rate (<=25%)
-  AND ROUND((e.total_copies::NUMERIC / NULLIF(e.unique_viewers, 0)) * 100, 2) <= 25
-ORDER BY e.total_pdp_views DESC
-LIMIT 100;
+  -- Must be in top 25% for PDP views
+  pce.total_pdp_views >= p.pdp_views_p75
+  -- Low conversion rate (<15%)
+  AND ROUND((pce.total_copies::NUMERIC / NULLIF(pce.unique_viewers, 0)) * 100, 2) < 15
+ORDER BY pce.total_pdp_views DESC
+LIMIT 10;
 
 -- Step 4: Create summary stats view for hidden gems
 CREATE OR REPLACE VIEW hidden_gems_summary AS
