@@ -239,33 +239,9 @@ serve(async (req) => {
         console.warn('⚠️ Failed to trigger copy pairs sync:', err)
       })
 
-      // Process user-level engagement summary
-      const engagementRows = processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)
-      console.log(`Processed ${engagementRows.length} user engagement records`)
-
-      if (engagementRows.length > 0) {
-        // Insert in batches
-        let userProcessed = 0
-        for (let i = 0; i < engagementRows.length; i += batchSize) {
-          const batch = engagementRows.slice(i, i + batchSize)
-
-          const { error: insertError } = await supabase
-            .from('user_engagement_for_subscriptions')
-            .insert(batch)
-
-          if (insertError) {
-            console.error('Error upserting user engagement:', insertError)
-            throw insertError
-          }
-
-          userProcessed += batch.length
-          console.log(`Upserted engagement batch: ${userProcessed}/${engagementRows.length} records`)
-        }
-
-        stats.engagementRecordsFetched = engagementRows.length
-        stats.totalRecordsInserted += engagementRows.length
-        console.log(`Upserted ${engagementRows.length} user engagement records`)
-      }
+      // Note: User-level engagement summary is now calculated via materialized view
+      // from user_portfolio_creator_views table (populated by sync-engagement-pairs)
+      console.log('User engagement summary will be calculated from portfolio-creator views')
 
       // Refresh materialized view
       console.log('Refreshing main_analysis materialized view...')
