@@ -146,19 +146,36 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Check if sections already exist (from cache)
         if (document.getElementById('qdaEngagementAnalysisInline')) {
             console.log('Engagement sections already exist, refreshing data...');
-            // Just refresh the data in existing containers
+            // Just refresh the data in existing containers (removed portfolio sequence)
             await Promise.all([
                 this.displayEngagementAnalysis(),
                 this.displayCopyEngagementAnalysis(),
-                this.displayPortfolioSequenceAnalysis(),
                 this.displayHiddenGemsAnalysis()
             ]);
             return;
         }
 
-        // Find all h4 elements to locate Portfolio Copies and Subscriptions sections
-        const headings = Array.from(resultsDiv.querySelectorAll('h4'));
-        console.log('All h4 headings:', headings.map(h => h.textContent));
+        // Find the Behavioral Analysis section (h1)
+        const behavioralAnalysisHeading = Array.from(resultsDiv.querySelectorAll('h1')).find(h => h.textContent === 'Behavioral Analysis');
+        console.log('Found Behavioral Analysis section:', !!behavioralAnalysisHeading);
+
+        if (!behavioralAnalysisHeading) {
+            console.warn('Behavioral Analysis section not found');
+            return;
+        }
+
+        // Find all h4 elements WITHIN Behavioral Analysis section only
+        const allH4s = Array.from(resultsDiv.querySelectorAll('h4'));
+        const behavioralAnalysisIndex = Array.from(resultsDiv.children).indexOf(behavioralAnalysisHeading.parentElement);
+
+        // Filter h4s to only those after Behavioral Analysis h1
+        const headings = allH4s.filter(h4 => {
+            const h4Parent = h4.parentElement;
+            const h4Index = Array.from(resultsDiv.children).indexOf(h4Parent);
+            return h4Index > behavioralAnalysisIndex;
+        });
+
+        console.log('H4 headings in Behavioral Analysis:', headings.map(h => h.textContent));
         const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
         const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
         console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
@@ -180,45 +197,45 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const hiddenGemsSection = document.createElement('div');
         hiddenGemsSection.id = 'qdaHiddenGemsAnalysisInline';
 
-        // Find the insertion point after Subscriptions (before footer)
+        // Find the insertion point after Subscriptions table
         let insertAfterSubs = null;
         if (subscriptionsHeading) {
-            console.log('Found Subscriptions heading, looking for footer...');
+            console.log('Found Subscriptions heading, looking for table...');
 
-            // Find the footer element (it contains "Predictive Strength Calculation")
-            const footer = Array.from(resultsDiv.children).find(child =>
-                child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
-            );
-
-            console.log('Footer found:', !!footer);
-
-            if (footer) {
-                // Insert right before the footer
-                insertAfterSubs = footer.previousElementSibling;
-                console.log('Will insert before footer, after element:', insertAfterSubs?.tagName);
-            } else {
-                // If no footer found, find last element after subscriptions heading
-                let currentElement = subscriptionsHeading.nextElementSibling;
-                while (currentElement && currentElement.nextElementSibling) {
+            // Find the table immediately after the Subscriptions h4
+            let currentElement = subscriptionsHeading.nextElementSibling;
+            while (currentElement) {
+                if (currentElement.tagName === 'TABLE') {
                     insertAfterSubs = currentElement;
-                    currentElement = currentElement.nextElementSibling;
+                    console.log('Found Subscriptions table, will insert after it');
+                    break;
                 }
-                console.log('No footer found, inserting at end');
+                currentElement = currentElement.nextElementSibling;
+            }
+
+            if (!insertAfterSubs) {
+                console.warn('Could not find Subscriptions table');
             }
         }
 
-        // Find the next h4 after Portfolio Copies
+        // Find the insertion point after Portfolio Copies table
         let insertAfterCopies = null;
         if (portfolioCopiesHeading) {
-            const copiesIndex = headings.indexOf(portfolioCopiesHeading);
-            const nextHeading = headings[copiesIndex + 1];
+            console.log('Found Portfolio Copies heading, looking for table...');
 
-            if (nextHeading) {
-                let currentElement = portfolioCopiesHeading.nextElementSibling;
-                while (currentElement && currentElement !== nextHeading) {
+            // Find the table immediately after the Portfolio Copies h4
+            let currentElement = portfolioCopiesHeading.nextElementSibling;
+            while (currentElement) {
+                if (currentElement.tagName === 'TABLE') {
                     insertAfterCopies = currentElement;
-                    currentElement = currentElement.nextElementSibling;
+                    console.log('Found Portfolio Copies table, will insert after it');
+                    break;
                 }
+                currentElement = currentElement.nextElementSibling;
+            }
+
+            if (!insertAfterCopies) {
+                console.warn('Could not find Portfolio Copies table');
             }
         }
 
@@ -233,22 +250,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.warn('Could not find insertion point for subscription sections');
         }
 
-        // Insert copy engagement and portfolio sequence after Portfolio Copies section
+        // Insert copy engagement after Portfolio Copies section (NO portfolio sequence section)
         if (insertAfterCopies) {
-            console.log('Inserting copy sections after element:', insertAfterCopies);
-            // Insert copy engagement first
+            console.log('Inserting copy engagement section after element:', insertAfterCopies);
+            // Insert copy engagement only (removed portfolio sequence section)
             insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
-            // Insert portfolio sequence after copy engagement
-            copyEngagementSection.parentNode.insertBefore(portfolioSequenceSection, copyEngagementSection.nextElementSibling);
         } else {
             console.warn('Could not find insertion point for copy sections');
         }
 
-        // Load and display all engagement analyses
+        // Load and display all engagement analyses (removed portfolio sequence)
         await Promise.all([
             this.displayEngagementAnalysis(),
             this.displayCopyEngagementAnalysis(),
-            this.displayPortfolioSequenceAnalysis(),
             this.displayHiddenGemsAnalysis()
         ]);
 
@@ -276,7 +290,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const sectionsToRemove = [
             'qdaEngagementAnalysisInline',
             'qdaCopyEngagementAnalysisInline',
-            'qdaPortfolioSequenceAnalysisInline',
             'qdaHiddenGemsAnalysisInline'
         ];
 
@@ -409,7 +422,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         ${topCombinations.map((combo, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
+                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}</td>
                                 <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
                                 <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
@@ -508,59 +521,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // High-Impact Creator Combinations (Option B format)
-            if (topCombinations && topCombinations.length > 0) {
-                const combinationsSection = document.createElement('div');
-                combinationsSection.style.marginTop = '2rem';
-
-                const combinationsTitle = document.createElement('h5');
-                combinationsTitle.textContent = 'High-Impact Creator Combinations';
-                combinationsTitle.style.fontSize = '0.95rem';
-                combinationsTitle.style.fontWeight = '600';
-                combinationsSection.appendChild(combinationsTitle);
-
-                const subtitle = document.createElement('p');
-                subtitle.textContent = 'Users who viewed these creator combinations were significantly more likely to copy';
-                subtitle.style.fontSize = '0.875rem';
-                subtitle.style.color = '#6c757d';
-                subtitle.style.marginTop = '0.25rem';
-                subtitle.style.marginBottom = '1rem';
-                combinationsSection.appendChild(subtitle);
-
-                const combinationsTable = document.createElement('table');
-                combinationsTable.style.width = '100%';
-                combinationsTable.style.borderCollapse = 'collapse';
-                combinationsTable.style.marginTop = '1rem';
-
-                combinationsTable.innerHTML = `
-                    <thead>
-                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                            <th style="padding: 0.75rem; text-align: left;">Creators Viewed</th>
-                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
-                            <th style="padding: 0.75rem; text-align: right;">Users</th>
-                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${topCombinations.map((combo, index) => `
-                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
-                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                                <td style="padding: 0.75rem; font-size: 0.85rem;">${combo.value_1}, ${combo.value_2}, ${combo.value_3}</td>
-                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
-                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                `;
-
-                combinationsSection.appendChild(combinationsTable);
-
-                section.appendChild(combinationsSection);
-            }
+            // NOTE: High-Impact Creator Combinations removed from copy section
+            // This is now only shown in the subscription section
 
             // Append section to container
             container.appendChild(section);

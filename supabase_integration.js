@@ -557,6 +557,41 @@ class SupabaseIntegration {
                 throw error;
             }
 
+            // Map creator IDs to usernames by querying the raw data
+            if (data && data.length > 0) {
+                // Get all unique creator IDs from the combinations
+                const allCreatorIds = new Set();
+                data.forEach(combo => {
+                    allCreatorIds.add(combo.value_1);
+                    allCreatorIds.add(combo.value_2);
+                    allCreatorIds.add(combo.value_3);
+                });
+
+                // Fetch username mapping from raw data
+                const { data: rawData, error: rawError } = await this.supabase
+                    .from('user_portfolio_creator_views')
+                    .select('creator_id, creator_username')
+                    .in('creator_id', Array.from(allCreatorIds))
+                    .not('creator_username', 'is', null);
+
+                if (!rawError && rawData) {
+                    // Create ID to username map
+                    const idToUsername = new Map();
+                    rawData.forEach(row => {
+                        if (row.creator_username) {
+                            idToUsername.set(row.creator_id, row.creator_username);
+                        }
+                    });
+
+                    // Add usernames to the results
+                    data.forEach(combo => {
+                        combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
+                        combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
+                        combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
+                    });
+                }
+            }
+
             console.log(`✅ Loaded ${data.length} subscription combinations`);
             return data;
         } catch (error) {
@@ -681,6 +716,41 @@ class SupabaseIntegration {
             if (error) {
                 console.error('Error loading copy combinations:', error);
                 throw error;
+            }
+
+            // Map creator IDs to usernames by querying the raw data
+            if (data && data.length > 0) {
+                // Get all unique creator IDs from the combinations
+                const allCreatorIds = new Set();
+                data.forEach(combo => {
+                    allCreatorIds.add(combo.value_1);
+                    allCreatorIds.add(combo.value_2);
+                    allCreatorIds.add(combo.value_3);
+                });
+
+                // Fetch username mapping from raw data
+                const { data: rawData, error: rawError } = await this.supabase
+                    .from('user_portfolio_creator_copies')
+                    .select('creator_id, creator_username')
+                    .in('creator_id', Array.from(allCreatorIds))
+                    .not('creator_username', 'is', null);
+
+                if (!rawError && rawData) {
+                    // Create ID to username map
+                    const idToUsername = new Map();
+                    rawData.forEach(row => {
+                        if (row.creator_username) {
+                            idToUsername.set(row.creator_id, row.creator_username);
+                        }
+                    });
+
+                    // Add usernames to the results
+                    data.forEach(combo => {
+                        combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
+                        combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
+                        combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
+                    });
+                }
             }
 
             console.log(`✅ Loaded ${data.length} copy combinations`);
