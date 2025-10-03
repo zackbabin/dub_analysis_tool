@@ -209,48 +209,35 @@ serve(async (req) => {
       // Process user engagement data for subscription analysis
       console.log('Processing user engagement data...')
 
-      // Trigger separate edge function for portfolio-creator pair processing
-      // This runs asynchronously to avoid timeout in main sync
-      console.log('Triggering sync-engagement-pairs edge function...')
-      try {
-        const pairSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-engagement-pairs`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
+      // Trigger separate edge functions for portfolio-creator pair processing
+      // Fire and forget - don't wait for completion to avoid timeout
+      console.log('Triggering sync-engagement-pairs and sync-copy-pairs edge functions...')
 
-        if (pairSyncResponse.ok) {
-          const pairResult = await pairSyncResponse.json()
-          console.log(`✓ Engagement pairs sync triggered successfully: ${pairResult.stats?.pairs_processed || 0} pairs`)
-        } else {
-          console.warn(`⚠️ Engagement pairs sync failed (non-critical): ${pairSyncResponse.statusText}`)
-        }
-      } catch (pairError: any) {
-        console.warn('⚠️ Failed to trigger engagement pairs sync (non-critical):', pairError?.message || String(pairError))
-      }
+      // Fire engagement pairs sync (don't await)
+      fetch(`${supabaseUrl}/functions/v1/sync-engagement-pairs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(() => {
+        console.log('✓ Engagement pairs sync triggered')
+      }).catch((err) => {
+        console.warn('⚠️ Failed to trigger engagement pairs sync:', err)
+      })
 
-      // Trigger sync-copy-pairs edge function
-      console.log('Triggering sync-copy-pairs edge function...')
-      try {
-        const copyPairSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-copy-pairs`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
-
-        if (copyPairSyncResponse.ok) {
-          const copyPairResult = await copyPairSyncResponse.json()
-          console.log(`✓ Copy pairs sync triggered successfully: ${copyPairResult.stats?.pairs_processed || 0} pairs`)
-        } else {
-          console.warn(`⚠️ Copy pairs sync failed (non-critical): ${copyPairSyncResponse.statusText}`)
-        }
-      } catch (copyPairError: any) {
-        console.warn('⚠️ Failed to trigger copy pairs sync (non-critical):', copyPairError?.message || String(copyPairError))
-      }
+      // Fire copy pairs sync (don't await)
+      fetch(`${supabaseUrl}/functions/v1/sync-copy-pairs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'Content-Type': 'application/json',
+        },
+      }).then(() => {
+        console.log('✓ Copy pairs sync triggered')
+      }).catch((err) => {
+        console.warn('⚠️ Failed to trigger copy pairs sync:', err)
+      })
 
       // Process user-level engagement summary
       const engagementRows = processUserLevelEngagement(profileViewsData, pdpViewsData, subscriptionsData)

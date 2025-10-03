@@ -1,0 +1,7 @@
+# supabase/config.toml
+
+[project]
+name = "local-supabase-project"
+
+[functions]
+path = "supabase/functions"
