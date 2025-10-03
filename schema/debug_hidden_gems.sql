@@ -7,7 +7,13 @@ SELECT
     COUNT(*) as count
 FROM user_portfolio_creator_copies;
 
--- Step 2: Check portfolio_creator_engagement_metrics
+-- Step 2: Check if materialized view exists and has data
+SELECT
+    'Engagement metrics exists' as metric,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM pg_matviews WHERE matviewname = 'portfolio_creator_engagement_metrics'
+    ) THEN 'YES' ELSE 'NO' END as value;
+
 SELECT
     'Engagement metrics count' as metric,
     COUNT(*) as count
