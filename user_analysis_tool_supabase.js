@@ -295,7 +295,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
-        html += '<h3 style="margin-top: 1.5rem;">Hidden Gems</h3>';
+        html += '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>';
+        html += '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion rates, representing untapped opportunities</p>';
 
         // Summary Stats
         if (summaryData) {
@@ -332,7 +333,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const topHiddenGems = hiddenGems && hiddenGems.length > 0 ? hiddenGems.slice(0, 10) : [];
 
         if (topHiddenGems.length > 0) {
-            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;">';
+            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">';
             html += `
                 <thead>
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
@@ -454,10 +455,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
         let html = '<div style="margin-top: 2rem;">';
-        html += `<h5 style="font-size: 0.95rem; font-weight: 600;">${title}</h5>`;
-        html += `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.25rem; margin-bottom: 1rem;">${subtitle}</p>`;
+        html += `<h5 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem;">${title}</h5>`;
+        html += `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`;
 
-        html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem;">';
+        html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">';
         html += `
             <thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">

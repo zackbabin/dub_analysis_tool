@@ -566,7 +566,7 @@ class SupabaseIntegration {
                     data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
                 ));
 
-                console.log(`🔍 Looking up usernames for ${allCreatorIds.length} creator IDs:`, allCreatorIds.slice(0, 5));
+                console.log(`🔍 Looking up usernames for ${allCreatorIds.length} creator IDs:`, allCreatorIds);
 
                 const { data: rawData, error: rawError } = await this.supabase
                     .rpc('get_distinct_creator_usernames', {
