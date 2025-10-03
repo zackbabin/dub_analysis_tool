@@ -159,23 +159,26 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const behavioralAnalysisHeading = Array.from(resultsDiv.querySelectorAll('h1')).find(h => h.textContent === 'Behavioral Analysis');
         console.log('Found Behavioral Analysis section:', !!behavioralAnalysisHeading);
 
-        if (!behavioralAnalysisHeading) {
-            console.warn('Behavioral Analysis section not found');
-            return;
+        // Find all h4 headings (try within Behavioral Analysis first, then fallback to all)
+        let headings;
+        if (behavioralAnalysisHeading) {
+            // Find all h4 elements WITHIN Behavioral Analysis section only
+            const allH4s = Array.from(resultsDiv.querySelectorAll('h4'));
+            const behavioralAnalysisIndex = Array.from(resultsDiv.children).indexOf(behavioralAnalysisHeading.parentElement);
+
+            // Filter h4s to only those after Behavioral Analysis h1
+            headings = allH4s.filter(h4 => {
+                const h4Parent = h4.parentElement;
+                const h4Index = Array.from(resultsDiv.children).indexOf(h4Parent);
+                return h4Index > behavioralAnalysisIndex;
+            });
+        } else {
+            // Fallback: use all h4 headings if Behavioral Analysis not found
+            console.warn('Behavioral Analysis section not found, using all h4 headings');
+            headings = Array.from(resultsDiv.querySelectorAll('h4'));
         }
 
-        // Find all h4 elements WITHIN Behavioral Analysis section only
-        const allH4s = Array.from(resultsDiv.querySelectorAll('h4'));
-        const behavioralAnalysisIndex = Array.from(resultsDiv.children).indexOf(behavioralAnalysisHeading.parentElement);
-
-        // Filter h4s to only those after Behavioral Analysis h1
-        const headings = allH4s.filter(h4 => {
-            const h4Parent = h4.parentElement;
-            const h4Index = Array.from(resultsDiv.children).indexOf(h4Parent);
-            return h4Index > behavioralAnalysisIndex;
-        });
-
-        console.log('H4 headings in Behavioral Analysis:', headings.map(h => h.textContent));
+        console.log('H4 headings found:', headings.map(h => h.textContent));
         const portfolioCopiesHeading = headings.find(h => h.textContent === 'Portfolio Copies');
         const subscriptionsHeading = headings.find(h => h.textContent === 'Subscriptions');
         console.log('Found Portfolio Copies heading:', !!portfolioCopiesHeading);
