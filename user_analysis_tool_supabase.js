@@ -132,27 +132,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const hiddenGemsSection = document.createElement('div');
             hiddenGemsSection.id = 'qdaHiddenGemsAnalysisInline';
 
-            // Find the next h4 after Subscriptions (or footer if none)
+            // Find the insertion point after Subscriptions (before footer)
             let insertAfterSubs = null;
             if (subscriptionsHeading) {
-                const subscriptionsIndex = headings.indexOf(subscriptionsHeading);
-                const nextHeading = headings[subscriptionsIndex + 1];
+                console.log('Found Subscriptions heading, looking for footer...');
 
-                if (nextHeading) {
-                    // Find all elements between subscriptions heading and next heading
+                // Find the footer element (it contains "Predictive Strength Calculation")
+                const footer = Array.from(resultsDiv.children).find(child =>
+                    child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
+                );
+
+                console.log('Footer found:', !!footer);
+
+                if (footer) {
+                    // Insert right before the footer
+                    insertAfterSubs = footer.previousElementSibling;
+                    console.log('Will insert before footer, after element:', insertAfterSubs?.tagName);
+                } else {
+                    // If no footer found, find last element after subscriptions heading
                     let currentElement = subscriptionsHeading.nextElementSibling;
-                    while (currentElement && currentElement !== nextHeading) {
+                    while (currentElement && currentElement.nextElementSibling) {
                         insertAfterSubs = currentElement;
                         currentElement = currentElement.nextElementSibling;
                     }
-                } else {
-                    // No next heading, find last element before footer
-                    const footer = Array.from(resultsDiv.children).find(child =>
-                        child.innerHTML && child.innerHTML.includes('Predictive Strength Calculation')
-                    );
-                    if (footer) {
-                        insertAfterSubs = footer.previousElementSibling;
-                    }
+                    console.log('No footer found, inserting at end');
                 }
             }
 
