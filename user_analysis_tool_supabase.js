@@ -541,17 +541,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 section.appendChild(cardsContainer);
             }
 
-            // Hidden Gems Table
-            if (hiddenGems && hiddenGems.length > 0) {
+            // Hidden Gems Table (limit to top 25)
+            const topHiddenGems = hiddenGems && hiddenGems.length > 0
+                ? hiddenGems.slice(0, 25)
+                : [];
+
+            if (topHiddenGems.length > 0) {
                 const tableSection = document.createElement('div');
                 tableSection.style.marginTop = '2rem';
-
-                const tableTitle = document.createElement('h6');
-                tableTitle.textContent = 'High Engagement, Low Conversion Portfolios';
-                tableTitle.style.fontSize = '0.875rem';
-                tableTitle.style.fontWeight = '600';
-                tableTitle.style.marginBottom = '1rem';
-                tableSection.appendChild(tableTitle);
 
                 const table = document.createElement('table');
                 table.style.width = '100%';
@@ -570,7 +567,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         </tr>
                     </thead>
                     <tbody>
-                        ${hiddenGems.map((gem, index) => `
+                        ${topHiddenGems.map((gem, index) => `
                             <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
                                 <td style="padding: 0.75rem;">${gem.portfolio_ticker || 'N/A'}</td>
                                 <td style="padding: 0.75rem;">${gem.creator_username || 'N/A'}</td>
