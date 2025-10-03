@@ -743,6 +743,82 @@ class SupabaseIntegration {
         }
     }
 
+    /**
+     * Trigger portfolio sequence analysis via Edge Function
+     * Analyzes which sequences of 3 PDP views drive the highest copy conversion
+     */
+    async triggerPortfolioSequenceAnalysis() {
+        console.log('Triggering portfolio sequence analysis...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('analyze-portfolio-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Portfolio sequence analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during portfolio sequence analysis');
+            }
+
+            console.log('✅ Portfolio sequence analysis completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling portfolio sequence analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load top portfolio sequence combinations from analysis
+     * Returns portfolio trios ranked by specified metric (lift, aic, precision, odds_ratio)
+     */
+    async loadTopPortfolioSequenceCombinations(metric = 'lift', limit = 20) {
+        console.log(`Loading top portfolio sequence combinations by ${metric}...`);
+
+        try {
+            let query = this.supabase
+                .from('conversion_pattern_combinations')
+                .select('*')
+                .eq('analysis_type', 'portfolio_sequence')
+                .limit(limit);
+
+            // Sort by the requested metric
+            switch (metric) {
+                case 'lift':
+                    query = query.order('lift', { ascending: false });
+                    break;
+                case 'aic':
+                    query = query.order('aic', { ascending: true }); // Lower AIC is better
+                    break;
+                case 'precision':
+                    query = query.order('precision', { ascending: false });
+                    break;
+                case 'odds_ratio':
+                    query = query.order('odds_ratio', { ascending: false });
+                    break;
+                default:
+                    query = query.order('combination_rank', { ascending: true });
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Error loading portfolio sequence combinations:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} portfolio sequence combinations`);
+            return data;
+        } catch (error) {
+            console.error('Error loading portfolio sequence combinations:', error);
+            throw error;
+        }
+    }
+
 
     /**
      * Convert Supabase creator JSON data to CSV format

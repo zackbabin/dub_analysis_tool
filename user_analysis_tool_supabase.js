@@ -150,6 +150,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             await Promise.all([
                 this.displayEngagementAnalysis(),
                 this.displayCopyEngagementAnalysis(),
+                this.displayPortfolioSequenceAnalysis(),
                 this.displayHiddenGemsAnalysis()
             ]);
             return;
@@ -170,6 +171,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Create portfolio copies engagement section
         const copyEngagementSection = document.createElement('div');
         copyEngagementSection.id = 'qdaCopyEngagementAnalysisInline';
+
+        // Create portfolio sequence section
+        const portfolioSequenceSection = document.createElement('div');
+        portfolioSequenceSection.id = 'qdaPortfolioSequenceAnalysisInline';
 
         // Create hidden gems section
         const hiddenGemsSection = document.createElement('div');
@@ -228,10 +233,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.warn('Could not find insertion point for subscription sections');
         }
 
-        // Insert copy engagement after Portfolio Copies section
+        // Insert copy engagement and portfolio sequence after Portfolio Copies section
         if (insertAfterCopies) {
             console.log('Inserting copy sections after element:', insertAfterCopies);
+            // Insert copy engagement first
             insertAfterCopies.parentNode.insertBefore(copyEngagementSection, insertAfterCopies.nextElementSibling);
+            // Insert portfolio sequence after copy engagement
+            copyEngagementSection.parentNode.insertBefore(portfolioSequenceSection, copyEngagementSection.nextElementSibling);
         } else {
             console.warn('Could not find insertion point for copy sections');
         }
@@ -240,6 +248,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         await Promise.all([
             this.displayEngagementAnalysis(),
             this.displayCopyEngagementAnalysis(),
+            this.displayPortfolioSequenceAnalysis(),
             this.displayHiddenGemsAnalysis()
         ]);
 
@@ -267,6 +276,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const sectionsToRemove = [
             'qdaEngagementAnalysisInline',
             'qdaCopyEngagementAnalysisInline',
+            'qdaPortfolioSequenceAnalysisInline',
             'qdaHiddenGemsAnalysisInline'
         ];
 
@@ -559,6 +569,100 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.error('Error loading copy engagement analysis:', error);
             const errorMsg = document.createElement('p');
             errorMsg.textContent = `Error loading copy engagement analysis: ${error.message}`;
+            errorMsg.style.color = '#dc3545';
+            section.appendChild(errorMsg);
+            container.appendChild(section);
+        }
+    }
+
+    /**
+     * Display portfolio sequence analysis
+     */
+    async displayPortfolioSequenceAnalysis() {
+        const container = document.getElementById('qdaPortfolioSequenceAnalysisInline');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+
+        try {
+            // Load portfolio sequence data from Supabase
+            console.log('Loading portfolio sequence analysis data...');
+            const topSequences = await this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10);
+
+            console.log('Portfolio sequence data loaded:', {
+                topSequences: topSequences?.length || 0
+            });
+
+            // High-Impact Portfolio Sequences
+            if (topSequences && topSequences.length > 0) {
+                const sequencesSection = document.createElement('div');
+                sequencesSection.style.marginTop = '2rem';
+
+                const sequencesTitle = document.createElement('h5');
+                sequencesTitle.textContent = 'High-Impact Portfolio View Sequences';
+                sequencesTitle.style.fontSize = '0.95rem';
+                sequencesTitle.style.fontWeight = '600';
+                sequencesSection.appendChild(sequencesTitle);
+
+                const subtitle = document.createElement('p');
+                subtitle.textContent = 'Users who viewed these portfolio sequences (first 3 PDP views) were significantly more likely to copy';
+                subtitle.style.fontSize = '0.875rem';
+                subtitle.style.color = '#6c757d';
+                subtitle.style.marginTop = '0.25rem';
+                subtitle.style.marginBottom = '1rem';
+                sequencesSection.appendChild(subtitle);
+
+                const sequencesTable = document.createElement('table');
+                sequencesTable.style.width = '100%';
+                sequencesTable.style.borderCollapse = 'collapse';
+                sequencesTable.style.marginTop = '1rem';
+
+                sequencesTable.innerHTML = `
+                    <thead>
+                        <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                            <th style="padding: 0.75rem; text-align: left;">Portfolio Sequence (1st → 2nd → 3rd)</th>
+                            <th style="padding: 0.75rem; text-align: right;">Impact</th>
+                            <th style="padding: 0.75rem; text-align: right;">Users</th>
+                            <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
+                            <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${topSequences.map((seq, index) => `
+                            <tr style="border-bottom: 1px solid #dee2e6; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f8f9fa;'}">
+                                <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
+                                <td style="padding: 0.75rem; font-size: 0.85rem; font-family: monospace;">${seq.value_1} → ${seq.value_2} → ${seq.value_3}</td>
+                                <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(seq.lift).toFixed(2)}x lift</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.users_with_exposure).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.total_conversions || 0).toLocaleString()}</td>
+                                <td style="padding: 0.75rem; text-align: right;">${(parseFloat(seq.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+
+                sequencesSection.appendChild(sequencesTable);
+
+                section.appendChild(sequencesSection);
+            } else {
+                const noDataMsg = document.createElement('p');
+                noDataMsg.textContent = 'No portfolio sequence data available. Run the analysis first.';
+                noDataMsg.style.fontStyle = 'italic';
+                noDataMsg.style.color = '#6c757d';
+                section.appendChild(noDataMsg);
+            }
+
+            // Append section to container
+            container.appendChild(section);
+
+        } catch (error) {
+            console.error('Error loading portfolio sequence analysis:', error);
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = `Error loading portfolio sequence analysis: ${error.message}`;
             errorMsg.style.color = '#dc3545';
             section.appendChild(errorMsg);
             container.appendChild(section);
