@@ -562,28 +562,35 @@ class SupabaseIntegration {
 
             // Map creator IDs to usernames if requested (only for subscription analysis)
             if (mapUsernames && data && data.length > 0) {
+                console.log(`🔍 Looking up usernames for combinations...`);
+
+                // Get unique creator IDs
                 const allCreatorIds = Array.from(new Set(
                     data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
                 ));
 
-                console.log(`🔍 Looking up usernames for ${allCreatorIds.length} creator IDs:`, allCreatorIds);
+                // Query user_portfolio_creator_views for usernames (much simpler than RPC)
+                const { data: usernameData, error: usernameError } = await this.supabase
+                    .from('user_portfolio_creator_views')
+                    .select('creator_id, creator_username')
+                    .in('creator_id', allCreatorIds)
+                    .not('creator_username', 'is', null)
+                    .limit(1000);
 
-                const { data: rawData, error: rawError } = await this.supabase
-                    .rpc('get_distinct_creator_usernames', {
-                        creator_ids: allCreatorIds
+                if (usernameError) {
+                    console.error('❌ Error fetching creator usernames:', usernameError);
+                } else if (usernameData && usernameData.length > 0) {
+                    // Create map of unique creator_id -> username pairs
+                    const idToUsername = new Map();
+                    usernameData.forEach(row => {
+                        if (!idToUsername.has(row.creator_id)) {
+                            idToUsername.set(row.creator_id, row.creator_username);
+                        }
                     });
 
-                if (rawError) {
-                    console.error('❌ Error fetching creator usernames:', rawError);
-                } else if (rawData) {
-                    console.log(`✅ RPC returned ${rawData.length} username mappings`);
-                    const idToUsername = new Map(
-                        rawData.map(row => [row.creator_id, row.creator_username])
-                    );
-
                     console.log(`✅ Mapped ${idToUsername.size} creator IDs to usernames`);
-                    console.log('Sample mappings:', Array.from(idToUsername.entries()).slice(0, 3));
 
+                    // Apply username mapping to combinations
                     data.forEach(combo => {
                         combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
                         combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
@@ -592,10 +599,12 @@ class SupabaseIntegration {
 
                     console.log('Sample combo after mapping:', {
                         value_1: data[0].value_1,
-                        username_1: data[0].username_1
+                        username_1: data[0].username_1,
+                        value_2: data[0].value_2,
+                        username_2: data[0].username_2
                     });
                 } else {
-                    console.warn('⚠️ RPC returned no data');
+                    console.warn('⚠️ No username data found');
                 }
             }
 

@@ -185,6 +185,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             <div id="qdaCombinedResultsInline"></div>
         `;
 
+        // Update last updated timestamp
+        const timestamp = new Date().toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        localStorage.setItem('qdaLastUpdated', timestamp);
+
         // Display base results using parent's functions (now elements are in DOM)
         displaySummaryStatsInline(results.summaryStats);
         displayDemographicBreakdownInline(results.summaryStats);
@@ -296,7 +307,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
         html += '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>';
-        html += '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion rates, representing untapped opportunities</p>';
+        html += '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (PDP views to copies ratio ≥ 5:1)</p>';
 
         // Summary Stats
         if (summaryData) {
