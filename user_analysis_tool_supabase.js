@@ -122,13 +122,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
         }
 
-        // Step 2: Build complete HTML with fresh data
-        const html = await this.buildCompleteHTML(results);
+        // Step 2: Build complete HTML with fresh data (modifies DOM directly)
+        await this.buildCompleteHTML(results);
 
-        // Step 3: Update display
-        this.outputContainer.innerHTML = html;
-
-        // Step 4: Cache complete rendered HTML
+        // Step 3: Cache complete rendered HTML
         try {
             localStorage.setItem('dubAnalysisResults', JSON.stringify({
                 html: this.outputContainer.innerHTML,
@@ -144,6 +141,41 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Build complete HTML including base analysis + engagement sections
      */
     async buildCompleteHTML(results) {
+        // Clear output container and create results div
+        this.outputContainer.innerHTML = '';
+
+        const resultsDiv = document.createElement('div');
+        resultsDiv.id = 'qdaAnalysisResultsInline';
+        resultsDiv.className = 'qda-analysis-results';
+        this.outputContainer.appendChild(resultsDiv);
+
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        const lastUpdated = localStorage.getItem('qdaLastUpdated');
+        if (lastUpdated) {
+            timestamp.textContent = `Last updated: ${lastUpdated}`;
+            resultsDiv.appendChild(timestamp);
+        }
+
+        // Create containers for base analysis (parent functions need these in DOM)
+        resultsDiv.innerHTML += `
+            <div id="qdaSummaryStatsInline"></div>
+            <div id="qdaDemographicBreakdownInline"></div>
+            <div id="qdaPersonaBreakdownInline"></div>
+            <div id="qdaCombinedResultsInline"></div>
+        `;
+
+        // Display base results using parent's functions (now elements are in DOM)
+        displaySummaryStatsInline(results.summaryStats);
+        displayDemographicBreakdownInline(results.summaryStats);
+        displayPersonaBreakdownInline(results.summaryStats);
+
+        // Load tipping points
+        const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
+        const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
+        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
+
         // Load all engagement data in parallel
         const [
             engagementSummary,
@@ -163,43 +195,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10).catch(e => { console.warn('Failed to load sequences:', e); return []; })
         ]);
 
-        // Create results div container
-        const resultsDiv = document.createElement('div');
-        resultsDiv.id = 'qdaAnalysisResultsInline';
-        resultsDiv.className = 'qda-analysis-results';
-
-        // Add timestamp
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        const lastUpdated = localStorage.getItem('qdaLastUpdated');
-        if (lastUpdated) {
-            timestamp.textContent = `Last updated: ${lastUpdated}`;
-            resultsDiv.appendChild(timestamp);
-        }
-
-        // Generate base analysis sections (using parent's helper functions)
-        resultsDiv.innerHTML += `
-            <div id="qdaSummaryStatsInline"></div>
-            <div id="qdaDemographicBreakdownInline"></div>
-            <div id="qdaPersonaBreakdownInline"></div>
-            <div id="qdaCombinedResultsInline"></div>
-        `;
-
-        // Temporarily append to get the div references
-        const tempContainer = document.createElement('div');
-        tempContainer.appendChild(resultsDiv);
-
-        // Display base results using parent's functions
-        displaySummaryStatsInline(results.summaryStats);
-        displayDemographicBreakdownInline(results.summaryStats);
-        displayPersonaBreakdownInline(results.summaryStats);
-
-        // Load tipping points
-        const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
-        const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
-
-        // Now add engagement sections directly into the HTML
+        // Append engagement sections
         resultsDiv.innerHTML += this.generateSubscriptionEngagementHTML(engagementSummary, topSubscriptionCombos);
         resultsDiv.innerHTML += this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
         resultsDiv.innerHTML += this.generateCopyEngagementHTML(copyEngagementSummary, topCopyCombos);
