@@ -2059,12 +2059,19 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
                     <br>• Score ranges: Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5), Very Weak (<0.5 or not significant)
                 </div>
                 <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
-                <div style="margin-left: 15px;">
+                <div style="margin-left: 15px; margin-bottom: 15px;">
                     Identifies the variable value where the largest jump in conversion rate occurs:
                     <br>• Groups users by variable value and calculates conversion rate for each group
                     <br>• Finds the point where conversion rate increases most dramatically
                     <br>• Represents the "magic number" threshold where user behavior changes significantly
                     <br>• Only considers groups with 10+ users and conversion rates >10% to ensure reliability
+                </div>
+                <div style="margin-bottom: 10px;"><strong>*** Impact (Lift) Calculation:</strong></div>
+                <div style="margin-left: 15px;">
+                    Measures how many times more likely users who viewed a specific combination are to convert compared to the average user:
+                    <br>• <strong>Example:</strong> 2.5x lift means users who viewed these items were 2.5 times more likely to convert
+                    <br>• Calculated by dividing the conversion rate within the group by the overall baseline conversion rate
+                    <br>• Higher lift indicates stronger predictive power for conversion
                 </div>
             `;
             resultSection.appendChild(footnotes);
