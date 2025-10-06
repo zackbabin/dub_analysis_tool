@@ -243,13 +243,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
     /**
      * Generate Subscription Engagement HTML
+     * Uses array.join() for optimal string building performance
      */
     generateSubscriptionEngagementHTML(summaryData, topCombinations) {
         if (!summaryData && (!topCombinations || topCombinations.length === 0)) {
             return '';
         }
 
-        let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
+        const parts = ['<div class="qda-result-section" style="margin-top: 2rem;">'];
 
         // Summary Stats
         if (summaryData && summaryData.length === 2) {
@@ -263,55 +264,60 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
             ];
 
-            html += '<h3 style="margin-top: 1.5rem;">Subscription Engagement</h3>';
-            html += '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">';
+            parts.push(
+                '<h3 style="margin-top: 1.5rem;">Subscription Engagement</h3>',
+                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">'
+            );
 
             metrics.forEach(metric => {
-                html += `
-                    <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                parts.push(
+                    `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
                         <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
                         <div style="font-size: 1.5rem; font-weight: bold;">
                             ${parseFloat(metric.primaryValue).toFixed(1)}
                             <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
                         </div>
-                    </div>
-                `;
+                    </div>`
+                );
             });
 
-            html += '</div>';
+            parts.push('</div>');
         }
 
         // High-Impact Creator Combinations
         if (topCombinations && topCombinations.length > 0) {
-            html += this.generateCombinationsTableHTML(
+            parts.push(this.generateCombinationsTableHTML(
                 'High-Impact Creator Combinations',
                 'Users who viewed these creator combinations were significantly more likely to subscribe',
                 topCombinations,
                 (combo) => `${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}`,
                 'Creators Viewed',
                 'Total Subs'
-            );
+            ));
         }
 
-        html += '</div>';
-        return html;
+        parts.push('</div>');
+        return parts.join('');
     }
 
     /**
      * Generate Hidden Gems HTML
+     * Uses array.join() for optimal string building performance
      */
     generateHiddenGemsHTML(summaryData, hiddenGems) {
         if (!summaryData && (!hiddenGems || hiddenGems.length === 0)) {
             return '';
         }
 
-        let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
-        html += '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>';
-        html += '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (PDP views to copies ratio ≥ 7:1)</p>';
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>',
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (PDP views to copies ratio ≥ 7:1)</p>'
+        ];
 
         // Summary Stats
         if (summaryData) {
-            html += '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">';
+            parts.push('<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">');
 
             const metrics = [
                 { label: 'Total Hidden Gems', value: summaryData.total_hidden_gems || 0, format: 'number' },
@@ -329,24 +335,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     displayValue = parseFloat(metric.value).toFixed(2) + '%';
                 }
 
-                html += `
-                    <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                parts.push(
+                    `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
                         <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
                         <div style="font-size: 1.5rem; font-weight: bold;">${displayValue}</div>
-                    </div>
-                `;
+                    </div>`
+                );
             });
 
-            html += '</div>';
+            parts.push('</div>');
         }
 
         // Hidden Gems Table
         const topHiddenGems = hiddenGems && hiddenGems.length > 0 ? hiddenGems.slice(0, 10) : [];
 
         if (topHiddenGems.length > 0) {
-            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">';
-            html += `
-                <thead>
+            parts.push(
+                '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+                `<thead>
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                         <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                         <th style="padding: 0.75rem; text-align: left;">Creator</th>
@@ -356,39 +362,40 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
                     </tr>
                 </thead>
-                <tbody>
-            `;
+                <tbody>`
+            );
 
             topHiddenGems.forEach((gem, index) => {
                 const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-                html += `
-                    <tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
+                parts.push(
+                    `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
                         <td style="padding: 0.75rem;">${gem.portfolio_ticker || 'N/A'}</td>
                         <td style="padding: 0.75rem;">${gem.creator_username || 'N/A'}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
                         <td style="padding: 0.75rem; text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
-                    </tr>
-                `;
+                    </tr>`
+                );
             });
 
-            html += '</tbody></table>';
+            parts.push('</tbody></table>');
         }
 
-        html += '</div>';
-        return html;
+        parts.push('</div>');
+        return parts.join('');
     }
 
     /**
      * Generate Copy Engagement HTML
+     * Uses array.join() for optimal string building performance
      */
     generateCopyEngagementHTML(summaryData, topCombinations) {
         if (!summaryData && (!topCombinations || topCombinations.length === 0)) {
             return '';
         }
 
-        let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
+        const parts = ['<div class="qda-result-section" style="margin-top: 2rem;">'];
 
         // Summary Stats
         if (summaryData && summaryData.length === 2) {
@@ -402,62 +409,66 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
             ];
 
-            html += '<h3 style="margin-top: 1.5rem;">Copy Engagement</h3>';
-            html += '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">';
+            parts.push(
+                '<h3 style="margin-top: 1.5rem;">Copy Engagement</h3>',
+                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">'
+            );
 
             metrics.forEach(metric => {
-                html += `
-                    <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                parts.push(
+                    `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
                         <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
                         <div style="font-size: 1.5rem; font-weight: bold;">
                             ${parseFloat(metric.primaryValue).toFixed(1)}
                             <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
                         </div>
-                    </div>
-                `;
+                    </div>`
+                );
             });
 
-            html += '</div>';
+            parts.push('</div>');
         }
 
         // High-Impact Portfolio Combinations
         if (topCombinations && topCombinations.length > 0) {
-            html += this.generateCombinationsTableHTML(
+            parts.push(this.generateCombinationsTableHTML(
                 'High-Impact Portfolio Combinations',
                 'Users who viewed these portfolio combinations were significantly more likely to copy',
                 topCombinations,
                 (combo) => `${combo.value_1}, ${combo.value_2}, ${combo.value_3}`,
                 'Portfolios Viewed',
                 'Total Copies'
-            );
+            ));
         }
 
-        html += '</div>';
-        return html;
+        parts.push('</div>');
+        return parts.join('');
     }
 
     /**
      * Generate Portfolio Sequences HTML
+     * Uses array.join() for optimal string building performance
      */
     generatePortfolioSequencesHTML(topSequences) {
         if (!topSequences || topSequences.length === 0) {
             return '';
         }
 
-        let html = '<div class="qda-result-section" style="margin-top: 2rem;">';
-        html += '<h3 style="margin-top: 1.5rem;">Portfolio Sequences</h3>';
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            '<h3 style="margin-top: 1.5rem;">Portfolio Sequences</h3>',
+            this.generateCombinationsTableHTML(
+                'High-Impact Portfolio View Sequences',
+                'Users who viewed portfolios in these specific sequences (1st → 2nd → 3rd) were significantly more likely to copy',
+                topSequences,
+                (seq) => `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`,
+                'Portfolio Sequence',
+                'Total Copies'
+            ),
+            '</div>'
+        ];
 
-        html += this.generateCombinationsTableHTML(
-            'High-Impact Portfolio View Sequences',
-            'Users who viewed portfolios in these specific sequences (1st → 2nd → 3rd) were significantly more likely to copy',
-            topSequences,
-            (seq) => `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`,
-            'Portfolio Sequence',
-            'Total Copies'
-        );
-
-        html += '</div>';
-        return html;
+        return parts.join('');
     }
 
     /**
