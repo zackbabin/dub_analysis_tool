@@ -6,7 +6,7 @@ const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
 const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
 
 // Performance configuration
-const DAYS_TO_FETCH = 30 // Limit to last 30 days
+const DAYS_TO_FETCH = 14 // Limit to last 14 days (reduced to prevent timeout)
 const MAX_EVENTS_PER_USER = 10 // Stop processing after first 10 events per user (we only need 3 unique)
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
 
