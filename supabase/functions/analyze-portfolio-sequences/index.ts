@@ -94,13 +94,14 @@ function parsePortfolioSequences(funnelData: any): Map<string, string[]> {
     // Get all portfolio tickers for this user (keys that aren't $overall)
     const portfolioTickers = Object.keys(portfolioData).filter(key => key !== '$overall')
 
-    // Only include users who viewed 2 or more portfolios
-    if (portfolioTickers.length >= 2) {
-      sequences.set(distinctId, portfolioTickers)
+    // Include all users who viewed at least 1 portfolio
+    if (portfolioTickers.length >= 1) {
+      // Limit to first 3 portfolios for analysis
+      sequences.set(distinctId, portfolioTickers.slice(0, 3))
     }
   })
 
-  console.log(`Extracted ${sequences.size} portfolio sequences (2+ portfolios)`)
+  console.log(`Extracted ${sequences.size} portfolio sequences (1-3 portfolios per user)`)
   return sequences
 }
 
@@ -351,26 +352,28 @@ serve(async (_req) => {
     // Step 4: Build user data combining sequences + outcomes
     const users: UserData[] = []
     sequences.forEach((sequence, distinctId) => {
-      // Include users with 2 or more portfolios in sequence
-      if (sequence.length >= 2) {
-        const outcome = copyOutcomes.get(distinctId) || { did_copy: false, copy_count: 0 }
-        users.push({
-          distinct_id: distinctId,
-          portfolio_sequence: sequence,
-          did_copy: outcome.did_copy,
-          copy_count: outcome.copy_count
-        })
-      }
+      // Include all users with any portfolio views
+      const outcome = copyOutcomes.get(distinctId) || { did_copy: false, copy_count: 0 }
+      users.push({
+        distinct_id: distinctId,
+        portfolio_sequence: sequence,
+        did_copy: outcome.did_copy,
+        copy_count: outcome.copy_count
+      })
     })
 
-    console.log(`Built user data for ${users.length} users with sequences (2+ portfolios)`)
+    console.log(`Built user data for ${users.length} users with sequences`)
+    console.log(`Sequence length distribution:`)
+    console.log(`  1 portfolio: ${users.filter(u => u.portfolio_sequence.length === 1).length}`)
+    console.log(`  2 portfolios: ${users.filter(u => u.portfolio_sequence.length === 2).length}`)
+    console.log(`  3 portfolios: ${users.filter(u => u.portfolio_sequence.length === 3).length}`)
 
     if (users.length < 50) {
       return new Response(
         JSON.stringify({
           success: true,
-          warning: 'Insufficient sequences (need 50+ users with 2+ portfolios)',
-          stats: { sequences_found: users.length }
+          warning: 'Insufficient data (need 50+ users with portfolio views)',
+          stats: { users_found: users.length }
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
