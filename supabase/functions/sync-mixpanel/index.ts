@@ -342,6 +342,7 @@ serve(async (req) => {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
               'Content-Type': 'application/json',
             },
           }).then(async (res) => {
@@ -358,6 +359,7 @@ serve(async (req) => {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
               'Content-Type': 'application/json',
             },
           }).then(async (res) => {
@@ -374,6 +376,7 @@ serve(async (req) => {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
               'Content-Type': 'application/json',
             },
           }).then(async (res) => {
