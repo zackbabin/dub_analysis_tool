@@ -332,67 +332,49 @@ serve(async (req) => {
       }
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
-      // Run analyses in parallel and wait for completion
+      // Fire and forget - don't wait for completion to avoid timeout
       console.log('Triggering pattern analysis (using stored data)...')
 
-      try {
-        await Promise.all([
-          // Subscription analysis: query stored data → analyze
-          fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'apikey': supabaseServiceKey,
-              'Content-Type': 'application/json',
-            },
-          }).then(async (res) => {
-            if (!res.ok) {
-              const text = await res.text()
-              throw new Error(`Subscription analysis failed (${res.status}): ${text}`)
-            }
-            console.log('✓ Subscription pattern analysis completed')
-            return res.json()
-          }),
+      // Subscription analysis: query stored data → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      }).catch((err) => {
+        console.warn('⚠️ Subscription analysis failed:', err)
+      })
 
-          // Copy analysis: query stored data → analyze
-          fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'apikey': supabaseServiceKey,
-              'Content-Type': 'application/json',
-            },
-          }).then(async (res) => {
-            if (!res.ok) {
-              const text = await res.text()
-              throw new Error(`Copy analysis failed (${res.status}): ${text}`)
-            }
-            console.log('✓ Copy pattern analysis completed')
-            return res.json()
-          }),
+      // Copy analysis: query stored data → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      }).catch((err) => {
+        console.warn('⚠️ Copy analysis failed:', err)
+      })
 
-          // Portfolio sequence analysis: query stored copies data → analyze
-          fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'apikey': supabaseServiceKey,
-              'Content-Type': 'application/json',
-            },
-          }).then(async (res) => {
-            if (!res.ok) {
-              const text = await res.text()
-              throw new Error(`Portfolio sequence analysis failed (${res.status}): ${text}`)
-            }
-            console.log('✓ Portfolio sequence analysis completed')
-            return res.json()
-          })
-        ])
-        console.log('✓ All pattern analyses completed successfully')
-      } catch (analysisError) {
-        console.error('⚠️ Pattern analysis error:', analysisError)
-        // Don't fail the entire sync if analysis fails - log and continue
-      }
+      // Portfolio sequence analysis: query stored copies data → analyze
+      fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      }).catch((err) => {
+        console.warn('⚠️ Portfolio sequence analysis failed:', err)
+      })
+
+      console.log('✓ Pattern analysis functions triggered (running in background)')
 
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table
