@@ -65,8 +65,9 @@ async function fetchMixpanelChart(chartId: string, name: string): Promise<any> {
 
 /**
  * Parse funnel data to extract portfolio sequences
- * New structure: data -> date -> distinct_id -> portfolio_ticker -> array of steps
- * We extract sequences by looking at portfolio_ticker keys for each distinct_id
+ * Structure: data -> date -> distinct_id -> portfolio_ticker -> array of steps
+ * Each step has step_label ("First PDP View", "Second PDP View", "Third PDP View") and count
+ * We extract the sequence by determining which portfolio was viewed at each position (1st, 2nd, 3rd)
  */
 function parsePortfolioSequences(funnelData: any): Map<string, string[]> {
   const sequences = new Map<string, string[]>()
@@ -91,13 +92,39 @@ function parsePortfolioSequences(funnelData: any): Map<string, string[]> {
   Object.entries(dateData).forEach(([distinctId, portfolioData]: [string, any]) => {
     if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
 
+    // For this user, determine which portfolio was viewed at each sequence position
+    const positionMap: { [position: number]: string } = {}
+
     // Get all portfolio tickers for this user (keys that aren't $overall)
     const portfolioTickers = Object.keys(portfolioData).filter(key => key !== '$overall')
 
-    // Include all users who viewed at least 1 portfolio
-    if (portfolioTickers.length >= 1) {
-      // Limit to first 3 portfolios for analysis
-      sequences.set(distinctId, portfolioTickers.slice(0, 3))
+    // For each portfolio, check which step positions it appears in
+    portfolioTickers.forEach(ticker => {
+      const steps = portfolioData[ticker]
+      if (!Array.isArray(steps)) return
+
+      steps.forEach((step: any) => {
+        if (step.count > 0) {
+          if (step.step_label === 'First PDP View') {
+            positionMap[1] = ticker
+          } else if (step.step_label === 'Second PDP View') {
+            positionMap[2] = ticker
+          } else if (step.step_label === 'Third PDP View') {
+            positionMap[3] = ticker
+          }
+        }
+      })
+    })
+
+    // Build the sequence array in order
+    const sequence: string[] = []
+    if (positionMap[1]) sequence.push(positionMap[1])
+    if (positionMap[2]) sequence.push(positionMap[2])
+    if (positionMap[3]) sequence.push(positionMap[3])
+
+    // Include users who viewed at least 1 portfolio
+    if (sequence.length >= 1) {
+      sequences.set(distinctId, sequence)
     }
   })
 
