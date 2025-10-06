@@ -55,8 +55,8 @@ CROSS JOIN percentile_thresholds p
 WHERE
   -- Must be in top 25% for PDP views
   pce.total_pdp_views >= p.pdp_views_p75
-  -- High PDP views to copies ratio (>= 5:1)
-  AND (pce.total_pdp_views::NUMERIC / NULLIF(pce.total_copies, 0)) >= 5
+  -- High PDP views to copies ratio (>= 7:1)
+  AND (pce.total_pdp_views::NUMERIC / NULLIF(pce.total_copies, 0)) >= 7
 ORDER BY pce.total_pdp_views DESC
 LIMIT 10;
 
