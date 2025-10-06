@@ -276,17 +276,18 @@ function fitLogisticRegression(
     let hessian11 = 0
 
     for (let i = 0; i < n; i++) {
-      const z = beta0 + beta1 * X[i]
+      const Xi = X[i] // Cache to avoid repeated array lookups
+      const z = beta0 + beta1 * Xi
       const p = 1 / (1 + Math.exp(-z))
       const diff = y[i] - p
 
       gradient0 += diff
-      gradient1 += diff * X[i]
+      gradient1 += diff * Xi
 
       const w = p * (1 - p)
       hessian00 += w
-      hessian01 += w * X[i]
-      hessian11 += w * X[i] * X[i]
+      hessian01 += w * Xi
+      hessian11 += w * Xi * Xi
     }
 
     const det = hessian00 * hessian11 - hessian01 * hessian01
@@ -303,7 +304,8 @@ function fitLogisticRegression(
 
   let logLikelihood = 0
   for (let i = 0; i < n; i++) {
-    const z = beta0 + beta1 * X[i]
+    const Xi = X[i] // Cache to avoid repeated array lookup
+    const z = beta0 + beta1 * Xi
     const p = 1 / (1 + Math.exp(-z))
     logLikelihood += y[i] * Math.log(p + 1e-10) + (1 - y[i]) * Math.log(1 - p + 1e-10)
   }
