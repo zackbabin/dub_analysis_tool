@@ -14,6 +14,7 @@ const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
 interface UserData {
   distinct_id: string
   portfolio_sequence: string[] // [portfolio1, portfolio2, portfolio3]
+  portfolio_set: Set<string> // For faster lookups during combination evaluation
   did_copy: boolean
   copy_count: number
 }
@@ -127,7 +128,7 @@ async function fetchViewedPortfolioEvents(): Promise<any[]> {
 function parsePortfolioSequences(events: any[]): Map<string, string[]> {
   const sequences = new Map<string, string[]>()
 
-  // Group events by distinct_id and limit per user
+  // Group events by distinct_id
   const eventsByUser = new Map<string, any[]>()
 
   console.log(`Processing ${events.length} events...`)
@@ -144,15 +145,10 @@ function parsePortfolioSequences(events: any[]): Map<string, string[]> {
       eventsByUser.set(distinctId, [])
     }
 
-    const userEvents = eventsByUser.get(distinctId)!
-
-    // Performance optimization: Stop collecting events if we already have enough
-    if (userEvents.length < MAX_EVENTS_PER_USER) {
-      userEvents.push({
-        portfolioTicker,
-        time,
-      })
-    }
+    eventsByUser.get(distinctId)!.push({
+      portfolioTicker,
+      time,
+    })
   }
 
   console.log(`Found events for ${eventsByUser.size} distinct users`)
@@ -165,11 +161,14 @@ function parsePortfolioSequences(events: any[]): Map<string, string[]> {
     // Sort events by time (ascending, earliest first)
     userEvents.sort((a, b) => a.time - b.time)
 
+    // Limit to MAX_EVENTS_PER_USER AFTER sorting to ensure we get the earliest events
+    const eventsToProcess = userEvents.slice(0, MAX_EVENTS_PER_USER)
+
     // Extract first 3 unique portfolios with early exit
     const sequence: string[] = []
     const seen = new Set<string>()
 
-    for (const event of userEvents) {
+    for (const event of eventsToProcess) {
       if (!seen.has(event.portfolioTicker)) {
         sequence.push(event.portfolioTicker)
         seen.add(event.portfolioTicker)
@@ -320,23 +319,30 @@ function fitLogisticRegression(
 
 /**
  * Evaluate a single portfolio sequence combination
+ * Optimized to use pre-computed Sets and combine loops
  */
 function evaluateCombination(
   combination: string[],
-  users: UserData[]
-): CombinationResult {
-  const combinationSet = new Set(combination)
-
+  users: UserData[],
+  minExposureCount: number
+): CombinationResult | null {
   const X: number[] = []
   const y: number[] = []
 
+  // Single pass: compute X, y, and exposure count simultaneously
+  let exposedTotal = 0
   for (const user of users) {
-    // Check if user's sequence contains all portfolios in the combination (order doesn't matter)
-    const hasExposure = combination.every(portfolio =>
-      user.portfolio_sequence.includes(portfolio)
-    )
-    X.push(hasExposure ? 1 : 0)
+    // Optimization #3: Use pre-computed Set for O(1) lookups instead of array.includes()
+    const hasExposure = combination.every(portfolio => user.portfolio_set.has(portfolio))
+    const exposure = hasExposure ? 1 : 0
+    X.push(exposure)
     y.push(user.did_copy ? 1 : 0)
+    exposedTotal += exposure
+  }
+
+  // Optimization #5: Early exit if exposure is too low (before expensive regression)
+  if (exposedTotal < minExposureCount) {
+    return null
   }
 
   const model = fitLogisticRegression(X, y)
@@ -345,12 +351,12 @@ function evaluateCombination(
 
   const overallConversionRate = y.filter(val => val === 1).length / y.length
 
+  // Optimization #2: Combine the second loop with metric calculations
   let truePositives = 0
   let falsePositives = 0
   let trueNegatives = 0
   let falseNegatives = 0
   let exposedConverters = 0
-  let exposedTotal = 0
   let totalConversions = 0
 
   for (let i = 0; i < X.length; i++) {
@@ -363,7 +369,6 @@ function evaluateCombination(
     else if (predicted === 0 && actual === 1) falseNegatives++
 
     if (X[i] === 1) {
-      exposedTotal++
       if (actual === 1) {
         exposedConverters++
         totalConversions += users[i].copy_count
@@ -482,6 +487,7 @@ serve(async (req) => {
       users.push({
         distinct_id: distinctId,
         portfolio_sequence: sequence,
+        portfolio_set: new Set(sequence), // Pre-compute Set for O(1) lookups
         did_copy: outcome.did_copy,
         copy_count: outcome.copy_count
       })
@@ -521,23 +527,30 @@ serve(async (req) => {
     }
 
     const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
+    const minExposureCount = Math.ceil(users.length * 0.05)
     console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios`)
+    console.log(`Minimum exposure threshold: ${minExposureCount} users (5% of ${users.length})`)
 
     const results: CombinationResult[] = []
     let processed = 0
+    let skippedLowExposure = 0
 
     for (const combo of generateCombinations(topPortfolios, 3)) {
-      const result = evaluateCombination(combo, users)
+      const result = evaluateCombination(combo, users, minExposureCount)
 
-      if (result.users_with_exposure >= users.length * 0.05) {
+      if (result !== null) {
         results.push(result)
+      } else {
+        skippedLowExposure++
       }
 
       processed++
       if (processed % 500 === 0) {
-        console.log(`Processed ${processed}/${totalCombinations} combinations...`)
+        console.log(`Processed ${processed}/${totalCombinations} combinations (skipped ${skippedLowExposure} low-exposure)...`)
       }
     }
+
+    console.log(`Skipped ${skippedLowExposure} combinations with insufficient exposure`)
 
     results.sort((a, b) => a.aic - b.aic)
     const topResults = results.slice(0, 100)
