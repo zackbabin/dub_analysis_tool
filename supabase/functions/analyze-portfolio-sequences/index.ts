@@ -243,18 +243,15 @@ async function getCopyOutcomes(supabaseClient: any): Promise<Map<string, { did_c
 
 /**
  * Generate all 3-element combinations from an array
+ * Optimized iterative version for size=3 (no recursion, no array spreading)
  */
-function* generateCombinations<T>(arr: T[], size: number): Generator<T[]> {
-  if (size === 1) {
-    for (const item of arr) {
-      yield [item]
-    }
-    return
-  }
-
-  for (let i = 0; i <= arr.length - size; i++) {
-    for (const combo of generateCombinations(arr.slice(i + 1), size - 1)) {
-      yield [arr[i], ...combo]
+function* generateCombinations3<T>(arr: T[]): Generator<[T, T, T]> {
+  const n = arr.length
+  for (let i = 0; i < n - 2; i++) {
+    for (let j = i + 1; j < n - 1; j++) {
+      for (let k = j + 1; k < n; k++) {
+        yield [arr[i], arr[j], arr[k]]
+      }
     }
   }
 }
@@ -319,30 +316,32 @@ function fitLogisticRegression(
  * Optimized to use pre-computed Sets and cached conversion array
  */
 function evaluateCombination(
-  combination: string[],
+  combination: [string, string, string],
   users: UserData[],
   y: number[], // Pre-computed conversion outcomes (cached across all combinations)
   overallConversionRate: number, // Pre-computed once
+  totalConverters: number, // Pre-computed: total number of converters in y
   minExposureCount: number
 ): CombinationResult | null {
-  const X: number[] = []
+  const X = new Float64Array(users.length)
 
   // Single pass: compute X, exposure metrics, and confusion matrix simultaneously
   let exposedTotal = 0
   let truePositives = 0
   let falsePositives = 0
-  let trueNegatives = 0
-  let falseNegatives = 0
   let exposedConverters = 0
   let totalConversions = 0
 
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
-    const hasExposure = combination.every(portfolio => user.portfolio_set.has(portfolio))
+    // Optimization: Direct boolean checks instead of .every() for 3-element combinations
+    const hasExposure = user.portfolio_set.has(combination[0]) &&
+                       user.portfolio_set.has(combination[1]) &&
+                       user.portfolio_set.has(combination[2])
     const exposure = hasExposure ? 1 : 0
     const actual = y[i]
 
-    X.push(exposure)
+    X[i] = exposure
     exposedTotal += exposure
 
     // Calculate confusion matrix and exposure metrics in same pass
@@ -352,10 +351,6 @@ function evaluateCombination(
       totalConversions += user.copy_count
     } else if (exposure === 1 && actual === 0) {
       falsePositives++
-    } else if (exposure === 0 && actual === 0) {
-      trueNegatives++
-    } else if (exposure === 0 && actual === 1) {
-      falseNegatives++
     }
   }
 
@@ -371,8 +366,11 @@ function evaluateCombination(
   const precision = truePositives + falsePositives > 0
     ? truePositives / (truePositives + falsePositives)
     : 0
-  const recall = truePositives + falseNegatives > 0
-    ? truePositives / (truePositives + falseNegatives)
+
+  // Calculate recall: TP / (TP + FN) where FN = total converters - TP
+  const falseNegatives = totalConverters - truePositives
+  const recall = totalConverters > 0
+    ? truePositives / totalConverters
     : 0
   const conversionRateInGroup = exposedTotal > 0 ? exposedConverters / exposedTotal : 0
   const lift = overallConversionRate > 0 ? conversionRateInGroup / overallConversionRate : 0
@@ -525,15 +523,16 @@ serve(async (req) => {
 
     // Pre-compute conversion outcomes array (y) - same for all combinations
     const y = users.map(u => u.did_copy ? 1 : 0)
-    const overallConversionRate = y.filter(val => val === 1).length / y.length
+    const totalConverters = y.filter(val => val === 1).length
+    const overallConversionRate = totalConverters / y.length
     console.log(`Overall conversion rate: ${(overallConversionRate * 100).toFixed(2)}%`)
 
     const results: CombinationResult[] = []
     let processed = 0
     let skippedLowExposure = 0
 
-    for (const combo of generateCombinations(topPortfolios, 3)) {
-      const result = evaluateCombination(combo, users, y, overallConversionRate, minExposureCount)
+    for (const combo of generateCombinations3(topPortfolios)) {
+      const result = evaluateCombination(combo, users, y, overallConversionRate, totalConverters, minExposureCount)
 
       if (result !== null) {
         results.push(result)
