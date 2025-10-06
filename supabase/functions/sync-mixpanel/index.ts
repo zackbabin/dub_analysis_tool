@@ -144,7 +144,7 @@ serve(async (req) => {
 
       // Fetch data with controlled concurrency to respect Mixpanel rate limits
       // Max 5 concurrent queries allowed by Mixpanel - we use 4 for safety
-      console.log('Fetching all 8 charts with max 4 concurrent requests...')
+      console.log('Fetching all 8 charts + portfolio events with max 4 concurrent requests...')
       const CONCURRENCY_LIMIT = 4
       const limit = pLimit(CONCURRENCY_LIMIT)
 
@@ -157,6 +157,7 @@ serve(async (req) => {
         pdpViewsData,
         subscriptionsData,
         copiesData,
+        portfolioViewEvents,
       ] = await Promise.all([
         limit(() =>
           fetchFunnelData(
@@ -208,9 +209,12 @@ serve(async (req) => {
         limit(() =>
           fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator')
         ),
+        limit(() =>
+          fetchPortfolioViewEvents(credentials, fromDate, toDate)
+        ),
       ])
 
-      console.log('✓ All 8 charts fetched successfully with controlled concurrency')
+      console.log('✓ All 8 charts + portfolio events fetched successfully with controlled concurrency')
 
       // Process and insert data into database
       const stats: SyncStats = {
@@ -339,6 +343,47 @@ serve(async (req) => {
           console.log(`Upserted batch: ${i + batch.length}/${copyPairs.length} copy pairs`)
         }
         console.log('✓ Copy pairs upserted successfully')
+      }
+
+      // Store portfolio view events for sequence analysis
+      if (portfolioViewEvents && portfolioViewEvents.length > 0) {
+        console.log(`Processing ${portfolioViewEvents.length} portfolio view events...`)
+
+        const portfolioEventRows = portfolioViewEvents.map((event: any) => ({
+          distinct_id: event.properties.distinct_id,
+          portfolio_ticker: event.properties.portfolioTicker,
+          event_time: event.properties.time,
+          synced_at: syncStartTime.toISOString()
+        }))
+
+        // Deduplicate by distinct_id + portfolio_ticker + event_time
+        const uniqueEventsMap = new Map()
+        portfolioEventRows.forEach((row: any) => {
+          const key = `${row.distinct_id}|${row.portfolio_ticker}|${row.event_time}`
+          uniqueEventsMap.set(key, row)
+        })
+        const uniqueEvents = Array.from(uniqueEventsMap.values())
+
+        console.log(`Deduplicating: ${portfolioEventRows.length} events -> ${uniqueEvents.length} unique events`)
+
+        // Upsert in batches
+        for (let i = 0; i < uniqueEvents.length; i += batchSize) {
+          const batch = uniqueEvents.slice(i, i + batchSize)
+          const { error: insertError } = await supabase
+            .from('portfolio_view_events')
+            .upsert(batch, {
+              onConflict: 'distinct_id,portfolio_ticker,event_time',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting portfolio view events batch:', insertError)
+            throw insertError
+          }
+          console.log(`Upserted batch: ${i + batch.length}/${uniqueEvents.length} portfolio events`)
+        }
+        console.log('✓ Portfolio view events upserted successfully')
+        stats.totalRecordsInserted += uniqueEvents.length
       }
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
@@ -567,6 +612,69 @@ async function fetchFunnelData(
     console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
   }
   return data
+}
+
+async function fetchPortfolioViewEvents(
+  credentials: MixpanelCredentials,
+  fromDate: string,
+  toDate: string
+) {
+  console.log(`Fetching Portfolio View Events from Event Export API...`)
+
+  const params = new URLSearchParams({
+    project_id: PROJECT_ID,
+    from_date: fromDate,
+    to_date: toDate,
+    event: '["Viewed Portfolio Details"]',
+  })
+
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  console.log(`Fetching portfolio events from ${fromDate} to ${toDate}`)
+
+  const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel Event Export API error (${response.status}): ${errorText}`)
+  }
+
+  // Parse JSONL response (one JSON object per line)
+  const text = await response.text()
+  const events: any[] = []
+  let skippedLines = 0
+
+  for (const line of text.trim().split('\n')) {
+    if (line.trim()) {
+      try {
+        const event = JSON.parse(line)
+
+        // Validate required properties
+        if (event.properties?.distinct_id &&
+            event.properties?.portfolioTicker &&
+            event.properties?.time) {
+          events.push(event)
+        } else {
+          skippedLines++
+        }
+      } catch (e) {
+        skippedLines++
+      }
+    }
+  }
+
+  if (skippedLines > 0) {
+    console.log(`Skipped ${skippedLines} invalid portfolio view events`)
+  }
+  console.log(`✓ Fetched ${events.length} valid Portfolio View events`)
+  return events
 }
 
 // ============================================================================

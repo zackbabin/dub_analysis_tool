@@ -1,13 +1,9 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const MIXPANEL_PROJECT_ID = '2599235'
-const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
-const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
-
 // Performance configuration
-const DAYS_TO_FETCH = 7 // Limit to last 7 days (reduced to prevent timeout)
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
+const DAYS_TO_FETCH = 30 // Use same 30-day window as other analyses
 
 interface UserData {
   distinct_id: string
@@ -32,78 +28,41 @@ interface CombinationResult {
 }
 
 /**
- * Fetch events from Mixpanel Event Export API
- * Performance optimizations:
- * 1. Limited to last 30 days
- * 2. Streaming parse to avoid loading all data in memory at once
- * 3. Validates required properties during parse
+ * Fetch events from Supabase (stored by sync-mixpanel)
+ * This replaces direct Mixpanel API calls for consistency and performance
  */
-async function fetchViewedPortfolioEvents(): Promise<any[]> {
-  console.log('Fetching Viewed Portfolio Details events from Event Export API...')
+async function fetchViewedPortfolioEvents(supabaseClient: any): Promise<any[]> {
+  console.log('Fetching Viewed Portfolio Details events from Supabase...')
 
   // Calculate date range: last N days
   const toDate = new Date()
   const fromDate = new Date()
   fromDate.setDate(fromDate.getDate() - DAYS_TO_FETCH)
 
-  const formatDate = (date: Date) => date.toISOString().split('T')[0]
-  const from_date = formatDate(fromDate)
-  const to_date = formatDate(toDate)
+  console.log(`Fetching events from ${fromDate.toISOString()} to ${toDate.toISOString()}`)
 
-  const params = new URLSearchParams({
-    project_id: MIXPANEL_PROJECT_ID,
-    from_date,
-    to_date,
-    event: '["Viewed Portfolio Details"]',
-  })
+  // Query portfolio_view_events table
+  const { data, error } = await supabaseClient
+    .from('portfolio_view_events')
+    .select('distinct_id, portfolio_ticker, event_time')
+    .gte('synced_at', fromDate.toISOString())
+    .lte('synced_at', toDate.toISOString())
 
-  const authString = `${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  console.log(`Fetching events from ${from_date} to ${to_date}`)
-
-  const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel Event Export API error (${response.status}): ${errorText}`)
+  if (error) {
+    console.error('Error fetching portfolio view events:', error)
+    throw error
   }
 
-  // Parse JSONL response (one JSON object per line)
-  // Use streaming to avoid loading all data in memory
-  const text = await response.text()
-  const events: any[] = []
-  let skippedLines = 0
-
-  for (const line of text.trim().split('\n')) {
-    if (line.trim()) {
-      try {
-        const event = JSON.parse(line)
-
-        // Additional validation: ensure required properties exist
-        if (event.properties?.distinct_id &&
-            event.properties?.portfolioTicker &&
-            event.properties?.time) {
-          events.push(event)
-        } else {
-          skippedLines++
-        }
-      } catch (e) {
-        skippedLines++
-      }
+  // Transform to match original Mixpanel event structure for backwards compatibility
+  const events = data.map((row: any) => ({
+    properties: {
+      distinct_id: row.distinct_id,
+      portfolioTicker: row.portfolio_ticker,
+      time: row.event_time
     }
-  }
+  }))
 
-  if (skippedLines > 0) {
-    console.log(`Skipped ${skippedLines} invalid events`)
-  }
-  console.log(`✓ Fetched ${events.length} valid Viewed Portfolio Details events`)
+  console.log(`✓ Fetched ${events.length} valid Viewed Portfolio Details events from Supabase`)
   return events
 }
 
@@ -418,10 +377,10 @@ serve(async (req) => {
     console.log('=== Portfolio Sequence Analysis Started ===')
     console.log(`Configuration: ${DAYS_TO_FETCH} days lookback, first 3 unique portfolios per user`)
 
-    // Step 1: Fetch events from Mixpanel Event Export API
-    console.log('\n[1/5] Fetching events from Mixpanel...')
+    // Step 1: Fetch events from Supabase (stored by sync-mixpanel)
+    console.log('\n[1/5] Fetching events from Supabase...')
     const fetchStart = Date.now()
-    const events = await fetchViewedPortfolioEvents()
+    const events = await fetchViewedPortfolioEvents(supabaseClient)
     console.log(`✓ Fetch completed in ${((Date.now() - fetchStart) / 1000).toFixed(2)}s`)
 
     if (events.length === 0) {
