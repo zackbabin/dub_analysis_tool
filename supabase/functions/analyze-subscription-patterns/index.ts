@@ -463,12 +463,25 @@ serve(async (_req) => {
     results.sort((a, b) => a.aic - b.aic)
     const topResults = results.slice(0, 100)
 
+    // Build creator ID to username map
+    console.log('Building creator username map...')
+    const creatorIdToUsername = new Map<string, string>()
+    for (const pair of pairRows) {
+      if (pair.creator_id && pair.creator_username && !creatorIdToUsername.has(pair.creator_id)) {
+        creatorIdToUsername.set(pair.creator_id, pair.creator_username)
+      }
+    }
+    console.log(`✓ Mapped ${creatorIdToUsername.size} creator IDs to usernames`)
+
     const insertRows = topResults.map((result, index) => ({
       analysis_type: 'subscription',
       combination_rank: index + 1,
       value_1: result.combination[0],
       value_2: result.combination[1],
       value_3: result.combination[2],
+      username_1: creatorIdToUsername.get(result.combination[0]) || null,
+      username_2: creatorIdToUsername.get(result.combination[1]) || null,
+      username_3: creatorIdToUsername.get(result.combination[2]) || null,
       log_likelihood: result.log_likelihood,
       aic: result.aic,
       odds_ratio: result.odds_ratio,

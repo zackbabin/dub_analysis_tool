@@ -560,57 +560,16 @@ class SupabaseIntegration {
                 throw error;
             }
 
-            // Map creator IDs to usernames if requested (only for subscription analysis)
+            // Usernames are now stored directly in the table by the analysis function
+            // No runtime mapping needed - username_1, username_2, username_3 columns are populated
             if (mapUsernames && data && data.length > 0) {
-                console.log(`🔍 Looking up usernames for combinations...`);
-
-                // Get unique creator IDs
-                const allCreatorIds = Array.from(new Set(
-                    data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
-                ));
-
-                console.log(`Looking up ${allCreatorIds.length} unique creator IDs...`);
-                console.log('Sample creator IDs:', allCreatorIds.slice(0, 5));
-
-                // Use direct query instead of RPC due to RLS permission issues
-                console.log('Using direct query for username mapping...');
-                const { data: usernameData, error: usernameError } = await this.supabase
-                    .from('user_portfolio_creator_views')
-                    .select('creator_id, creator_username')
-                    .in('creator_id', allCreatorIds)
-                    .not('creator_username', 'is', null)
-                    .order('creator_id');
-
-                if (usernameError) {
-                    console.error('❌ Error fetching creator usernames:', usernameError);
-                } else if (usernameData && usernameData.length > 0) {
-                    // Create map of unique creator_id -> username pairs (deduplicate)
-                    const idToUsername = new Map();
-                    usernameData.forEach(row => {
-                        if (row.creator_id && row.creator_username && !idToUsername.has(row.creator_id)) {
-                            idToUsername.set(row.creator_id, row.creator_username);
-                        }
-                    });
-
-                    console.log(`✅ Mapped ${idToUsername.size}/${allCreatorIds.length} creator IDs to usernames`);
-
-                    // Apply username mapping to combinations
-                    data.forEach(combo => {
-                        combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
-                        combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
-                        combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
-                    });
-
-                    console.log('Sample combo after mapping:', {
-                        value_1: data[0].value_1,
-                        username_1: data[0].username_1,
-                        value_2: data[0].value_2,
-                        username_2: data[0].username_2,
-                        mapped: data[0].username_1 !== data[0].value_1
-                    });
-                } else {
-                    console.warn('⚠️ No username data found');
-                }
+                console.log(`✅ Loaded ${data.length} combinations with usernames from database`);
+                console.log('Sample combo:', {
+                    value_1: data[0].value_1,
+                    username_1: data[0].username_1,
+                    value_2: data[0].value_2,
+                    username_2: data[0].username_2
+                });
             }
 
             console.log(`✅ Loaded ${data.length} ${analysisType} combinations`);
