@@ -36,8 +36,8 @@ interface CombinationResult {
  * Fetch events from Mixpanel Event Export API
  * Performance optimizations:
  * 1. Limited to last 30 days
- * 2. Filtered to users with email (real users)
- * 3. Streaming parse to avoid loading all data in memory at once
+ * 2. Streaming parse to avoid loading all data in memory at once
+ * 3. Validates required properties during parse
  */
 async function fetchViewedPortfolioEvents(): Promise<any[]> {
   console.log('Fetching Viewed Portfolio Details events from Event Export API...')
@@ -51,24 +51,17 @@ async function fetchViewedPortfolioEvents(): Promise<any[]> {
   const from_date = formatDate(fromDate)
   const to_date = formatDate(toDate)
 
-  // Build where clause to filter for users with email (real users)
-  const whereClause = JSON.stringify({
-    "property": "$email",
-    "operator": "is not null"
-  })
-
   const params = new URLSearchParams({
     project_id: MIXPANEL_PROJECT_ID,
     from_date,
     to_date,
     event: '["Viewed Portfolio Details"]',
-    where: whereClause,
   })
 
   const authString = `${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`
   const authHeader = `Basic ${btoa(authString)}`
 
-  console.log(`Fetching events from ${from_date} to ${to_date} (filtering for users with email)`)
+  console.log(`Fetching events from ${from_date} to ${to_date}`)
 
   const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
     method: 'GET',
@@ -428,7 +421,7 @@ serve(async (req) => {
     // Performance metrics
     const startTime = Date.now()
     console.log('=== Portfolio Sequence Analysis Started ===')
-    console.log(`Configuration: ${DAYS_TO_FETCH} days, filter=$email not null, max ${MAX_EVENTS_PER_USER} events/user`)
+    console.log(`Configuration: ${DAYS_TO_FETCH} days, max ${MAX_EVENTS_PER_USER} events/user`)
 
     // Step 1: Fetch events from Mixpanel Event Export API
     console.log('\n[1/5] Fetching events from Mixpanel...')
@@ -620,7 +613,6 @@ serve(async (req) => {
         },
         configuration: {
           days_analyzed: DAYS_TO_FETCH,
-          email_filter: 'not null',
           max_events_per_user: MAX_EVENTS_PER_USER,
         },
         top_10_combinations: top10,

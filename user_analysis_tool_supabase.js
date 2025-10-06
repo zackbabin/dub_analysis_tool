@@ -456,10 +456,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            '<h3 style="margin-top: 1.5rem;">Portfolio Sequences</h3>',
+            '<h3 style="margin-top: 1.5rem;">Viewed Portfolio Sequence Analysis</h3>',
             this.generateCombinationsTableHTML(
                 'High-Impact Portfolio View Sequences',
-                'Users who viewed portfolios in these specific sequences (1st → 2nd → 3rd) were significantly more likely to copy',
+                'This analysis identifies the first three PDP views that drive highest likelihood to copy',
                 topSequences,
                 (seq) => `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`,
                 'Portfolio Sequence',
