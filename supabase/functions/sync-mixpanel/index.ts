@@ -259,10 +259,20 @@ serve(async (req) => {
       ]
 
       if (timeFunnelRows.length > 0) {
+        // Deduplicate rows by distinct_id + funnel_type + synced_at (keep last occurrence)
+        const uniqueRowsMap = new Map()
+        timeFunnelRows.forEach(row => {
+          const key = `${row.distinct_id}|${row.funnel_type}|${row.synced_at}`
+          uniqueRowsMap.set(key, row)
+        })
+        const uniqueRows = Array.from(uniqueRowsMap.values())
+
+        console.log(`Deduplicating: ${timeFunnelRows.length} rows -> ${uniqueRows.length} unique rows`)
+
         // Use upsert to handle duplicates
         const { error: insertError } = await supabase
           .from('time_funnels')
-          .upsert(timeFunnelRows, {
+          .upsert(uniqueRows, {
             onConflict: 'distinct_id,funnel_type,synced_at',
             ignoreDuplicates: false
           })
@@ -272,9 +282,9 @@ serve(async (req) => {
           throw insertError
         }
 
-        stats.timeFunnelsFetched = timeFunnelRows.length
-        stats.totalRecordsInserted += timeFunnelRows.length
-        console.log(`Upserted ${timeFunnelRows.length} time funnel records`)
+        stats.timeFunnelsFetched = uniqueRows.length
+        stats.totalRecordsInserted += uniqueRows.length
+        console.log(`Upserted ${uniqueRows.length} time funnel records`)
       }
 
       // Process and store portfolio-creator engagement pairs
