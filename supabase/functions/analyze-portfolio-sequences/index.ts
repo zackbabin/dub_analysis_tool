@@ -316,39 +316,19 @@ function fitLogisticRegression(
 
 /**
  * Evaluate a single portfolio sequence combination
- * Optimized to use pre-computed Sets and combine loops
+ * Optimized to use pre-computed Sets and cached conversion array
  */
 function evaluateCombination(
   combination: string[],
   users: UserData[],
+  y: number[], // Pre-computed conversion outcomes (cached across all combinations)
+  overallConversionRate: number, // Pre-computed once
   minExposureCount: number
 ): CombinationResult | null {
   const X: number[] = []
-  const y: number[] = []
 
-  // Single pass: compute X, y, and exposure count simultaneously
+  // Single pass: compute X, exposure metrics, and confusion matrix simultaneously
   let exposedTotal = 0
-  for (const user of users) {
-    // Optimization #3: Use pre-computed Set for O(1) lookups instead of array.includes()
-    const hasExposure = combination.every(portfolio => user.portfolio_set.has(portfolio))
-    const exposure = hasExposure ? 1 : 0
-    X.push(exposure)
-    y.push(user.did_copy ? 1 : 0)
-    exposedTotal += exposure
-  }
-
-  // Optimization #5: Early exit if exposure is too low (before expensive regression)
-  if (exposedTotal < minExposureCount) {
-    return null
-  }
-
-  const model = fitLogisticRegression(X, y)
-  const aic = 2 * 2 - 2 * model.log_likelihood
-  const oddsRatio = Math.exp(model.beta1)
-
-  const overallConversionRate = y.filter(val => val === 1).length / y.length
-
-  // Optimization #2: Combine the second loop with metric calculations
   let truePositives = 0
   let falsePositives = 0
   let trueNegatives = 0
@@ -356,22 +336,37 @@ function evaluateCombination(
   let exposedConverters = 0
   let totalConversions = 0
 
-  for (let i = 0; i < X.length; i++) {
-    const predicted = X[i] === 1 ? 1 : 0
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i]
+    const hasExposure = combination.every(portfolio => user.portfolio_set.has(portfolio))
+    const exposure = hasExposure ? 1 : 0
     const actual = y[i]
 
-    if (predicted === 1 && actual === 1) truePositives++
-    else if (predicted === 1 && actual === 0) falsePositives++
-    else if (predicted === 0 && actual === 0) trueNegatives++
-    else if (predicted === 0 && actual === 1) falseNegatives++
+    X.push(exposure)
+    exposedTotal += exposure
 
-    if (X[i] === 1) {
-      if (actual === 1) {
-        exposedConverters++
-        totalConversions += users[i].copy_count
-      }
+    // Calculate confusion matrix and exposure metrics in same pass
+    if (exposure === 1 && actual === 1) {
+      truePositives++
+      exposedConverters++
+      totalConversions += user.copy_count
+    } else if (exposure === 1 && actual === 0) {
+      falsePositives++
+    } else if (exposure === 0 && actual === 0) {
+      trueNegatives++
+    } else if (exposure === 0 && actual === 1) {
+      falseNegatives++
     }
   }
+
+  // Early exit if exposure is too low (before expensive regression)
+  if (exposedTotal < minExposureCount) {
+    return null
+  }
+
+  const model = fitLogisticRegression(X, y)
+  const aic = 2 * 2 - 2 * model.log_likelihood
+  const oddsRatio = Math.exp(model.beta1)
 
   const precision = truePositives + falsePositives > 0
     ? truePositives / (truePositives + falsePositives)
@@ -528,12 +523,17 @@ serve(async (req) => {
     console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios`)
     console.log(`Minimum exposure threshold: ${minExposureCount} users (5% of ${users.length})`)
 
+    // Pre-compute conversion outcomes array (y) - same for all combinations
+    const y = users.map(u => u.did_copy ? 1 : 0)
+    const overallConversionRate = y.filter(val => val === 1).length / y.length
+    console.log(`Overall conversion rate: ${(overallConversionRate * 100).toFixed(2)}%`)
+
     const results: CombinationResult[] = []
     let processed = 0
     let skippedLowExposure = 0
 
     for (const combo of generateCombinations(topPortfolios, 3)) {
-      const result = evaluateCombination(combo, users, minExposureCount)
+      const result = evaluateCombination(combo, users, y, overallConversionRate, minExposureCount)
 
       if (result !== null) {
         results.push(result)
