@@ -186,27 +186,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
         displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
-        // Inject Hidden Gems into Persona Breakdown section
-        const personaSection = document.getElementById('qdaPersonaBreakdownInline');
-        if (personaSection) {
-            personaSection.insertAdjacentHTML('beforeend', this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems));
-        }
-
-        // Inject Copy Engagement and Portfolio Sequences into Portfolio Copies section in Behavioral Analysis
+        // Inject Copy Engagement, Hidden Gems, and Portfolio Sequences into Portfolio Copies section in Behavioral Analysis
         const behavioralSection = document.getElementById('qdaCombinedResultsInline');
         if (behavioralSection) {
-            // Find the Portfolio Copies h2 and insert metric boxes and header BEFORE table, then combinations and sequences AFTER table
+            // Find the Portfolio Copies h2 and insert metric boxes, hidden gems, and header BEFORE table, then combinations and sequences AFTER table
             const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
             if (portfolioCopiesH2) {
                 const table = portfolioCopiesH2.nextElementSibling;
                 if (table) {
                     const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+                    const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
                     const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
                     const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
                     const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
 
-                    // Insert metrics and correlation header BEFORE the correlation table
-                    table.insertAdjacentHTML('beforebegin', metricsHTML + correlationHeaderHTML);
+                    // Insert metrics, hidden gems, and correlation header BEFORE the correlation table
+                    table.insertAdjacentHTML('beforebegin', metricsHTML + hiddenGemsHTML + correlationHeaderHTML);
                     // Insert combinations and sequences AFTER the correlation table
                     table.insertAdjacentHTML('afterend', combinationsHTML + portfolioSequencesHTML);
                 }
