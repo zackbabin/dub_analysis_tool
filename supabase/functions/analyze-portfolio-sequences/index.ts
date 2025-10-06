@@ -493,7 +493,13 @@ serve(async (req) => {
     // Step 5: Run pattern analysis
     console.log('\n[5/5] Running pattern analysis...')
     const analysisStart = Date.now()
-    const topPortfolios = getTopPortfolios(users, 10).slice(0, 25)
+    const allEligiblePortfolios = getTopPortfolios(users, 10)
+    console.log(`📊 Portfolio distribution analysis:`)
+    console.log(`   - Total portfolios with ≥10 exposures: ${allEligiblePortfolios.length}`)
+
+    const topPortfolios = allEligiblePortfolios.slice(0, 25)
+    console.log(`   - Using top ${topPortfolios.length} portfolios for analysis`)
+    console.log(`   - Excluded portfolios: ${allEligiblePortfolios.length - topPortfolios.length}`)
 
     if (topPortfolios.length < 3) {
       return new Response(
@@ -601,13 +607,17 @@ serve(async (req) => {
           events_fetched: events.length,
           sequences_found: sequences.size,
           complete_sequences: users.length,
+          portfolios_eligible: allEligiblePortfolios.length,
           portfolios_tested: topPortfolios.length,
+          portfolios_excluded: allEligiblePortfolios.length - topPortfolios.length,
           combinations_evaluated: results.length,
           combinations_stored: insertRows.length,
           execution_time_seconds: Math.round(totalTime * 100) / 100,
         },
         configuration: {
           days_analyzed: DAYS_TO_FETCH,
+          min_exposures_threshold: 10,
+          portfolio_limit: 25,
         },
         top_10_combinations: top10,
       }),
