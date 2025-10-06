@@ -332,47 +332,64 @@ serve(async (req) => {
       }
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
-      // Fire and forget - don't wait for completion to avoid timeout
+      // Run analyses in parallel and wait for completion
       console.log('Triggering pattern analysis (using stored data)...')
 
-      // Subscription analysis: query stored data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-      }).then(() => {
-        console.log('✓ Subscription pattern analysis completed')
-      }).catch((err) => {
-        console.warn('⚠️ Subscription analysis failed:', err)
-      })
+      try {
+        await Promise.all([
+          // Subscription analysis: query stored data → analyze
+          fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text()
+              throw new Error(`Subscription analysis failed (${res.status}): ${text}`)
+            }
+            console.log('✓ Subscription pattern analysis completed')
+            return res.json()
+          }),
 
-      // Copy analysis: query stored data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-      }).then(() => {
-        console.log('✓ Copy pattern analysis completed')
-      }).catch((err) => {
-        console.warn('⚠️ Copy analysis failed:', err)
-      })
+          // Copy analysis: query stored data → analyze
+          fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text()
+              throw new Error(`Copy analysis failed (${res.status}): ${text}`)
+            }
+            console.log('✓ Copy pattern analysis completed')
+            return res.json()
+          }),
 
-      // Portfolio sequence analysis: query stored copies data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'Content-Type': 'application/json',
-        },
-      }).then(() => {
-        console.log('✓ Portfolio sequence analysis completed')
-      }).catch((err) => {
-        console.warn('⚠️ Portfolio sequence analysis failed:', err)
-      })
+          // Portfolio sequence analysis: query stored copies data → analyze
+          fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(async (res) => {
+            if (!res.ok) {
+              const text = await res.text()
+              throw new Error(`Portfolio sequence analysis failed (${res.status}): ${text}`)
+            }
+            console.log('✓ Portfolio sequence analysis completed')
+            return res.json()
+          })
+        ])
+        console.log('✓ All pattern analyses completed successfully')
+      } catch (analysisError) {
+        console.error('⚠️ Pattern analysis error:', analysisError)
+        // Don't fail the entire sync if analysis fails - log and continue
+      }
 
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table
