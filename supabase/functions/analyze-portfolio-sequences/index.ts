@@ -7,7 +7,6 @@ const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
 
 // Performance configuration
 const DAYS_TO_FETCH = 30 // Limit to last 30 days
-const COHORT_FILTER = 'NEW Beta Copy Credit Access' // Only users in this cohort
 const MAX_EVENTS_PER_USER = 10 // Stop processing after first 10 events per user (we only need 3 unique)
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
 
@@ -37,7 +36,7 @@ interface CombinationResult {
  * Fetch events from Mixpanel Event Export API
  * Performance optimizations:
  * 1. Limited to last 30 days
- * 2. Filtered to specific cohort
+ * 2. Filtered to users with email (real users)
  * 3. Streaming parse to avoid loading all data in memory at once
  */
 async function fetchViewedPortfolioEvents(): Promise<any[]> {
@@ -52,13 +51,11 @@ async function fetchViewedPortfolioEvents(): Promise<any[]> {
   const from_date = formatDate(fromDate)
   const to_date = formatDate(toDate)
 
-  // Build where clause to filter by cohort
-  const whereClause = JSON.stringify([{
-    "operator": "in",
-    "selected_property_type": "cohort",
-    "value": [COHORT_FILTER],
-    "property": "$cohort"
-  }])
+  // Build where clause to filter for users with email (real users)
+  const whereClause = JSON.stringify({
+    "property": "$email",
+    "operator": "is not null"
+  })
 
   const params = new URLSearchParams({
     project_id: MIXPANEL_PROJECT_ID,
@@ -71,7 +68,7 @@ async function fetchViewedPortfolioEvents(): Promise<any[]> {
   const authString = `${MIXPANEL_USERNAME}:${MIXPANEL_PASSWORD}`
   const authHeader = `Basic ${btoa(authString)}`
 
-  console.log(`Fetching events from ${from_date} to ${to_date} for cohort "${COHORT_FILTER}"`)
+  console.log(`Fetching events from ${from_date} to ${to_date} (filtering for users with email)`)
 
   const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
     method: 'GET',
@@ -436,7 +433,7 @@ serve(async (req) => {
     // Performance metrics
     const startTime = Date.now()
     console.log('=== Portfolio Sequence Analysis Started ===')
-    console.log(`Configuration: ${DAYS_TO_FETCH} days, cohort="${COHORT_FILTER}", max ${MAX_EVENTS_PER_USER} events/user`)
+    console.log(`Configuration: ${DAYS_TO_FETCH} days, filter=$email not null, max ${MAX_EVENTS_PER_USER} events/user`)
 
     // Step 1: Fetch events from Mixpanel Event Export API
     console.log('\n[1/5] Fetching events from Mixpanel...')
@@ -622,7 +619,7 @@ serve(async (req) => {
         },
         configuration: {
           days_analyzed: DAYS_TO_FETCH,
-          cohort_filter: COHORT_FILTER,
+          email_filter: 'not null',
           max_events_per_user: MAX_EVENTS_PER_USER,
         },
         top_10_combinations: top10,
