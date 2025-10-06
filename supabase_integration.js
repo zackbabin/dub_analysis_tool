@@ -24,12 +24,17 @@ class SupabaseIntegration {
         this.queryCache = new Map();
         this.cacheTTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
+        // Initialize request deduplication tracker
+        // Prevents duplicate in-flight requests for same query
+        this.inFlightRequests = new Map();
+
         console.log('✅ Supabase Integration initialized');
     }
 
     /**
-     * Wrapper for cached database queries
+     * Wrapper for cached database queries with request deduplication
      * - Checks cache before querying
+     * - Deduplicates in-flight requests (prevents duplicate simultaneous queries)
      * - Stores results with timestamp
      * - Automatically expires stale entries
      * - Transparent to callers (returns same data structure)
@@ -48,29 +53,52 @@ class SupabaseIntegration {
             return cached.data;
         }
 
+        // Check if this request is already in-flight (deduplication)
+        if (this.inFlightRequests.has(cacheKey)) {
+            console.log(`🔗 Request deduplication: ${cacheKey} (waiting for in-flight request)`);
+            return this.inFlightRequests.get(cacheKey);
+        }
+
         // Cache miss or expired - fetch fresh data
         console.log(`🔄 Cache miss: ${cacheKey}`);
-        const data = await queryFn();
 
-        // Store in cache
-        this.queryCache.set(cacheKey, {
-            data: data,
-            timestamp: now
+        // Create promise and track it
+        const promise = queryFn().then(data => {
+            // Store in cache
+            this.queryCache.set(cacheKey, {
+                data: data,
+                timestamp: now
+            });
+
+            // Remove from in-flight tracker
+            this.inFlightRequests.delete(cacheKey);
+
+            return data;
+        }).catch(error => {
+            // Remove from in-flight tracker on error
+            this.inFlightRequests.delete(cacheKey);
+            throw error;
         });
 
-        return data;
+        // Track this in-flight request
+        this.inFlightRequests.set(cacheKey, promise);
+
+        return promise;
     }
 
     /**
      * Invalidate specific cache entry or entire cache
+     * Also clears in-flight request tracking for invalidated keys
      * @param {string|null} cacheKey - Specific key to invalidate, or null for all
      */
     invalidateCache(cacheKey = null) {
         if (cacheKey) {
             this.queryCache.delete(cacheKey);
+            this.inFlightRequests.delete(cacheKey);
             console.log(`🗑️ Cache invalidated: ${cacheKey}`);
         } else {
             this.queryCache.clear();
+            this.inFlightRequests.clear();
             console.log('🗑️ All cache cleared');
         }
     }

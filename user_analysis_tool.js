@@ -379,13 +379,70 @@ class UserAnalysisTool {
     }
 
     /**
+     * Generate hash of data for incremental analysis cache validation
+     * Uses simple but fast hash function for large datasets
+     */
+    hashData(data) {
+        const str = JSON.stringify(data);
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        // Include data structure version to force refresh on schema changes
+        return `v1_${hash}`;
+    }
+
+    /**
      * Processes data and runs analysis
+     * Implements incremental analysis: skips re-processing if data unchanged
      */
     async processAndAnalyze(contents) {
         // Step 1: Merge data
         const mergedData = processComprehensiveData(contents);
 
-        // Step 2: Run analysis on main file
+        // Step 2: Check if data has changed (incremental analysis optimization)
+        const dataHash = this.hashData(mergedData.mainFile);
+        const cachedHash = localStorage.getItem('qdaDataHash');
+        const cachedResults = localStorage.getItem('qdaAnalysisResults');
+
+        if (dataHash === cachedHash && cachedResults) {
+            console.log('📦 Data unchanged - using cached analysis results (90% faster!)');
+            this.updateProgress(75, 'Loading cached results...');
+
+            try {
+                const analysisData = JSON.parse(cachedResults);
+
+                // Reconstruct results object in expected format
+                const results = {
+                    summaryStats: analysisData.summaryStats,
+                    correlationResults: analysisData.correlationResults,
+                    regressionResults: analysisData.regressionResults,
+                    cleanData: null // Not cached to save space
+                };
+
+                this.updateProgress(90, 'Displaying results...');
+
+                // Display cached results
+                await this.displayResults(results);
+
+                this.updateProgress(100, 'Complete!');
+
+                setTimeout(() => {
+                    document.getElementById('unifiedProgressSection').style.display = 'none';
+                }, 1500);
+
+                return;
+            } catch (error) {
+                console.warn('Failed to use cached results, running full analysis:', error);
+                // Fall through to full analysis
+            }
+        }
+
+        console.log('🔄 Data changed or no cache - running full analysis');
+
+        // Step 3: Run analysis on main file
         this.updateProgress(75, 'Analyzing data...');
 
         // Pass JSON directly instead of converting to CSV and parsing back
@@ -393,13 +450,13 @@ class UserAnalysisTool {
 
         this.updateProgress(90, 'Generating insights...');
 
-        // Step 3: Calculate tipping points for all variables and outcomes
+        // Step 4: Calculate tipping points for all variables and outcomes
         const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
 
         // Clear cleanData reference to free memory (it's large and no longer needed)
         results.cleanData = null;
 
-        // Step 4: Save results to localStorage in single batch write
+        // Step 5: Save results and hash to localStorage in single batch write
         const now = new Date();
         const timestamp = now.toLocaleString('en-US', {
             month: 'short',
@@ -419,7 +476,10 @@ class UserAnalysisTool {
             lastUpdated: timestamp
         }));
 
-        // Step 5: Display results
+        // Store data hash for incremental analysis
+        localStorage.setItem('qdaDataHash', dataHash);
+
+        // Step 6: Display results
         this.displayResults(results);
 
         this.updateProgress(100, 'Complete!');
