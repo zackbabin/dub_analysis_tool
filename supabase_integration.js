@@ -570,52 +570,24 @@ class SupabaseIntegration {
                 ));
 
                 console.log(`Looking up ${allCreatorIds.length} unique creator IDs...`);
+                console.log('Sample creator IDs:', allCreatorIds.slice(0, 5));
 
-                // Use RPC function to get distinct creator_id -> username mappings
-                // This queries user_portfolio_creator_views and returns distinct pairs
+                // Use direct query instead of RPC due to RLS permission issues
+                console.log('Using direct query for username mapping...');
                 const { data: usernameData, error: usernameError } = await this.supabase
-                    .rpc('get_distinct_creator_usernames', { creator_ids: allCreatorIds });
+                    .from('user_portfolio_creator_views')
+                    .select('creator_id, creator_username')
+                    .in('creator_id', allCreatorIds)
+                    .not('creator_username', 'is', null)
+                    .order('creator_id');
 
                 if (usernameError) {
                     console.error('❌ Error fetching creator usernames:', usernameError);
-                    console.log('Falling back to direct query with DISTINCT...');
-
-                    // Fallback to direct query if RPC fails
-                    const { data: fallbackData, error: fallbackError } = await this.supabase
-                        .from('user_portfolio_creator_views')
-                        .select('creator_id, creator_username')
-                        .in('creator_id', allCreatorIds)
-                        .not('creator_username', 'is', null)
-                        .order('creator_id')
-                        .order('id', { ascending: false });
-
-                    if (fallbackError) {
-                        console.error('❌ Fallback query also failed:', fallbackError);
-                    } else if (fallbackData && fallbackData.length > 0) {
-                        // Deduplicate manually - take first occurrence per creator_id
-                        const idToUsername = new Map();
-                        fallbackData.forEach(row => {
-                            if (!idToUsername.has(row.creator_id) && row.creator_username) {
-                                idToUsername.set(row.creator_id, row.creator_username);
-                            }
-                        });
-
-                        console.log(`✅ Mapped ${idToUsername.size} creator IDs to usernames (fallback)`);
-
-                        // Apply username mapping to combinations
-                        data.forEach(combo => {
-                            combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
-                            combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
-                            combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
-                        });
-                    } else {
-                        console.warn('⚠️ No username data found in fallback');
-                    }
                 } else if (usernameData && usernameData.length > 0) {
-                    // Create map of unique creator_id -> username pairs
+                    // Create map of unique creator_id -> username pairs (deduplicate)
                     const idToUsername = new Map();
                     usernameData.forEach(row => {
-                        if (row.creator_id && row.creator_username) {
+                        if (row.creator_id && row.creator_username && !idToUsername.has(row.creator_id)) {
                             idToUsername.set(row.creator_id, row.creator_username);
                         }
                     });
