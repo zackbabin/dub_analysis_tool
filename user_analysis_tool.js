@@ -2026,7 +2026,7 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 
         // Use DocumentFragment to batch DOM insertions
         const fragment = document.createDocumentFragment();
-        combinedData.slice(0, 15).forEach(item => {
+        combinedData.slice(0, 10).forEach(item => {
             const rowData = [
                 getVariableLabel(item.variable),
                 item.correlation.toFixed(2),
