@@ -1779,7 +1779,7 @@ function displaySummaryStatsInline(stats) {
     resultSection.className = 'qda-result-section';
 
     const title = document.createElement('h1');
-    title.textContent = 'Summary Statistics';
+    title.textContent = '📈 Summary Statistics';
     resultSection.appendChild(title);
 
     const metricSummary = document.createElement('div');
@@ -1809,7 +1809,7 @@ function displayDemographicBreakdownInline(stats) {
     resultSection.className = 'qda-result-section';
 
     const title = document.createElement('h1');
-    title.textContent = 'Demographic Breakdown';
+    title.textContent = '👥 Demographic Breakdown';
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
@@ -1888,7 +1888,7 @@ function displayPersonaBreakdownInline(stats) {
     resultSection.className = 'qda-result-section';
 
     const title = document.createElement('h1');
-    title.textContent = 'Persona Breakdown';
+    title.textContent = '👤 Persona Breakdown';
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
@@ -1960,7 +1960,7 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
     resultSection.className = 'qda-result-section';
 
     const title = document.createElement('h1');
-    title.textContent = 'Behavioral Analysis';
+    title.textContent = '📊 Behavioral Analysis';
     resultSection.appendChild(title);
 
     const orderedOutcomes = [
