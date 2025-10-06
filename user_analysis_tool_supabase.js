@@ -168,33 +168,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         resultsDiv.className = 'qda-analysis-results';
         this.outputContainer.appendChild(resultsDiv);
 
-        // Add timestamp
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        const lastUpdated = localStorage.getItem('qdaLastUpdated');
-        if (lastUpdated) {
-            timestamp.textContent = `Last updated: ${lastUpdated}`;
-            resultsDiv.appendChild(timestamp);
-        }
-
         // Create containers for base analysis (parent functions need these in DOM)
-        resultsDiv.innerHTML += `
+        resultsDiv.innerHTML = `
             <div id="qdaSummaryStatsInline"></div>
             <div id="qdaDemographicBreakdownInline"></div>
             <div id="qdaPersonaBreakdownInline"></div>
             <div id="qdaCombinedResultsInline"></div>
         `;
-
-        // Update last updated timestamp
-        const timestampStr = new Date().toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-        localStorage.setItem('qdaLastUpdated', timestampStr);
 
         // Display base results using parent's functions (now elements are in DOM)
         displaySummaryStatsInline(results.summaryStats);
@@ -250,6 +230,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 }
             }
         }
+
+        // Add timestamp after all rendering is complete
+        const timestampStr = new Date().toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        localStorage.setItem('qdaLastUpdated', timestampStr);
+
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        timestamp.textContent = `Last updated: ${timestampStr}`;
+        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
         return resultsDiv.outerHTML;
     }

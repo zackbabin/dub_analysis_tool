@@ -97,7 +97,6 @@
             margin: 0 auto;
             padding: 20px;
             background: white;
-            border: 2px solid #17a2b8;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             position: relative;
@@ -115,6 +114,13 @@
         .qda-result-section {
             margin: 30px 0;
             position: relative;
+        }
+
+        /* Add spacing and separator between h1 sections (except first) */
+        .qda-result-section:not(:first-child) h1 {
+            border-top: 1px solid #e9ecef;
+            padding-top: 3rem;
+            margin-top: 3rem;
         }
 
         .qda-result-section h1 {
