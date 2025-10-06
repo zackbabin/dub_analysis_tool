@@ -804,8 +804,8 @@ async function matchFilesByName(files) {
             const reader = new FileReader();
             reader.onload = (e) => {
                 const content = e.target.result;
-                const lines = content.split('\n').slice(0, 3);
-                const headers = lines[0] ? lines[0].split(',').map(h => h.trim().replace(/"/g, '')) : [];
+                // Use shared CSV utility for header parsing
+                const headers = window.CSVUtils.parseCSVHeaders(content, { maxLines: 1 });
 
                 resolve({
                     file: file,
@@ -1115,16 +1115,9 @@ function getAllVariables(cleanData) {
 /**
  * Helper functions for analysis
  */
+// Use shared CSV parsing utility from csv_utils.js
 function parseCSV(text) {
-    const lines = text.split('\n').filter(l => l.trim());
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    const data = lines.slice(1).map(line => {
-        const values = line.split(',');
-        const row = {};
-        headers.forEach((h, i) => row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '');
-        return row;
-    });
-    return { headers, data };
+    return window.CSVUtils.parseCSV(text);
 }
 
 function cleanNumeric(value) {

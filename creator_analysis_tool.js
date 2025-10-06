@@ -217,17 +217,10 @@ class CreatorAnalysisTool {
 
     /**
      * Parse CSV data
+     * Uses shared CSV parsing utility from csv_utils.js
      */
     parseCSV(text) {
-        const lines = text.split('\n').filter(l => l.trim());
-        const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-        const data = lines.slice(1).map(line => {
-            const values = line.split(',');
-            const row = {};
-            headers.forEach((h, i) => row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '');
-            return row;
-        });
-        return { headers, data };
+        return window.CSVUtils.parseCSV(text);
     }
 
     /**
