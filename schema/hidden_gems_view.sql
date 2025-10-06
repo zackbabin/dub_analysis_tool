@@ -1,5 +1,5 @@
 -- Hidden Gems Analysis View
--- Identifies portfolios with high engagement (top 25% total PDP views) but low copy conversion
+-- Identifies portfolios with high engagement (top 50% total PDP views) but low copy conversion
 -- (>= 7 unique viewers per copy)
 -- Execute this in Supabase SQL Editor
 
@@ -33,7 +33,7 @@ GROUP BY creator_id;
 CREATE MATERIALIZED VIEW hidden_gems_portfolios AS
 WITH percentile_thresholds AS (
   SELECT
-    PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p75
+    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY total_pdp_views) as pdp_views_p50
   FROM portfolio_creator_engagement_metrics
 )
 SELECT
@@ -54,8 +54,8 @@ SELECT
 FROM portfolio_creator_engagement_metrics pce
 CROSS JOIN percentile_thresholds p
 WHERE
-  -- Must be in top 25% for PDP views
-  pce.total_pdp_views >= p.pdp_views_p75
+  -- Must be in top 50% for PDP views
+  pce.total_pdp_views >= p.pdp_views_p50
   -- High unique viewers to copies ratio (>= 7:1)
   AND (pce.unique_viewers::NUMERIC / NULLIF(pce.total_copies, 0)) >= 7
 ORDER BY pce.total_pdp_views DESC
