@@ -19,7 +19,60 @@ class SupabaseIntegration {
         // Initialize Supabase client (using CDN version)
         this.supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
+        // Initialize client-side cache for query results
+        // Cache TTL: 5 minutes (data refreshes after each sync anyway)
+        this.queryCache = new Map();
+        this.cacheTTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
         console.log('✅ Supabase Integration initialized');
+    }
+
+    /**
+     * Wrapper for cached database queries
+     * - Checks cache before querying
+     * - Stores results with timestamp
+     * - Automatically expires stale entries
+     * - Transparent to callers (returns same data structure)
+     *
+     * @param {string} cacheKey - Unique identifier for this query
+     * @param {Function} queryFn - Async function that performs the actual query
+     * @returns {Promise} - Query results (from cache or fresh)
+     */
+    async cachedQuery(cacheKey, queryFn) {
+        const now = Date.now();
+        const cached = this.queryCache.get(cacheKey);
+
+        // Return cached data if valid
+        if (cached && (now - cached.timestamp) < this.cacheTTL) {
+            console.log(`📦 Cache hit: ${cacheKey} (${Math.round((now - cached.timestamp) / 1000)}s old)`);
+            return cached.data;
+        }
+
+        // Cache miss or expired - fetch fresh data
+        console.log(`🔄 Cache miss: ${cacheKey}`);
+        const data = await queryFn();
+
+        // Store in cache
+        this.queryCache.set(cacheKey, {
+            data: data,
+            timestamp: now
+        });
+
+        return data;
+    }
+
+    /**
+     * Invalidate specific cache entry or entire cache
+     * @param {string|null} cacheKey - Specific key to invalidate, or null for all
+     */
+    invalidateCache(cacheKey = null) {
+        if (cacheKey) {
+            this.queryCache.delete(cacheKey);
+            console.log(`🗑️ Cache invalidated: ${cacheKey}`);
+        } else {
+            this.queryCache.clear();
+            console.log('🗑️ All cache cleared');
+        }
     }
 
     /**
@@ -61,6 +114,10 @@ class SupabaseIntegration {
             }
 
             console.log('✅ Sync completed successfully:', data.stats);
+
+            // Invalidate all cached queries since data has been refreshed
+            this.invalidateCache();
+
             return data;
         } catch (error) {
             console.error('Error calling Edge Function:', error);
@@ -469,24 +526,26 @@ class SupabaseIntegration {
      * Returns summary comparing subscribers vs non-subscribers
      */
     async loadEngagementSummary() {
-        console.log('Loading engagement summary...');
+        return this.cachedQuery('engagement_summary', async () => {
+            console.log('Loading engagement summary...');
 
-        try {
-            const { data, error } = await this.supabase
-                .from('subscription_engagement_summary')
-                .select('*');
+            try {
+                const { data, error } = await this.supabase
+                    .from('subscription_engagement_summary')
+                    .select('*');
 
-            if (error) {
+                if (error) {
+                    console.error('Error loading engagement summary:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded engagement summary`);
+                return data;
+            } catch (error) {
                 console.error('Error loading engagement summary:', error);
                 throw error;
             }
-
-            console.log(`✅ Loaded engagement summary`);
-            return data;
-        } catch (error) {
-            console.error('Error loading engagement summary:', error);
-            throw error;
-        }
+        });
     }
 
     /**
@@ -526,58 +585,63 @@ class SupabaseIntegration {
      * @param {boolean} mapUsernames - Whether to map creator IDs to usernames
      */
     async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false) {
-        console.log(`Loading top ${analysisType} combinations by ${metric}...`);
+        // Create cache key from parameters
+        const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}`;
 
-        try {
-            let query = this.supabase
-                .from('conversion_pattern_combinations')
-                .select('*')
-                .eq('analysis_type', analysisType)
-                .limit(limit);
+        return this.cachedQuery(cacheKey, async () => {
+            console.log(`Loading top ${analysisType} combinations by ${metric}...`);
 
-            // Sort by the requested metric
-            switch (metric) {
-                case 'lift':
-                    query = query.order('lift', { ascending: false });
-                    break;
-                case 'aic':
-                    query = query.order('aic', { ascending: true }); // Lower AIC is better
-                    break;
-                case 'precision':
-                    query = query.order('precision', { ascending: false });
-                    break;
-                case 'odds_ratio':
-                    query = query.order('odds_ratio', { ascending: false });
-                    break;
-                default:
-                    query = query.order('combination_rank', { ascending: true });
-            }
+            try {
+                let query = this.supabase
+                    .from('conversion_pattern_combinations')
+                    .select('*')
+                    .eq('analysis_type', analysisType)
+                    .limit(limit);
 
-            const { data, error } = await query;
+                // Sort by the requested metric
+                switch (metric) {
+                    case 'lift':
+                        query = query.order('lift', { ascending: false });
+                        break;
+                    case 'aic':
+                        query = query.order('aic', { ascending: true }); // Lower AIC is better
+                        break;
+                    case 'precision':
+                        query = query.order('precision', { ascending: false });
+                        break;
+                    case 'odds_ratio':
+                        query = query.order('odds_ratio', { ascending: false });
+                        break;
+                    default:
+                        query = query.order('combination_rank', { ascending: true });
+                }
 
-            if (error) {
+                const { data, error } = await query;
+
+                if (error) {
+                    console.error(`Error loading ${analysisType} combinations:`, error);
+                    throw error;
+                }
+
+                // Usernames are now stored directly in the table by the analysis function
+                // No runtime mapping needed - username_1, username_2, username_3 columns are populated
+                if (mapUsernames && data && data.length > 0) {
+                    console.log(`✅ Loaded ${data.length} combinations with usernames from database`);
+                    console.log('Sample combo:', {
+                        value_1: data[0].value_1,
+                        username_1: data[0].username_1,
+                        value_2: data[0].value_2,
+                        username_2: data[0].username_2
+                    });
+                }
+
+                console.log(`✅ Loaded ${data.length} ${analysisType} combinations`);
+                return data;
+            } catch (error) {
                 console.error(`Error loading ${analysisType} combinations:`, error);
                 throw error;
             }
-
-            // Usernames are now stored directly in the table by the analysis function
-            // No runtime mapping needed - username_1, username_2, username_3 columns are populated
-            if (mapUsernames && data && data.length > 0) {
-                console.log(`✅ Loaded ${data.length} combinations with usernames from database`);
-                console.log('Sample combo:', {
-                    value_1: data[0].value_1,
-                    username_1: data[0].username_1,
-                    value_2: data[0].value_2,
-                    username_2: data[0].username_2
-                });
-            }
-
-            console.log(`✅ Loaded ${data.length} ${analysisType} combinations`);
-            return data;
-        } catch (error) {
-            console.error(`Error loading ${analysisType} combinations:`, error);
-            throw error;
-        }
+        });
     }
 
     /**
@@ -617,24 +681,26 @@ class SupabaseIntegration {
      * Returns summary comparing copiers vs non-copiers
      */
     async loadCopyEngagementSummary() {
-        console.log('Loading copy engagement summary...');
+        return this.cachedQuery('copy_engagement_summary', async () => {
+            console.log('Loading copy engagement summary...');
 
-        try {
-            const { data, error } = await this.supabase
-                .from('copy_engagement_summary')
-                .select('*');
+            try {
+                const { data, error } = await this.supabase
+                    .from('copy_engagement_summary')
+                    .select('*');
 
-            if (error) {
+                if (error) {
+                    console.error('Error loading copy engagement summary:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded copy engagement summary`);
+                return data;
+            } catch (error) {
                 console.error('Error loading copy engagement summary:', error);
                 throw error;
             }
-
-            console.log(`✅ Loaded copy engagement summary`);
-            return data;
-        } catch (error) {
-            console.error('Error loading copy engagement summary:', error);
-            throw error;
-        }
+        });
     }
 
     /**
@@ -679,24 +745,26 @@ class SupabaseIntegration {
      * Returns portfolios with high engagement but low copy conversion
      */
     async loadHiddenGems() {
-        console.log('Loading hidden gems portfolios...');
+        return this.cachedQuery('hidden_gems_portfolios', async () => {
+            console.log('Loading hidden gems portfolios...');
 
-        try {
-            const { data, error } = await this.supabase
-                .from('hidden_gems_portfolios')
-                .select('*');
+            try {
+                const { data, error } = await this.supabase
+                    .from('hidden_gems_portfolios')
+                    .select('*');
 
-            if (error) {
+                if (error) {
+                    console.error('Error loading hidden gems:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded ${data.length} hidden gems portfolios`);
+                return data;
+            } catch (error) {
                 console.error('Error loading hidden gems:', error);
                 throw error;
             }
-
-            console.log(`✅ Loaded ${data.length} hidden gems portfolios`);
-            return data;
-        } catch (error) {
-            console.error('Error loading hidden gems:', error);
-            throw error;
-        }
+        });
     }
 
     /**
@@ -704,25 +772,27 @@ class SupabaseIntegration {
      * Returns aggregate stats for hidden gems analysis
      */
     async loadHiddenGemsSummary() {
-        console.log('Loading hidden gems summary...');
+        return this.cachedQuery('hidden_gems_summary', async () => {
+            console.log('Loading hidden gems summary...');
 
-        try {
-            const { data, error } = await this.supabase
-                .from('hidden_gems_summary')
-                .select('*')
-                .single();
+            try {
+                const { data, error } = await this.supabase
+                    .from('hidden_gems_summary')
+                    .select('*')
+                    .single();
 
-            if (error) {
+                if (error) {
+                    console.error('Error loading hidden gems summary:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded hidden gems summary`);
+                return data;
+            } catch (error) {
                 console.error('Error loading hidden gems summary:', error);
                 throw error;
             }
-
-            console.log(`✅ Loaded hidden gems summary`);
-            return data;
-        } catch (error) {
-            console.error('Error loading hidden gems summary:', error);
-            throw error;
-        }
+        });
     }
 
     /**

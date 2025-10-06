@@ -65,7 +65,8 @@ async function fetchMixpanelChart(chartId: string, name: string): Promise<any> {
 
 /**
  * Parse funnel data to extract portfolio sequences
- * The funnel structure is: distinct_id → portfolio_id_1 → portfolio_ticker_2 → portfolio_ticker_3
+ * New structure: data -> date -> distinct_id -> portfolio_ticker -> array of steps
+ * We extract sequences by looking at portfolio_ticker keys for each distinct_id
  */
 function parsePortfolioSequences(funnelData: any): Map<string, string[]> {
   const sequences = new Map<string, string[]>()
@@ -90,47 +91,16 @@ function parsePortfolioSequences(funnelData: any): Map<string, string[]> {
   Object.entries(dateData).forEach(([distinctId, portfolioData]: [string, any]) => {
     if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
 
-    // This is a portfolio_id (first PDP view)
-    Object.entries(portfolioData).forEach(([firstPortfolio, secondData]: [string, any]) => {
-      if (firstPortfolio === '$overall' || typeof secondData !== 'object' || secondData === null) return
+    // Get all portfolio tickers for this user (keys that aren't $overall)
+    const portfolioTickers = Object.keys(portfolioData).filter(key => key !== '$overall')
 
-      // Check if this is an array (funnel steps) or another nested object
-      if (Array.isArray(secondData)) {
-        // If it's an array, we only have 1 step completed
-        const steps = secondData.filter((step: any) => step.step_label && step.count > 0)
-        if (steps.length >= 1) {
-          sequences.set(distinctId, [firstPortfolio])
-        }
-      } else {
-        // It's nested - there's a second portfolio
-        Object.entries(secondData).forEach(([secondPortfolio, thirdData]: [string, any]) => {
-          if (secondPortfolio === '$overall') return
-
-          if (Array.isArray(thirdData)) {
-            // Only 2 steps completed
-            const steps = thirdData.filter((step: any) => step.step_label && step.count > 0)
-            if (steps.length >= 2) {
-              sequences.set(distinctId, [firstPortfolio, secondPortfolio])
-            }
-          } else if (typeof thirdData === 'object' && thirdData !== null) {
-            // There's a third portfolio
-            Object.entries(thirdData).forEach(([thirdPortfolio, stepsData]: [string, any]) => {
-              if (thirdPortfolio === '$overall') return
-
-              if (Array.isArray(stepsData)) {
-                const steps = stepsData.filter((step: any) => step.step_label && step.count > 0)
-                if (steps.length >= 3) {
-                  sequences.set(distinctId, [firstPortfolio, secondPortfolio, thirdPortfolio])
-                }
-              }
-            })
-          }
-        })
-      }
-    })
+    // Only include users who viewed 2 or more portfolios
+    if (portfolioTickers.length >= 2) {
+      sequences.set(distinctId, portfolioTickers)
+    }
   })
 
-  console.log(`Extracted ${sequences.size} portfolio sequences`)
+  console.log(`Extracted ${sequences.size} portfolio sequences (2+ portfolios)`)
   return sequences
 }
 
