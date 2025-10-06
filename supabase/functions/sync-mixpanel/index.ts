@@ -335,44 +335,44 @@ serve(async (req) => {
       // Fire and forget - don't wait for completion to avoid timeout
       console.log('Triggering pattern analysis (using stored data)...')
 
-      // Subscription analysis: query stored data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-      }).catch((err) => {
-        console.warn('⚠️ Subscription analysis failed:', err)
-      })
+      // Trigger all three analyses and keep promises alive but don't await
+      const analysisPromises = [
+        fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({})
+        }).then(() => console.log('✓ Subscription analysis invoked'))
+          .catch((err) => console.warn('⚠️ Subscription analysis failed:', err)),
 
-      // Copy analysis: query stored data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-      }).catch((err) => {
-        console.warn('⚠️ Copy analysis failed:', err)
-      })
+        fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({})
+        }).then(() => console.log('✓ Copy analysis invoked'))
+          .catch((err) => console.warn('⚠️ Copy analysis failed:', err)),
 
-      // Portfolio sequence analysis: query stored copies data → analyze
-      fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-      }).catch((err) => {
-        console.warn('⚠️ Portfolio sequence analysis failed:', err)
-      })
+        fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({})
+        }).then(() => console.log('✓ Portfolio sequence analysis invoked'))
+          .catch((err) => console.warn('⚠️ Portfolio sequence analysis failed:', err))
+      ]
+
+      // Keep promises referenced but don't await (fire-and-forget that survives function return)
+      Promise.allSettled(analysisPromises)
 
       console.log('✓ Pattern analysis functions triggered (running in background)')
 
@@ -769,6 +769,7 @@ function processFunnelData(data: any, funnelType: string): any[] {
           funnel_type: funnelType,
           time_in_seconds: timeInSeconds,
           time_in_days: timeInSeconds / 86400,
+          synced_at: new Date().toISOString(),
         })
       }
     })
