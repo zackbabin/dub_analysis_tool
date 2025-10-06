@@ -531,6 +531,7 @@ async function fetchFunnelData(
     funnel_id: funnelId,
     from_date: fromDate,
     to_date: toDate,
+    users: 'true', // Request user-level data
   })
 
   const authString = `${credentials.username}:${credentials.secret}`
@@ -551,6 +552,10 @@ async function fetchFunnelData(
 
   const data = await response.json()
   console.log(`✓ ${name} fetch successful`)
+  console.log(`Response structure:`, JSON.stringify(Object.keys(data), null, 2))
+  if (data.data) {
+    console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
+  }
   return data
 }
 
@@ -739,41 +744,54 @@ function processInsightsData(data: any): any[] {
 }
 
 function processFunnelData(data: any, funnelType: string): any[] {
-  if (!data || !data.headers || !data.series) {
-    console.log(`No valid funnel data for ${funnelType}`)
+  if (!data || !data.data) {
+    console.log(`No funnel data for ${funnelType}`)
     return []
   }
 
   const rows: any[] = []
 
-  if (Array.isArray(data.headers) && Array.isArray(data.series)) {
-    console.log(`Processing ${data.series.length} ${funnelType} rows`)
+  // Funnels API returns data grouped by date, then by distinct_id
+  // Structure: { data: { "2025-09-29": { "$overall": [...], "distinct_id_1": [...], ... } } }
 
-    const distinctIdIndex = data.headers.indexOf('$distinct_id')
-    if (distinctIdIndex === -1) {
-      console.error('$distinct_id column not found in headers')
-      return []
-    }
+  Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
+    if (!dateData || typeof dateData !== 'object') return
 
-    const timeColumnIndex = data.headers.length > 2 ? 2 : -1
+    Object.entries(dateData).forEach(([key, steps]: [string, any]) => {
+      // Skip $overall aggregate
+      if (key === '$overall') return
 
-    data.series.forEach((rowData: any[]) => {
-      if (!Array.isArray(rowData)) return
+      // Key can be distinct_id or $device:xxx format
+      let distinctId = key
 
-      const distinctId = rowData[distinctIdIndex]
-      const timeInSeconds = timeColumnIndex !== -1 ? parseFloat(rowData[timeColumnIndex] || 0) : 0
+      // If it's a device ID format, extract just the device ID part
+      if (key.startsWith('$device:')) {
+        distinctId = key.replace('$device:', '')
+      }
 
-      if (distinctId && timeInSeconds > 0) {
-        rows.push({
-          distinct_id: distinctId,
-          funnel_type: funnelType,
-          time_in_seconds: timeInSeconds,
-          time_in_days: timeInSeconds / 86400,
-          synced_at: new Date().toISOString(),
-        })
+      // steps is an array of funnel steps
+      if (!Array.isArray(steps) || steps.length === 0) return
+
+      // Get the last step (final conversion step)
+      const finalStep = steps[steps.length - 1]
+
+      // Only include if user completed the funnel (count > 0 on final step)
+      // and we have a time value
+      if (finalStep.count > 0 && finalStep.avg_time_from_start) {
+        const timeInSeconds = parseFloat(finalStep.avg_time_from_start)
+
+        if (timeInSeconds > 0) {
+          rows.push({
+            distinct_id: distinctId,
+            funnel_type: funnelType,
+            time_in_seconds: timeInSeconds,
+            time_in_days: timeInSeconds / 86400,
+            synced_at: new Date().toISOString(),
+          })
+        }
       }
     })
-  }
+  })
 
   console.log(`Processed ${rows.length} ${funnelType} records`)
   return rows
