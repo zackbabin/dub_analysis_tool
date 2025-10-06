@@ -6,8 +6,7 @@ const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
 const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
 
 // Performance configuration
-const DAYS_TO_FETCH = 14 // Limit to last 14 days (reduced to prevent timeout)
-const MAX_EVENTS_PER_USER = 10 // Stop processing after first 10 events per user (we only need 3 unique)
+const DAYS_TO_FETCH = 7 // Limit to last 7 days (reduced to prevent timeout)
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
 
 interface UserData {
@@ -111,9 +110,8 @@ async function fetchViewedPortfolioEvents(): Promise<any[]> {
 /**
  * Parse event data to extract portfolio sequences
  * Performance optimizations:
- * 1. Process in batches to reduce memory usage
+ * 1. Sort events chronologically to get first views
  * 2. Early exit after finding 3 unique portfolios per user
- * 3. Limit events processed per user to MAX_EVENTS_PER_USER
  */
 function parsePortfolioSequences(events: any[]): Map<string, string[]> {
   const sequences = new Map<string, string[]>()
@@ -151,14 +149,11 @@ function parsePortfolioSequences(events: any[]): Map<string, string[]> {
     // Sort events by time (ascending, earliest first)
     userEvents.sort((a, b) => a.time - b.time)
 
-    // Limit to MAX_EVENTS_PER_USER AFTER sorting to ensure we get the earliest events
-    const eventsToProcess = userEvents.slice(0, MAX_EVENTS_PER_USER)
-
     // Extract first 3 unique portfolios with early exit
     const sequence: string[] = []
     const seen = new Set<string>()
 
-    for (const event of eventsToProcess) {
+    for (const event of userEvents) {
       if (!seen.has(event.portfolioTicker)) {
         sequence.push(event.portfolioTicker)
         seen.add(event.portfolioTicker)
@@ -421,7 +416,7 @@ serve(async (req) => {
     // Performance metrics
     const startTime = Date.now()
     console.log('=== Portfolio Sequence Analysis Started ===')
-    console.log(`Configuration: ${DAYS_TO_FETCH} days, max ${MAX_EVENTS_PER_USER} events/user`)
+    console.log(`Configuration: ${DAYS_TO_FETCH} days lookback, first 3 unique portfolios per user`)
 
     // Step 1: Fetch events from Mixpanel Event Export API
     console.log('\n[1/5] Fetching events from Mixpanel...')
@@ -613,7 +608,6 @@ serve(async (req) => {
         },
         configuration: {
           days_analyzed: DAYS_TO_FETCH,
-          max_events_per_user: MAX_EVENTS_PER_USER,
         },
         top_10_combinations: top10,
       }),
