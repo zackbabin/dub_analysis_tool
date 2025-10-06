@@ -351,8 +351,8 @@ serve(async (_req) => {
     // Step 4: Build user data combining sequences + outcomes
     const users: UserData[] = []
     sequences.forEach((sequence, distinctId) => {
-      // Only include users with exactly 3 portfolios in sequence
-      if (sequence.length === 3) {
+      // Include users with 2 or more portfolios in sequence
+      if (sequence.length >= 2) {
         const outcome = copyOutcomes.get(distinctId) || { did_copy: false, copy_count: 0 }
         users.push({
           distinct_id: distinctId,
@@ -363,14 +363,14 @@ serve(async (_req) => {
       }
     })
 
-    console.log(`Built user data for ${users.length} users with complete sequences`)
+    console.log(`Built user data for ${users.length} users with sequences (2+ portfolios)`)
 
     if (users.length < 50) {
       return new Response(
         JSON.stringify({
           success: true,
-          warning: 'Insufficient complete sequences (need 50+ users with 3 portfolios)',
-          stats: { complete_sequences: users.length }
+          warning: 'Insufficient sequences (need 50+ users with 2+ portfolios)',
+          stats: { sequences_found: users.length }
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )

@@ -462,15 +462,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
     /**
      * Generate Combinations Table HTML (DRY helper)
+     * Uses array.join() for optimal string building performance
      */
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
-        let html = '<div style="margin-top: 2rem;">';
-        html += `<h5 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem;">${title}</h5>`;
-        html += `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`;
-
-        html += '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">';
-        html += `
-            <thead>
+        const parts = [
+            '<div style="margin-top: 2rem;">',
+            `<h5 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem;">${title}</h5>`,
+            `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
+            '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+            `<thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                     <th style="padding: 0.75rem; text-align: left;">Rank</th>
                     <th style="padding: 0.75rem; text-align: left;">${columnLabel}</th>
@@ -480,28 +480,32 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
                 </tr>
             </thead>
-            <tbody>
-        `;
+            <tbody>`
+        ];
 
+        // Build rows as separate array items
         data.forEach((combo, index) => {
             const displayValue = valueFormatter(combo);
             const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-            html += `
-                <tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
+            parts.push(
+                `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
                     <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
                     <td style="padding: 0.75rem;">${displayValue}</td>
                     <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
                     <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
                     <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
                     <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                </tr>
-            `;
+                </tr>`
+            );
         });
 
-        html += '</tbody></table>';
-        html += '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">*Impact (lift) = how many times more likely users who viewed this combination are to convert compared to the average user. For example, 2.5x lift means users who viewed these items were 2.5 times more likely to convert.</p>';
-        html += '</div>';
-        return html;
+        parts.push(
+            '</tbody></table>',
+            '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">*Impact (lift) = how many times more likely users who viewed this combination are to convert compared to the average user. For example, 2.5x lift means users who viewed these items were 2.5 times more likely to convert.</p>',
+            '</div>'
+        );
+
+        return parts.join('');
     }
 
 }
