@@ -1766,11 +1766,6 @@ function displayDemographicBreakdownInline(stats) {
         const tableContainer = document.createElement('div');
         tableContainer.style.maxWidth = '320px';
 
-        const tableTitle = document.createElement('h4');
-        tableTitle.textContent = titleText;
-        tableTitle.style.cssText = 'margin: 0 0 10px 0; font-size: 14px;';
-        tableContainer.appendChild(tableTitle);
-
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
         table.style.fontSize = '12px';
@@ -1778,7 +1773,7 @@ function displayDemographicBreakdownInline(stats) {
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Category', 'Percentage'].forEach(header => {
+        [titleText, 'Percentage'].forEach(header => {
             const th = document.createElement('th');
             th.textContent = header;
             headerRow.appendChild(th);
