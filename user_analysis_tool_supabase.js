@@ -326,7 +326,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>',
-            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (PDP views to copies ratio ≥ 7:1)</p>'
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (unique viewers to copies ratio ≥ 5:1)</p>'
         ];
 
         // Summary Stats
