@@ -1053,8 +1053,8 @@ const ALL_VARIABLES = [
 ];
 
 const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank', 'totalRegularCopies', 'buyingPower'],
-    'totalCopies': ['hasLinkedBank', 'totalRegularCopies'],
+    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank', 'totalRegularCopies', 'totalPremiumCopies', 'buyingPower'],
+    'totalCopies': ['hasLinkedBank', 'totalRegularCopies', 'totalPremiumCopies'],
     'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
 };
 

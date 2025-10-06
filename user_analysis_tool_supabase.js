@@ -474,7 +474,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                     <th style="padding: 0.75rem; text-align: left;">Rank</th>
                     <th style="padding: 0.75rem; text-align: left;">${columnLabel}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Impact</th>
+                    <th style="padding: 0.75rem; text-align: right;">Impact*</th>
                     <th style="padding: 0.75rem; text-align: right;">Users</th>
                     <th style="padding: 0.75rem; text-align: right;">${conversionLabel}</th>
                     <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
@@ -498,7 +498,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         });
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table>';
+        html += '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">*Impact (lift) = how many times more likely users who viewed this combination are to convert compared to the average user. For example, 2.5x lift means users who viewed these items were 2.5 times more likely to convert.</p>';
+        html += '</div>';
         return html;
     }
 
