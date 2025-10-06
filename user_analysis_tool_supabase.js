@@ -321,7 +321,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>',
-            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (unique viewers to copies ratio ≥ 5:1)</p>'
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1)</p>'
         ];
 
         // Summary Stats
@@ -330,7 +330,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             const metrics = [
                 { label: 'Total Hidden Gems', value: summaryData.total_hidden_gems || 0, format: 'number' },
-                { label: 'Avg PDP Views', value: summaryData.avg_pdp_views || 0, format: 'decimal' },
+                { label: 'Avg Total PDP Views', value: summaryData.avg_pdp_views || 0, format: 'decimal' },
                 { label: 'Avg Conversion Rate', value: summaryData.avg_conversion_rate || 0, format: 'percent' }
             ];
 
@@ -365,7 +365,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                         <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
                         <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                        <th style="padding: 0.75rem; text-align: right;">PDP Views</th>
+                        <th style="padding: 0.75rem; text-align: right;">Total PDP Views</th>
                         <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
                         <th style="padding: 0.75rem; text-align: right;">Copies</th>
                         <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
