@@ -569,26 +569,58 @@ class SupabaseIntegration {
                     data.flatMap(combo => [combo.value_1, combo.value_2, combo.value_3])
                 ));
 
-                // Query user_portfolio_creator_views for usernames (much simpler than RPC)
+                console.log(`Looking up ${allCreatorIds.length} unique creator IDs...`);
+
+                // Use RPC function to get distinct creator_id -> username mappings
+                // This queries user_portfolio_creator_views and returns distinct pairs
                 const { data: usernameData, error: usernameError } = await this.supabase
-                    .from('user_portfolio_creator_views')
-                    .select('creator_id, creator_username')
-                    .in('creator_id', allCreatorIds)
-                    .not('creator_username', 'is', null)
-                    .limit(1000);
+                    .rpc('get_distinct_creator_usernames', { creator_ids: allCreatorIds });
 
                 if (usernameError) {
                     console.error('❌ Error fetching creator usernames:', usernameError);
+                    console.log('Falling back to direct query with DISTINCT...');
+
+                    // Fallback to direct query if RPC fails
+                    const { data: fallbackData, error: fallbackError } = await this.supabase
+                        .from('user_portfolio_creator_views')
+                        .select('creator_id, creator_username')
+                        .in('creator_id', allCreatorIds)
+                        .not('creator_username', 'is', null)
+                        .order('creator_id')
+                        .order('id', { ascending: false });
+
+                    if (fallbackError) {
+                        console.error('❌ Fallback query also failed:', fallbackError);
+                    } else if (fallbackData && fallbackData.length > 0) {
+                        // Deduplicate manually - take first occurrence per creator_id
+                        const idToUsername = new Map();
+                        fallbackData.forEach(row => {
+                            if (!idToUsername.has(row.creator_id) && row.creator_username) {
+                                idToUsername.set(row.creator_id, row.creator_username);
+                            }
+                        });
+
+                        console.log(`✅ Mapped ${idToUsername.size} creator IDs to usernames (fallback)`);
+
+                        // Apply username mapping to combinations
+                        data.forEach(combo => {
+                            combo.username_1 = idToUsername.get(combo.value_1) || combo.value_1;
+                            combo.username_2 = idToUsername.get(combo.value_2) || combo.value_2;
+                            combo.username_3 = idToUsername.get(combo.value_3) || combo.value_3;
+                        });
+                    } else {
+                        console.warn('⚠️ No username data found in fallback');
+                    }
                 } else if (usernameData && usernameData.length > 0) {
                     // Create map of unique creator_id -> username pairs
                     const idToUsername = new Map();
                     usernameData.forEach(row => {
-                        if (!idToUsername.has(row.creator_id)) {
+                        if (row.creator_id && row.creator_username) {
                             idToUsername.set(row.creator_id, row.creator_username);
                         }
                     });
 
-                    console.log(`✅ Mapped ${idToUsername.size} creator IDs to usernames`);
+                    console.log(`✅ Mapped ${idToUsername.size}/${allCreatorIds.length} creator IDs to usernames`);
 
                     // Apply username mapping to combinations
                     data.forEach(combo => {
@@ -601,7 +633,8 @@ class SupabaseIntegration {
                         value_1: data[0].value_1,
                         username_1: data[0].username_1,
                         value_2: data[0].value_2,
-                        username_2: data[0].username_2
+                        username_2: data[0].username_2,
+                        mapped: data[0].username_1 !== data[0].value_1
                     });
                 } else {
                     console.warn('⚠️ No username data found');

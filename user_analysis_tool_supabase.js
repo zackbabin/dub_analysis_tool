@@ -374,7 +374,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
 
             html += '</tbody></table>';
-            html += '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">Portfolios in top 25% of PDP views with <15% conversion rate</p>';
         }
 
         html += '</div>';
