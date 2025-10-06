@@ -186,7 +186,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         `;
 
         // Update last updated timestamp
-        const timestamp = new Date().toLocaleString('en-US', {
+        const timestampStr = new Date().toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
             year: 'numeric',
@@ -194,7 +194,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             minute: '2-digit',
             hour12: true
         });
-        localStorage.setItem('qdaLastUpdated', timestamp);
+        localStorage.setItem('qdaLastUpdated', timestampStr);
 
         // Display base results using parent's functions (now elements are in DOM)
         displaySummaryStatsInline(results.summaryStats);
