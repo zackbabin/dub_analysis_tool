@@ -215,14 +215,20 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Inject Copy Engagement and Portfolio Sequences into Portfolio Copies section in Behavioral Analysis
         const behavioralSection = document.getElementById('qdaCombinedResultsInline');
         if (behavioralSection) {
-            // Find the Portfolio Copies h2 and insert after its table
+            // Find the Portfolio Copies h2 and insert metric boxes and header BEFORE table, then combinations and sequences AFTER table
             const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
             if (portfolioCopiesH2) {
                 const table = portfolioCopiesH2.nextElementSibling;
                 if (table) {
-                    const copyEngagementHTML = this.generateCopyEngagementHTML(copyEngagementSummary, topCopyCombos);
+                    const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
+                    const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
                     const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
-                    table.insertAdjacentHTML('afterend', copyEngagementHTML + portfolioSequencesHTML);
+
+                    // Insert metrics and correlation header BEFORE the correlation table
+                    table.insertAdjacentHTML('beforebegin', metricsHTML + correlationHeaderHTML);
+                    // Insert combinations and sequences AFTER the correlation table
+                    table.insertAdjacentHTML('afterend', combinationsHTML + portfolioSequencesHTML);
                 }
             }
         }
@@ -233,7 +239,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (subscriptionsH2) {
                 const table = subscriptionsH2.nextElementSibling;
                 if (table) {
-                    table.insertAdjacentHTML('afterend', this.generateSubscriptionEngagementHTML(engagementSummary, topSubscriptionCombos));
+                    const metricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
+                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
+                    const combinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
+
+                    // Insert metrics and correlation header BEFORE the correlation table
+                    table.insertAdjacentHTML('beforebegin', metricsHTML + correlationHeaderHTML);
+                    // Insert combinations AFTER the correlation table
+                    table.insertAdjacentHTML('afterend', combinationsHTML);
                 }
             }
         }
@@ -242,61 +255,66 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Generate Subscription Engagement HTML
+     * Generate Subscription Metrics HTML (inserted before correlation table)
      * Uses array.join() for optimal string building performance
      */
-    generateSubscriptionEngagementHTML(summaryData, topCombinations) {
-        if (!summaryData && (!topCombinations || topCombinations.length === 0)) {
+    generateSubscriptionMetricsHTML(summaryData) {
+        if (!summaryData || summaryData.length !== 2) {
             return '';
         }
 
-        const parts = ['<div class="qda-result-section" style="margin-top: 2rem;">'];
+        const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
+        const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
 
-        // Summary Stats
-        if (summaryData && summaryData.length === 2) {
-            const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
-            const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
+        const metrics = [
+            { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
+            { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
+            { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
+            { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
+        ];
 
-            const metrics = [
-                { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
-                { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
-                { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
-                { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
-            ];
+        const parts = [
+            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">'
+        ];
 
+        metrics.forEach(metric => {
             parts.push(
-                '<h3 style="margin-top: 1.5rem;">Subscription Engagement</h3>',
-                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">'
+                `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">
+                        ${parseFloat(metric.primaryValue).toFixed(1)}
+                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
+                    </div>
+                </div>`
             );
+        });
 
-            metrics.forEach(metric => {
-                parts.push(
-                    `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                        <div style="font-size: 1.5rem; font-weight: bold;">
-                            ${parseFloat(metric.primaryValue).toFixed(1)}
-                            <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
-                        </div>
-                    </div>`
-                );
-            });
+        parts.push('</div>');
+        return parts.join('');
+    }
 
-            parts.push('</div>');
+    /**
+     * Generate Subscription Combinations HTML (inserted after correlation table)
+     * Uses array.join() for optimal string building performance
+     */
+    generateSubscriptionCombinationsHTML(topCombinations) {
+        if (!topCombinations || topCombinations.length === 0) {
+            return '';
         }
 
-        // High-Impact Creator Combinations
-        if (topCombinations && topCombinations.length > 0) {
-            parts.push(this.generateCombinationsTableHTML(
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            this.generateCombinationsTableHTML(
                 'High-Impact Creator Combinations',
                 'Users who viewed these creator combinations were significantly more likely to subscribe',
                 topCombinations,
                 (combo) => `${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}`,
                 'Creators Viewed',
                 'Total Subs'
-            ));
-        }
+            ),
+            '</div>'
+        ];
 
-        parts.push('</div>');
         return parts.join('');
     }
 
@@ -387,61 +405,78 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Generate Copy Engagement HTML
+     * Generate Copy Metrics HTML (inserted before correlation table)
      * Uses array.join() for optimal string building performance
      */
-    generateCopyEngagementHTML(summaryData, topCombinations) {
-        if (!summaryData && (!topCombinations || topCombinations.length === 0)) {
+    generateCopyMetricsHTML(summaryData) {
+        if (!summaryData || summaryData.length !== 2) {
             return '';
         }
 
-        const parts = ['<div class="qda-result-section" style="margin-top: 2rem;">'];
+        const copiersData = summaryData.find(d => d.did_copy === true) || {};
+        const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
 
-        // Summary Stats
-        if (summaryData && summaryData.length === 2) {
-            const copiersData = summaryData.find(d => d.did_copy === true) || {};
-            const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
+        const metrics = [
+            { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
+            { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0 },
+            { label: 'Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0 },
+            { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
+        ];
 
-            const metrics = [
-                { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
-                { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0 },
-                { label: 'Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0 },
-                { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
-            ];
+        const parts = [
+            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">'
+        ];
 
+        metrics.forEach(metric => {
             parts.push(
-                '<h3 style="margin-top: 1.5rem;">Copy Engagement</h3>',
-                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">'
+                `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">
+                        ${parseFloat(metric.primaryValue).toFixed(1)}
+                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
+                    </div>
+                </div>`
             );
+        });
 
-            metrics.forEach(metric => {
-                parts.push(
-                    `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                        <div style="font-size: 1.5rem; font-weight: bold;">
-                            ${parseFloat(metric.primaryValue).toFixed(1)}
-                            <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
-                        </div>
-                    </div>`
-                );
-            });
+        parts.push('</div>');
+        return parts.join('');
+    }
 
-            parts.push('</div>');
+    /**
+     * Generate Correlation Header HTML (h3 + subtitle for correlation table)
+     * Uses array.join() for optimal string building performance
+     */
+    generateCorrelationHeaderHTML(title, subtitle) {
+        const parts = [
+            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h3>`,
+            `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`
+        ];
+        return parts.join('');
+    }
+
+    /**
+     * Generate Copy Combinations HTML (inserted after correlation table)
+     * Uses array.join() for optimal string building performance
+     */
+    generateCopyCombinationsHTML(topCombinations) {
+        if (!topCombinations || topCombinations.length === 0) {
+            return '';
         }
 
-        // High-Impact Portfolio Combinations
-        if (topCombinations && topCombinations.length > 0) {
-            parts.push(this.generateCombinationsTableHTML(
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            this.generateCombinationsTableHTML(
                 'High-Impact Portfolio Combinations',
                 'Users who viewed these portfolio combinations were significantly more likely to copy',
                 topCombinations,
                 (combo) => `${combo.value_1}, ${combo.value_2}, ${combo.value_3}`,
                 'Portfolios Viewed',
                 'Total Copies'
-            ));
-        }
+            ),
+            '</div>'
+        ];
 
-        parts.push('</div>');
         return parts.join('');
     }
 
@@ -456,17 +491,42 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            '<h3 style="margin-top: 1.5rem;">Viewed Portfolio Sequence Analysis</h3>',
-            this.generateCombinationsTableHTML(
-                'High-Impact Portfolio View Sequences',
-                'This analysis identifies the first three PDP views that drive highest likelihood to copy',
-                topSequences,
-                (seq) => `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`,
-                'Portfolio Sequence',
-                'Total Copies'
-            ),
-            '</div>'
+            '<h3 style="margin-top: 1.5rem;">Portfolio Sequence Analysis</h3>',
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
+            '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+            `<thead>
+                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                    <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                    <th style="padding: 0.75rem; text-align: left;">Portfolio Sequence</th>
+                    <th style="padding: 0.75rem; text-align: right;">Impact*</th>
+                    <th style="padding: 0.75rem; text-align: right;">Users</th>
+                    <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
+                    <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                </tr>
+            </thead>
+            <tbody>`
         ];
+
+        topSequences.forEach((seq, index) => {
+            const displayValue = `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`;
+            const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
+            parts.push(
+                `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
+                    <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
+                    <td style="padding: 0.75rem;">${displayValue}</td>
+                    <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(seq.lift).toFixed(2)}x lift</td>
+                    <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.users_with_exposure).toLocaleString()}</td>
+                    <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.total_conversions || 0).toLocaleString()}</td>
+                    <td style="padding: 0.75rem; text-align: right;">${(parseFloat(seq.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                </tr>`
+            );
+        });
+
+        parts.push(
+            '</tbody></table>',
+            '<p style="font-size: 0.75rem; color: #6c757d; font-style: italic; margin-top: 0.5rem;">*Impact (lift) = how many times more likely users who viewed this combination are to convert compared to the average user. For example, 2.5x lift means users who viewed these items were 2.5 times more likely to convert.</p>',
+            '</div>'
+        );
 
         return parts.join('');
     }
@@ -478,7 +538,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
         const parts = [
             '<div style="margin-top: 2rem;">',
-            `<h5 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem;">${title}</h5>`,
+            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h3>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
