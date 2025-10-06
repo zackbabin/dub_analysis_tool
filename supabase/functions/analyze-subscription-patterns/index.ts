@@ -265,7 +265,8 @@ function evaluateCombination(
   const y: number[] = []
 
   for (const user of users) {
-    const hasExposure = Array.from(user.creator_ids).some(id => combinationSet.has(id))
+    // Check if user viewed ALL creators in the combination (not just any)
+    const hasExposure = combination.every(id => user.creator_ids.has(id))
     X.push(hasExposure ? 1 : 0)
     y.push(user.did_subscribe ? 1 : 0)
   }

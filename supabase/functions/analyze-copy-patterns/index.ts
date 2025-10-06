@@ -265,7 +265,8 @@ function evaluateCombination(
   const y: number[] = []
 
   for (const user of users) {
-    const hasExposure = Array.from(user.portfolio_tickers).some(ticker => combinationSet.has(ticker))
+    // Check if user viewed ALL portfolios in the combination (not just any)
+    const hasExposure = combination.every(ticker => user.portfolio_tickers.has(ticker))
     X.push(hasExposure ? 1 : 0)
     y.push(user.did_copy ? 1 : 0)
   }
