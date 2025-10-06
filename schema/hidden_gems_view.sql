@@ -1,5 +1,6 @@
 -- Hidden Gems Analysis View
--- Identifies portfolios with high engagement (top 50% PDP/Profile views) but low copy conversion
+-- Identifies portfolios with high engagement (top 25% total PDP views) but low copy conversion
+-- (>= 7 unique viewers per copy)
 -- Execute this in Supabase SQL Editor
 
 -- Step 1: Create materialized view that aggregates portfolio-creator engagement metrics
@@ -28,7 +29,7 @@ SELECT
 FROM user_portfolio_creator_copies
 GROUP BY creator_id;
 
--- Step 3: Create hidden gems materialized view with PDP views to copies ratio threshold
+-- Step 3: Create hidden gems materialized view with unique viewers to copies ratio threshold
 CREATE MATERIALIZED VIEW hidden_gems_portfolios AS
 WITH percentile_thresholds AS (
   SELECT
@@ -39,13 +40,13 @@ SELECT
   pce.portfolio_ticker,
   pce.creator_id,
   pce.creator_username,
-  pce.unique_viewers as unique_views,
+  pce.unique_viewers as unique_pdp_views,
   pce.total_pdp_views,
   pce.total_copies,
   ROUND(
-    (pce.total_pdp_views::NUMERIC / NULLIF(pce.total_copies, 0)),
+    (pce.unique_viewers::NUMERIC / NULLIF(pce.total_copies, 0)),
     2
-  ) as pdp_to_copies_ratio,
+  ) as unique_views_to_copies_ratio,
   ROUND(
     (pce.total_copies::NUMERIC / NULLIF(pce.unique_viewers, 0)) * 100,
     2
@@ -55,8 +56,8 @@ CROSS JOIN percentile_thresholds p
 WHERE
   -- Must be in top 25% for PDP views
   pce.total_pdp_views >= p.pdp_views_p75
-  -- High PDP views to copies ratio (>= 7:1)
-  AND (pce.total_pdp_views::NUMERIC / NULLIF(pce.total_copies, 0)) >= 7
+  -- High unique viewers to copies ratio (>= 7:1)
+  AND (pce.unique_viewers::NUMERIC / NULLIF(pce.total_copies, 0)) >= 7
 ORDER BY pce.total_pdp_views DESC
 LIMIT 10;
 
