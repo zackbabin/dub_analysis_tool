@@ -38,6 +38,49 @@ interface SyncStats {
   totalRecordsInserted: number
 }
 
+/**
+ * Simple concurrency limiter (p-limit pattern)
+ * Ensures max N promises run concurrently
+ */
+function pLimit(concurrency: number) {
+  const queue: Array<() => void> = []
+  let activeCount = 0
+
+  const next = () => {
+    activeCount--
+    if (queue.length > 0) {
+      const resolve = queue.shift()!
+      resolve()
+    }
+  }
+
+  const run = async <T>(fn: () => Promise<T>): Promise<T> => {
+    return new Promise((resolve) => {
+      const execute = () => {
+        activeCount++
+        fn().then(
+          (result) => {
+            next()
+            resolve(result)
+          },
+          (error) => {
+            next()
+            throw error
+          }
+        )
+      }
+
+      if (activeCount < concurrency) {
+        execute()
+      } else {
+        queue.push(execute)
+      }
+    })
+  }
+
+  return run
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -99,58 +142,75 @@ serve(async (req) => {
         secret: mixpanelSecret,
       }
 
-      // Fetch data in batches to avoid Mixpanel rate limits (max 5 concurrent queries)
-      // Using 3 batches to ensure we never exceed 5 concurrent calls
+      // Fetch data with controlled concurrency to respect Mixpanel rate limits
+      // Max 5 concurrent queries allowed by Mixpanel - we use 4 for safety
+      console.log('Fetching all 8 charts with max 4 concurrent requests...')
+      const CONCURRENCY_LIMIT = 4
+      const limit = pLimit(CONCURRENCY_LIMIT)
 
-      // Batch 1: Time funnels (3 charts)
-      console.log('Fetching batch 1: Time funnels (3 charts)...')
-      const [timeToFirstCopyData, timeToFundedData, timeToLinkedData] =
-        await Promise.all([
+      const [
+        timeToFirstCopyData,
+        timeToFundedData,
+        timeToLinkedData,
+        subscribersData,
+        profileViewsData,
+        pdpViewsData,
+        subscriptionsData,
+        copiesData,
+      ] = await Promise.all([
+        limit(() =>
           fetchFunnelData(
             credentials,
             CHART_IDS.timeToFirstCopy,
             'Time to First Copy',
             fromDate,
             toDate
-          ),
+          )
+        ),
+        limit(() =>
           fetchFunnelData(
             credentials,
             CHART_IDS.timeToFundedAccount,
             'Time to Funded Account',
             fromDate,
             toDate
-          ),
+          )
+        ),
+        limit(() =>
           fetchFunnelData(
             credentials,
             CHART_IDS.timeToLinkedBank,
             'Time to Linked Bank',
             fromDate,
             toDate
-          ),
-        ])
-
-      console.log('✓ Batch 1 complete')
-
-      // Batch 2: User insights + profile views (2 charts)
-      console.log('Fetching batch 2: User insights (2 charts)...')
-      const [subscribersData, profileViewsData] = await Promise.all([
-        fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights'),
-        fetchInsightsData(credentials, CHART_IDS.profileViewsByCreator, 'Profile Views by Creator'),
+          )
+        ),
+        limit(() =>
+          fetchInsightsData(credentials, CHART_IDS.subscribersInsights, 'Subscribers Insights')
+        ),
+        limit(() =>
+          fetchInsightsData(
+            credentials,
+            CHART_IDS.profileViewsByCreator,
+            'Profile Views by Creator'
+          )
+        ),
+        limit(() =>
+          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio')
+        ),
+        limit(() =>
+          fetchInsightsData(
+            credentials,
+            CHART_IDS.subscriptionsByCreator,
+            'Subscriptions by Creator'
+          )
+        ),
+        limit(() =>
+          fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator')
+        ),
       ])
 
-      console.log('✓ Batch 2 complete')
-
-      // Batch 3: Engagement analysis (3 charts)
-      console.log('Fetching batch 3: Engagement analysis (3 charts)...')
-      const [pdpViewsData, subscriptionsData, copiesData] = await Promise.all([
-        fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio'),
-        fetchInsightsData(credentials, CHART_IDS.subscriptionsByCreator, 'Subscriptions by Creator'),
-        fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator'),
-      ])
-
-      console.log('✓ Batch 3 complete')
-
-      console.log('All data fetched successfully')
+      console.log('✓ All 8 charts fetched successfully with controlled concurrency')
 
       // Process and insert data into database
       const stats: SyncStats = {
