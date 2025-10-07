@@ -145,43 +145,49 @@ class SupabaseIntegration {
             console.log('✅ Step 1/4 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
-            // Parts 2-3: Sync funnels and engagement in parallel (respects Mixpanel rate limits)
-            // Funnels uses 3 concurrent queries, Engagement uses 4 concurrent queries
-            // Running both = max 4-5 concurrent (under Mixpanel's 5 limit)
-            console.log('⏱️ Steps 2-3: Syncing funnels and engagement in parallel...');
+            // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
+            // Funnels uses 3 concurrent queries internally which can cause rate limits
+            // console.log('⏱️ Step 2/4: Syncing funnels...');
+            // const { data: funnelsData, error: funnelsError } = await this.supabase.functions.invoke('sync-mixpanel-funnels', {
+            //     body: {}
+            // });
+            //
+            // // Check funnels result
+            // if (funnelsError) {
+            //     console.error('❌ Funnels sync error:', funnelsError);
+            //     if (funnelsError.message?.includes('Failed to send')) {
+            //         throw new Error(`Funnels sync failed: Edge Function 'sync-mixpanel-funnels' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-funnels`);
+            //     }
+            //     throw new Error(`Funnels sync failed: ${funnelsError.message || JSON.stringify(funnelsError)}`);
+            // }
+            // if (!funnelsData || !funnelsData.success) {
+            //     throw new Error(`Funnels sync failed: ${funnelsData?.error || 'Unknown error'}`);
+            // }
+            // console.log('✅ Step 2/4 complete: Time funnels synced successfully');
+            // console.log('   Stats:', funnelsData.stats);
+            console.log('⏭️ Step 2/4: Funnels sync temporarily disabled');
+            const funnelsData = { stats: { skipped: true } };
 
-            const [funnelsResult, engagementResult] = await Promise.all([
-                this.supabase.functions.invoke('sync-mixpanel-funnels', { body: {} }),
-                this.supabase.functions.invoke('sync-mixpanel-engagement', { body: {} })
-            ]);
-
-            // Check funnels result
-            if (funnelsResult.error) {
-                console.error('❌ Funnels sync error:', funnelsResult.error);
-                if (funnelsResult.error.message?.includes('Failed to send')) {
-                    throw new Error(`Funnels sync failed: Edge Function 'sync-mixpanel-funnels' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-funnels`);
-                }
-                throw new Error(`Funnels sync failed: ${funnelsResult.error.message || JSON.stringify(funnelsResult.error)}`);
-            }
-            if (!funnelsResult.data || !funnelsResult.data.success) {
-                throw new Error(`Funnels sync failed: ${funnelsResult.data?.error || 'Unknown error'}`);
-            }
-            console.log('✅ Step 2/4 complete: Time funnels synced successfully');
-            console.log('   Stats:', funnelsResult.data.stats);
+            // Part 3: Sync engagement
+            // Engagement uses 4 concurrent queries internally
+            console.log('📊 Step 3/4: Syncing engagement...');
+            const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
+                body: {}
+            });
 
             // Check engagement result
-            if (engagementResult.error) {
-                console.error('❌ Engagement sync error:', engagementResult.error);
-                if (engagementResult.error.message?.includes('Failed to send')) {
+            if (engagementError) {
+                console.error('❌ Engagement sync error:', engagementError);
+                if (engagementError.message?.includes('Failed to send')) {
                     throw new Error(`Engagement sync failed: Edge Function 'sync-mixpanel-engagement' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-engagement`);
                 }
-                throw new Error(`Engagement sync failed: ${engagementResult.error.message || JSON.stringify(engagementResult.error)}`);
+                throw new Error(`Engagement sync failed: ${engagementError.message || JSON.stringify(engagementError)}`);
             }
-            if (!engagementResult.data || !engagementResult.data.success) {
-                throw new Error(`Engagement sync failed: ${engagementResult.data?.error || 'Unknown error'}`);
+            if (!engagementData || !engagementData.success) {
+                throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
             }
             console.log('✅ Step 3/4 complete: Engagement data synced successfully');
-            console.log('   Stats:', engagementResult.data.stats);
+            console.log('   Stats:', engagementData.stats);
 
             // Part 4: Portfolio events (separate - uses different Insights chart)
             console.log('📊 Step 4/4: Syncing portfolio events...');
@@ -213,8 +219,8 @@ class SupabaseIntegration {
                 success: true,
                 message: 'Full Mixpanel sync completed successfully',
                 users: usersData.stats,
-                funnels: funnelsResult.data.stats,
-                engagement: engagementResult.data.stats,
+                funnels: funnelsData.stats,
+                engagement: engagementData.stats,
                 portfolioEvents: portfolioData.stats || { skipped: true }
             };
         } catch (error) {

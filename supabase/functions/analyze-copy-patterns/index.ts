@@ -319,9 +319,8 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topPortfolios, 3)) {
       const result = evaluateCombination(combo, users)
 
-      if (result.users_with_exposure >= users.length * 0.05) {
-        results.push(result)
-      }
+      // Keep all combinations - sorting will surface the best ones
+      results.push(result)
 
       processed++
       if (processed % 500 === 0) {
