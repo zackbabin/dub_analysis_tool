@@ -74,15 +74,8 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 14 days) - reduced from 30 to avoid timeout
-      const today = new Date()
-      const fourteenDaysAgo = new Date()
-      fourteenDaysAgo.setDate(today.getDate() - 14)
-
-      const toDate = today.toISOString().split('T')[0]
-      const fromDate = fourteenDaysAgo.toISOString().split('T')[0]
-
-      console.log(`Fetching data from ${fromDate} to ${toDate} (14-day window)`)
+      // Date range configured in Mixpanel chart settings
+      console.log(`Fetching data from Mixpanel charts (date range configured in charts)`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,

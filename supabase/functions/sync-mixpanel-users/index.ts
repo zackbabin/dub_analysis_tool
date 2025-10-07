@@ -75,15 +75,8 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 30 days)
-      const today = new Date()
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(today.getDate() - 30)
-
-      const toDate = today.toISOString().split('T')[0]
-      const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
-
-      console.log(`Fetching data from ${fromDate} to ${toDate}`)
+      // Date range configured in Mixpanel chart settings
+      console.log(`Fetching data from Mixpanel chart (date range configured in chart)`)
       console.log(`Mixpanel username: ${mixpanelUsername?.substring(0, 10)}...`)
 
       const credentials: MixpanelCredentials = {

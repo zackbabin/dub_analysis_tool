@@ -71,7 +71,8 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 30 days)
+      // Funnels API requires date parameters - use 30-day window as safe default
+      // Actual data returned determined by Mixpanel chart configuration
       const today = new Date()
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(today.getDate() - 30)
@@ -79,7 +80,8 @@ serve(async (req) => {
       const toDate = today.toISOString().split('T')[0]
       const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
 
-      console.log(`Fetching data from ${fromDate} to ${toDate}`)
+      console.log(`Fetching funnel data (${fromDate} to ${toDate})`)
+      console.log(`Actual data returned determined by Mixpanel chart configuration`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
