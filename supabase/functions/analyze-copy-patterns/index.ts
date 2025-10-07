@@ -297,9 +297,9 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get ALL portfolios with at least 1 user (maximum coverage)
+    // Get portfolios with at least 3 users (balances coverage vs timeout risk)
     // Combinations are filtered by ≥1 exposure AND ≥1 conversion
-    const allPortfolios = getTopPortfolios(users, 1) // Min 1 user per portfolio
+    const allPortfolios = getTopPortfolios(users, 3) // Min 3 users per portfolio
 
     // Safety limit: Cap at 200 portfolios to prevent timeout
     // 200 portfolios = 1,313,400 combinations (~4-5 min processing time)

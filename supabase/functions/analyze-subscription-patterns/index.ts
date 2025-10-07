@@ -294,9 +294,9 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get ALL creators with at least 1 user (maximum coverage)
+    // Get creators with at least 3 users (balances coverage vs timeout risk)
     // Combinations are filtered by ≥1 exposure AND ≥1 subscription
-    const allCreators = getTopCreators(users, 1) // Min 1 user per creator
+    const allCreators = getTopCreators(users, 3) // Min 3 users per creator
 
     // Safety limit: Cap at 200 creators to prevent timeout
     // 200 creators = 1,313,400 combinations (~4-5 min processing time)

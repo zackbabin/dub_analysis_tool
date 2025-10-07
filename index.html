@@ -368,6 +368,50 @@
         .info-tooltip .tooltip-text li {
             margin-bottom: 4px;
         }
+
+        /* Sub-tab Navigation (for User Analysis results) */
+        .sub-tab-navigation {
+            max-width: 1200px;
+            margin: 20px auto;
+            display: flex;
+            gap: 8px;
+            border-bottom: 2px solid #dee2e6;
+            justify-content: flex-start;
+            padding-left: 0;
+        }
+
+        .sub-tab-btn {
+            background: white;
+            color: #6c757d;
+            padding: 10px 20px;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            outline: none;
+        }
+
+        .sub-tab-btn:hover {
+            color: #17a2b8;
+            background: #f8f9fa;
+        }
+
+        .sub-tab-btn.active {
+            color: #17a2b8;
+            border-bottom-color: #17a2b8;
+            background: white;
+        }
+
+        /* Sub-tab Content */
+        .sub-tab-pane {
+            display: none;
+        }
+
+        .sub-tab-pane.active {
+            display: block;
+        }
     </style>
 </head>
 <body>

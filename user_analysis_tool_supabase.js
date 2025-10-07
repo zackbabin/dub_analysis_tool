@@ -168,63 +168,58 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         resultsDiv.className = 'qda-analysis-results';
         this.outputContainer.appendChild(resultsDiv);
 
-        // Create containers for base analysis (parent functions need these in DOM)
+        // Create sub-tab navigation and content structure
         resultsDiv.innerHTML = `
-            <div id="qdaSummaryStatsInline"></div>
-            <div id="qdaDemographicBreakdownInline"></div>
-            <div id="qdaPersonaBreakdownInline"></div>
-            <div id="qdaCombinedResultsInline"></div>
+            <!-- Sub-tab Navigation -->
+            <div class="sub-tab-navigation">
+                <button class="sub-tab-btn active" data-subtab="summary">Summary Stats</button>
+                <button class="sub-tab-btn" data-subtab="portfolio">Portfolio Analysis</button>
+                <button class="sub-tab-btn" data-subtab="subscription">Subscription Analysis</button>
+                <button class="sub-tab-btn" data-subtab="creator">Creator Analysis</button>
+            </div>
+
+            <!-- Summary Stats Tab -->
+            <div id="summary-subtab" class="sub-tab-pane active">
+                <div id="qdaSummaryStatsInline"></div>
+                <div id="qdaDemographicBreakdownInline"></div>
+                <div id="qdaPersonaBreakdownInline"></div>
+            </div>
+
+            <!-- Portfolio Analysis Tab -->
+            <div id="portfolio-subtab" class="sub-tab-pane">
+                <div id="qdaDepositFundsInline"></div>
+                <div id="qdaPortfolioCopiesInline"></div>
+            </div>
+
+            <!-- Subscription Analysis Tab -->
+            <div id="subscription-subtab" class="sub-tab-pane">
+                <div id="qdaSubscriptionsInline"></div>
+                <div id="qdaSubscriptionPriceInline"></div>
+            </div>
+
+            <!-- Creator Analysis Tab -->
+            <div id="creator-subtab" class="sub-tab-pane">
+                <!-- This will be rendered by parent class -->
+            </div>
         `;
 
-        // Display base results using parent's functions (now elements are in DOM)
+        // Initialize sub-tab switching
+        this.initializeSubTabs();
+
+        // Display Summary Stats sections
         displaySummaryStatsInline(results.summaryStats);
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
 
-        // Load tipping points
+        // Load tipping points and prepare correlation/regression data
         const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
         const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
-        displayCombinedAnalysisInline(results.correlationResults, results.regressionResults, null, tippingPoints);
 
-        // Inject Copy Engagement, Hidden Gems, and Portfolio Sequences into Portfolio Copies section in Behavioral Analysis
-        const behavioralSection = document.getElementById('qdaCombinedResultsInline');
-        if (behavioralSection) {
-            // Find the Portfolio Copies h2 and insert metric boxes, hidden gems, and header BEFORE table, then combinations and sequences AFTER table
-            const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
-            if (portfolioCopiesH2) {
-                const table = portfolioCopiesH2.nextElementSibling;
-                if (table) {
-                    const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
-                    const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-                    const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-                    const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+        // Render Portfolio Analysis content
+        this.renderPortfolioAnalysis(results.correlationResults, results.regressionResults, tippingPoints, copyEngagementSummary, hiddenGems, hiddenGemsSummary, topCopyCombos, topSequences);
 
-                    // Insert metrics, hidden gems, and correlation header BEFORE the correlation table
-                    table.insertAdjacentHTML('beforebegin', metricsHTML + hiddenGemsHTML + correlationHeaderHTML);
-                    // Insert combinations and sequences AFTER the correlation table
-                    table.insertAdjacentHTML('afterend', combinationsHTML + portfolioSequencesHTML);
-                }
-            }
-        }
-
-        // Inject Subscription Engagement into Subscriptions section in Behavioral Analysis
-        if (behavioralSection) {
-            const subscriptionsH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
-            if (subscriptionsH2) {
-                const table = subscriptionsH2.nextElementSibling;
-                if (table) {
-                    const metricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
-                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
-                    const combinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
-
-                    // Insert metrics and correlation header BEFORE the correlation table
-                    table.insertAdjacentHTML('beforebegin', metricsHTML + correlationHeaderHTML);
-                    // Insert combinations AFTER the correlation table
-                    table.insertAdjacentHTML('afterend', combinationsHTML);
-                }
-            }
-        }
+        // Render Subscription Analysis content (includes subscription price distribution)
+        this.renderSubscriptionAnalysis(results.correlationResults, results.regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos, results.summaryStats);
 
         // Add timestamp after all rendering is complete
         const timestampStr = new Date().toLocaleString('en-US', {
@@ -300,7 +295,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-creator combinations that drive subscriptions:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Max 200 creators analyzed, ≥1 user viewed all 3, ≥1 subscription occurred</li>
+                    <li><strong>Filters:</strong> Min 3 users per creator, max 200 creators analyzed, ≥1 user viewed all 3, ≥1 subscription occurred</li>
                     <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
@@ -492,7 +487,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-portfolio combinations that drive copies:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Max 200 portfolios analyzed, ≥1 user viewed all 3, ≥1 copy occurred</li>
+                    <li><strong>Filters:</strong> Min 3 users per portfolio, max 200 portfolios analyzed, ≥1 user viewed all 3, ≥1 copy occurred</li>
                     <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
@@ -654,6 +649,137 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         );
 
         return parts.join('');
+    }
+
+    /**
+     * Initialize sub-tab switching functionality
+     */
+    initializeSubTabs() {
+        const subTabButtons = document.querySelectorAll('.sub-tab-btn');
+        const subTabPanes = document.querySelectorAll('.sub-tab-pane');
+
+        subTabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const targetSubTab = button.getAttribute('data-subtab');
+
+                // Remove active class from all buttons and panes
+                subTabButtons.forEach(btn => btn.classList.remove('active'));
+                subTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to clicked button
+                button.classList.add('active');
+
+                // Show corresponding sub-tab pane
+                const targetPane = document.getElementById(`${targetSubTab}-subtab`);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
+    }
+
+    /**
+     * Render Portfolio Analysis tab content
+     */
+    renderPortfolioAnalysis(correlationResults, regressionResults, tippingPoints, copyEngagementSummary, hiddenGems, hiddenGemsSummary, topCopyCombos, topSequences) {
+        const portfolioContainer = document.getElementById('qdaPortfolioCopiesInline');
+        const depositContainer = document.getElementById('qdaDepositFundsInline');
+
+        if (!portfolioContainer || !depositContainer) return;
+
+        // Filter correlation/regression data for Portfolio Copies and Deposit Funds
+        const portfolioCopiesCorr = correlationResults.find(r => r.outcome === 'totalCopies');
+        const depositFundsCorr = correlationResults.find(r => r.outcome === 'totalDeposits');
+
+        // Render Deposit Funds section
+        if (depositFundsCorr) {
+            const depositSection = document.createElement('div');
+            depositSection.className = 'qda-result-section';
+            depositSection.innerHTML = '<h2>Deposit Funds</h2>';
+            depositContainer.appendChild(depositSection);
+
+            // Use parent class method to render regression table
+            displayRegressionTableInline(depositSection, [depositFundsCorr], tippingPoints);
+        }
+
+        // Render Portfolio Copies section
+        if (portfolioCopiesCorr) {
+            const portfolioSection = document.createElement('div');
+            portfolioSection.className = 'qda-result-section';
+            portfolioSection.innerHTML = '<h2>Portfolio Copies</h2>';
+            portfolioContainer.appendChild(portfolioSection);
+
+            // Add metrics, hidden gems, and correlation header
+            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+            const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
+            portfolioSection.insertAdjacentHTML('beforeend', metricsHTML + hiddenGemsHTML + correlationHeaderHTML);
+
+            // Use parent class method to render regression table
+            displayRegressionTableInline(portfolioSection, [portfolioCopiesCorr], tippingPoints);
+
+            // Add combinations and sequences after table
+            const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+            const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+            portfolioSection.insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+        }
+    }
+
+    /**
+     * Render Subscription Analysis tab content
+     */
+    renderSubscriptionAnalysis(correlationResults, regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos) {
+        const subscriptionContainer = document.getElementById('qdaSubscriptionsInline');
+        const priceContainer = document.getElementById('qdaSubscriptionPriceInline');
+
+        if (!subscriptionContainer) return;
+
+        // Filter correlation data for Subscriptions
+        const subscriptionsCorr = correlationResults.find(r => r.outcome === 'totalSubscriptions');
+
+        if (subscriptionsCorr) {
+            const subscriptionSection = document.createElement('div');
+            subscriptionSection.className = 'qda-result-section';
+            subscriptionSection.innerHTML = '<h2>Subscriptions</h2>';
+            subscriptionContainer.appendChild(subscriptionSection);
+
+            // Add metrics and correlation header
+            const metricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
+            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
+            subscriptionSection.insertAdjacentHTML('beforeend', metricsHTML + correlationHeaderHTML);
+
+            // Use parent class method to render regression table
+            displayRegressionTableInline(subscriptionSection, [subscriptionsCorr], tippingPoints);
+
+            // Add combinations after table
+            const combinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
+            subscriptionSection.insertAdjacentHTML('beforeend', combinationsHTML);
+        }
+
+        // Add subscription price distribution placeholder
+        if (priceContainer) {
+            priceContainer.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Subscription Price Distribution</h2>
+                    <p style="color: #6c757d; font-style: italic;">Subscription price analysis will be integrated from Creator Analysis tab.</p>
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Render Creator Analysis tab placeholder
+     */
+    renderCreatorAnalysis() {
+        const creatorContainer = document.getElementById('qdaCreatorAnalysisPlaceholder');
+        if (!creatorContainer) return;
+
+        creatorContainer.innerHTML = `
+            <div class="qda-result-section">
+                <h2>Creator Analysis</h2>
+                <p style="color: #6c757d; font-style: italic;">Switch to the "Creator Analysis" main tab above to view detailed creator metrics and analysis.</p>
+            </div>
+        `;
     }
 
 }

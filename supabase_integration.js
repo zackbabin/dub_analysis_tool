@@ -728,10 +728,22 @@ class SupabaseIntegration {
                     throw error;
                 }
 
+                console.log(`✅ Loaded ${data?.length || 0} ${analysisType} combinations (minExposure=${minExposure})`);
+
+                // Debug: show filter values if no data returned
+                if (!data || data.length === 0) {
+                    console.warn(`No ${analysisType} combinations found. Query filters:`, {
+                        analysis_type: analysisType,
+                        minExposure: minExposure,
+                        limit: limit,
+                        metric: metric
+                    });
+                }
+
                 // Usernames are now stored directly in the table by the analysis function
                 // No runtime mapping needed - username_1, username_2, username_3 columns are populated
                 if (mapUsernames && data && data.length > 0) {
-                    console.log(`✅ Loaded ${data.length} combinations with usernames from database`);
+                    console.log(`Combinations include usernames from database`);
                     console.log('Sample combo:', {
                         value_1: data[0].value_1,
                         username_1: data[0].username_1,
@@ -740,8 +752,7 @@ class SupabaseIntegration {
                     });
                 }
 
-                console.log(`✅ Loaded ${data.length} ${analysisType} combinations`);
-                return data;
+                return data || [];
             } catch (error) {
                 console.error(`Error loading ${analysisType} combinations:`, error);
                 throw error;
