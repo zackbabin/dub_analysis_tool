@@ -124,15 +124,14 @@ serve(async (req) => {
         secret: mixpanelSecret,
       }
 
-      // Fetch portfolio view events only (with email filter to reduce volume)
+      // Fetch portfolio view events only
       console.log('Fetching portfolio view events from Event Export API...')
 
       const portfolioViewEvents = await fetchPortfolioViewEvents(
         credentials,
         fromDate,
         toDate,
-        'Viewed Portfolio Details',
-        'defined(user["$email"])'
+        'Viewed Portfolio Details'
       )
 
       console.log('✓ Portfolio events fetched successfully')
