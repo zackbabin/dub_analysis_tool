@@ -81,15 +81,8 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
-      // Date range (last 30 days) - for funnels
-      const today = new Date()
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(today.getDate() - 30)
-
-      const toDate = today.toISOString().split('T')[0]
-      const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
-
-      console.log(`Fetching data from ${fromDate} to ${toDate}`)
+      // Date range configured in Mixpanel chart settings
+      console.log(`Fetching data from Mixpanel charts (date range configured in each chart)`)
 
       // Fetch all charts in parallel
       const [creatorInsightsData, subscriptionPricingData] = await Promise.all([
