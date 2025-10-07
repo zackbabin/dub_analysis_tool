@@ -5,15 +5,14 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Configuration
-const PROJECT_ID = '2599235'
-const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
+import {
+  MIXPANEL_CONFIG,
+  CORS_HEADERS,
+  type MixpanelCredentials,
+  pLimit,
+  fetchFunnelData,
+} from '../_shared/mixpanel-api.ts'
+import { processFunnelData } from '../_shared/data-processing.ts'
 
 const CHART_IDS = {
   timeToFirstCopy: '84999271',
@@ -21,63 +20,15 @@ const CHART_IDS = {
   timeToLinkedBank: '84999265',
 }
 
-interface MixpanelCredentials {
-  username: string
-  secret: string
-}
-
 interface SyncStats {
   timeFunnelsFetched: number
   totalRecordsInserted: number
 }
 
-/**
- * Simple concurrency limiter (p-limit pattern)
- * Ensures max N promises run concurrently
- */
-function pLimit(concurrency: number) {
-  const queue: Array<() => void> = []
-  let activeCount = 0
-
-  const next = () => {
-    activeCount--
-    if (queue.length > 0) {
-      const resolve = queue.shift()!
-      resolve()
-    }
-  }
-
-  const run = async <T>(fn: () => Promise<T>): Promise<T> => {
-    return new Promise((resolve) => {
-      const execute = () => {
-        activeCount++
-        fn().then(
-          (result) => {
-            next()
-            resolve(result)
-          },
-          (error) => {
-            next()
-            throw error
-          }
-        )
-      }
-
-      if (activeCount < concurrency) {
-        execute()
-      } else {
-        queue.push(execute)
-      }
-    })
-  }
-
-  return run
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
@@ -242,7 +193,7 @@ serve(async (req) => {
           stats,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           status: 200,
         }
       )
@@ -261,7 +212,7 @@ serve(async (req) => {
       throw error
     }
   } catch (error) {
-    console.error('Error in sync-mixpanel-engagement function:', error)
+    console.error('Error in sync-mixpanel-funnels function:', error)
 
     return new Response(
       JSON.stringify({
@@ -270,113 +221,9 @@ serve(async (req) => {
         details: error?.stack || String(error)
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
       }
     )
   }
 })
-
-// ============================================================================
-// Helper Functions - Mixpanel API
-// ============================================================================
-
-async function fetchFunnelData(
-  credentials: MixpanelCredentials,
-  funnelId: string,
-  name: string,
-  fromDate: string,
-  toDate: string
-) {
-  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    funnel_id: funnelId,
-    from_date: fromDate,
-    to_date: toDate,
-    users: 'true', // Request user-level data
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  console.log(`Response structure:`, JSON.stringify(Object.keys(data), null, 2))
-  if (data.data) {
-    console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
-  }
-  return data
-}
-
-// ============================================================================
-// Helper Functions - Data Processing
-// ============================================================================
-
-function processFunnelData(data: any, funnelType: string): any[] {
-  if (!data || !data.data) {
-    console.log(`No funnel data for ${funnelType}`)
-    return []
-  }
-
-  const rows: any[] = []
-
-  // Funnels API returns data grouped by date, then by distinct_id
-  // Structure: { data: { "2025-09-29": { "$overall": [...], "distinct_id_1": [...], ... } } }
-
-  Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
-    if (!dateData || typeof dateData !== 'object') return
-
-    Object.entries(dateData).forEach(([key, steps]: [string, any]) => {
-      // Skip $overall aggregate
-      if (key === '$overall') return
-
-      // Key can be distinct_id or $device:xxx format
-      let distinctId = key
-
-      // If it's a device ID format, extract just the device ID part
-      if (key.startsWith('$device:')) {
-        distinctId = key.replace('$device:', '')
-      }
-
-      // steps is an array of funnel steps
-      if (!Array.isArray(steps) || steps.length === 0) return
-
-      // Get the last step (final conversion step)
-      const finalStep = steps[steps.length - 1]
-
-      // Only include if user completed the funnel (count > 0 on final step)
-      // and we have a time value
-      if (finalStep.count > 0 && finalStep.avg_time_from_start) {
-        const timeInSeconds = parseFloat(finalStep.avg_time_from_start)
-
-        if (timeInSeconds > 0) {
-          rows.push({
-            distinct_id: distinctId,
-            funnel_type: funnelType,
-            time_in_seconds: timeInSeconds,
-            time_in_days: timeInSeconds / 86400,
-            synced_at: new Date().toISOString(),
-          })
-        }
-      }
-    })
-  })
-
-  console.log(`Processed ${rows.length} ${funnelType} records`)
-  return rows
-}

@@ -5,75 +5,21 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Configuration
-const PROJECT_ID = '2599235'
-const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
-
-// No chart IDs needed - fetches raw events from Event Export API
-
-interface MixpanelCredentials {
-  username: string
-  secret: string
-}
+import {
+  CORS_HEADERS,
+  type MixpanelCredentials,
+  fetchPortfolioViewEvents,
+} from '../_shared/mixpanel-api.ts'
 
 interface SyncStats {
   portfolioEventsFetched: number
   totalRecordsInserted: number
 }
 
-/**
- * Simple concurrency limiter (p-limit pattern)
- * Ensures max N promises run concurrently
- */
-function pLimit(concurrency: number) {
-  const queue: Array<() => void> = []
-  let activeCount = 0
-
-  const next = () => {
-    activeCount--
-    if (queue.length > 0) {
-      const resolve = queue.shift()!
-      resolve()
-    }
-  }
-
-  const run = async <T>(fn: () => Promise<T>): Promise<T> => {
-    return new Promise((resolve) => {
-      const execute = () => {
-        activeCount++
-        fn().then(
-          (result) => {
-            next()
-            resolve(result)
-          },
-          (error) => {
-            next()
-            throw error
-          }
-        )
-      }
-
-      if (activeCount < concurrency) {
-        execute()
-      } else {
-        queue.push(execute)
-      }
-    })
-  }
-
-  return run
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
@@ -131,10 +77,16 @@ serve(async (req) => {
         secret: mixpanelSecret,
       }
 
-      // Fetch portfolio view events only
+      // Fetch portfolio view events only (with email filter to reduce volume)
       console.log('Fetching portfolio view events from Event Export API...')
 
-      const portfolioViewEvents = await fetchPortfolioViewEvents(credentials, fromDate, toDate)
+      const portfolioViewEvents = await fetchPortfolioViewEvents(
+        credentials,
+        fromDate,
+        toDate,
+        'Viewed Portfolio Details',
+        'defined(user["$email"])'
+      )
 
       console.log('✓ Portfolio events fetched successfully')
 
@@ -208,7 +160,7 @@ serve(async (req) => {
           stats,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           status: 200,
         }
       )
@@ -236,392 +188,9 @@ serve(async (req) => {
         details: error?.stack || String(error)
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
       }
     )
   }
 })
-
-// ============================================================================
-// Helper Functions - Mixpanel API
-// ============================================================================
-
-async function fetchInsightsData(
-  credentials: MixpanelCredentials,
-  chartId: string,
-  name: string,
-  retries = 2
-) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    bookmark_id: chartId,
-    limit: '50000',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: authHeader,
-          Accept: 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-
-        // Retry on 502/503/504 errors (server issues)
-        if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
-          console.warn(`⚠️ ${name} returned ${response.status}, retrying (attempt ${attempt + 1}/${retries})...`)
-          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2s before retry
-          continue
-        }
-
-        throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log(`✓ ${name} fetch successful`)
-      return data
-    } catch (error) {
-      if (attempt < retries) {
-        console.warn(`⚠️ ${name} fetch failed, retrying (attempt ${attempt + 1}/${retries})...`)
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        continue
-      }
-      throw error
-    }
-  }
-}
-
-async function fetchFunnelData(
-  credentials: MixpanelCredentials,
-  funnelId: string,
-  name: string,
-  fromDate: string,
-  toDate: string
-) {
-  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    funnel_id: funnelId,
-    from_date: fromDate,
-    to_date: toDate,
-    users: 'true', // Request user-level data
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  console.log(`Response structure:`, JSON.stringify(Object.keys(data), null, 2))
-  if (data.data) {
-    console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
-  }
-  return data
-}
-
-async function fetchPortfolioViewEvents(
-  credentials: MixpanelCredentials,
-  fromDate: string,
-  toDate: string
-) {
-  console.log(`Fetching Portfolio View Events from Event Export API...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    from_date: fromDate,
-    to_date: toDate,
-    event: '["Viewed Portfolio Details"]',
-    where: 'defined(user["$email"])',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  console.log(`Fetching portfolio events from ${fromDate} to ${toDate} (filtering: defined(user["$email"]))`)
-  console.log(`API URL: https://data.mixpanel.com/api/2.0/export?${params}`)
-
-  const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel Event Export API error (${response.status}): ${errorText}`)
-  }
-
-  // Parse JSONL response (one JSON object per line)
-  const text = await response.text()
-  console.log(`Response length: ${text.length} characters`)
-
-  const events: any[] = []
-  let skippedLines = 0
-  let totalLines = 0
-
-  for (const line of text.trim().split('\n')) {
-    if (line.trim()) {
-      totalLines++
-      try {
-        const event = JSON.parse(line)
-
-        // Log first event for debugging
-        if (totalLines === 1) {
-          console.log(`First event sample:`, JSON.stringify(event).substring(0, 500))
-        }
-
-        // Validate required properties
-        if (event.properties?.distinct_id &&
-            event.properties?.portfolioTicker &&
-            event.properties?.time) {
-          events.push(event)
-        } else {
-          skippedLines++
-        }
-      } catch (e) {
-        skippedLines++
-      }
-    }
-  }
-
-  console.log(`Total lines in response: ${totalLines}`)
-  if (skippedLines > 0) {
-    console.log(`Skipped ${skippedLines} invalid portfolio view events`)
-  }
-  console.log(`✓ Fetched ${events.length} valid Portfolio View events`)
-  return events
-}
-
-// ============================================================================
-// Helper Functions - Data Processing
-// ============================================================================
-
-function processFunnelData(data: any, funnelType: string): any[] {
-  if (!data || !data.data) {
-    console.log(`No funnel data for ${funnelType}`)
-    return []
-  }
-
-  const rows: any[] = []
-
-  // Funnels API returns data grouped by date, then by distinct_id
-  // Structure: { data: { "2025-09-29": { "$overall": [...], "distinct_id_1": [...], ... } } }
-
-  Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
-    if (!dateData || typeof dateData !== 'object') return
-
-    Object.entries(dateData).forEach(([key, steps]: [string, any]) => {
-      // Skip $overall aggregate
-      if (key === '$overall') return
-
-      // Key can be distinct_id or $device:xxx format
-      let distinctId = key
-
-      // If it's a device ID format, extract just the device ID part
-      if (key.startsWith('$device:')) {
-        distinctId = key.replace('$device:', '')
-      }
-
-      // steps is an array of funnel steps
-      if (!Array.isArray(steps) || steps.length === 0) return
-
-      // Get the last step (final conversion step)
-      const finalStep = steps[steps.length - 1]
-
-      // Only include if user completed the funnel (count > 0 on final step)
-      // and we have a time value
-      if (finalStep.count > 0 && finalStep.avg_time_from_start) {
-        const timeInSeconds = parseFloat(finalStep.avg_time_from_start)
-
-        if (timeInSeconds > 0) {
-          rows.push({
-            distinct_id: distinctId,
-            funnel_type: funnelType,
-            time_in_seconds: timeInSeconds,
-            time_in_days: timeInSeconds / 86400,
-            synced_at: new Date().toISOString(),
-          })
-        }
-      }
-    })
-  })
-
-  console.log(`Processed ${rows.length} ${funnelType} records`)
-  return rows
-}
-
-function processPortfolioCreatorPairs(
-  profileViewsData: any,
-  pdpViewsData: any,
-  subscriptionsData: any,
-  copiesData: any,
-  syncedAt: string
-): [any[], any[]] {
-  const subscriptionPairs: any[] = []
-  const copyPairs: any[] = []
-
-  // Build creator username map
-  const creatorIdToUsername = new Map<string, string>()
-  const profileMetric = profileViewsData?.series?.['Total Profile Views']
-  if (profileMetric) {
-    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
-
-      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
-
-        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
-          if (username && username !== '$overall' && username !== 'undefined') {
-            if (!creatorIdToUsername.has(creatorId)) {
-              creatorIdToUsername.set(creatorId, username)
-            }
-          }
-        })
-      })
-    })
-  }
-
-  // Build profile view counts map
-  const profileViewCounts = new Map<string, Map<string, number>>()
-  if (profileMetric) {
-    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
-
-      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
-
-        Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
-          if (username && username !== '$overall' && username !== 'undefined') {
-            const count = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
-              ? parseInt(String((viewCount as any).all))
-              : parseInt(String(viewCount)) || 0
-
-            if (count > 0) {
-              if (!profileViewCounts.has(distinctId)) {
-                profileViewCounts.set(distinctId, new Map())
-              }
-              const userCounts = profileViewCounts.get(distinctId)!
-              userCounts.set(creatorId, (userCounts.get(creatorId) || 0) + count)
-            }
-          }
-        })
-      })
-    })
-  }
-
-  // Build subscription users and counts
-  const subscribedUsers = new Set<string>()
-  const subscriptionCounts = new Map<string, number>()
-  const subsMetric = subscriptionsData?.series?.['Total Subscriptions']
-  if (subsMetric) {
-    Object.entries(subsMetric).forEach(([distinctId, data]: [string, any]) => {
-      if (distinctId !== '$overall') {
-        subscribedUsers.add(distinctId)
-        const count = typeof data === 'object' && data !== null && '$overall' in data
-          ? parseInt(String(data['$overall'])) || 1
-          : parseInt(String(data)) || 1
-        subscriptionCounts.set(distinctId, count)
-      }
-    })
-  }
-
-  // Build copied users and counts
-  const copiedUsers = new Set<string>()
-  const copyCounts = new Map<string, number>()
-  const copiesMetric = copiesData?.series?.['Total Copies']
-  if (copiesMetric) {
-    Object.entries(copiesMetric).forEach(([distinctId, data]: [string, any]) => {
-      if (distinctId !== '$overall') {
-        copiedUsers.add(distinctId)
-        const count = typeof data === 'object' && data !== null && '$overall' in data
-          ? parseInt(String(data['$overall'])) || 1
-          : parseInt(String(data)) || 1
-        copyCounts.set(distinctId, count)
-      }
-    })
-  }
-
-  // Process PDP views to create pairs
-  const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
-  if (pdpMetric) {
-    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
-
-      const didSubscribe = subscribedUsers.has(distinctId)
-      const subCount = subscriptionCounts.get(distinctId) || 0
-      const didCopy = copiedUsers.has(distinctId)
-      const copyCount = copyCounts.get(distinctId) || 0
-
-      Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
-        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
-
-        Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
-          if (creatorId === '$overall') return
-
-          const pdpCount = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
-            ? parseInt(String((viewCount as any).all))
-            : parseInt(String(viewCount)) || 0
-          const creatorUsername = creatorIdToUsername.get(creatorId) || null
-          const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
-
-          if (pdpCount > 0) {
-            // Add to subscription pairs
-            subscriptionPairs.push({
-              distinct_id: distinctId,
-              portfolio_ticker: portfolioTicker,
-              creator_id: creatorId,
-              creator_username: creatorUsername,
-              pdp_view_count: pdpCount,
-              profile_view_count: profileViewCount,
-              did_subscribe: didSubscribe,
-              subscription_count: subCount,
-              synced_at: syncedAt,
-            })
-
-            // Add to copy pairs
-            copyPairs.push({
-              distinct_id: distinctId,
-              portfolio_ticker: portfolioTicker,
-              creator_id: creatorId,
-              creator_username: creatorUsername,
-              pdp_view_count: pdpCount,
-              profile_view_count: profileViewCount,
-              did_copy: didCopy,
-              copy_count: copyCount,
-              synced_at: syncedAt,
-            })
-          }
-        })
-      })
-    })
-  }
-
-  console.log(`Processed ${subscriptionPairs.length} subscription pairs and ${copyPairs.length} copy pairs`)
-  return [subscriptionPairs, copyPairs]
-}
