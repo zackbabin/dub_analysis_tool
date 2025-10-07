@@ -145,13 +145,14 @@ class SupabaseIntegration {
             console.log('✅ Step 1/4 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
-            // Parts 2-4: Sync funnels, engagement, and portfolio events in parallel
-            console.log('⏱️ Steps 2-4: Syncing funnels, engagement, and portfolio events in parallel...');
+            // Parts 2-3: Sync funnels and engagement in parallel (respects Mixpanel rate limits)
+            // Funnels uses 3 concurrent queries, Engagement uses 4 concurrent queries
+            // Running both = max 4-5 concurrent (under Mixpanel's 5 limit)
+            console.log('⏱️ Steps 2-3: Syncing funnels and engagement in parallel...');
 
-            const [funnelsResult, engagementResult, portfolioResult] = await Promise.all([
+            const [funnelsResult, engagementResult] = await Promise.all([
                 this.supabase.functions.invoke('sync-mixpanel-funnels', { body: {} }),
-                this.supabase.functions.invoke('sync-mixpanel-engagement', { body: {} }),
-                this.supabase.functions.invoke('sync-mixpanel-portfolio-events', { body: {} })
+                this.supabase.functions.invoke('sync-mixpanel-engagement', { body: {} })
             ]);
 
             // Check funnels result
@@ -182,18 +183,22 @@ class SupabaseIntegration {
             console.log('✅ Step 3/4 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementResult.data.stats);
 
+            // Part 4: Portfolio events (separate - uses different Insights chart)
+            console.log('📊 Step 4/4: Syncing portfolio events...');
+            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('sync-mixpanel-portfolio-events', {
+                body: {}
+            });
+
             // Check portfolio result (non-blocking - will use existing data if fails)
-            let portfolioData = null;
-            if (portfolioResult.error) {
-                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioResult.error);
-                portfolioData = { stats: { skipped: true, reason: portfolioResult.error.message || 'Unknown error' } };
-            } else if (!portfolioResult.data || !portfolioResult.data.success) {
-                console.warn('⚠️ Portfolio events sync failed (continuing with existing data):', portfolioResult.data?.error || 'Unknown error');
-                portfolioData = { stats: { skipped: true, reason: portfolioResult.data?.error || 'Unknown error' } };
+            if (portfolioError) {
+                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioError);
+                portfolioData = { stats: { skipped: true, reason: portfolioError.message || 'Unknown error' } };
+            } else if (!portfolioData || !portfolioData.success) {
+                console.warn('⚠️ Portfolio events sync failed (continuing with existing data):', portfolioData?.error || 'Unknown error');
+                portfolioData = { stats: { skipped: true, reason: portfolioData?.error || 'Unknown error' } };
             } else {
                 console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
-                console.log('   Stats:', portfolioResult.data.stats);
-                portfolioData = portfolioResult.data;
+                console.log('   Stats:', portfolioData.stats);
             }
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
@@ -208,9 +213,9 @@ class SupabaseIntegration {
                 success: true,
                 message: 'Full Mixpanel sync completed successfully',
                 users: usersData.stats,
-                funnels: funnelsData.stats,
-                engagement: engagementData.stats,
-                portfolioEvents: portfolioData.stats
+                funnels: funnelsResult.data.stats,
+                engagement: engagementResult.data.stats,
+                portfolioEvents: portfolioData.stats || { skipped: true }
             };
         } catch (error) {
             console.error('❌ Error during Mixpanel sync:', error);
