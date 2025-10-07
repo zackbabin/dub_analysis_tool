@@ -71,44 +71,49 @@ serve(async (req) => {
     try {
       // Determine sync mode: incremental or full
       let syncMode: 'incremental' | 'full' = 'full'
-      let fromDate: string
       const toDate = new Date().toISOString().split('T')[0]
+
+      // Default to 7-day full sync
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      let fromDate: string = sevenDaysAgo.toISOString().split('T')[0]
 
       if (!forceFullRefresh) {
         // Try to get last event timestamp for incremental sync
-        const { data: lastEventData, error: lastEventError } = await supabase.rpc(
-          'get_last_portfolio_event_timestamp'
-        )
+        try {
+          const { data: lastEventData, error: lastEventError } = await supabase.rpc(
+            'get_last_portfolio_event_timestamp'
+          )
 
-        if (!lastEventError && lastEventData) {
-          // Convert Unix timestamp to date (add 1 second to avoid re-fetching last event)
-          const lastEventDate = new Date((lastEventData + 1) * 1000)
-          const daysSinceLastSync = Math.floor((Date.now() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24))
+          if (lastEventError) {
+            console.warn(`⚠️ Could not get last event timestamp: ${lastEventError.message}`)
+            console.log('Falling back to full 7-day sync')
+          } else if (lastEventData) {
+            // Convert Unix timestamp to date (add 1 second to avoid re-fetching last event)
+            const lastEventDate = new Date((lastEventData + 1) * 1000)
+            const now = new Date()
+            const daysSinceLastSync = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24))
 
-          // Only use incremental if last sync was within 7 days (safety check)
-          if (daysSinceLastSync <= 7) {
-            fromDate = lastEventDate.toISOString().split('T')[0]
-            syncMode = 'incremental'
-            console.log(`📊 Incremental sync mode: Fetching events since ${fromDate} (${daysSinceLastSync} days ago)`)
+            // Validate date is not in the future (safety check for clock skew)
+            if (lastEventDate > now) {
+              console.warn(`⚠️ Last event timestamp is in the future - falling back to full 7-day sync`)
+            }
+            // Only use incremental if last sync was within 7 days (safety check)
+            else if (daysSinceLastSync >= 0 && daysSinceLastSync <= 7) {
+              fromDate = lastEventDate.toISOString().split('T')[0]
+              syncMode = 'incremental'
+              console.log(`📊 Incremental sync mode: Fetching events since ${fromDate} (${daysSinceLastSync} days ago)`)
+            } else {
+              console.log(`⚠️ Last sync was ${daysSinceLastSync} days ago - falling back to full 7-day sync`)
+            }
           } else {
-            // Too much time has passed, do full refresh
-            const sevenDaysAgo = new Date()
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-            fromDate = sevenDaysAgo.toISOString().split('T')[0]
-            console.log(`⚠️ Last sync was ${daysSinceLastSync} days ago - falling back to full 7-day sync`)
+            console.log(`📊 First sync: Fetching last 7 days of events`)
           }
-        } else {
-          // No previous events or error - do full 7-day sync
-          const sevenDaysAgo = new Date()
-          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-          fromDate = sevenDaysAgo.toISOString().split('T')[0]
-          console.log(`📊 First sync: Fetching last 7 days of events`)
+        } catch (rpcError) {
+          console.error('Error calling get_last_portfolio_event_timestamp:', rpcError)
+          console.log('Falling back to full 7-day sync')
         }
       } else {
-        // Force full refresh requested
-        const sevenDaysAgo = new Date()
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        fromDate = sevenDaysAgo.toISOString().split('T')[0]
         console.log(`🔄 Full refresh requested: Fetching last 7 days of events`)
       }
 
