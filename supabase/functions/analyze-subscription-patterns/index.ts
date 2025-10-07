@@ -316,7 +316,8 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topCreators, 3)) {
       const result = evaluateCombination(combo, users)
 
-      if (result.users_with_exposure >= users.length * 0.05) {
+      // Only keep combinations with at least 1 user exposed
+      if (result.users_with_exposure >= 1) {
         results.push(result)
       }
 
