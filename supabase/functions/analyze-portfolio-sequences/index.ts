@@ -42,11 +42,15 @@ async function fetchViewedPortfolioEvents(supabaseClient: any): Promise<any[]> {
   console.log(`Fetching events from ${fromDate.toISOString()} to ${toDate.toISOString()}`)
 
   // Query portfolio_view_events table
+  // Note: Filter by event_time (when event occurred), not synced_at (when data was synced)
+  const fromTimestamp = Math.floor(fromDate.getTime() / 1000) // Convert to Unix timestamp
+  const toTimestamp = Math.floor(toDate.getTime() / 1000)
+
   const { data, error } = await supabaseClient
     .from('portfolio_view_events')
     .select('distinct_id, portfolio_ticker, event_time')
-    .gte('synced_at', fromDate.toISOString())
-    .lte('synced_at', toDate.toISOString())
+    .gte('event_time', fromTimestamp)
+    .lte('event_time', toTimestamp)
 
   if (error) {
     console.error('Error fetching portfolio view events:', error)
