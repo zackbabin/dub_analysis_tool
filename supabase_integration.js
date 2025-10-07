@@ -104,19 +104,20 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Functions (three-part process)
+     * Trigger Mixpanel sync via Supabase Edge Functions (four-part process)
      * Part 1: sync-mixpanel-users (subscribers data - large dataset)
-     * Part 2: sync-mixpanel-engagement (funnels, views, subscriptions, copies + trigger analyses)
-     * Part 3: sync-mixpanel-portfolio-events (raw portfolio view events - high volume)
+     * Part 2: sync-mixpanel-funnels (time funnels only)
+     * Part 3: sync-mixpanel-engagement (views, subscriptions, copies + trigger analyses)
+     * Part 4: sync-mixpanel-portfolio-events (raw portfolio view events - high volume)
      * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel sync (3-part process)...');
+        console.log('🔄 Starting Mixpanel sync (4-part process)...');
 
         try {
             // Part 1: Sync users/subscribers data
-            console.log('📊 Step 1/2: Syncing user/subscriber data...');
+            console.log('📊 Step 1/4: Syncing user/subscriber data...');
             const { data: usersData, error: usersError } = await this.supabase.functions.invoke('sync-mixpanel-users', {
                 body: {}
             });
@@ -141,11 +142,40 @@ class SupabaseIntegration {
                 throw new Error(`Users sync failed: ${usersData?.error || 'Unknown error'}`);
             }
 
-            console.log('✅ Step 1/3 complete: User data synced successfully');
+            console.log('✅ Step 1/4 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
-            // Part 2: Sync engagement data
-            console.log('📈 Step 2/3: Syncing engagement data...');
+            // Part 2: Sync time funnels
+            console.log('⏱️ Step 2/4: Syncing time funnels...');
+            const { data: funnelsData, error: funnelsError } = await this.supabase.functions.invoke('sync-mixpanel-funnels', {
+                body: {}
+            });
+
+            if (funnelsError) {
+                console.error('❌ Funnels sync error:', funnelsError);
+                console.error('Error details:', {
+                    message: funnelsError.message,
+                    context: funnelsError.context,
+                    name: funnelsError.name
+                });
+
+                // Provide more specific error messages
+                if (funnelsError.message?.includes('Failed to send')) {
+                    throw new Error(`Funnels sync failed: Edge Function 'sync-mixpanel-funnels' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-funnels`);
+                }
+
+                throw new Error(`Funnels sync failed: ${funnelsError.message || JSON.stringify(funnelsError)}`);
+            }
+
+            if (!funnelsData || !funnelsData.success) {
+                throw new Error(`Funnels sync failed: ${funnelsData?.error || 'Unknown error'}`);
+            }
+
+            console.log('✅ Step 2/4 complete: Time funnels synced successfully');
+            console.log('   Stats:', funnelsData.stats);
+
+            // Part 3: Sync engagement data
+            console.log('📈 Step 3/4: Syncing engagement data...');
             const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
                 body: {}
             });
@@ -170,11 +200,11 @@ class SupabaseIntegration {
                 throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
             }
 
-            console.log('✅ Step 2/3 complete: Engagement data synced successfully');
+            console.log('✅ Step 3/4 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementData.stats);
 
-            // Part 3: Sync portfolio events
-            console.log('📊 Step 3/3: Syncing portfolio view events...');
+            // Part 4: Sync portfolio events
+            console.log('📊 Step 4/4: Syncing portfolio view events...');
             const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('sync-mixpanel-portfolio-events', {
                 body: {}
             });
@@ -199,7 +229,7 @@ class SupabaseIntegration {
                 throw new Error(`Portfolio events sync failed: ${portfolioData?.error || 'Unknown error'}`);
             }
 
-            console.log('✅ Step 3/3 complete: Portfolio events synced successfully');
+            console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
             console.log('   Stats:', portfolioData.stats);
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
@@ -214,6 +244,7 @@ class SupabaseIntegration {
                 success: true,
                 message: 'Full Mixpanel sync completed successfully',
                 users: usersData.stats,
+                funnels: funnelsData.stats,
                 engagement: engagementData.stats,
                 portfolioEvents: portfolioData.stats
             };
