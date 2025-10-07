@@ -293,10 +293,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        const tooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>High-Impact Creator Combinations</strong>
+                Identifies 3-creator combinations that drive subscriptions:
+                <ul>
+                    <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
+                    <li><strong>Filters:</strong> Min 3 users per creator, max 150 creators analyzed, ≥1 user must view all 3</li>
+                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
+                    <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
+                </ul>
+                Users must view ALL 3 creators to be counted as "exposed."
+            </span>
+        </span>`;
+
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
-                'High-Impact Creator Combinations',
+                `High-Impact Creator Combinations${tooltipHTML}`,
                 'Users who viewed these creator combinations were significantly more likely to subscribe',
                 topCombinations,
                 (combo) => `${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}`,
@@ -318,10 +333,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        const tooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Hidden Gems</strong>
+                Portfolios attracting attention but not yet frequently copied:
+                <ul>
+                    <li><strong>Criteria:</strong> ≥10 total PDP views, ≥5:1 views-to-copies ratio, ≤100 total copies</li>
+                    <li><strong>Data Source:</strong> portfolio_creator_engagement_metrics materialized view</li>
+                    <li><strong>Ranking:</strong> By total PDP views (descending)</li>
+                    <li><strong>Limit:</strong> Top 10 portfolios shown</li>
+                </ul>
+                These portfolios show potential for growth opportunities.
+            </span>
+        </span>`;
+
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            '<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems</h3>',
-            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1)</p>'
+            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems${tooltipHTML}</h3>`,
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1, max 100 copies)</p>'
         ];
 
         // Summary Stats
@@ -455,10 +485,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        const tooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>High-Impact Portfolio Combinations</strong>
+                Identifies 3-portfolio combinations that drive copies:
+                <ul>
+                    <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
+                    <li><strong>Filters:</strong> Min 3 users per portfolio, max 150 portfolios analyzed, ≥1 user must view all 3</li>
+                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
+                    <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
+                </ul>
+                Users must view ALL 3 portfolios to be counted as "exposed."
+            </span>
+        </span>`;
+
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
-                'High-Impact Portfolio Combinations',
+                `High-Impact Portfolio Combinations${tooltipHTML}`,
                 'Users who viewed these portfolio combinations were significantly more likely to copy',
                 topCombinations,
                 (combo) => `${combo.value_1}, ${combo.value_2}, ${combo.value_3}`,
@@ -480,16 +525,44 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        const tooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Portfolio Sequence Analysis</strong>
+                Identifies the first 3 portfolios viewed (in exact order) that drive copies:
+                <ul>
+                    <li><strong>Method:</strong> Logistic regression analyzing sequential viewing patterns</li>
+                    <li><strong>Filters:</strong> Min 3 users per portfolio, ≥1 user with exact sequence</li>
+                    <li><strong>Order Matters:</strong> [A, B, C] is different from [B, A, C]</li>
+                    <li><strong>Ranking:</strong> By AIC - identifies most predictive sequences</li>
+                </ul>
+                Reveals optimal onboarding paths for new users.
+            </span>
+        </span>`;
+
+        const impactTooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Impact (Lift)</strong>
+                Measures conversion likelihood multiplier:
+                <ul>
+                    <li><strong>Formula:</strong> Group conversion rate ÷ Overall baseline rate</li>
+                    <li><strong>Example:</strong> 2.5x means users who viewed this sequence were 2.5 times more likely to convert</li>
+                    <li><strong>Interpretation:</strong> Higher lift = stronger predictive signal</li>
+                </ul>
+            </span>
+        </span>`;
+
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            '<h3 style="margin-top: 1.5rem;">Portfolio Sequence Analysis</h3>',
+            `<h3 style="margin-top: 1.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                     <th style="padding: 0.75rem; text-align: left;">Rank</th>
                     <th style="padding: 0.75rem; text-align: left;">Portfolio Sequence</th>
-                    <th style="padding: 0.75rem; text-align: right;">Impact***</th>
+                    <th style="padding: 0.75rem; text-align: right;">Impact${impactTooltipHTML}</th>
                     <th style="padding: 0.75rem; text-align: right;">Users</th>
                     <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
                     <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
@@ -526,6 +599,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Uses array.join() for optimal string building performance
      */
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
+        const impactTooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Impact (Lift)</strong>
+                Measures conversion likelihood multiplier:
+                <ul>
+                    <li><strong>Formula:</strong> Group conversion rate ÷ Overall baseline rate</li>
+                    <li><strong>Example:</strong> 2.5x means users who viewed this combination were 2.5 times more likely to convert</li>
+                    <li><strong>Interpretation:</strong> Higher lift = stronger predictive signal</li>
+                </ul>
+            </span>
+        </span>`;
+
         const parts = [
             '<div style="margin-top: 2rem;">',
             `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h3>`,
@@ -535,7 +621,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                     <th style="padding: 0.75rem; text-align: left;">Rank</th>
                     <th style="padding: 0.75rem; text-align: left;">${columnLabel}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Impact***</th>
+                    <th style="padding: 0.75rem; text-align: right;">Impact${impactTooltipHTML}</th>
                     <th style="padding: 0.75rem; text-align: right;">Users</th>
                     <th style="padding: 0.75rem; text-align: right;">${conversionLabel}</th>
                     <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
