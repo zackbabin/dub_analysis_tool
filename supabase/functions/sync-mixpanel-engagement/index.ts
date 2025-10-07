@@ -307,21 +307,7 @@ serve(async (req) => {
         .eq('id', syncLogId)
 
       console.log('Engagement sync completed successfully')
-
-      // Refresh materialized view for subscription engagement summary
-      console.log('Refreshing subscription_engagement_summary materialized view...')
-      try {
-        const { error: refreshError } = await supabase.rpc('refresh_subscription_engagement_summary')
-        if (refreshError) {
-          // If the function doesn't exist, try direct SQL
-          await supabase.from('subscription_engagement_summary').select('count').limit(1)
-          console.log('Note: Materialized view may need manual refresh. Run: REFRESH MATERIALIZED VIEW subscription_engagement_summary;')
-        } else {
-          console.log('✓ Materialized view refreshed successfully')
-        }
-      } catch (refreshErr) {
-        console.warn('Could not refresh materialized view automatically:', refreshErr)
-      }
+      console.log('Note: subscription_engagement_summary will be refreshed by analyze-subscription-patterns after pattern analysis completes')
 
       return new Response(
         JSON.stringify({
