@@ -463,9 +463,9 @@ serve(async (req) => {
     }
 
     const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
-    const minExposureCount = Math.ceil(users.length * 0.05)
+    const minExposureCount = 1 // Keep all combinations with at least 1 user
     console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios`)
-    console.log(`Minimum exposure threshold: ${minExposureCount} users (5% of ${users.length})`)
+    console.log(`Minimum exposure threshold: ${minExposureCount} user (keeping all valid combinations)`)
 
     // Pre-compute conversion outcomes array (y) - same for all combinations
     const y = users.map(u => u.did_copy ? 1 : 0)
