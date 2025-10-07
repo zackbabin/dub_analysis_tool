@@ -294,7 +294,9 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    const topCreators = getTopCreators(users, 10).slice(0, 25)
+    // Get ALL creators (no minimum threshold, no top-N limit)
+    // This maximizes input data - filtering happens in UI based on exposure
+    const topCreators = getTopCreators(users, 1) // Min 1 user = include all
 
     if (topCreators.length < 3) {
       return new Response(
@@ -308,7 +310,7 @@ serve(async (_req) => {
     }
 
     const totalCombinations = (topCreators.length * (topCreators.length - 1) * (topCreators.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators`)
+    console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators (all available)`)
 
     const results: CombinationResult[] = []
     let processed = 0

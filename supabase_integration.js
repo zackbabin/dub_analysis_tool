@@ -688,18 +688,19 @@ class SupabaseIntegration {
      * @param {number} limit - Number of results to return
      * @param {boolean} mapUsernames - Whether to map creator IDs to usernames
      */
-    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false) {
+    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false, minExposure = 20) {
         // Create cache key from parameters
-        const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}`;
+        const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}_${minExposure}`;
 
         return this.cachedQuery(cacheKey, async () => {
-            console.log(`Loading top ${analysisType} combinations by ${metric}...`);
+            console.log(`Loading top ${analysisType} combinations by ${metric} (min ${minExposure} users exposed)...`);
 
             try {
                 let query = this.supabase
                     .from('conversion_pattern_combinations')
                     .select('*')
                     .eq('analysis_type', analysisType)
+                    .gte('users_with_exposure', minExposure) // Filter: only combinations with enough users
                     .limit(limit);
 
                 // Sort by the requested metric

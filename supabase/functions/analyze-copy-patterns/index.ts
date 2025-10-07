@@ -297,7 +297,9 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    const topPortfolios = getTopPortfolios(users, 10).slice(0, 25)
+    // Get ALL portfolios (no minimum threshold, no top-N limit)
+    // This maximizes input data - filtering happens in UI based on exposure
+    const topPortfolios = getTopPortfolios(users, 1) // Min 1 user = include all
 
     if (topPortfolios.length < 3) {
       return new Response(
@@ -311,7 +313,7 @@ serve(async (_req) => {
     }
 
     const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios`)
+    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios (all available)`)
 
     const results: CombinationResult[] = []
     let processed = 0
