@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 // Performance configuration
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
-const DAYS_TO_FETCH = 30 // Use same 30-day window as other analyses
+const DAYS_TO_FETCH = 7 // Reduced to match sync-mixpanel-portfolio-events window
 
 interface UserData {
   distinct_id: string

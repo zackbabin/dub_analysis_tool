@@ -1,6 +1,6 @@
 // Supabase Edge Function: sync-mixpanel-users
 // Fetches user/subscriber data from Mixpanel API and stores in Supabase database
-// Part 1 of 2: Handles only subscribers_insights table (isolated due to large dataset)
+// Part 1 of 4: Handles only subscribers_insights table (isolated due to large dataset)
 // Triggered manually by user clicking "Sync Live Data" button
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'

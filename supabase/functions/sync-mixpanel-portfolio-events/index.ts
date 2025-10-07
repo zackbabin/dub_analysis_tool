@@ -1,6 +1,6 @@
 // Supabase Edge Function: sync-mixpanel-portfolio-events
 // Fetches raw portfolio view events from Mixpanel Event Export API
-// Part 3 of 3: Handles only portfolio_view_events table (isolated due to high volume)
+// Part 4 of 4: Handles only portfolio_view_events table (isolated due to high volume)
 // Triggered manually by user clicking "Sync Live Data" button
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -116,15 +116,15 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 14 days) - reduced from 30 to avoid timeout
+      // Date range (last 7 days) - reduced from 14 to avoid timeout on high-volume events
       const today = new Date()
-      const fourteenDaysAgo = new Date()
-      fourteenDaysAgo.setDate(today.getDate() - 14)
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(today.getDate() - 7)
 
       const toDate = today.toISOString().split('T')[0]
-      const fromDate = fourteenDaysAgo.toISOString().split('T')[0]
+      const fromDate = sevenDaysAgo.toISOString().split('T')[0]
 
-      console.log(`Fetching data from ${fromDate} to ${toDate} (14-day window)`)
+      console.log(`Fetching data from ${fromDate} to ${toDate} (7-day window)`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
