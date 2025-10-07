@@ -297,9 +297,15 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get ALL portfolios (no minimum threshold, no top-N limit)
-    // This maximizes input data - filtering happens in UI based on exposure
-    const topPortfolios = getTopPortfolios(users, 1) // Min 1 user = include all
+    // Get ALL portfolios with at least 3 users (balances coverage vs computation)
+    // This maximizes input data while preventing timeout
+    // Filtering by exposure happens in UI (minExposure=20)
+    const allPortfolios = getTopPortfolios(users, 3) // Min 3 users per portfolio
+
+    // Safety limit: Cap at 150 portfolios to prevent timeout
+    // 150 portfolios = 551,300 combinations (~2-3 min processing time)
+    const MAX_PORTFOLIOS = 150
+    const topPortfolios = allPortfolios.slice(0, MAX_PORTFOLIOS)
 
     if (topPortfolios.length < 3) {
       return new Response(
@@ -313,7 +319,7 @@ serve(async (_req) => {
     }
 
     const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios (all available)`)
+    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios (${allPortfolios.length} total available, capped at ${MAX_PORTFOLIOS} for performance)`)
 
     const results: CombinationResult[] = []
     let processed = 0
