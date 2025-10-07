@@ -202,6 +202,8 @@ class SupabaseIntegration {
             console.log('✅ Step 3/3 complete: Portfolio events synced successfully');
             console.log('   Stats:', portfolioData.stats);
 
+            // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
+
             console.log('🎉 Full Mixpanel sync completed successfully!');
 
             // Invalidate all cached queries since data has been refreshed
