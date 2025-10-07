@@ -351,7 +351,7 @@ serve(async (_req) => {
     }
     console.log(`✓ Mapped ${creatorIdToUsername.size} creator IDs to usernames`)
 
-    const insertRows = topResults.map((result, index) => ({
+    const insertRows = results.map((result, index) => ({
       analysis_type: 'subscription',
       combination_rank: index + 1,
       value_1: result.combination[0],
@@ -392,7 +392,7 @@ serve(async (_req) => {
 
     console.log(`✓ Pattern analysis complete: ${insertRows.length} combinations stored`)
 
-    const top10 = topResults.slice(0, 10).map(r => ({
+    const top10 = results.slice(0, 10).map(r => ({
       creators: r.combination,
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,

@@ -542,7 +542,7 @@ serve(async (req) => {
     const totalTime = (Date.now() - startTime) / 1000
     console.log(`\n=== Analysis Complete in ${totalTime.toFixed(2)}s ===`)
 
-    const top10 = topResults.slice(0, 10).map(r => ({
+    const top10 = results.slice(0, 10).map(r => ({
       portfolios: r.combination,
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,
