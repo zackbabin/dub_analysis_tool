@@ -2074,56 +2074,6 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         table.appendChild(tbody);
 
         resultSection.appendChild(table);
-
-        // Add footnotes after the last (Subscriptions) table
-        if (outcome === 'totalSubscriptions') {
-            const footnotes = document.createElement('div');
-            footnotes.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 3px solid #17a2b8; font-size: 13px; line-height: 1.6;';
-            footnotes.innerHTML = `
-                <div style="margin-bottom: 10px;"><strong>* Predictive Strength Calculation:</strong></div>
-                <div style="margin-left: 15px; margin-bottom: 15px;">
-                    Uses a two-stage approach combining statistical significance and effect size:
-                    <br>• <strong>Stage 1:</strong> T-statistic must be ≥1.96 (95% confidence threshold) - filters out non-significant relationships
-                    <br>• <strong>Stage 2:</strong> If significant, combines correlation (90% weight) and T-statistic (10% weight)
-                    <br>• <strong>Correlation</strong> measures effect size - how much the variable actually matters
-                    <br>• <strong>T-statistic</strong> measures confidence - how sure we are the relationship is real
-                    <br>• Heavy weighting on correlation because large datasets make most T-stats significant
-                    <br>• Score ranges: Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5), Very Weak (<0.5 or not significant)
-                </div>
-                <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
-                <div style="margin-left: 15px; margin-bottom: 15px;">
-                    Identifies the variable value where the largest jump in conversion rate occurs:
-                    <br>• Groups users by variable value and calculates conversion rate for each group
-                    <br>• Finds the point where conversion rate increases most dramatically
-                    <br>• Represents the "magic number" threshold where user behavior changes significantly
-                    <br>• Only considers groups with 10+ users and conversion rates >10% to ensure reliability
-                </div>
-                <div style="margin-bottom: 10px;"><strong>*** Impact (Lift) Calculation:</strong></div>
-                <div style="margin-left: 15px; margin-bottom: 15px;">
-                    Measures how many times more likely users who viewed a specific combination are to convert compared to the average user:
-                    <br>• <strong>Example:</strong> 2.5x lift means users who viewed these items were 2.5 times more likely to convert
-                    <br>• Calculated by dividing the conversion rate within the group by the overall baseline conversion rate
-                    <br>• Higher lift indicates stronger predictive power for conversion
-                </div>
-                <div style="margin-bottom: 10px;"><strong>Statistical Methodology:</strong></div>
-                <div style="margin-left: 15px;">
-                    <strong>High-Impact Combinations Analysis:</strong>
-                    <br>• Uses <strong>logistic regression</strong> with Newton-Raphson optimization to model conversion probability
-                    <br>• Tests all 3-item combinations from top 25 creators/portfolios (minimum 10 user exposures each)
-                    <br>• Requires users to view ALL items in combination (not just any one) for exposure classification
-                    <br>• Filters combinations requiring ≥5% of total users exposed for statistical validity
-                    <br>• Ranks by <strong>AIC (Akaike Information Criterion)</strong> - lower values indicate better model fit
-                    <br>• Calculates <strong>odds ratio</strong> (exp(β₁)) to quantify multiplicative effect on conversion odds
-                    <br>• Computes precision, recall, and lift metrics for each combination
-                    <br><br><strong>Correlation & Regression Analysis:</strong>
-                    <br>• <strong>Point-biserial correlation</strong> for binary outcomes vs continuous variables
-                    <br>• <strong>Two-sample t-tests</strong> for statistical significance (p-value threshold: 0.05)
-                    <br>• <strong>Logistic regression</strong> for predicting binary conversion outcomes
-                    <br>• Groups continuous variables into bins to identify non-linear relationships and tipping points
-                </div>
-            `;
-            resultSection.appendChild(footnotes);
-        }
     });
 
     container.appendChild(resultSection);

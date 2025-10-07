@@ -642,12 +642,6 @@ class CreatorAnalysisTool {
 
             const table = this.createBehavioralTable(combinedData);
             section.appendChild(table);
-
-            // Add footnotes after subscriptions table
-            if (config.outcome === 'totalSubscriptions') {
-                const footnotes = this.createFootnotes();
-                section.appendChild(footnotes);
-            }
         });
 
         container.appendChild(section);
@@ -838,34 +832,6 @@ class CreatorAnalysisTool {
         }
     }
 
-    /**
-     * Create footnotes
-     */
-    createFootnotes() {
-        const footnotes = document.createElement('div');
-        footnotes.style.cssText = 'margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 3px solid #17a2b8; font-size: 13px; line-height: 1.6;';
-        footnotes.innerHTML = `
-            <div style="margin-bottom: 10px;"><strong>* Predictive Strength Calculation:</strong></div>
-            <div style="margin-left: 15px; margin-bottom: 15px;">
-                Uses a two-stage approach combining statistical significance and effect size:
-                <br>• <strong>Stage 1:</strong> T-statistic must be ≥1.96 (95% confidence threshold)
-                <br>• <strong>Stage 2:</strong> Combines correlation (90% weight) and T-statistic (10% weight)
-            </div>
-            <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
-            <div style="margin-left: 15px; margin-bottom: 15px;">
-                Identifies the variable value where the largest jump in conversion rate occurs
-            </div>
-            <div style="margin-bottom: 10px;"><strong>Statistical Methodology:</strong></div>
-            <div style="margin-left: 15px;">
-                <strong>Correlation & Regression Analysis:</strong>
-                <br>• <strong>Point-biserial correlation</strong> for binary outcomes vs continuous variables
-                <br>• <strong>Two-sample t-tests</strong> for statistical significance (p-value threshold: 0.05)
-                <br>• <strong>Logistic regression</strong> for predicting binary conversion outcomes
-                <br>• Groups continuous variables into bins to identify non-linear relationships and tipping points
-            </div>
-        `;
-        return footnotes;
-    }
 
     /**
      * Create metric card
