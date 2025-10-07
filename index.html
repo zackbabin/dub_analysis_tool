@@ -295,6 +295,79 @@
         .placeholder-message p {
             font-size: 14px;
         }
+
+        /* Tooltip Styles */
+        .info-tooltip {
+            position: relative;
+            display: inline-block;
+            margin-left: 6px;
+            cursor: help;
+        }
+
+        .info-tooltip .info-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #6c757d;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            font-family: Arial, sans-serif;
+        }
+
+        .info-tooltip .tooltip-text {
+            visibility: hidden;
+            width: 350px;
+            background-color: #2d3748;
+            color: #fff;
+            text-align: left;
+            border-radius: 8px;
+            padding: 12px;
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -175px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 13px;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .info-tooltip .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #2d3748 transparent transparent transparent;
+        }
+
+        .info-tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .info-tooltip .tooltip-text strong {
+            color: #63b3ed;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .info-tooltip .tooltip-text ul {
+            margin: 6px 0;
+            padding-left: 18px;
+        }
+
+        .info-tooltip .tooltip-text li {
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>

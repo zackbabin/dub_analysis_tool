@@ -2014,9 +2014,41 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Variable', 'Correlation', 'T-Statistic', 'Predictive Strength*', 'Tipping Point**'].forEach(header => {
+        const headers = [
+            { text: 'Variable', tooltip: null },
+            { text: 'Correlation', tooltip: null },
+            { text: 'T-Statistic', tooltip: null },
+            {
+                text: 'Predictive Strength',
+                tooltip: `<strong>Predictive Strength</strong>
+                    Combines statistical significance and effect size using a two-stage approach:
+                    <ul>
+                        <li><strong>Stage 1:</strong> T-statistic ≥1.96 (95% confidence)</li>
+                        <li><strong>Stage 2:</strong> Weighted score = Correlation (90%) + T-stat (10%)</li>
+                        <li><strong>Ranges:</strong> Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5)</li>
+                    </ul>
+                    Higher scores indicate stronger and more reliable predictive relationships.`
+            },
+            {
+                text: 'Tipping Point',
+                tooltip: `<strong>Tipping Point</strong>
+                    The "magic number" threshold where user behavior changes significantly:
+                    <ul>
+                        <li>Identifies the value where the largest jump in conversion rate occurs</li>
+                        <li>Only considers groups with 10+ users and >10% conversion rate</li>
+                        <li>Represents the minimum exposure needed for behavioral change</li>
+                    </ul>
+                    Example: If tipping point is 5, users who view 5+ items convert at much higher rates.`
+            }
+        ];
+
+        headers.forEach(headerData => {
             const th = document.createElement('th');
-            th.textContent = header;
+            if (headerData.tooltip) {
+                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
+            } else {
+                th.textContent = headerData.text;
+            }
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
