@@ -700,8 +700,7 @@ class SupabaseIntegration {
                     .from('conversion_pattern_combinations')
                     .select('*')
                     .eq('analysis_type', analysisType)
-                    .gte('users_with_exposure', minExposure) // Filter: only combinations with enough users
-                    .limit(limit);
+                    .gte('users_with_exposure', minExposure); // Filter: only combinations with enough users
 
                 // Sort by the requested metric
                 switch (metric) {
@@ -717,6 +716,9 @@ class SupabaseIntegration {
                     case 'odds_ratio':
                         query = query.order('odds_ratio', { ascending: false });
                         break;
+                    case 'expected_value':
+                        query = query.order('expected_value', { ascending: false });
+                        break;
                     default:
                         query = query.order('combination_rank', { ascending: true });
                 }
@@ -728,10 +730,23 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                console.log(`✅ Loaded ${data?.length || 0} ${analysisType} combinations (minExposure=${minExposure})`);
+                // If sorting by expected_value, calculate it client-side and re-sort
+                // (since it's a computed column that may not exist in the database yet)
+                let sortedData = data || [];
+                if (metric === 'expected_value' && sortedData.length > 0) {
+                    sortedData = sortedData.map(combo => ({
+                        ...combo,
+                        expected_value: combo.lift * (combo.total_conversions || 0)
+                    })).sort((a, b) => b.expected_value - a.expected_value);
+                }
+
+                // Apply limit after sorting
+                sortedData = sortedData.slice(0, limit);
+
+                console.log(`✅ Loaded ${sortedData.length} ${analysisType} combinations (minExposure=${minExposure})`);
 
                 // Debug: show filter values if no data returned
-                if (!data || data.length === 0) {
+                if (sortedData.length === 0) {
                     console.warn(`No ${analysisType} combinations found. Query filters:`, {
                         analysis_type: analysisType,
                         minExposure: minExposure,
@@ -742,17 +757,17 @@ class SupabaseIntegration {
 
                 // Usernames are now stored directly in the table by the analysis function
                 // No runtime mapping needed - username_1, username_2, username_3 columns are populated
-                if (mapUsernames && data && data.length > 0) {
+                if (mapUsernames && sortedData.length > 0) {
                     console.log(`Combinations include usernames from database`);
                     console.log('Sample combo:', {
-                        value_1: data[0].value_1,
-                        username_1: data[0].username_1,
-                        value_2: data[0].value_2,
-                        username_2: data[0].username_2
+                        value_1: sortedData[0].value_1,
+                        username_1: sortedData[0].username_1,
+                        value_2: sortedData[0].value_2,
+                        username_2: sortedData[0].username_2
                     });
                 }
 
-                return data || [];
+                return sortedData;
             } catch (error) {
                 console.error(`Error loading ${analysisType} combinations:`, error);
                 throw error;

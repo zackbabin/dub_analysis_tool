@@ -26,8 +26,34 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Store output containers for each tab
         this.outputContainers = outputContainers;
 
+        // Restore cached results immediately on page load
+        this.restoreAnalysisResults();
+
         // Call parent to create base UI (just the data source selection)
         super.createUI(container, null);
+    }
+
+    /**
+     * Override: Restore cached analysis results for all tabs
+     */
+    restoreAnalysisResults() {
+        try {
+            const saved = localStorage.getItem('dubAnalysisResults');
+            if (saved) {
+                const data = JSON.parse(saved);
+                if (data.summary && data.portfolio && data.subscription && data.creator && this.outputContainers) {
+                    // Restore cached HTML to each tab
+                    this.outputContainers.summary.innerHTML = data.summary;
+                    this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    this.outputContainers.subscription.innerHTML = data.subscription;
+                    this.outputContainers.creator.innerHTML = data.creator;
+
+                    console.log('✅ Restored analysis results from', data.timestamp);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to restore analysis results from localStorage:', e);
+        }
     }
 
     /**
@@ -109,8 +135,43 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Full control over results display with integrated caching
      */
     async displayResults(results) {
-        // Build complete HTML with fresh data (renders to separate tab containers)
+        // Step 1: Try to restore from cache FIRST (instant display)
+        const cached = localStorage.getItem('dubAnalysisResults');
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                if (data.summary && data.portfolio && data.subscription && data.creator && data.timestamp) {
+                    // Restore cached HTML to each tab
+                    this.outputContainers.summary.innerHTML = data.summary;
+                    this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    this.outputContainers.subscription.innerHTML = data.subscription;
+                    this.outputContainers.creator.innerHTML = data.creator;
+
+                    const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
+                    console.log(`✅ Restored complete analysis from cache (${cacheAge} min ago)`);
+                    // Fall through to rebuild with fresh data
+                }
+            } catch (e) {
+                console.warn('Failed to restore from cache, rebuilding:', e);
+            }
+        }
+
+        // Step 2: Build complete HTML with fresh data (modifies DOM directly)
         await this.buildCompleteHTML(results);
+
+        // Step 3: Cache complete rendered HTML for all tabs
+        try {
+            localStorage.setItem('dubAnalysisResults', JSON.stringify({
+                summary: this.outputContainers.summary.innerHTML,
+                portfolio: this.outputContainers.portfolio.innerHTML,
+                subscription: this.outputContainers.subscription.innerHTML,
+                creator: this.outputContainers.creator.innerHTML,
+                timestamp: new Date().toISOString()
+            }));
+            console.log('✅ Cached complete analysis for all tabs');
+        } catch (error) {
+            console.warn('Failed to cache:', error);
+        }
     }
 
     /**
@@ -129,12 +190,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             topSequences
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
+            this.supabaseIntegration.loadTopSubscriptionCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; })
+            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; })
         ]);
 
         // === SUMMARY TAB ===
@@ -155,6 +216,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
         const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
 
+        // Transform correlationResults from object to array format expected by render functions
+        const correlationArray = [
+            { outcome: 'totalCopies', variables: results.correlationResults.totalCopies },
+            { outcome: 'totalDeposits', variables: results.correlationResults.totalDeposits },
+            { outcome: 'totalSubscriptions', variables: results.correlationResults.totalSubscriptions }
+        ];
+
         // === PORTFOLIO TAB ===
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
@@ -164,7 +232,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </div>
         `;
 
-        this.renderPortfolioAnalysis(results.correlationResults, results.regressionResults, tippingPoints, copyEngagementSummary, hiddenGems, hiddenGemsSummary, topCopyCombos, topSequences);
+        this.renderPortfolioAnalysis(correlationArray, results.regressionResults, tippingPoints, copyEngagementSummary, hiddenGems, hiddenGemsSummary, topCopyCombos, topSequences);
 
         // === SUBSCRIPTION TAB ===
         const subscriptionContainer = this.outputContainers.subscription;
@@ -175,7 +243,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </div>
         `;
 
-        this.renderSubscriptionAnalysis(results.correlationResults, results.regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos, results.summaryStats);
+        this.renderSubscriptionAnalysis(correlationArray, results.regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos, results.summaryStats);
 
         // === CREATOR TAB ===
         const creatorContainer = this.outputContainers.creator;
@@ -262,11 +330,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-creator combinations that drive subscriptions:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users per creator, max 200 creators analyzed, ≥1 user viewed all 3, ≥1 subscription occurred</li>
-                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
+                    <li><strong>Filters:</strong> Min 3 users exposed per combination, max 200 creators analyzed</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by AIC. Users must view ALL 3 creators to be counted as "exposed."
+                Shows top 10 combinations sorted by Expected Value. Users must view ALL 3 creators to be counted as "exposed."
             </span>
         </span>`;
 
@@ -454,11 +522,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-portfolio combinations that drive copies:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users per portfolio, max 200 portfolios analyzed, ≥1 user viewed all 3, ≥1 copy occurred</li>
-                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
+                    <li><strong>Filters:</strong> Min 3 users exposed per combination, max 200 portfolios analyzed</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by AIC. Users must view ALL 3 portfolios to be counted as "exposed."
+                Shows top 10 combinations sorted by Expected Value. Users must view ALL 3 portfolios to be counted as "exposed."
             </span>
         </span>`;
 
@@ -496,9 +564,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies the first 3 portfolios viewed (in exact order) that drive copies:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression analyzing sequential viewing patterns</li>
-                    <li><strong>Filters:</strong> Min 3 users per portfolio, ≥1 user with exact sequence</li>
+                    <li><strong>Filters:</strong> Min 3 users exposed per sequence</li>
                     <li><strong>Order Matters:</strong> [A, B, C] is different from [B, A, C]</li>
-                    <li><strong>Ranking:</strong> By AIC - identifies most predictive sequences</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                 </ul>
                 Reveals optimal onboarding paths for new users.
             </span>
