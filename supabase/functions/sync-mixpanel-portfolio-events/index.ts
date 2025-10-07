@@ -355,12 +355,13 @@ async function fetchPortfolioViewEvents(
     from_date: fromDate,
     to_date: toDate,
     event: '["Viewed Portfolio Details"]',
+    where: 'defined(properties["$email"])',
   })
 
   const authString = `${credentials.username}:${credentials.secret}`
   const authHeader = `Basic ${btoa(authString)}`
 
-  console.log(`Fetching portfolio events from ${fromDate} to ${toDate}`)
+  console.log(`Fetching portfolio events from ${fromDate} to ${toDate} (filtering: defined($email))`)
   console.log(`API URL: https://data.mixpanel.com/api/2.0/export?${params}`)
 
   const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {

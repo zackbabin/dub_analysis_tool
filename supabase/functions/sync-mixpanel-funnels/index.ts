@@ -281,60 +281,6 @@ serve(async (req) => {
 // Helper Functions - Mixpanel API
 // ============================================================================
 
-async function fetchInsightsData(
-  credentials: MixpanelCredentials,
-  chartId: string,
-  name: string,
-  retries = 2
-) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    bookmark_id: chartId,
-    limit: '50000',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: authHeader,
-          Accept: 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-
-        // Retry on 502/503/504 errors (server issues)
-        if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
-          console.warn(`⚠️ ${name} returned ${response.status}, retrying (attempt ${attempt + 1}/${retries})...`)
-          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2s before retry
-          continue
-        }
-
-        throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log(`✓ ${name} fetch successful`)
-      return data
-    } catch (error) {
-      if (attempt < retries) {
-        console.warn(`⚠️ ${name} fetch failed, retrying (attempt ${attempt + 1}/${retries})...`)
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        continue
-      }
-      throw error
-    }
-  }
-}
-
 async function fetchFunnelData(
   credentials: MixpanelCredentials,
   funnelId: string,
