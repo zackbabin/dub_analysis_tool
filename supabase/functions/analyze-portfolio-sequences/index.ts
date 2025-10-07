@@ -6,8 +6,7 @@ const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
 
 interface UserData {
   distinct_id: string
-  portfolio_sequence: string[] // [portfolio1, portfolio2, portfolio3]
-  portfolio_set: Set<string> // For faster lookups during combination evaluation
+  portfolio_sequence: string[] // [portfolio1, portfolio2, portfolio3] in chronological order
   did_copy: boolean
   copy_count: number
 }
@@ -274,11 +273,12 @@ function evaluateCombination(
 
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
-    // Optimization: Direct boolean checks instead of .every() for 3-element combinations
-    const hasExposure = user.portfolio_set.has(combination[0]) &&
-                       user.portfolio_set.has(combination[1]) &&
-                       user.portfolio_set.has(combination[2])
-    const exposure = hasExposure ? 1 : 0
+    // Check if user's sequence matches this exact sequence (order matters!)
+    const hasExactSequence = user.portfolio_sequence.length === 3 &&
+                            user.portfolio_sequence[0] === combination[0] &&
+                            user.portfolio_sequence[1] === combination[1] &&
+                            user.portfolio_sequence[2] === combination[2]
+    const exposure = hasExactSequence ? 1 : 0
     const actual = y[i]
 
     X[i] = exposure
@@ -417,7 +417,6 @@ serve(async (req) => {
       users.push({
         distinct_id: distinctId,
         portfolio_sequence: sequence,
-        portfolio_set: new Set(sequence), // Pre-compute Set for O(1) lookups
         did_copy: outcome.did_copy,
         copy_count: outcome.copy_count
       })
