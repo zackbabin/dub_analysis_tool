@@ -369,49 +369,6 @@
             margin-bottom: 4px;
         }
 
-        /* Sub-tab Navigation (for User Analysis results) */
-        .sub-tab-navigation {
-            max-width: 1200px;
-            margin: 20px auto;
-            display: flex;
-            gap: 8px;
-            border-bottom: 2px solid #dee2e6;
-            justify-content: flex-start;
-            padding-left: 0;
-        }
-
-        .sub-tab-btn {
-            background: white;
-            color: #6c757d;
-            padding: 10px 20px;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-            outline: none;
-        }
-
-        .sub-tab-btn:hover {
-            color: #17a2b8;
-            background: #f8f9fa;
-        }
-
-        .sub-tab-btn.active {
-            color: #17a2b8;
-            border-bottom-color: #17a2b8;
-            background: white;
-        }
-
-        /* Sub-tab Content */
-        .sub-tab-pane {
-            display: none;
-        }
-
-        .sub-tab-pane.active {
-            display: block;
-        }
     </style>
 </head>
 <body>
@@ -422,27 +379,40 @@
 
     <!-- Tab Navigation -->
     <div class="tab-navigation">
-        <button class="tab-btn active" data-tab="user">User Analysis</button>
+        <button class="tab-btn active" data-tab="summary">Summary Stats</button>
+        <button class="tab-btn" data-tab="portfolio">Portfolio Analysis</button>
+        <button class="tab-btn" data-tab="subscription">Subscription Analysis</button>
         <button class="tab-btn" data-tab="creator">Creator Analysis</button>
     </div>
 
-    <!-- User Analysis Tab (ACTIVE - Existing Functionality) -->
-    <div id="user-analysis-tab" class="tab-pane active">
-        <div class="tab-container">
-            <div id="unifiedToolContainer"></div>
-        </div>
+    <!-- Data Source Selection (shown on all tabs) -->
+    <div class="tab-container">
+        <div id="unifiedToolContainer"></div>
+    </div>
 
+    <!-- Summary Stats Tab -->
+    <div id="summary-tab" class="tab-pane active">
         <div class="tab-results-container">
-            <div id="unifiedResultsContainer"></div>
+            <div id="summaryResultsContainer"></div>
         </div>
     </div>
 
-    <!-- Creator Analysis Tab (NOW ACTIVE) -->
-    <div id="creator-analysis-tab" class="tab-pane">
-        <div class="tab-container">
-            <div id="creatorToolContainer"></div>
+    <!-- Portfolio Analysis Tab -->
+    <div id="portfolio-tab" class="tab-pane">
+        <div class="tab-results-container">
+            <div id="portfolioResultsContainer"></div>
         </div>
+    </div>
 
+    <!-- Subscription Analysis Tab -->
+    <div id="subscription-tab" class="tab-pane">
+        <div class="tab-results-container">
+            <div id="subscriptionResultsContainer"></div>
+        </div>
+    </div>
+
+    <!-- Creator Analysis Tab -->
+    <div id="creator-tab" class="tab-pane">
         <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
         </div>
@@ -466,10 +436,6 @@
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
     <script src="user_analysis_tool_supabase.js"></script>
 
-    <!-- Creator Analysis Tool Scripts -->
-    <script src="creator_analysis_tool.js"></script>
-    <script src="creator_analysis_tool_supabase.js"></script>
-
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
@@ -492,7 +458,7 @@
                     button.classList.add('active');
 
                     // Show corresponding tab pane
-                    const targetPane = document.getElementById(`${targetTab}-analysis-tab`);
+                    const targetPane = document.getElementById(`${targetTab}-tab`);
                     if (targetPane) {
                         targetPane.classList.add('active');
                     }
@@ -500,33 +466,29 @@
             });
         }
 
-        // Initialize both User and Creator Analysis tools
+        // Initialize User Analysis Tool
         window.onload = function() {
             // Initialize tab switching
             initializeTabs();
 
-            // Initialize Supabase Integration with credentials (shared by both tools)
+            // Initialize Supabase Integration with credentials
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // ===== USER ANALYSIS TOOL (Existing - Unchanged) =====
+            // Initialize User Analysis Tool
             const userTool = new UserAnalysisToolSupabase();
 
+            // Pass container references for each tab
             userTool.createUI(
                 document.getElementById('unifiedToolContainer'),
-                document.getElementById('unifiedResultsContainer')
+                {
+                    summary: document.getElementById('summaryResultsContainer'),
+                    portfolio: document.getElementById('portfolioResultsContainer'),
+                    subscription: document.getElementById('subscriptionResultsContainer'),
+                    creator: document.getElementById('creatorResultsContainer')
+                }
             );
 
-            console.log('✅ User Analysis Tool (Supabase) initialized');
-
-            // ===== CREATOR ANALYSIS TOOL (New) =====
-            const creatorTool = new CreatorAnalysisToolSupabase();
-
-            creatorTool.createUI(
-                document.getElementById('creatorToolContainer'),
-                document.getElementById('creatorResultsContainer')
-            );
-
-            console.log('✅ Creator Analysis Tool (Supabase) initialized');
+            console.log('✅ User Analysis Tool (Supabase) initialized with 4 main tabs');
         };
     </script>
 </body>

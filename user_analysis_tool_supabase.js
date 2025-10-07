@@ -17,14 +17,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     /**
      * Override: Create UI with Supabase-specific configuration
      */
-    createUI(container, outputContainer) {
+    createUI(container, outputContainers) {
         // Check if Supabase is already initialized globally
         if (window.supabaseIntegration) {
             this.supabaseIntegration = window.supabaseIntegration;
         }
 
-        // Call parent to create base UI
-        super.createUI(container, outputContainer);
+        // Store output containers for each tab
+        this.outputContainers = outputContainers;
+
+        // Call parent to create base UI (just the data source selection)
+        super.createUI(container, null);
     }
 
     /**
@@ -106,39 +109,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Full control over results display with integrated caching
      */
     async displayResults(results) {
-        // Step 1: Try to restore from cache FIRST (instant display)
-        const cached = localStorage.getItem('dubAnalysisResults');
-        if (cached) {
-            try {
-                const data = JSON.parse(cached);
-                if (this.outputContainer && data.html && data.timestamp) {
-                    this.outputContainer.innerHTML = data.html;
-                    const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
-                    console.log(`✅ Restored complete analysis from cache (${cacheAge} min ago)`);
-                    // Fall through to rebuild with fresh data
-                }
-            } catch (e) {
-                console.warn('Failed to restore from cache, rebuilding:', e);
-            }
-        }
-
-        // Step 2: Build complete HTML with fresh data (modifies DOM directly)
+        // Build complete HTML with fresh data (renders to separate tab containers)
         await this.buildCompleteHTML(results);
-
-        // Step 3: Cache complete rendered HTML
-        try {
-            localStorage.setItem('dubAnalysisResults', JSON.stringify({
-                html: this.outputContainer.innerHTML,
-                timestamp: new Date().toISOString()
-            }));
-            console.log('✅ Cached complete analysis');
-        } catch (error) {
-            console.warn('Failed to cache:', error);
-        }
     }
 
     /**
      * Build complete HTML including all analysis sections
+     * Now renders to separate main tab containers instead of nested tabs
      */
     async buildCompleteHTML(results) {
         // Load all engagement data in parallel with base analysis
@@ -160,68 +137,55 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; })
         ]);
 
-        // Clear output container and create results div
-        this.outputContainer.innerHTML = '';
-
-        const resultsDiv = document.createElement('div');
-        resultsDiv.id = 'qdaAnalysisResultsInline';
-        resultsDiv.className = 'qda-analysis-results';
-        this.outputContainer.appendChild(resultsDiv);
-
-        // Create sub-tab navigation and content structure
-        resultsDiv.innerHTML = `
-            <!-- Sub-tab Navigation -->
-            <div class="sub-tab-navigation">
-                <button class="sub-tab-btn active" data-subtab="summary">Summary Stats</button>
-                <button class="sub-tab-btn" data-subtab="portfolio">Portfolio Analysis</button>
-                <button class="sub-tab-btn" data-subtab="subscription">Subscription Analysis</button>
-                <button class="sub-tab-btn" data-subtab="creator">Creator Analysis</button>
-            </div>
-
-            <!-- Summary Stats Tab -->
-            <div id="summary-subtab" class="sub-tab-pane active">
+        // === SUMMARY TAB ===
+        const summaryContainer = this.outputContainers.summary;
+        summaryContainer.innerHTML = `
+            <div class="qda-analysis-results">
                 <div id="qdaSummaryStatsInline"></div>
                 <div id="qdaDemographicBreakdownInline"></div>
                 <div id="qdaPersonaBreakdownInline"></div>
             </div>
-
-            <!-- Portfolio Analysis Tab -->
-            <div id="portfolio-subtab" class="sub-tab-pane">
-                <div id="qdaDepositFundsInline"></div>
-                <div id="qdaPortfolioCopiesInline"></div>
-            </div>
-
-            <!-- Subscription Analysis Tab -->
-            <div id="subscription-subtab" class="sub-tab-pane">
-                <div id="qdaSubscriptionsInline"></div>
-                <div id="qdaSubscriptionPriceInline"></div>
-            </div>
-
-            <!-- Creator Analysis Tab -->
-            <div id="creator-subtab" class="sub-tab-pane">
-                <!-- This will be rendered by parent class -->
-            </div>
         `;
 
-        // Initialize sub-tab switching
-        this.initializeSubTabs();
-
-        // Display Summary Stats sections
         displaySummaryStatsInline(results.summaryStats);
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
 
-        // Load tipping points and prepare correlation/regression data
+        // Load tipping points for correlation analysis
         const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
         const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
 
-        // Render Portfolio Analysis content
+        // === PORTFOLIO TAB ===
+        const portfolioContainer = this.outputContainers.portfolio;
+        portfolioContainer.innerHTML = `
+            <div class="qda-analysis-results">
+                <div id="qdaDepositFundsInline"></div>
+                <div id="qdaPortfolioCopiesInline"></div>
+            </div>
+        `;
+
         this.renderPortfolioAnalysis(results.correlationResults, results.regressionResults, tippingPoints, copyEngagementSummary, hiddenGems, hiddenGemsSummary, topCopyCombos, topSequences);
 
-        // Render Subscription Analysis content (includes subscription price distribution)
+        // === SUBSCRIPTION TAB ===
+        const subscriptionContainer = this.outputContainers.subscription;
+        subscriptionContainer.innerHTML = `
+            <div class="qda-analysis-results">
+                <div id="qdaSubscriptionsInline"></div>
+                <div id="qdaSubscriptionPriceInline"></div>
+            </div>
+        `;
+
         this.renderSubscriptionAnalysis(results.correlationResults, results.regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos, results.summaryStats);
 
-        // Add timestamp after all rendering is complete
+        // === CREATOR TAB ===
+        const creatorContainer = this.outputContainers.creator;
+        creatorContainer.innerHTML = `
+            <div class="qda-analysis-results">
+                <div id="qdaCreatorAnalysisInline"></div>
+            </div>
+        `;
+
+        // Add timestamp to all tabs
         const timestampStr = new Date().toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
@@ -232,12 +196,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
         localStorage.setItem('qdaLastUpdated', timestampStr);
 
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        timestamp.textContent = `Last updated: ${timestampStr}`;
-        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
-
-        return resultsDiv.outerHTML;
+        [summaryContainer, portfolioContainer, subscriptionContainer, creatorContainer].forEach(container => {
+            const timestamp = document.createElement('div');
+            timestamp.className = 'qda-timestamp';
+            timestamp.textContent = `Last updated: ${timestampStr}`;
+            const resultsDiv = container.querySelector('.qda-analysis-results');
+            if (resultsDiv) {
+                resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+            }
+        });
     }
 
     /**
@@ -651,32 +618,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         return parts.join('');
     }
 
-    /**
-     * Initialize sub-tab switching functionality
-     */
-    initializeSubTabs() {
-        const subTabButtons = document.querySelectorAll('.sub-tab-btn');
-        const subTabPanes = document.querySelectorAll('.sub-tab-pane');
-
-        subTabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const targetSubTab = button.getAttribute('data-subtab');
-
-                // Remove active class from all buttons and panes
-                subTabButtons.forEach(btn => btn.classList.remove('active'));
-                subTabPanes.forEach(pane => pane.classList.remove('active'));
-
-                // Add active class to clicked button
-                button.classList.add('active');
-
-                // Show corresponding sub-tab pane
-                const targetPane = document.getElementById(`${targetSubTab}-subtab`);
-                if (targetPane) {
-                    targetPane.classList.add('active');
-                }
-            });
-        });
-    }
 
     /**
      * Render Portfolio Analysis tab content
