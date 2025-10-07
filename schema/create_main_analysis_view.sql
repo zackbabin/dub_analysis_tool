@@ -83,8 +83,19 @@ LEFT JOIN copy_engagement ce ON si.distinct_id = ce.distinct_id
 LEFT JOIN subscription_engagement se ON si.distinct_id = se.distinct_id
 LEFT JOIN time_metrics tm ON si.distinct_id = tm.distinct_id;
 
--- Create index for faster queries
+-- Create indexes for faster queries on materialized view
 CREATE INDEX IF NOT EXISTS idx_main_analysis_distinct_id ON main_analysis (distinct_id);
+
+-- Indexes for filtering and aggregation queries
+CREATE INDEX IF NOT EXISTS idx_main_analysis_did_copy ON main_analysis (did_copy);
+CREATE INDEX IF NOT EXISTS idx_main_analysis_did_subscribe ON main_analysis (did_subscribe);
+CREATE INDEX IF NOT EXISTS idx_main_analysis_total_copies ON main_analysis (total_copies);
+CREATE INDEX IF NOT EXISTS idx_main_analysis_total_subscriptions ON main_analysis (total_subscriptions);
+
+-- Indexes for time funnel analysis
+CREATE INDEX IF NOT EXISTS idx_main_analysis_time_to_first_copy ON main_analysis (time_to_first_copy_days) WHERE time_to_first_copy_days IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_main_analysis_time_to_linked_bank ON main_analysis (time_to_linked_bank_days) WHERE time_to_linked_bank_days IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_main_analysis_time_to_funded ON main_analysis (time_to_funded_account_days) WHERE time_to_funded_account_days IS NOT NULL;
 
 -- Create function to refresh main_analysis
 CREATE OR REPLACE FUNCTION refresh_main_analysis()

@@ -88,6 +88,10 @@ FROM (
 ) user_stats
 GROUP BY did_copy;
 
+-- Create indexes on materialized view
+CREATE INDEX IF NOT EXISTS idx_copy_engagement_summary_did_copy
+ON copy_engagement_summary (did_copy);
+
 -- 4. Create view for top converting portfolio-creator pairs
 CREATE OR REPLACE VIEW top_converting_portfolio_creator_copy_pairs AS
 SELECT

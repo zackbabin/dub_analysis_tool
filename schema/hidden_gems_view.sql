@@ -55,6 +55,19 @@ WHERE
 ORDER BY pce.total_pdp_views DESC
 LIMIT 10;
 
+-- Create indexes on materialized views
+CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_portfolio
+ON portfolio_creator_engagement_metrics (portfolio_ticker);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_creator
+ON portfolio_creator_engagement_metrics (creator_id);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_views
+ON portfolio_creator_engagement_metrics (total_pdp_views DESC);
+
+CREATE INDEX IF NOT EXISTS idx_hidden_gems_portfolios_ticker
+ON hidden_gems_portfolios (portfolio_ticker);
+
 -- Step 4: Create summary stats view for hidden gems
 CREATE OR REPLACE VIEW hidden_gems_summary AS
 SELECT

@@ -26,6 +26,10 @@ FROM (
 ) user_engagement
 GROUP BY did_subscribe;
 
+-- Create indexes on materialized view
+CREATE INDEX IF NOT EXISTS idx_subscription_engagement_summary_did_subscribe
+ON subscription_engagement_summary (did_subscribe);
+
 -- Grant permissions (adjust as needed for your setup)
 GRANT SELECT ON subscription_engagement_summary TO authenticated, anon;
 
