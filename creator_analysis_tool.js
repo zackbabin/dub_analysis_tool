@@ -820,8 +820,16 @@ class CreatorAnalysisTool {
                 <br>• <strong>Stage 2:</strong> Combines correlation (90% weight) and T-statistic (10% weight)
             </div>
             <div style="margin-bottom: 10px;"><strong>** Tipping Point Calculation:</strong></div>
-            <div style="margin-left: 15px;">
+            <div style="margin-left: 15px; margin-bottom: 15px;">
                 Identifies the variable value where the largest jump in conversion rate occurs
+            </div>
+            <div style="margin-bottom: 10px;"><strong>Statistical Methodology:</strong></div>
+            <div style="margin-left: 15px;">
+                <strong>Correlation & Regression Analysis:</strong>
+                <br>• <strong>Point-biserial correlation</strong> for binary outcomes vs continuous variables
+                <br>• <strong>Two-sample t-tests</strong> for statistical significance (p-value threshold: 0.05)
+                <br>• <strong>Logistic regression</strong> for predicting binary conversion outcomes
+                <br>• Groups continuous variables into bins to identify non-linear relationships and tipping points
             </div>
         `;
         return footnotes;
