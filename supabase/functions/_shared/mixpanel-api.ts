@@ -195,95 +195,90 @@ export async function fetchFunnelData(
 }
 
 // ============================================================================
-// Mixpanel API - Event Export
+// Mixpanel API - Portfolio View Events (Insights API)
 // ============================================================================
 
 /**
- * Fetch raw events from Mixpanel Event Export API
+ * Fetch portfolio view events from Mixpanel Insights API
+ * Uses saved Insights chart (ID: 85246485) instead of Event Export API
  * @param credentials - Mixpanel service account credentials
- * @param fromDate - Start date (YYYY-MM-DD)
- * @param toDate - End date (YYYY-MM-DD)
- * @param eventName - Name of the event to export
- * @param whereClause - Optional filter clause (e.g., 'defined(user["$email"])')
+ * @param chartId - Bookmark ID of the saved portfolio views report (default: 85246485)
+ * @param name - Human-readable name for logging
+ * @returns Array of events in format: { distinct_id, portfolio_ticker, event_time }
  */
 export async function fetchPortfolioViewEvents(
   credentials: MixpanelCredentials,
-  fromDate: string,
-  toDate: string,
-  eventName = 'Viewed Portfolio Details',
-  whereClause?: string
+  chartId = '85246485',
+  name = 'Portfolio Views'
 ) {
-  console.log(`Fetching ${eventName} events from Event Export API...`)
+  console.log(`Fetching ${name} from Insights API (Chart ID: ${chartId})...`)
 
-  const params: Record<string, string> = {
-    project_id: MIXPANEL_CONFIG.PROJECT_ID,
-    from_date: fromDate,
-    to_date: toDate,
-    event: JSON.stringify([eventName]),
+  const data = await fetchInsightsData(credentials, chartId, name)
+
+  // Parse nested Insights API response structure
+  // Response format: series["metric_key"][$distinct_id][portfolioTicker][$time]["all"] = count
+  const events: Array<{ distinct_id: string; portfolio_ticker: string; event_time: number }> = []
+  let skippedEvents = 0
+
+  if (!data.series) {
+    console.warn('No series data in Insights API response')
+    return events
   }
 
-  if (whereClause) {
-    params.where = whereClause
+  // Get the first (and only) metric key
+  const metricKeys = Object.keys(data.series)
+  if (metricKeys.length === 0) {
+    console.warn('No metrics found in series')
+    return events
   }
 
-  const searchParams = new URLSearchParams(params)
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
+  const metricKey = metricKeys[0]
+  const seriesData = data.series[metricKey]
 
-  const filterMsg = whereClause ? ` (filtering: ${whereClause})` : ''
-  console.log(`Fetching portfolio events from ${fromDate} to ${toDate}${filterMsg}`)
-  console.log(`API URL: ${MIXPANEL_CONFIG.EXPORT_API_BASE}/export?${searchParams}`)
+  // Iterate through distinct_ids (top level)
+  for (const [distinctId, distinctIdData] of Object.entries(seriesData)) {
+    if (distinctId === '$overall' || typeof distinctIdData !== 'object') continue
 
-  const response = await fetch(`${MIXPANEL_CONFIG.EXPORT_API_BASE}/export?${searchParams}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
+    // Iterate through portfolio tickers (second level)
+    for (const [portfolioTicker, tickerData] of Object.entries(distinctIdData as Record<string, any>)) {
+      if (portfolioTicker === '$overall' || typeof tickerData !== 'object') continue
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel Event Export API error (${response.status}): ${errorText}`)
-  }
+      // Iterate through timestamps (third level)
+      for (const [timestamp, timestampData] of Object.entries(tickerData as Record<string, any>)) {
+        if (timestamp === '$overall' || typeof timestampData !== 'object') continue
 
-  // Parse JSONL response (one JSON object per line)
-  const text = await response.text()
-  console.log(`Response length: ${text.length} characters`)
+        // Parse ISO timestamp to Unix timestamp (seconds)
+        try {
+          const eventTime = Math.floor(new Date(timestamp).getTime() / 1000)
 
-  const events: any[] = []
-  let skippedLines = 0
-  let totalLines = 0
+          // Validate all required fields exist
+          if (distinctId && portfolioTicker && eventTime) {
+            // Get event count from timestampData.all
+            const count = (timestampData as any).all || 1
 
-  for (const line of text.trim().split('\n')) {
-    if (line.trim()) {
-      totalLines++
-      try {
-        const event = JSON.parse(line)
-
-        // Log first event for debugging
-        if (totalLines === 1) {
-          console.log(`First event sample:`, JSON.stringify(event).substring(0, 500))
+            // Create one event per count (since each view should be a separate row)
+            for (let i = 0; i < count; i++) {
+              events.push({
+                distinct_id: distinctId,
+                portfolio_ticker: portfolioTicker,
+                event_time: eventTime
+              })
+            }
+          } else {
+            skippedEvents++
+          }
+        } catch (e) {
+          console.warn(`Failed to parse timestamp: ${timestamp}`, e)
+          skippedEvents++
         }
-
-        // Validate required properties
-        if (event.properties?.distinct_id &&
-            event.properties?.portfolioTicker &&
-            event.properties?.time) {
-          events.push(event)
-        } else {
-          skippedLines++
-        }
-      } catch (e) {
-        skippedLines++
       }
     }
   }
 
-  console.log(`Total lines in response: ${totalLines}`)
-  if (skippedLines > 0) {
-    console.log(`Skipped ${skippedLines} invalid portfolio view events`)
+  if (skippedEvents > 0) {
+    console.log(`Skipped ${skippedEvents} invalid events`)
   }
-  console.log(`✓ Fetched ${events.length} valid ${eventName} events`)
+
+  console.log(`✓ Fetched ${events.length} portfolio view events from Insights API`)
   return events
 }

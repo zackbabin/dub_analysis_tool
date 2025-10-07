@@ -1,8 +1,8 @@
 // Supabase Edge Function: sync-mixpanel-portfolio-events
-// Fetches raw portfolio view events from Mixpanel Event Export API
+// Fetches raw portfolio view events from Mixpanel Insights API (Chart ID: 85246485)
 // Part 4 of 4: Handles only portfolio_view_events table (isolated due to high volume)
 // Triggered manually by user clicking "Sync Live Data" button
-// INCREMENTAL SYNC: Only fetches events since last successful sync (or last 7 days if first run)
+// Note: Insights API fetches all available data from the chart (date range configured in Mixpanel)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
@@ -15,9 +15,7 @@ import {
 interface SyncStats {
   portfolioEventsFetched: number
   totalRecordsInserted: number
-  syncMode: 'incremental' | 'full'
-  dateRangeFrom: string
-  dateRangeTo: string
+  chartId: string
 }
 
 serve(async (req) => {
@@ -69,70 +67,17 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Determine sync mode: incremental or full
-      let syncMode: 'incremental' | 'full' = 'full'
-      const toDate = new Date().toISOString().split('T')[0]
-
-      // Default to 7-day full sync
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      let fromDate: string = sevenDaysAgo.toISOString().split('T')[0]
-
-      if (!forceFullRefresh) {
-        // Try to get last event timestamp for incremental sync
-        try {
-          const { data: lastEventData, error: lastEventError } = await supabase.rpc(
-            'get_last_portfolio_event_timestamp'
-          )
-
-          if (lastEventError) {
-            console.warn(`⚠️ Could not get last event timestamp: ${lastEventError.message}`)
-            console.log('Falling back to full 7-day sync')
-          } else if (lastEventData) {
-            // Convert Unix timestamp to date (add 1 second to avoid re-fetching last event)
-            const lastEventDate = new Date((lastEventData + 1) * 1000)
-            const now = new Date()
-            const daysSinceLastSync = Math.floor((now.getTime() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24))
-
-            // Validate date is not in the future (safety check for clock skew)
-            if (lastEventDate > now) {
-              console.warn(`⚠️ Last event timestamp is in the future - falling back to full 7-day sync`)
-            }
-            // Only use incremental if last sync was within 7 days (safety check)
-            else if (daysSinceLastSync >= 0 && daysSinceLastSync <= 7) {
-              fromDate = lastEventDate.toISOString().split('T')[0]
-              syncMode = 'incremental'
-              console.log(`📊 Incremental sync mode: Fetching events since ${fromDate} (${daysSinceLastSync} days ago)`)
-            } else {
-              console.log(`⚠️ Last sync was ${daysSinceLastSync} days ago - falling back to full 7-day sync`)
-            }
-          } else {
-            console.log(`📊 First sync: Fetching last 7 days of events`)
-          }
-        } catch (rpcError) {
-          console.error('Error calling get_last_portfolio_event_timestamp:', rpcError)
-          console.log('Falling back to full 7-day sync')
-        }
-      } else {
-        console.log(`🔄 Full refresh requested: Fetching last 7 days of events`)
-      }
-
-      console.log(`Fetching portfolio events from ${fromDate} to ${toDate} (${syncMode} mode)`)
-
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
         secret: mixpanelSecret,
       }
 
-      // Fetch portfolio view events only
-      console.log('Fetching portfolio view events from Event Export API...')
+      // Fetch portfolio view events from Insights API (chart 85246485)
+      // Date range is configured in the Mixpanel chart settings
+      const chartId = '85246485'
+      console.log(`Fetching portfolio view events from Insights API (Chart ${chartId})...`)
 
-      const portfolioViewEvents = await fetchPortfolioViewEvents(
-        credentials,
-        fromDate,
-        toDate,
-        'Viewed Portfolio Details'
-      )
+      const portfolioViewEvents = await fetchPortfolioViewEvents(credentials, chartId)
 
       console.log('✓ Portfolio events fetched successfully')
 
@@ -140,9 +85,7 @@ serve(async (req) => {
       const stats: SyncStats = {
         portfolioEventsFetched: 0,
         totalRecordsInserted: 0,
-        syncMode,
-        dateRangeFrom: fromDate,
-        dateRangeTo: toDate,
+        chartId,
       }
 
       const batchSize = 500
@@ -152,9 +95,9 @@ serve(async (req) => {
         console.log(`Processing ${portfolioViewEvents.length} portfolio view events...`)
 
         const portfolioEventRows = portfolioViewEvents.map((event: any) => ({
-          distinct_id: event.properties.distinct_id,
-          portfolio_ticker: event.properties.portfolioTicker,
-          event_time: event.properties.time,
+          distinct_id: event.distinct_id,
+          portfolio_ticker: event.portfolio_ticker,
+          event_time: event.event_time,
           synced_at: syncStartTime.toISOString()
         }))
 
@@ -200,9 +143,7 @@ serve(async (req) => {
         })
         .eq('id', syncLogId)
 
-      const syncMessage = syncMode === 'incremental'
-        ? `Portfolio events incremental sync completed (${fromDate} to ${toDate})`
-        : 'Portfolio events full sync completed (last 7 days)'
+      const syncMessage = `Portfolio events sync completed from Insights API (Chart ${chartId})`
 
       console.log(`✅ ${syncMessage}`)
 
