@@ -493,10 +493,11 @@ serve(async (req) => {
 
     console.log(`Skipped ${skippedLowExposure} combinations with insufficient exposure`)
 
+    // Sort by AIC (lower is better model fit) and store ALL results
+    // UI will handle filtering (minExposure) and limiting (top N)
     results.sort((a, b) => a.aic - b.aic)
-    const topResults = results.slice(0, 100)
 
-    const insertRows = topResults.map((result, index) => ({
+    const insertRows = results.map((result, index) => ({
       analysis_type: 'portfolio_sequence',
       combination_rank: index + 1,
       value_1: result.combination[0],

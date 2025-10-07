@@ -324,8 +324,10 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topCreators, 3)) {
       const result = evaluateCombination(combo, users)
 
-      // All combinations from filtered input pool (>=5 users) are kept
-      results.push(result)
+      // Only keep combinations where at least 1 user viewed all 3 creators
+      if (result.users_with_exposure > 0) {
+        results.push(result)
+      }
 
       processed++
       if (processed % 500 === 0) {
@@ -333,8 +335,11 @@ serve(async (_req) => {
       }
     }
 
+    console.log(`Kept ${results.length} combinations with at least 1 user exposure`)
+
+    // Sort by AIC (lower is better model fit) and store ALL results
+    // UI will handle filtering (minExposure) and limiting (top N)
     results.sort((a, b) => a.aic - b.aic)
-    const topResults = results.slice(0, 100)
 
     // Build creator ID to username map
     console.log('Building creator username map...')

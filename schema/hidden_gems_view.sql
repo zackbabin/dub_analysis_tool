@@ -52,6 +52,8 @@ WHERE
   pce.total_pdp_views >= 10
   -- High total PDP views to copies ratio (>= 5:1)
   AND (pce.total_pdp_views::NUMERIC / NULLIF(pce.total_copies, 0)) >= 5
+  -- Not already too popular (maximum 100 copies)
+  AND pce.total_copies <= 100
 ORDER BY pce.total_pdp_views DESC
 LIMIT 10;
 

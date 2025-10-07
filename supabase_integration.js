@@ -752,8 +752,8 @@ class SupabaseIntegration {
     /**
      * Load top subscription combinations (wrapper for backwards compatibility)
      */
-    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20) {
-        return this.loadTopCombinations('subscription', metric, limit, true);
+    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+        return this.loadTopCombinations('subscription', metric, limit, true, minExposure);
     }
 
     /**
@@ -840,8 +840,8 @@ class SupabaseIntegration {
     /**
      * Load top copy combinations (wrapper for backwards compatibility)
      */
-    async loadTopCopyCombinations(metric = 'lift', limit = 20) {
-        return this.loadTopCombinations('copy', metric, limit, false);
+    async loadTopCopyCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+        return this.loadTopCombinations('copy', metric, limit, false, minExposure);
     }
 
 
@@ -932,8 +932,8 @@ class SupabaseIntegration {
     /**
      * Load top portfolio sequence combinations (wrapper for backwards compatibility)
      */
-    async loadTopPortfolioSequenceCombinations(metric = 'lift', limit = 20) {
-        return this.loadTopCombinations('portfolio_sequence', metric, limit, false);
+    async loadTopPortfolioSequenceCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+        return this.loadTopCombinations('portfolio_sequence', metric, limit, false, minExposure);
     }
 
 
