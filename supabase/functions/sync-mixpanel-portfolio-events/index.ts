@@ -2,6 +2,7 @@
 // Fetches raw portfolio view events from Mixpanel Event Export API
 // Part 4 of 4: Handles only portfolio_view_events table (isolated due to high volume)
 // Triggered manually by user clicking "Sync Live Data" button
+// INCREMENTAL SYNC: Only fetches events since last successful sync (or last 7 days if first run)
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
@@ -14,6 +15,9 @@ import {
 interface SyncStats {
   portfolioEventsFetched: number
   totalRecordsInserted: number
+  syncMode: 'incremental' | 'full'
+  dateRangeFrom: string
+  dateRangeTo: string
 }
 
 serve(async (req) => {
@@ -23,6 +27,9 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body to check for fullRefresh parameter
+    const requestBody = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const forceFullRefresh = requestBody.fullRefresh === true
     // Get Mixpanel credentials from Supabase secrets
     const mixpanelUsername = Deno.env.get('MIXPANEL_SERVICE_USERNAME')
     const mixpanelSecret = Deno.env.get('MIXPANEL_SERVICE_SECRET')
@@ -62,15 +69,50 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 7 days) - reduced from 14 to avoid timeout on high-volume events
-      const today = new Date()
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(today.getDate() - 7)
+      // Determine sync mode: incremental or full
+      let syncMode: 'incremental' | 'full' = 'full'
+      let fromDate: string
+      const toDate = new Date().toISOString().split('T')[0]
 
-      const toDate = today.toISOString().split('T')[0]
-      const fromDate = sevenDaysAgo.toISOString().split('T')[0]
+      if (!forceFullRefresh) {
+        // Try to get last event timestamp for incremental sync
+        const { data: lastEventData, error: lastEventError } = await supabase.rpc(
+          'get_last_portfolio_event_timestamp'
+        )
 
-      console.log(`Fetching data from ${fromDate} to ${toDate} (7-day window)`)
+        if (!lastEventError && lastEventData) {
+          // Convert Unix timestamp to date (add 1 second to avoid re-fetching last event)
+          const lastEventDate = new Date((lastEventData + 1) * 1000)
+          const daysSinceLastSync = Math.floor((Date.now() - lastEventDate.getTime()) / (1000 * 60 * 60 * 24))
+
+          // Only use incremental if last sync was within 7 days (safety check)
+          if (daysSinceLastSync <= 7) {
+            fromDate = lastEventDate.toISOString().split('T')[0]
+            syncMode = 'incremental'
+            console.log(`📊 Incremental sync mode: Fetching events since ${fromDate} (${daysSinceLastSync} days ago)`)
+          } else {
+            // Too much time has passed, do full refresh
+            const sevenDaysAgo = new Date()
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+            fromDate = sevenDaysAgo.toISOString().split('T')[0]
+            console.log(`⚠️ Last sync was ${daysSinceLastSync} days ago - falling back to full 7-day sync`)
+          }
+        } else {
+          // No previous events or error - do full 7-day sync
+          const sevenDaysAgo = new Date()
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+          fromDate = sevenDaysAgo.toISOString().split('T')[0]
+          console.log(`📊 First sync: Fetching last 7 days of events`)
+        }
+      } else {
+        // Force full refresh requested
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        fromDate = sevenDaysAgo.toISOString().split('T')[0]
+        console.log(`🔄 Full refresh requested: Fetching last 7 days of events`)
+      }
+
+      console.log(`Fetching portfolio events from ${fromDate} to ${toDate} (${syncMode} mode)`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
@@ -94,6 +136,9 @@ serve(async (req) => {
       const stats: SyncStats = {
         portfolioEventsFetched: 0,
         totalRecordsInserted: 0,
+        syncMode,
+        dateRangeFrom: fromDate,
+        dateRangeTo: toDate,
       }
 
       const batchSize = 500
@@ -151,12 +196,16 @@ serve(async (req) => {
         })
         .eq('id', syncLogId)
 
-      console.log('Portfolio events sync completed successfully')
+      const syncMessage = syncMode === 'incremental'
+        ? `Portfolio events incremental sync completed (${fromDate} to ${toDate})`
+        : 'Portfolio events full sync completed (last 7 days)'
+
+      console.log(`✅ ${syncMessage}`)
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Portfolio events sync completed successfully',
+          message: syncMessage,
           stats,
         }),
         {
