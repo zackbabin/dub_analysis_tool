@@ -216,7 +216,7 @@ function pairsToUserData(pairs: PortfolioCreatorPair[]): UserData[] {
 /**
  * Get top creators with sufficient engagement
  */
-function getTopCreators(users: UserData[], minUsers = 10): string[] {
+function getTopCreators(users: UserData[], minUsers = 5): string[] {
   const creatorCounts = new Map<string, number>()
 
   for (const user of users) {
@@ -316,10 +316,8 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topCreators, 3)) {
       const result = evaluateCombination(combo, users)
 
-      // Only keep combinations with at least 1 user exposed
-      if (result.users_with_exposure >= 1) {
-        results.push(result)
-      }
+      // All combinations from filtered input pool (>=5 users) are kept
+      results.push(result)
 
       processed++
       if (processed % 500 === 0) {

@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 // Performance configuration
 const BATCH_SIZE = 1000 // Process events in batches to avoid memory issues
-const DAYS_TO_FETCH = 7 // Reduced to match sync-mixpanel-portfolio-events window
 
 interface UserData {
   distinct_id: string
@@ -32,25 +31,13 @@ interface CombinationResult {
  * This replaces direct Mixpanel API calls for consistency and performance
  */
 async function fetchViewedPortfolioEvents(supabaseClient: any): Promise<any[]> {
-  console.log('Fetching Viewed Portfolio Details events from Supabase...')
+  console.log('Fetching all Viewed Portfolio Details events from Supabase...')
 
-  // Calculate date range: last N days
-  const toDate = new Date()
-  const fromDate = new Date()
-  fromDate.setDate(fromDate.getDate() - DAYS_TO_FETCH)
-
-  console.log(`Fetching events from ${fromDate.toISOString()} to ${toDate.toISOString()}`)
-
-  // Query portfolio_view_events table
-  // Note: Filter by event_time (when event occurred), not synced_at (when data was synced)
-  const fromTimestamp = Math.floor(fromDate.getTime() / 1000) // Convert to Unix timestamp
-  const toTimestamp = Math.floor(toDate.getTime() / 1000)
-
+  // Query all portfolio_view_events from the table (date range managed by Mixpanel chart sync)
   const { data, error } = await supabaseClient
     .from('portfolio_view_events')
     .select('distinct_id, portfolio_ticker, event_time')
-    .gte('event_time', fromTimestamp)
-    .lte('event_time', toTimestamp)
+    .order('event_time', { ascending: true })
 
   if (error) {
     console.error('Error fetching portfolio view events:', error)
@@ -346,7 +333,7 @@ function evaluateCombination(
 /**
  * Get top portfolios by frequency
  */
-function getTopPortfolios(users: UserData[], minUsers = 10): string[] {
+function getTopPortfolios(users: UserData[], minUsers = 5): string[] {
   const portfolioCounts = new Map<string, number>()
 
   for (const user of users) {
@@ -379,7 +366,7 @@ serve(async (req) => {
     // Performance metrics
     const startTime = Date.now()
     console.log('=== Portfolio Sequence Analysis Started ===')
-    console.log(`Configuration: ${DAYS_TO_FETCH} days lookback, first 3 unique portfolios per user`)
+    console.log(`Configuration: Analyzing all available data, first 3 unique portfolios per user`)
 
     // Step 1: Fetch events from Supabase (stored by sync-mixpanel)
     console.log('\n[1/5] Fetching events from Supabase...')
@@ -578,8 +565,8 @@ serve(async (req) => {
           execution_time_seconds: Math.round(totalTime * 100) / 100,
         },
         configuration: {
-          days_analyzed: DAYS_TO_FETCH,
-          min_exposures_threshold: 10,
+          data_source: 'All events in portfolio_view_events table',
+          min_exposures_threshold: 5,
           portfolio_limit: 25,
         },
         top_10_combinations: top10,
