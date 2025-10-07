@@ -104,51 +104,88 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Function
+     * Trigger Mixpanel sync via Supabase Edge Functions (two-part process)
+     * Part 1: sync-mixpanel-users (subscribers data - can timeout due to large dataset)
+     * Part 2: sync-mixpanel-engagement (funnels, views, subscriptions, copies, portfolio events)
      * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('Triggering Mixpanel sync via Supabase Edge Function...');
+        console.log('🔄 Starting Mixpanel sync (2-part process)...');
 
         try {
-            // Call the Edge Function (no credentials needed - they're in Supabase secrets)
-            const { data, error } = await this.supabase.functions.invoke('sync-mixpanel', {
+            // Part 1: Sync users/subscribers data
+            console.log('📊 Step 1/2: Syncing user/subscriber data...');
+            const { data: usersData, error: usersError } = await this.supabase.functions.invoke('sync-mixpanel-users', {
                 body: {}
             });
 
-            if (error) {
-                console.error('Edge Function error:', error);
+            if (usersError) {
+                console.error('❌ Users sync error:', usersError);
                 console.error('Error details:', {
-                    message: error.message,
-                    context: error.context,
-                    name: error.name
+                    message: usersError.message,
+                    context: usersError.context,
+                    name: usersError.name
                 });
 
                 // Provide more specific error messages
-                if (error.message?.includes('Failed to send')) {
-                    throw new Error(`Sync failed: Edge Function 'sync-mixpanel' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel`);
+                if (usersError.message?.includes('Failed to send')) {
+                    throw new Error(`Users sync failed: Edge Function 'sync-mixpanel-users' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-users`);
                 }
 
-                throw new Error(`Sync failed: ${error.message || JSON.stringify(error)}`);
+                throw new Error(`Users sync failed: ${usersError.message || JSON.stringify(usersError)}`);
             }
 
-            if (!data) {
-                throw new Error('Sync failed: Edge Function returned no data');
+            if (!usersData || !usersData.success) {
+                throw new Error(`Users sync failed: ${usersData?.error || 'Unknown error'}`);
             }
 
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during sync');
+            console.log('✅ Step 1/2 complete: User data synced successfully');
+            console.log('   Stats:', usersData.stats);
+
+            // Part 2: Sync engagement data
+            console.log('📈 Step 2/2: Syncing engagement data...');
+            const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
+                body: {}
+            });
+
+            if (engagementError) {
+                console.error('❌ Engagement sync error:', engagementError);
+                console.error('Error details:', {
+                    message: engagementError.message,
+                    context: engagementError.context,
+                    name: engagementError.name
+                });
+
+                // Provide more specific error messages
+                if (engagementError.message?.includes('Failed to send')) {
+                    throw new Error(`Engagement sync failed: Edge Function 'sync-mixpanel-engagement' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-engagement`);
+                }
+
+                throw new Error(`Engagement sync failed: ${engagementError.message || JSON.stringify(engagementError)}`);
             }
 
-            console.log('✅ Sync completed successfully:', data.stats);
+            if (!engagementData || !engagementData.success) {
+                throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
+            }
+
+            console.log('✅ Step 2/2 complete: Engagement data synced successfully');
+            console.log('   Stats:', engagementData.stats);
+
+            console.log('🎉 Full Mixpanel sync completed successfully!');
 
             // Invalidate all cached queries since data has been refreshed
             this.invalidateCache();
 
-            return data;
+            // Return combined stats
+            return {
+                success: true,
+                message: 'Full Mixpanel sync completed successfully',
+                users: usersData.stats,
+                engagement: engagementData.stats
+            };
         } catch (error) {
-            console.error('Error calling Edge Function:', error);
+            console.error('❌ Error during Mixpanel sync:', error);
             throw error;
         }
     }
