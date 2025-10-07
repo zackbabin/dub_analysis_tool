@@ -145,92 +145,56 @@ class SupabaseIntegration {
             console.log('✅ Step 1/4 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
-            // Part 2: Sync time funnels
-            console.log('⏱️ Step 2/4: Syncing time funnels...');
-            const { data: funnelsData, error: funnelsError } = await this.supabase.functions.invoke('sync-mixpanel-funnels', {
-                body: {}
-            });
+            // Parts 2-4: Sync funnels, engagement, and portfolio events in parallel
+            console.log('⏱️ Steps 2-4: Syncing funnels, engagement, and portfolio events in parallel...');
 
-            if (funnelsError) {
-                console.error('❌ Funnels sync error:', funnelsError);
-                console.error('Error details:', {
-                    message: funnelsError.message,
-                    context: funnelsError.context,
-                    name: funnelsError.name
-                });
+            const [funnelsResult, engagementResult, portfolioResult] = await Promise.all([
+                this.supabase.functions.invoke('sync-mixpanel-funnels', { body: {} }),
+                this.supabase.functions.invoke('sync-mixpanel-engagement', { body: {} }),
+                this.supabase.functions.invoke('sync-mixpanel-portfolio-events', { body: {} })
+            ]);
 
-                // Provide more specific error messages
-                if (funnelsError.message?.includes('Failed to send')) {
+            // Check funnels result
+            if (funnelsResult.error) {
+                console.error('❌ Funnels sync error:', funnelsResult.error);
+                if (funnelsResult.error.message?.includes('Failed to send')) {
                     throw new Error(`Funnels sync failed: Edge Function 'sync-mixpanel-funnels' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-funnels`);
                 }
-
-                throw new Error(`Funnels sync failed: ${funnelsError.message || JSON.stringify(funnelsError)}`);
+                throw new Error(`Funnels sync failed: ${funnelsResult.error.message || JSON.stringify(funnelsResult.error)}`);
             }
-
-            if (!funnelsData || !funnelsData.success) {
-                throw new Error(`Funnels sync failed: ${funnelsData?.error || 'Unknown error'}`);
+            if (!funnelsResult.data || !funnelsResult.data.success) {
+                throw new Error(`Funnels sync failed: ${funnelsResult.data?.error || 'Unknown error'}`);
             }
-
             console.log('✅ Step 2/4 complete: Time funnels synced successfully');
-            console.log('   Stats:', funnelsData.stats);
+            console.log('   Stats:', funnelsResult.data.stats);
 
-            // Part 3: Sync engagement data
-            console.log('📈 Step 3/4: Syncing engagement data...');
-            const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
-                body: {}
-            });
-
-            if (engagementError) {
-                console.error('❌ Engagement sync error:', engagementError);
-                console.error('Error details:', {
-                    message: engagementError.message,
-                    context: engagementError.context,
-                    name: engagementError.name
-                });
-
-                // Provide more specific error messages
-                if (engagementError.message?.includes('Failed to send')) {
+            // Check engagement result
+            if (engagementResult.error) {
+                console.error('❌ Engagement sync error:', engagementResult.error);
+                if (engagementResult.error.message?.includes('Failed to send')) {
                     throw new Error(`Engagement sync failed: Edge Function 'sync-mixpanel-engagement' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-engagement`);
                 }
-
-                throw new Error(`Engagement sync failed: ${engagementError.message || JSON.stringify(engagementError)}`);
+                throw new Error(`Engagement sync failed: ${engagementResult.error.message || JSON.stringify(engagementResult.error)}`);
             }
-
-            if (!engagementData || !engagementData.success) {
-                throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
+            if (!engagementResult.data || !engagementResult.data.success) {
+                throw new Error(`Engagement sync failed: ${engagementResult.data?.error || 'Unknown error'}`);
             }
-
             console.log('✅ Step 3/4 complete: Engagement data synced successfully');
-            console.log('   Stats:', engagementData.stats);
+            console.log('   Stats:', engagementResult.data.stats);
 
-            // Part 4: Sync portfolio events
-            console.log('📊 Step 4/4: Syncing portfolio view events...');
-            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('sync-mixpanel-portfolio-events', {
-                body: {}
-            });
-
-            if (portfolioError) {
-                console.error('❌ Portfolio events sync error:', portfolioError);
-                console.error('Error details:', {
-                    message: portfolioError.message,
-                    context: portfolioError.context,
-                    name: portfolioError.name
-                });
-
-                // Provide more specific error messages
-                if (portfolioError.message?.includes('Failed to send')) {
+            // Check portfolio result
+            if (portfolioResult.error) {
+                console.error('❌ Portfolio events sync error:', portfolioResult.error);
+                if (portfolioResult.error.message?.includes('Failed to send')) {
                     throw new Error(`Portfolio events sync failed: Edge Function 'sync-mixpanel-portfolio-events' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-portfolio-events`);
                 }
-
-                throw new Error(`Portfolio events sync failed: ${portfolioError.message || JSON.stringify(portfolioError)}`);
+                throw new Error(`Portfolio events sync failed: ${portfolioResult.error.message || JSON.stringify(portfolioResult.error)}`);
             }
-
-            if (!portfolioData || !portfolioData.success) {
-                throw new Error(`Portfolio events sync failed: ${portfolioData?.error || 'Unknown error'}`);
+            if (!portfolioResult.data || !portfolioResult.data.success) {
+                throw new Error(`Portfolio events sync failed: ${portfolioResult.data?.error || 'Unknown error'}`);
             }
-
             console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
-            console.log('   Stats:', portfolioData.stats);
+            console.log('   Stats:', portfolioResult.data.stats);
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
 
