@@ -1,8 +1,8 @@
 // Supabase Edge Function: sync-mixpanel-engagement
-// Fetches engagement data (funnels, views, subscriptions, copies) from Mixpanel
-// Part 2 of 3: Handles time_funnels, user_portfolio_creator_views, user_portfolio_creator_copies
+// Fetches engagement data (views, subscriptions, copies) from Mixpanel
+// Part 3 of 4: Handles user_portfolio_creator_views, user_portfolio_creator_copies
 // Triggers pattern analysis and refreshes materialized views
-// Triggered manually by user clicking "Sync Live Data" button after sync-mixpanel-users completes
+// Triggered manually by user clicking "Sync Live Data" button after sync-mixpanel-funnels completes
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
@@ -17,9 +17,6 @@ const PROJECT_ID = '2599235'
 const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 
 const CHART_IDS = {
-  timeToFirstCopy: '84999271',
-  timeToFundedAccount: '84999267',
-  timeToLinkedBank: '84999265',
   // User engagement analysis for subscriptions/copies
   profileViewsByCreator: '85165851',  // Total Profile Views
   pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
@@ -33,7 +30,6 @@ interface MixpanelCredentials {
 }
 
 interface SyncStats {
-  timeFunnelsFetched: number
   engagementRecordsFetched: number
   totalRecordsInserted: number
 }
@@ -144,46 +140,16 @@ serve(async (req) => {
 
       // Fetch engagement data with controlled concurrency to respect Mixpanel rate limits
       // Max 5 concurrent queries allowed by Mixpanel - we use 4 for safety
-      console.log('Fetching funnels + engagement charts + portfolio events with max 4 concurrent requests...')
+      console.log('Fetching engagement charts with max 4 concurrent requests...')
       const CONCURRENCY_LIMIT = 4
       const limit = pLimit(CONCURRENCY_LIMIT)
 
       const [
-        timeToFirstCopyData,
-        timeToFundedData,
-        timeToLinkedData,
         profileViewsData,
         pdpViewsData,
         subscriptionsData,
         copiesData,
-      ]: [any, any, any, any, any, any, any] = await Promise.all([
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToFirstCopy,
-            'Time to First Copy',
-            fromDate,
-            toDate
-          )
-        ),
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToFundedAccount,
-            'Time to Funded Account',
-            fromDate,
-            toDate
-          )
-        ),
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToLinkedBank,
-            'Time to Linked Bank',
-            fromDate,
-            toDate
-          )
-        ),
+      ]: [any, any, any, any] = await Promise.all([
         limit(() =>
           fetchInsightsData(
             credentials,
@@ -210,48 +176,11 @@ serve(async (req) => {
 
       // Process and insert data into database
       const stats: SyncStats = {
-        timeFunnelsFetched: 0,
         engagementRecordsFetched: 0,
         totalRecordsInserted: 0,
       }
 
       const batchSize = 500
-
-      // Process time funnels
-      const timeFunnelRows = [
-        ...processFunnelData(timeToFirstCopyData, 'time_to_first_copy'),
-        ...processFunnelData(timeToFundedData, 'time_to_funded_account'),
-        ...processFunnelData(timeToLinkedData, 'time_to_linked_bank'),
-      ]
-
-      if (timeFunnelRows.length > 0) {
-        // Deduplicate rows by distinct_id + funnel_type + synced_at (keep last occurrence)
-        const uniqueRowsMap = new Map()
-        timeFunnelRows.forEach(row => {
-          const key = `${row.distinct_id}|${row.funnel_type}|${row.synced_at}`
-          uniqueRowsMap.set(key, row)
-        })
-        const uniqueRows = Array.from(uniqueRowsMap.values())
-
-        console.log(`Deduplicating: ${timeFunnelRows.length} rows -> ${uniqueRows.length} unique rows`)
-
-        // Use upsert to handle duplicates
-        const { error: insertError } = await supabase
-          .from('time_funnels')
-          .upsert(uniqueRows, {
-            onConflict: 'distinct_id,funnel_type,synced_at',
-            ignoreDuplicates: false
-          })
-
-        if (insertError) {
-          console.error('Error upserting time funnels:', insertError)
-          throw insertError
-        }
-
-        stats.timeFunnelsFetched = uniqueRows.length
-        stats.totalRecordsInserted += uniqueRows.length
-        console.log(`Upserted ${uniqueRows.length} time funnel records`)
-      }
 
       // Process and store portfolio-creator engagement pairs
       console.log('Processing portfolio-creator engagement pairs...')
@@ -373,7 +302,6 @@ serve(async (req) => {
         .update({
           sync_completed_at: syncEndTime.toISOString(),
           sync_status: 'completed',
-          time_funnels_fetched: stats.timeFunnelsFetched,
           total_records_inserted: stats.totalRecordsInserted,
         })
         .eq('id', syncLogId)
@@ -495,48 +423,6 @@ async function fetchInsightsData(
   }
 }
 
-async function fetchFunnelData(
-  credentials: MixpanelCredentials,
-  funnelId: string,
-  name: string,
-  fromDate: string,
-  toDate: string
-) {
-  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    funnel_id: funnelId,
-    from_date: fromDate,
-    to_date: toDate,
-    users: 'true', // Request user-level data
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  console.log(`Response structure:`, JSON.stringify(Object.keys(data), null, 2))
-  if (data.data) {
-    console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
-  }
-  return data
-}
-
 async function fetchPortfolioViewEvents(
   credentials: MixpanelCredentials,
   fromDate: string,
@@ -603,60 +489,6 @@ async function fetchPortfolioViewEvents(
 // ============================================================================
 // Helper Functions - Data Processing
 // ============================================================================
-
-function processFunnelData(data: any, funnelType: string): any[] {
-  if (!data || !data.data) {
-    console.log(`No funnel data for ${funnelType}`)
-    return []
-  }
-
-  const rows: any[] = []
-
-  // Funnels API returns data grouped by date, then by distinct_id
-  // Structure: { data: { "2025-09-29": { "$overall": [...], "distinct_id_1": [...], ... } } }
-
-  Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
-    if (!dateData || typeof dateData !== 'object') return
-
-    Object.entries(dateData).forEach(([key, steps]: [string, any]) => {
-      // Skip $overall aggregate
-      if (key === '$overall') return
-
-      // Key can be distinct_id or $device:xxx format
-      let distinctId = key
-
-      // If it's a device ID format, extract just the device ID part
-      if (key.startsWith('$device:')) {
-        distinctId = key.replace('$device:', '')
-      }
-
-      // steps is an array of funnel steps
-      if (!Array.isArray(steps) || steps.length === 0) return
-
-      // Get the last step (final conversion step)
-      const finalStep = steps[steps.length - 1]
-
-      // Only include if user completed the funnel (count > 0 on final step)
-      // and we have a time value
-      if (finalStep.count > 0 && finalStep.avg_time_from_start) {
-        const timeInSeconds = parseFloat(finalStep.avg_time_from_start)
-
-        if (timeInSeconds > 0) {
-          rows.push({
-            distinct_id: distinctId,
-            funnel_type: funnelType,
-            time_in_seconds: timeInSeconds,
-            time_in_days: timeInSeconds / 86400,
-            synced_at: new Date().toISOString(),
-          })
-        }
-      }
-    })
-  })
-
-  console.log(`Processed ${rows.length} ${funnelType} records`)
-  return rows
-}
 
 function processPortfolioCreatorPairs(
   profileViewsData: any,
