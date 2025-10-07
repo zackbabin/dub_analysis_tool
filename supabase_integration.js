@@ -182,19 +182,19 @@ class SupabaseIntegration {
             console.log('✅ Step 3/4 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementResult.data.stats);
 
-            // Check portfolio result
+            // Check portfolio result (non-blocking - will use existing data if fails)
+            let portfolioData = null;
             if (portfolioResult.error) {
-                console.error('❌ Portfolio events sync error:', portfolioResult.error);
-                if (portfolioResult.error.message?.includes('Failed to send')) {
-                    throw new Error(`Portfolio events sync failed: Edge Function 'sync-mixpanel-portfolio-events' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-portfolio-events`);
-                }
-                throw new Error(`Portfolio events sync failed: ${portfolioResult.error.message || JSON.stringify(portfolioResult.error)}`);
+                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioResult.error);
+                portfolioData = { stats: { skipped: true, reason: portfolioResult.error.message || 'Unknown error' } };
+            } else if (!portfolioResult.data || !portfolioResult.data.success) {
+                console.warn('⚠️ Portfolio events sync failed (continuing with existing data):', portfolioResult.data?.error || 'Unknown error');
+                portfolioData = { stats: { skipped: true, reason: portfolioResult.data?.error || 'Unknown error' } };
+            } else {
+                console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
+                console.log('   Stats:', portfolioResult.data.stats);
+                portfolioData = portfolioResult.data;
             }
-            if (!portfolioResult.data || !portfolioResult.data.success) {
-                throw new Error(`Portfolio events sync failed: ${portfolioResult.data?.error || 'Unknown error'}`);
-            }
-            console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
-            console.log('   Stats:', portfolioResult.data.stats);
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
 
