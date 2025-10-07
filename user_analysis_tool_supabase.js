@@ -728,7 +728,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     /**
      * Render Subscription Analysis tab content
      */
-    renderSubscriptionAnalysis(correlationResults, regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos) {
+    renderSubscriptionAnalysis(correlationResults, regressionResults, tippingPoints, engagementSummary, topSubscriptionCombos, summaryStats) {
         const subscriptionContainer = document.getElementById('qdaSubscriptionsInline');
         const priceContainer = document.getElementById('qdaSubscriptionPriceInline');
 
@@ -756,30 +756,58 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             subscriptionSection.insertAdjacentHTML('beforeend', combinationsHTML);
         }
 
-        // Add subscription price distribution placeholder
-        if (priceContainer) {
-            priceContainer.innerHTML = `
-                <div class="qda-result-section">
-                    <h2>Subscription Price Distribution</h2>
-                    <p style="color: #6c757d; font-style: italic;">Subscription price analysis will be integrated from Creator Analysis tab.</p>
-                </div>
-            `;
+        // Add subscription price distribution
+        if (priceContainer && summaryStats) {
+            const priceSection = document.createElement('div');
+            priceSection.className = 'qda-result-section';
+            priceSection.innerHTML = '<h2>Subscription Price Distribution</h2>';
+            priceContainer.appendChild(priceSection);
+
+            // Extract subscription price data from summaryStats if available
+            if (summaryStats.subscriptionPrices && Object.keys(summaryStats.subscriptionPrices).length > 0) {
+                const priceTable = this.createSubscriptionPriceTable(summaryStats.subscriptionPrices);
+                priceSection.appendChild(priceTable);
+            } else {
+                priceSection.innerHTML += '<p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>';
+            }
         }
     }
 
     /**
-     * Render Creator Analysis tab placeholder
+     * Create subscription price table
      */
-    renderCreatorAnalysis() {
-        const creatorContainer = document.getElementById('qdaCreatorAnalysisPlaceholder');
-        if (!creatorContainer) return;
+    createSubscriptionPriceTable(priceData) {
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
 
-        creatorContainer.innerHTML = `
-            <div class="qda-result-section">
-                <h2>Creator Analysis</h2>
-                <p style="color: #6c757d; font-style: italic;">Switch to the "Creator Analysis" main tab above to view detailed creator metrics and analysis.</p>
-            </div>
-        `;
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        ['Price Point', 'Count'].forEach(header => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        Object.entries(priceData)
+            .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
+            .forEach(([price, count]) => {
+                const row = document.createElement('tr');
+                const priceCell = document.createElement('td');
+                priceCell.textContent = `$${parseFloat(price).toFixed(2)}`;
+                row.appendChild(priceCell);
+
+                const countCell = document.createElement('td');
+                countCell.textContent = count;
+                row.appendChild(countCell);
+
+                tbody.appendChild(row);
+            });
+
+        table.appendChild(tbody);
+        return table;
     }
 
 }
