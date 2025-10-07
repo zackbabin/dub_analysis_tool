@@ -152,12 +152,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             topSequences
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10, 10).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
+            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('lift', 10, 10).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 10).catch(e => { console.warn('Failed to load sequences:', e); return []; })
+            this.supabaseIntegration.loadTopCopyCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load sequences:', e); return []; })
         ]);
 
         // Clear output container and create results div
@@ -300,11 +300,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-creator combinations that drive subscriptions:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users per creator, max 150 creators analyzed, ≥1 user must view all 3</li>
+                    <li><strong>Filters:</strong> Max 200 creators analyzed, ≥1 user viewed all 3, ≥1 subscription occurred</li>
                     <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Users must view ALL 3 creators to be counted as "exposed."
+                Shows top 10 combinations sorted by AIC. Users must view ALL 3 creators to be counted as "exposed."
             </span>
         </span>`;
 
@@ -492,11 +492,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 3-portfolio combinations that drive copies:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users per portfolio, max 150 portfolios analyzed, ≥1 user must view all 3</li>
+                    <li><strong>Filters:</strong> Max 200 portfolios analyzed, ≥1 user viewed all 3, ≥1 copy occurred</li>
                     <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower = better fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Users must view ALL 3 portfolios to be counted as "exposed."
+                Shows top 10 combinations sorted by AIC. Users must view ALL 3 portfolios to be counted as "exposed."
             </span>
         </span>`;
 
@@ -521,7 +521,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Uses array.join() for optimal string building performance
      */
     generatePortfolioSequencesHTML(topSequences) {
+        console.log('Portfolio sequences data:', topSequences);
         if (!topSequences || topSequences.length === 0) {
+            console.warn('No portfolio sequences to display');
             return '';
         }
 

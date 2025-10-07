@@ -294,8 +294,8 @@ function evaluateCombination(
     }
   }
 
-  // Early exit if exposure is too low (before expensive regression)
-  if (exposedTotal < minExposureCount) {
+  // Early exit if exposure is too low OR no conversions (before expensive regression)
+  if (exposedTotal < minExposureCount || totalConversions === 0) {
     return null
   }
 

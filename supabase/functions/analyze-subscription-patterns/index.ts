@@ -294,14 +294,13 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get ALL creators with at least 3 users (balances coverage vs computation)
-    // This maximizes input data while preventing timeout
-    // Filtering by exposure happens in UI (minExposure=20)
-    const allCreators = getTopCreators(users, 3) // Min 3 users per creator
+    // Get ALL creators with at least 1 user (maximum coverage)
+    // Combinations are filtered by ≥1 exposure AND ≥1 subscription
+    const allCreators = getTopCreators(users, 1) // Min 1 user per creator
 
-    // Safety limit: Cap at 150 creators to prevent timeout
-    // 150 creators = 551,300 combinations (~2-3 min processing time)
-    const MAX_CREATORS = 150
+    // Safety limit: Cap at 200 creators to prevent timeout
+    // 200 creators = 1,313,400 combinations (~4-5 min processing time)
+    const MAX_CREATORS = 200
     const topCreators = allCreators.slice(0, MAX_CREATORS)
 
     if (topCreators.length < 3) {
@@ -324,8 +323,8 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topCreators, 3)) {
       const result = evaluateCombination(combo, users)
 
-      // Only keep combinations where at least 1 user viewed all 3 creators
-      if (result.users_with_exposure > 0) {
+      // Only keep combinations where at least 1 user viewed all 3 creators AND at least 1 subscription occurred
+      if (result.users_with_exposure > 0 && result.total_conversions > 0) {
         results.push(result)
       }
 

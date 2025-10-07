@@ -297,14 +297,13 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get ALL portfolios with at least 3 users (balances coverage vs computation)
-    // This maximizes input data while preventing timeout
-    // Filtering by exposure happens in UI (minExposure=20)
-    const allPortfolios = getTopPortfolios(users, 3) // Min 3 users per portfolio
+    // Get ALL portfolios with at least 1 user (maximum coverage)
+    // Combinations are filtered by ≥1 exposure AND ≥1 conversion
+    const allPortfolios = getTopPortfolios(users, 1) // Min 1 user per portfolio
 
-    // Safety limit: Cap at 150 portfolios to prevent timeout
-    // 150 portfolios = 551,300 combinations (~2-3 min processing time)
-    const MAX_PORTFOLIOS = 150
+    // Safety limit: Cap at 200 portfolios to prevent timeout
+    // 200 portfolios = 1,313,400 combinations (~4-5 min processing time)
+    const MAX_PORTFOLIOS = 200
     const topPortfolios = allPortfolios.slice(0, MAX_PORTFOLIOS)
 
     if (topPortfolios.length < 3) {
@@ -327,8 +326,8 @@ serve(async (_req) => {
     for (const combo of generateCombinations(topPortfolios, 3)) {
       const result = evaluateCombination(combo, users)
 
-      // Only keep combinations where at least 1 user viewed all 3 portfolios
-      if (result.users_with_exposure > 0) {
+      // Only keep combinations where at least 1 user viewed all 3 portfolios AND at least 1 conversion occurred
+      if (result.users_with_exposure > 0 && result.total_conversions > 0) {
         results.push(result)
       }
 
