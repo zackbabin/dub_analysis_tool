@@ -152,12 +152,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             topSequences
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
+            this.supabaseIntegration.loadTopSubscriptionCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 0).catch(e => { console.warn('Failed to load sequences:', e); return []; })
+            this.supabaseIntegration.loadTopCopyCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('lift', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; })
         ]);
 
         // Clear output container and create results div
