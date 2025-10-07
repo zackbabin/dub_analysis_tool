@@ -122,7 +122,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('subscribers_insights')
             .upsert(batch, {
-              onConflict: 'distinct_id,synced_at',
+              onConflict: 'distinct_id',
               ignoreDuplicates: false
             })
 
@@ -399,6 +399,7 @@ function processInsightsData(data: any): any[] {
   console.log(`Processed ${rows.length} insights rows, converting to DB format...`)
 
   // Convert to database format
+  const now = new Date().toISOString()
   return rows.map(row => ({
     distinct_id: row['$distinct_id'] || row['distinct_id'],
     income: row['income'] || null,
@@ -434,5 +435,6 @@ function processInsightsData(data: any): any[] {
     portfolio_card_taps: parseInt(row['T. Portfolio Card Taps'] || 0),
     total_subscriptions: parseInt(row['M. Total Subscriptions'] || 0),
     subscribed_within_7_days: row['D. Subscribed within 7 days'] === 1 || row['D. Subscribed within 7 days'] === '1',
+    updated_at: now,
   })).filter(row => row.distinct_id)
 }
