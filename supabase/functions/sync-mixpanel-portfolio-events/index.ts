@@ -355,13 +355,13 @@ async function fetchPortfolioViewEvents(
     from_date: fromDate,
     to_date: toDate,
     event: '["Viewed Portfolio Details"]',
-    where: 'properties["hasSkippedRevcatOnboarding"] == false',
   })
 
   const authString = `${credentials.username}:${credentials.secret}`
   const authHeader = `Basic ${btoa(authString)}`
 
-  console.log(`Fetching portfolio events from ${fromDate} to ${toDate} (filtering hasSkippedRevcatOnboarding == false)`)
+  console.log(`Fetching portfolio events from ${fromDate} to ${toDate}`)
+  console.log(`API URL: https://data.mixpanel.com/api/2.0/export?${params}`)
 
   const response = await fetch(`https://data.mixpanel.com/api/2.0/export?${params}`, {
     method: 'GET',
@@ -378,13 +378,22 @@ async function fetchPortfolioViewEvents(
 
   // Parse JSONL response (one JSON object per line)
   const text = await response.text()
+  console.log(`Response length: ${text.length} characters`)
+
   const events: any[] = []
   let skippedLines = 0
+  let totalLines = 0
 
   for (const line of text.trim().split('\n')) {
     if (line.trim()) {
+      totalLines++
       try {
         const event = JSON.parse(line)
+
+        // Log first event for debugging
+        if (totalLines === 1) {
+          console.log(`First event sample:`, JSON.stringify(event).substring(0, 500))
+        }
 
         // Validate required properties
         if (event.properties?.distinct_id &&
@@ -400,6 +409,7 @@ async function fetchPortfolioViewEvents(
     }
   }
 
+  console.log(`Total lines in response: ${totalLines}`)
   if (skippedLines > 0) {
     console.log(`Skipped ${skippedLines} invalid portfolio view events`)
   }

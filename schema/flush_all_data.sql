@@ -9,6 +9,7 @@
 TRUNCATE TABLE conversion_pattern_combinations RESTART IDENTITY CASCADE;
 TRUNCATE TABLE creator_subscriptions_by_price RESTART IDENTITY CASCADE;
 TRUNCATE TABLE creators_insights RESTART IDENTITY CASCADE;
+TRUNCATE TABLE portfolio_view_events RESTART IDENTITY CASCADE;
 TRUNCATE TABLE subscribers_insights RESTART IDENTITY CASCADE;
 TRUNCATE TABLE sync_logs RESTART IDENTITY CASCADE;
 TRUNCATE TABLE time_funnels RESTART IDENTITY CASCADE;
@@ -16,10 +17,11 @@ TRUNCATE TABLE user_portfolio_creator_copies RESTART IDENTITY CASCADE;
 TRUNCATE TABLE user_portfolio_creator_views RESTART IDENTITY CASCADE;
 
 -- Step 2: Refresh all materialized views (will be empty since base tables are empty)
-REFRESH MATERIALIZED VIEW portfolio_creator_engagement_metrics;
-REFRESH MATERIALIZED VIEW hidden_gems_portfolios;
-REFRESH MATERIALIZED VIEW subscription_engagement_summary;
 REFRESH MATERIALIZED VIEW copy_engagement_summary;
+REFRESH MATERIALIZED VIEW hidden_gems_portfolios;
+REFRESH MATERIALIZED VIEW main_analysis;
+REFRESH MATERIALIZED VIEW portfolio_creator_engagement_metrics;
+REFRESH MATERIALIZED VIEW subscription_engagement_summary;
 
 -- Step 3: Verify all tables and views are now empty
 SELECT
@@ -33,6 +35,8 @@ SELECT 'creator_subscriptions_by_price', COUNT(*) FROM creator_subscriptions_by_
 UNION ALL
 SELECT 'creators_insights', COUNT(*) FROM creators_insights
 UNION ALL
+SELECT 'portfolio_view_events', COUNT(*) FROM portfolio_view_events
+UNION ALL
 SELECT 'subscribers_insights', COUNT(*) FROM subscribers_insights
 UNION ALL
 SELECT 'sync_logs', COUNT(*) FROM sync_logs
@@ -45,13 +49,15 @@ SELECT 'user_portfolio_creator_views', COUNT(*) FROM user_portfolio_creator_view
 
 SELECT '' as separator;
 SELECT 'MATERIALIZED VIEWS' as category;
-SELECT 'portfolio_creator_engagement_metrics' as view_name, COUNT(*) as row_count FROM portfolio_creator_engagement_metrics
+SELECT 'copy_engagement_summary' as view_name, COUNT(*) as row_count FROM copy_engagement_summary
 UNION ALL
 SELECT 'hidden_gems_portfolios', COUNT(*) FROM hidden_gems_portfolios
 UNION ALL
-SELECT 'subscription_engagement_summary', COUNT(*) FROM subscription_engagement_summary
+SELECT 'main_analysis', COUNT(*) FROM main_analysis
 UNION ALL
-SELECT 'copy_engagement_summary', COUNT(*) FROM copy_engagement_summary;
+SELECT 'portfolio_creator_engagement_metrics', COUNT(*) FROM portfolio_creator_engagement_metrics
+UNION ALL
+SELECT 'subscription_engagement_summary', COUNT(*) FROM subscription_engagement_summary;
 
 -- Success message
 SELECT '✅ ALL DATA FLUSHED SUCCESSFULLY' as result;
