@@ -104,14 +104,15 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Functions (two-part process)
-     * Part 1: sync-mixpanel-users (subscribers data - can timeout due to large dataset)
-     * Part 2: sync-mixpanel-engagement (funnels, views, subscriptions, copies, portfolio events)
+     * Trigger Mixpanel sync via Supabase Edge Functions (three-part process)
+     * Part 1: sync-mixpanel-users (subscribers data - large dataset)
+     * Part 2: sync-mixpanel-engagement (funnels, views, subscriptions, copies + trigger analyses)
+     * Part 3: sync-mixpanel-portfolio-events (raw portfolio view events - high volume)
      * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel sync (2-part process)...');
+        console.log('🔄 Starting Mixpanel sync (3-part process)...');
 
         try {
             // Part 1: Sync users/subscribers data
@@ -140,11 +141,11 @@ class SupabaseIntegration {
                 throw new Error(`Users sync failed: ${usersData?.error || 'Unknown error'}`);
             }
 
-            console.log('✅ Step 1/2 complete: User data synced successfully');
+            console.log('✅ Step 1/3 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
             // Part 2: Sync engagement data
-            console.log('📈 Step 2/2: Syncing engagement data...');
+            console.log('📈 Step 2/3: Syncing engagement data...');
             const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
                 body: {}
             });
@@ -169,8 +170,37 @@ class SupabaseIntegration {
                 throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
             }
 
-            console.log('✅ Step 2/2 complete: Engagement data synced successfully');
+            console.log('✅ Step 2/3 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementData.stats);
+
+            // Part 3: Sync portfolio events
+            console.log('📊 Step 3/3: Syncing portfolio view events...');
+            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('sync-mixpanel-portfolio-events', {
+                body: {}
+            });
+
+            if (portfolioError) {
+                console.error('❌ Portfolio events sync error:', portfolioError);
+                console.error('Error details:', {
+                    message: portfolioError.message,
+                    context: portfolioError.context,
+                    name: portfolioError.name
+                });
+
+                // Provide more specific error messages
+                if (portfolioError.message?.includes('Failed to send')) {
+                    throw new Error(`Portfolio events sync failed: Edge Function 'sync-mixpanel-portfolio-events' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-portfolio-events`);
+                }
+
+                throw new Error(`Portfolio events sync failed: ${portfolioError.message || JSON.stringify(portfolioError)}`);
+            }
+
+            if (!portfolioData || !portfolioData.success) {
+                throw new Error(`Portfolio events sync failed: ${portfolioData?.error || 'Unknown error'}`);
+            }
+
+            console.log('✅ Step 3/3 complete: Portfolio events synced successfully');
+            console.log('   Stats:', portfolioData.stats);
 
             console.log('🎉 Full Mixpanel sync completed successfully!');
 
@@ -182,7 +212,8 @@ class SupabaseIntegration {
                 success: true,
                 message: 'Full Mixpanel sync completed successfully',
                 users: usersData.stats,
-                engagement: engagementData.stats
+                engagement: engagementData.stats,
+                portfolioEvents: portfolioData.stats
             };
         } catch (error) {
             console.error('❌ Error during Mixpanel sync:', error);

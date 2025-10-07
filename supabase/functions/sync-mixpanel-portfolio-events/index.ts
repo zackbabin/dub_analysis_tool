@@ -1,8 +1,7 @@
-// Supabase Edge Function: sync-mixpanel-engagement
-// Fetches engagement data (funnels, views, subscriptions, copies) from Mixpanel
-// Part 2 of 3: Handles time_funnels, user_portfolio_creator_views, user_portfolio_creator_copies
-// Triggers pattern analysis and refreshes materialized views
-// Triggered manually by user clicking "Sync Live Data" button after sync-mixpanel-users completes
+// Supabase Edge Function: sync-mixpanel-portfolio-events
+// Fetches raw portfolio view events from Mixpanel Event Export API
+// Part 3 of 3: Handles only portfolio_view_events table (isolated due to high volume)
+// Triggered manually by user clicking "Sync Live Data" button
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
@@ -16,16 +15,7 @@ const corsHeaders = {
 const PROJECT_ID = '2599235'
 const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 
-const CHART_IDS = {
-  timeToFirstCopy: '84999271',
-  timeToFundedAccount: '84999267',
-  timeToLinkedBank: '84999265',
-  // User engagement analysis for subscriptions/copies
-  profileViewsByCreator: '85165851',  // Total Profile Views
-  pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
-  subscriptionsByCreator: '85165590',  // Total Subscriptions
-  copiesByCreator: '85172578',  // Total Copies
-}
+// No chart IDs needed - fetches raw events from Event Export API
 
 interface MixpanelCredentials {
   username: string
@@ -33,8 +23,7 @@ interface MixpanelCredentials {
 }
 
 interface SyncStats {
-  timeFunnelsFetched: number
-  engagementRecordsFetched: number
+  portfolioEventsFetched: number
   totalRecordsInserted: number
 }
 
@@ -113,7 +102,7 @@ serve(async (req) => {
         tool_type: 'user',
         sync_started_at: syncStartTime.toISOString(),
         sync_status: 'in_progress',
-        source: 'mixpanel_engagement',
+        source: 'mixpanel_portfolio_events',
         triggered_by: 'manual',
       })
       .select()
@@ -142,228 +131,61 @@ serve(async (req) => {
         secret: mixpanelSecret,
       }
 
-      // Fetch engagement data with controlled concurrency to respect Mixpanel rate limits
-      // Max 5 concurrent queries allowed by Mixpanel - we use 4 for safety
-      console.log('Fetching funnels + engagement charts + portfolio events with max 4 concurrent requests...')
-      const CONCURRENCY_LIMIT = 4
-      const limit = pLimit(CONCURRENCY_LIMIT)
+      // Fetch portfolio view events only
+      console.log('Fetching portfolio view events from Event Export API...')
 
-      const [
-        timeToFirstCopyData,
-        timeToFundedData,
-        timeToLinkedData,
-        profileViewsData,
-        pdpViewsData,
-        subscriptionsData,
-        copiesData,
-      ]: [any, any, any, any, any, any, any] = await Promise.all([
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToFirstCopy,
-            'Time to First Copy',
-            fromDate,
-            toDate
-          )
-        ),
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToFundedAccount,
-            'Time to Funded Account',
-            fromDate,
-            toDate
-          )
-        ),
-        limit(() =>
-          fetchFunnelData(
-            credentials,
-            CHART_IDS.timeToLinkedBank,
-            'Time to Linked Bank',
-            fromDate,
-            toDate
-          )
-        ),
-        limit(() =>
-          fetchInsightsData(
-            credentials,
-            CHART_IDS.profileViewsByCreator,
-            'Profile Views by Creator'
-          )
-        ),
-        limit(() =>
-          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio')
-        ),
-        limit(() =>
-          fetchInsightsData(
-            credentials,
-            CHART_IDS.subscriptionsByCreator,
-            'Subscriptions by Creator'
-          )
-        ),
-        limit(() =>
-          fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator')
-        ),
-      ])
+      const portfolioViewEvents = await fetchPortfolioViewEvents(credentials, fromDate, toDate)
 
-      console.log('✓ Engagement data fetched successfully with controlled concurrency')
+      console.log('✓ Portfolio events fetched successfully')
 
-      // Process and insert data into database
+      // Process and insert portfolio view events into database
       const stats: SyncStats = {
-        timeFunnelsFetched: 0,
-        engagementRecordsFetched: 0,
+        portfolioEventsFetched: 0,
         totalRecordsInserted: 0,
       }
 
       const batchSize = 500
 
-      // Process time funnels
-      const timeFunnelRows = [
-        ...processFunnelData(timeToFirstCopyData, 'time_to_first_copy'),
-        ...processFunnelData(timeToFundedData, 'time_to_funded_account'),
-        ...processFunnelData(timeToLinkedData, 'time_to_linked_bank'),
-      ]
+      // Store portfolio view events for sequence analysis
+      if (portfolioViewEvents && portfolioViewEvents.length > 0) {
+        console.log(`Processing ${portfolioViewEvents.length} portfolio view events...`)
 
-      if (timeFunnelRows.length > 0) {
-        // Deduplicate rows by distinct_id + funnel_type + synced_at (keep last occurrence)
-        const uniqueRowsMap = new Map()
-        timeFunnelRows.forEach(row => {
-          const key = `${row.distinct_id}|${row.funnel_type}|${row.synced_at}`
-          uniqueRowsMap.set(key, row)
+        const portfolioEventRows = portfolioViewEvents.map((event: any) => ({
+          distinct_id: event.properties.distinct_id,
+          portfolio_ticker: event.properties.portfolioTicker,
+          event_time: event.properties.time,
+          synced_at: syncStartTime.toISOString()
+        }))
+
+        // Deduplicate by distinct_id + portfolio_ticker + event_time
+        const uniqueEventsMap = new Map()
+        portfolioEventRows.forEach((row: any) => {
+          const key = `${row.distinct_id}|${row.portfolio_ticker}|${row.event_time}`
+          uniqueEventsMap.set(key, row)
         })
-        const uniqueRows = Array.from(uniqueRowsMap.values())
+        const uniqueEvents = Array.from(uniqueEventsMap.values())
 
-        console.log(`Deduplicating: ${timeFunnelRows.length} rows -> ${uniqueRows.length} unique rows`)
+        console.log(`Deduplicating: ${portfolioEventRows.length} events -> ${uniqueEvents.length} unique events`)
 
-        // Use upsert to handle duplicates
-        const { error: insertError } = await supabase
-          .from('time_funnels')
-          .upsert(uniqueRows, {
-            onConflict: 'distinct_id,funnel_type,synced_at',
-            ignoreDuplicates: false
-          })
-
-        if (insertError) {
-          console.error('Error upserting time funnels:', insertError)
-          throw insertError
-        }
-
-        stats.timeFunnelsFetched = uniqueRows.length
-        stats.totalRecordsInserted += uniqueRows.length
-        console.log(`Upserted ${uniqueRows.length} time funnel records`)
-      }
-
-      // Process and store portfolio-creator engagement pairs
-      console.log('Processing portfolio-creator engagement pairs...')
-      const [subscriptionPairs, copyPairs] = processPortfolioCreatorPairs(
-        profileViewsData,
-        pdpViewsData,
-        subscriptionsData,
-        copiesData,
-        syncStartTime.toISOString()
-      )
-
-      // Upsert subscription pairs in batches
-      if (subscriptionPairs.length > 0) {
-        console.log(`Upserting ${subscriptionPairs.length} subscription pairs...`)
-        for (let i = 0; i < subscriptionPairs.length; i += batchSize) {
-          const batch = subscriptionPairs.slice(i, i + batchSize)
+        // Upsert in batches
+        for (let i = 0; i < uniqueEvents.length; i += batchSize) {
+          const batch = uniqueEvents.slice(i, i + batchSize)
           const { error: insertError } = await supabase
-            .from('user_portfolio_creator_views')
+            .from('portfolio_view_events')
             .upsert(batch, {
-              onConflict: 'distinct_id,portfolio_ticker,creator_id',
+              onConflict: 'distinct_id,portfolio_ticker,event_time',
               ignoreDuplicates: false
             })
 
           if (insertError) {
-            console.error('Error upserting subscription pairs batch:', insertError)
+            console.error('Error upserting portfolio view events batch:', insertError)
             throw insertError
           }
-          console.log(`Upserted batch: ${i + batch.length}/${subscriptionPairs.length} subscription pairs`)
+          console.log(`Upserted batch: ${i + batch.length}/${uniqueEvents.length} portfolio events`)
         }
-        console.log('✓ Subscription pairs upserted successfully')
-        stats.engagementRecordsFetched += subscriptionPairs.length
-        stats.totalRecordsInserted += subscriptionPairs.length
-      }
-
-      // Upsert copy pairs in batches
-      if (copyPairs.length > 0) {
-        console.log(`Upserting ${copyPairs.length} copy pairs...`)
-        for (let i = 0; i < copyPairs.length; i += batchSize) {
-          const batch = copyPairs.slice(i, i + batchSize)
-          const { error: insertError } = await supabase
-            .from('user_portfolio_creator_copies')
-            .upsert(batch, {
-              onConflict: 'distinct_id,portfolio_ticker,creator_id',
-              ignoreDuplicates: false
-            })
-
-          if (insertError) {
-            console.error('Error upserting copy pairs batch:', insertError)
-            throw insertError
-          }
-          console.log(`Upserted batch: ${i + batch.length}/${copyPairs.length} copy pairs`)
-        }
-        console.log('✓ Copy pairs upserted successfully')
-      }
-
-      // Portfolio events are now handled by separate sync-mixpanel-portfolio-events function
-
-      // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
-      // Fire and forget - don't wait for completion to avoid timeout
-      console.log('Triggering pattern analysis (using stored data)...')
-
-      // Trigger all three analyses and keep promises alive but don't await
-      const analysisPromises = [
-        fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({})
-        }).then(() => console.log('✓ Subscription analysis invoked'))
-          .catch((err) => console.warn('⚠️ Subscription analysis failed:', err)),
-
-        fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({})
-        }).then(() => console.log('✓ Copy analysis invoked'))
-          .catch((err) => console.warn('⚠️ Copy analysis failed:', err)),
-
-        fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({})
-        }).then(() => console.log('✓ Portfolio sequence analysis invoked'))
-          .catch((err) => console.warn('⚠️ Portfolio sequence analysis failed:', err))
-      ]
-
-      // Keep promises referenced but don't await (fire-and-forget that survives function return)
-      Promise.allSettled(analysisPromises)
-
-      console.log('✓ Pattern analysis functions triggered (running in background)')
-
-      // Note: Pattern analysis uses exhaustive search + logistic regression
-      // Results stored in conversion_pattern_combinations table
-      console.log('Pattern analysis functions use stored engagement data (no duplicate Mixpanel calls)')
-
-      // Refresh materialized view
-      console.log('Refreshing main_analysis materialized view...')
-      const { error: refreshError } = await supabase.rpc('refresh_main_analysis')
-      if (refreshError) {
-        console.error('Error refreshing materialized view:', refreshError)
-        // Don't throw - this is not critical
+        console.log('✓ Portfolio view events upserted successfully')
+        stats.portfolioEventsFetched = uniqueEvents.length
+        stats.totalRecordsInserted += uniqueEvents.length
       }
 
       // Update sync log with success
@@ -373,32 +195,16 @@ serve(async (req) => {
         .update({
           sync_completed_at: syncEndTime.toISOString(),
           sync_status: 'completed',
-          time_funnels_fetched: stats.timeFunnelsFetched,
           total_records_inserted: stats.totalRecordsInserted,
         })
         .eq('id', syncLogId)
 
-      console.log('Engagement sync completed successfully')
-
-      // Refresh materialized view for subscription engagement summary
-      console.log('Refreshing subscription_engagement_summary materialized view...')
-      try {
-        const { error: refreshError } = await supabase.rpc('refresh_subscription_engagement_summary')
-        if (refreshError) {
-          // If the function doesn't exist, try direct SQL
-          await supabase.from('subscription_engagement_summary').select('count').limit(1)
-          console.log('Note: Materialized view may need manual refresh. Run: REFRESH MATERIALIZED VIEW subscription_engagement_summary;')
-        } else {
-          console.log('✓ Materialized view refreshed successfully')
-        }
-      } catch (refreshErr) {
-        console.warn('Could not refresh materialized view automatically:', refreshErr)
-      }
+      console.log('Portfolio events sync completed successfully')
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Mixpanel engagement sync completed successfully',
+          message: 'Portfolio events sync completed successfully',
           stats,
         }),
         {

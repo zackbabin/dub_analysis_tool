@@ -1,7 +1,6 @@
 // Supabase Edge Function: sync-mixpanel-engagement
-// Fetches engagement data (funnels, views, subscriptions, copies) from Mixpanel
-// Part 2 of 3: Handles time_funnels, user_portfolio_creator_views, user_portfolio_creator_copies
-// Triggers pattern analysis and refreshes materialized views
+// Fetches engagement data (funnels, views, subscriptions, copies, portfolio events) from Mixpanel
+// Part 2 of 2: Handles time_funnels, user_portfolio_creator_views, user_portfolio_creator_copies, portfolio_view_events
 // Triggered manually by user clicking "Sync Live Data" button after sync-mixpanel-users completes
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -35,6 +34,7 @@ interface MixpanelCredentials {
 interface SyncStats {
   timeFunnelsFetched: number
   engagementRecordsFetched: number
+  portfolioEventsFetched: number
   totalRecordsInserted: number
 }
 
@@ -127,15 +127,15 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Date range (last 14 days) - reduced from 30 to avoid timeout
+      // Date range (last 30 days)
       const today = new Date()
-      const fourteenDaysAgo = new Date()
-      fourteenDaysAgo.setDate(today.getDate() - 14)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(today.getDate() - 30)
 
       const toDate = today.toISOString().split('T')[0]
-      const fromDate = fourteenDaysAgo.toISOString().split('T')[0]
+      const fromDate = thirtyDaysAgo.toISOString().split('T')[0]
 
-      console.log(`Fetching data from ${fromDate} to ${toDate} (14-day window)`)
+      console.log(`Fetching data from ${fromDate} to ${toDate}`)
 
       const credentials: MixpanelCredentials = {
         username: mixpanelUsername,
@@ -156,7 +156,8 @@ serve(async (req) => {
         pdpViewsData,
         subscriptionsData,
         copiesData,
-      ]: [any, any, any, any, any, any, any] = await Promise.all([
+        portfolioViewEvents,
+      ]: [any, any, any, any, any, any, any, any[]] = await Promise.all([
         limit(() =>
           fetchFunnelData(
             credentials,
@@ -204,6 +205,9 @@ serve(async (req) => {
         limit(() =>
           fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator')
         ),
+        limit(() =>
+          fetchPortfolioViewEvents(credentials, fromDate, toDate)
+        ),
       ])
 
       console.log('✓ Engagement data fetched successfully with controlled concurrency')
@@ -212,6 +216,7 @@ serve(async (req) => {
       const stats: SyncStats = {
         timeFunnelsFetched: 0,
         engagementRecordsFetched: 0,
+        portfolioEventsFetched: 0,
         totalRecordsInserted: 0,
       }
 
@@ -307,7 +312,47 @@ serve(async (req) => {
         console.log('✓ Copy pairs upserted successfully')
       }
 
-      // Portfolio events are now handled by separate sync-mixpanel-portfolio-events function
+      // Store portfolio view events for sequence analysis
+      if (portfolioViewEvents && portfolioViewEvents.length > 0) {
+        console.log(`Processing ${portfolioViewEvents.length} portfolio view events...`)
+
+        const portfolioEventRows = portfolioViewEvents.map((event: any) => ({
+          distinct_id: event.properties.distinct_id,
+          portfolio_ticker: event.properties.portfolioTicker,
+          event_time: event.properties.time,
+          synced_at: syncStartTime.toISOString()
+        }))
+
+        // Deduplicate by distinct_id + portfolio_ticker + event_time
+        const uniqueEventsMap = new Map()
+        portfolioEventRows.forEach((row: any) => {
+          const key = `${row.distinct_id}|${row.portfolio_ticker}|${row.event_time}`
+          uniqueEventsMap.set(key, row)
+        })
+        const uniqueEvents = Array.from(uniqueEventsMap.values())
+
+        console.log(`Deduplicating: ${portfolioEventRows.length} events -> ${uniqueEvents.length} unique events`)
+
+        // Upsert in batches
+        for (let i = 0; i < uniqueEvents.length; i += batchSize) {
+          const batch = uniqueEvents.slice(i, i + batchSize)
+          const { error: insertError } = await supabase
+            .from('portfolio_view_events')
+            .upsert(batch, {
+              onConflict: 'distinct_id,portfolio_ticker,event_time',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting portfolio view events batch:', insertError)
+            throw insertError
+          }
+          console.log(`Upserted batch: ${i + batch.length}/${uniqueEvents.length} portfolio events`)
+        }
+        console.log('✓ Portfolio view events upserted successfully')
+        stats.portfolioEventsFetched = uniqueEvents.length
+        stats.totalRecordsInserted += uniqueEvents.length
+      }
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
       // Fire and forget - don't wait for completion to avoid timeout
