@@ -262,7 +262,7 @@ function processSubscriptionPricingData(data: any): any[] {
 
     // Structure: creatorId -> username -> price -> interval -> count
     Object.keys(metric).forEach(creatorId => {
-      if (creatorId === '$overall') return
+      if (creatorId === '$overall' || creatorId === 'undefined') return
 
       const creatorData = metric[creatorId]
 
@@ -316,15 +316,18 @@ function processSubscriptionPricingData(data: any): any[] {
     })
   })
 
-  const rows = Array.from(creatorDataMap.values())
+  // Filter out any rows with undefined creator_id (safety check)
+  const validRows = Array.from(creatorDataMap.values()).filter(row =>
+    row.creator_id && row.creator_id !== 'undefined' && row.creator_id !== 'null'
+  )
 
-  console.log(`Processed ${rows.length} creator subscription pricing rows`)
+  console.log(`Processed ${validRows.length} creator subscription pricing rows (filtered out ${creatorDataMap.size - validRows.length} invalid rows)`)
 
   // Check for duplicates in the batch itself
   const uniqueKeys = new Set<string>()
   const duplicates: string[] = []
 
-  rows.forEach(row => {
+  validRows.forEach(row => {
     const key = `${row.creator_id}|${row.subscription_price}|${row.subscription_interval}|${row.synced_at}`
     if (uniqueKeys.has(key)) {
       duplicates.push(key)
@@ -336,6 +339,8 @@ function processSubscriptionPricingData(data: any): any[] {
     console.warn(`⚠️ Found ${duplicates.length} duplicate keys in batch!`)
     console.warn('Sample duplicates:', duplicates.slice(0, 5))
   }
+
+  const rows = validRows
 
   // Debug: Show sample rows
   if (rows.length > 0) {
