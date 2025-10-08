@@ -624,25 +624,27 @@ class SupabaseIntegration {
      * Returns data grouped by normalized monthly price
      */
     async loadSubscriptionDistribution() {
-        console.log('Loading subscription price distribution...');
+        return this.cachedQuery('subscription_distribution', async () => {
+            console.log('Loading subscription price distribution...');
 
-        try {
-            const { data, error } = await this.supabase
-                .from('latest_subscription_distribution')
-                .select('*')
-                .order('monthly_price');
+            try {
+                const { data, error } = await this.supabase
+                    .from('latest_subscription_distribution')
+                    .select('*')
+                    .order('monthly_price');
 
-            if (error) {
+                if (error) {
+                    console.error('Error loading subscription distribution:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded ${data.length} price points`);
+                return data;
+            } catch (error) {
                 console.error('Error loading subscription distribution:', error);
                 throw error;
             }
-
-            console.log(`✅ Loaded ${data.length} price points`);
-            return data;
-        } catch (error) {
-            console.error('Error loading subscription distribution:', error);
-            throw error;
-        }
+        });
     }
 
     /**

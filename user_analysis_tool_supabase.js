@@ -309,7 +309,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Create wrapper for deposit section
                     const depositWrapper = document.createElement('div');
                     depositWrapper.className = 'qda-result-section';
-                    depositWrapper.style.marginTop = '2rem';
+                    depositWrapper.style.marginTop = '3rem';
                     depositWrapper.innerHTML = depositHeaderHTML;
                     depositWrapper.appendChild(depositsTable);
 
@@ -317,7 +317,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 } catch (e) {
                     console.error('Error building deposits table:', e);
                     portfolioHTML += `
-                        <div class="qda-result-section" style="margin-top: 2rem;">
+                        <div class="qda-result-section" style="margin-top: 3rem;">
                             ${this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits')}
                             <p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>
                         </div>
@@ -333,7 +333,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Create wrapper for copy drivers section
                 const copyDriversWrapper = document.createElement('div');
                 copyDriversWrapper.className = 'qda-result-section';
-                copyDriversWrapper.style.marginTop = '2rem';
+                copyDriversWrapper.style.marginTop = '3rem';
                 copyDriversWrapper.innerHTML = correlationHeaderHTML;
                 copyDriversWrapper.appendChild(copiesTable);
                 copyDriversWrapper.insertAdjacentHTML('beforeend', combinationsHTML + copySequenceHTML);
@@ -342,7 +342,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 portfolioHTML += `
-                    <div class="qda-result-section" style="margin-top: 2rem;">
+                    <div class="qda-result-section" style="margin-top: 3rem;">
                         ${this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies')}
                         <p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>
                     </div>
@@ -632,8 +632,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         </span>`;
 
         const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems${tooltipHTML}</h2>`,
+            '<div class="qda-result-section" style="margin-top: 3rem;">',
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Hidden Gems${tooltipHTML}</h2>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1, max 100 copies)</p>'
         ];
 
@@ -754,7 +754,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     generateCorrelationHeaderHTML(title, subtitle) {
         const parts = [
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h2>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`
         ];
         return parts.join('');
@@ -840,8 +840,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         </span>`;
 
         const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h3 style="margin-top: 1.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
+            '<div class="qda-result-section" style="margin-top: 3rem;">',
+            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
@@ -1090,8 +1090,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         </span>`;
 
         const parts = [
-            '<div style="margin-top: 2rem;">',
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h2>`,
+            '<div style="margin-top: 3rem;">',
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
@@ -1433,7 +1433,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const price = parseFloat(row.monthly_price || row.subscription_price);
             if (!priceDataMap[price]) {
                 priceDataMap[price] = {
-                    count: 0,
+                    totalSubscriptions: 0,
+                    totalPaywallViews: 0,
                     creators: []
                 };
             }
@@ -1441,19 +1442,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Each row represents one creator at their price point
             const totalSubs = row.total_subscriptions || 0;
             const totalPaywallViews = row.total_paywall_views || 0;
-            const conversionRate = totalPaywallViews > 0 ? (totalSubs / totalPaywallViews) : 0;
 
-            // Add this creator's subscriptions to the price point total
-            priceDataMap[price].count += totalSubs;
+            // Aggregate totals for this price point
+            priceDataMap[price].totalSubscriptions += totalSubs;
+            priceDataMap[price].totalPaywallViews += totalPaywallViews;
 
-            // Store creator info with their individual conversion rate
+            // Store creator username
             const username = row.creator_username || (Array.isArray(row.creator_usernames) ? row.creator_usernames[0] : null);
             if (username && username !== 'undefined') {
-                priceDataMap[price].creators.push({
-                    username: username,
-                    conversionRate: conversionRate,
-                    totalSubs: totalSubs
-                });
+                priceDataMap[price].creators.push(username);
             }
         });
 
@@ -1461,14 +1458,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const sortedData = Object.entries(priceDataMap)
             .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
             .map(([price, data]) => {
-                // Sort creators by conversion rate and take top 10
-                const topCreators = data.creators
-                    .sort((a, b) => b.conversionRate - a.conversionRate)
-                    .slice(0, 10);
+                // Calculate overall conversion rate for this price point
+                const overallConversionRate = data.totalPaywallViews > 0
+                    ? (data.totalSubscriptions / data.totalPaywallViews)
+                    : 0;
+
+                // Take top 10 creators (just names)
+                const topCreators = data.creators.slice(0, 10);
 
                 return {
                     name: `$${parseFloat(price).toFixed(2)}`,
-                    y: data.count,
+                    y: data.totalSubscriptions,
+                    conversionRate: overallConversionRate,
                     creators: topCreators
                 };
             });
@@ -1507,13 +1508,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 useHTML: true,
                 formatter: function() {
                     let tooltipHTML = `<b>${this.point.name}</b><br/>`;
-                    tooltipHTML += `<b>${this.point.y}</b> total subscriptions<br/><br/>`;
+                    tooltipHTML += `<b>${this.point.y}</b> total subscriptions<br/>`;
 
+                    // Show overall conversion rate for this price point
+                    const conversionRate = (this.point.conversionRate * 100).toFixed(1);
+                    tooltipHTML += `<b>${conversionRate}%</b> conversion rate<br/><br/>`;
+
+                    // Show top creators at this price point
                     if (this.point.creators && this.point.creators.length > 0) {
                         tooltipHTML += '<b>Top Creators:</b><br/>';
                         this.point.creators.forEach(creator => {
-                            const rate = (creator.conversionRate * 100).toFixed(1);
-                            tooltipHTML += `${creator.username}: ${rate}% conversion<br/>`;
+                            tooltipHTML += `${creator}<br/>`;
                         });
                     }
 

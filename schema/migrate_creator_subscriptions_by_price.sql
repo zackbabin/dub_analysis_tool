@@ -15,7 +15,8 @@ CREATE TABLE creator_subscriptions_by_price (
     subscription_interval text,
     total_subscriptions integer,
     total_paywall_views integer,
-    synced_at timestamp with time zone
+    synced_at timestamp with time zone,
+    UNIQUE(creator_id, synced_at)
 );
 
 -- Create index for efficient queries

@@ -1898,12 +1898,12 @@ function displayPersonaBreakdownInline(stats) {
 
     const title = document.createElement('h2');
     title.style.marginTop = '1.5rem';
-    title.style.marginBottom = '0.25rem';
+    title.style.marginBottom = '0.5rem';
     title.textContent = 'Persona Breakdown';
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;';
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 1.5rem;';
 
     const personas = [
         {
