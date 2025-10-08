@@ -41,12 +41,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const saved = localStorage.getItem('dubAnalysisResults');
             if (saved) {
                 const data = JSON.parse(saved);
-                if (data.summary && data.portfolio && data.subscription && data.creator && this.outputContainers) {
-                    // Restore cached HTML to each tab
-                    this.outputContainers.summary.innerHTML = data.summary;
-                    this.outputContainers.portfolio.innerHTML = data.portfolio;
-                    this.outputContainers.subscription.innerHTML = data.subscription;
-                    this.outputContainers.creator.innerHTML = data.creator;
+                if (this.outputContainers) {
+                    // Restore cached HTML to each tab (if available)
+                    if (data.summary) this.outputContainers.summary.innerHTML = data.summary;
+                    if (data.portfolio) this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    if (data.subscription) this.outputContainers.subscription.innerHTML = data.subscription;
+                    if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
                     console.log('✅ Restored analysis results from', data.timestamp);
                 }
@@ -140,12 +140,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                if (data.summary && data.portfolio && data.subscription && data.creator && data.timestamp) {
-                    // Restore cached HTML to each tab
-                    this.outputContainers.summary.innerHTML = data.summary;
-                    this.outputContainers.portfolio.innerHTML = data.portfolio;
-                    this.outputContainers.subscription.innerHTML = data.subscription;
-                    this.outputContainers.creator.innerHTML = data.creator;
+                if (data.timestamp) {
+                    // Restore cached HTML to each tab (if available)
+                    if (data.summary) this.outputContainers.summary.innerHTML = data.summary;
+                    if (data.portfolio) this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    if (data.subscription) this.outputContainers.subscription.innerHTML = data.subscription;
+                    if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
                     const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
                     console.log(`✅ Restored complete analysis from cache (${cacheAge} min ago)`);
@@ -234,24 +234,35 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Render correlation tables for Deposits and Copies using parent class function
         const portfolioCorrelations = {
             totalDeposits: results.correlationResults.totalDeposits,
-            totalCopies: results.correlationResults.totalCopies
+            totalCopies: results.correlationResults.totalCopies,
+            totalSubscriptions: {} // Empty object to prevent errors in displayCombinedAnalysisInline
         };
         const portfolioRegressions = {
             deposits: results.regressionResults.deposits,
-            copies: results.regressionResults.copies
+            copies: results.regressionResults.copies,
+            subscriptions: [] // Empty array to prevent errors
         };
 
         // Temporarily set a container for displayCombinedAnalysisInline to use
         const tempContainer = document.getElementById('qdaCombinedResultsInlinePortfolio');
         tempContainer.innerHTML = '<div id="qdaCombinedResultsInline"></div>';
 
-        // Call parent's display function with just deposits and copies
+        // Call parent's display function with all outcomes (subscriptions will be empty)
         displayCombinedAnalysisInline(portfolioCorrelations, portfolioRegressions, null, tippingPoints);
 
-        // Inject additional content into Portfolio Copies and Deposit Funds sections
+        // Remove the Subscriptions section from Portfolio tab (we only want Deposits and Copies)
         const behavioralSection = document.getElementById('qdaCombinedResultsInline');
         if (behavioralSection) {
-            // Inject into Portfolio Copies section
+            const subscriptionsH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
+            if (subscriptionsH2) {
+                const subscriptionsTable = subscriptionsH2.nextElementSibling;
+                subscriptionsH2.remove();
+                if (subscriptionsTable && subscriptionsTable.tagName === 'TABLE') {
+                    subscriptionsTable.remove();
+                }
+            }
+
+            // Inject additional content into Portfolio Copies and Deposit Funds sections
             const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
             if (portfolioCopiesH2) {
                 const table = portfolioCopiesH2.nextElementSibling;
@@ -279,9 +290,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Render correlation tables for Subscriptions using parent class function
         const subscriptionCorrelations = {
+            totalDeposits: {}, // Empty to prevent errors
+            totalCopies: {}, // Empty to prevent errors
             totalSubscriptions: results.correlationResults.totalSubscriptions
         };
         const subscriptionRegressions = {
+            deposits: [], // Empty to prevent errors
+            copies: [], // Empty to prevent errors
             subscriptions: results.regressionResults.subscriptions
         };
 
@@ -289,12 +304,33 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const tempSubContainer = document.getElementById('qdaCombinedResultsInlineSubscription');
         tempSubContainer.innerHTML = '<div id="qdaCombinedResultsInline"></div>';
 
-        // Call parent's display function with just subscriptions
+        // Call parent's display function with all outcomes
         displayCombinedAnalysisInline(subscriptionCorrelations, subscriptionRegressions, null, tippingPoints);
 
-        // Inject additional content into Subscriptions section
+        // Remove Deposits and Copies sections from Subscription tab (we only want Subscriptions)
         const subBehavioralSection = document.getElementById('qdaCombinedResultsInline');
         if (subBehavioralSection) {
+            // Remove Deposit Funds section
+            const depositsH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Deposit Funds');
+            if (depositsH2) {
+                const depositsTable = depositsH2.nextElementSibling;
+                depositsH2.remove();
+                if (depositsTable && depositsTable.tagName === 'TABLE') {
+                    depositsTable.remove();
+                }
+            }
+
+            // Remove Portfolio Copies section
+            const copiesH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
+            if (copiesH2) {
+                const copiesTable = copiesH2.nextElementSibling;
+                copiesH2.remove();
+                if (copiesTable && copiesTable.tagName === 'TABLE') {
+                    copiesTable.remove();
+                }
+            }
+
+            // Inject additional content into Subscriptions section
             const subscriptionsH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
             if (subscriptionsH2) {
                 const table = subscriptionsH2.nextElementSibling;
@@ -327,11 +363,57 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // === CREATOR TAB ===
         const creatorContainer = this.outputContainers.creator;
-        creatorContainer.innerHTML = `
-            <div class="qda-analysis-results">
-                <div id="qdaCreatorAnalysisInline"></div>
-            </div>
-        `;
+
+        // Load and display creator analysis data
+        try {
+            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+            if (creatorData && creatorData.length > 0) {
+                // Set up container structure
+                creatorContainer.innerHTML = `
+                    <div class="qda-analysis-results">
+                        <div id="creatorSummaryStatsInline"></div>
+                        <div id="creatorBreakdownInline"></div>
+                        <div id="creatorBehavioralAnalysisInline"></div>
+                    </div>
+                `;
+
+                // Use the creator analysis tool's display functions
+                const creatorTool = new CreatorAnalysisToolSupabase();
+                creatorTool.supabaseIntegration = this.supabaseIntegration;
+                creatorTool.outputContainer = creatorContainer;
+
+                // Process creator data
+                const creatorResults = await this.processCreatorData(creatorData[0]);
+
+                // Display using creator tool methods
+                if (creatorResults) {
+                    creatorTool.displayCreatorSummaryStats(creatorResults.summaryStats);
+                    await creatorTool.displayCreatorBreakdown(creatorResults.summaryStats);
+
+                    const creatorAnalysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
+                    const creatorTippingPoints = creatorAnalysisData.tippingPoints;
+                    creatorTool.displayCreatorBehavioralAnalysis(creatorResults.correlationResults, creatorResults.regressionResults, creatorTippingPoints);
+                }
+            } else {
+                // No data available
+                creatorContainer.innerHTML = `
+                    <div class="qda-analysis-results">
+                        <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
+                            Creator analysis data will be available after syncing.
+                        </p>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            console.warn('Failed to load creator analysis:', e);
+            creatorContainer.innerHTML = `
+                <div class="qda-analysis-results">
+                    <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
+                        Creator analysis data will be available after syncing.
+                    </p>
+                </div>
+            `;
+        }
 
         // Add timestamp to all tabs
         const timestampStr = new Date().toLocaleString('en-US', {
@@ -767,6 +849,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
 
+
+    /**
+     * Process creator data for display
+     */
+    async processCreatorData(csvContent) {
+        try {
+            // Create a temporary creator tool instance just for processing
+            const tempTool = new CreatorAnalysisTool();
+
+            // Parse CSV
+            const parsedData = tempTool.parseCSV(csvContent);
+
+            // Clean and transform data
+            const cleanData = tempTool.cleanCreatorData(parsedData);
+
+            // Run analysis
+            const results = tempTool.performCreatorAnalysis(cleanData);
+
+            return results;
+        } catch (e) {
+            console.error('Error processing creator data:', e);
+            return null;
+        }
+    }
 
     /**
      * Create subscription price table
