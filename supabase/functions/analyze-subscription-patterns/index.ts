@@ -319,8 +319,21 @@ serve(async (_req) => {
 
     const results: CombinationResult[] = []
     let processed = 0
+    const startTime = Date.now()
+    const TIMEOUT_MS = 120000 // 120 seconds (leave 30s buffer for storage/response)
+    let timedOut = false
 
     for (const combo of generateCombinations(topCreators, 3)) {
+      // Check for timeout every 100 combinations
+      if (processed % 100 === 0) {
+        const elapsed = Date.now() - startTime
+        if (elapsed > TIMEOUT_MS) {
+          console.log(`⚠️ Timeout approaching at ${processed}/${totalCombinations} combinations (${elapsed}ms elapsed). Storing partial results...`)
+          timedOut = true
+          break
+        }
+      }
+
       const result = evaluateCombination(combo, users)
 
       // Only keep combinations where at least 1 user viewed all 3 creators AND at least 1 subscription occurred
@@ -389,7 +402,10 @@ serve(async (_req) => {
       }
     }
 
-    console.log(`✓ Pattern analysis complete: ${insertRows.length} combinations stored`)
+    const analysisStatus = timedOut
+      ? `⚠️ Pattern analysis timed out: ${insertRows.length} combinations stored (partial results from ${processed}/${totalCombinations} evaluated)`
+      : `✓ Pattern analysis complete: ${insertRows.length} combinations stored`
+    console.log(analysisStatus)
 
     const top10 = results.slice(0, 10).map(r => ({
       creators: r.combination,
@@ -402,12 +418,16 @@ serve(async (_req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        timed_out: timedOut,
         stats: {
           pairs_synced: pairRows.length,
           total_users: users.length,
           creators_tested: topCreators.length,
+          combinations_total: totalCombinations,
+          combinations_processed: processed,
           combinations_evaluated: results.length,
           combinations_stored: insertRows.length,
+          completion_percentage: Math.round((processed / totalCombinations) * 100),
         },
         top_10_combinations: top10,
       }),

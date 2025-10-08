@@ -475,8 +475,21 @@ serve(async (req) => {
     const results: CombinationResult[] = []
     let processed = 0
     let skippedLowExposure = 0
+    const startTime = Date.now()
+    const TIMEOUT_MS = 120000 // 120 seconds (leave 30s buffer for storage/response)
+    let timedOut = false
 
     for (const combo of generateCombinations3(topPortfolios)) {
+      // Check for timeout every 100 combinations
+      if (processed % 100 === 0) {
+        const elapsed = Date.now() - startTime
+        if (elapsed > TIMEOUT_MS) {
+          console.log(`⚠️ Timeout approaching at ${processed}/${totalCombinations} combinations (${elapsed}ms elapsed). Storing partial results...`)
+          timedOut = true
+          break
+        }
+      }
+
       const result = evaluateCombination(combo, users, y, overallConversionRate, totalConverters, minExposureCount)
 
       if (result !== null) {
@@ -536,11 +549,15 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✓ Pattern analysis complete in ${((Date.now() - analysisStart) / 1000).toFixed(2)}s`)
+    const analysisStatus = timedOut
+      ? `⚠️ Pattern analysis timed out: ${insertRows.length} combinations stored (partial results from ${processed}/${totalCombinations} evaluated)`
+      : `✓ Pattern analysis complete in ${((Date.now() - analysisStart) / 1000).toFixed(2)}s`
+    console.log(analysisStatus)
     console.log(`✓ Stored ${insertRows.length} combinations`)
 
     const totalTime = (Date.now() - startTime) / 1000
-    console.log(`\n=== Analysis Complete in ${totalTime.toFixed(2)}s ===`)
+    const statusMsg = timedOut ? 'Partial Analysis Complete (Timed Out)' : 'Analysis Complete'
+    console.log(`\n=== ${statusMsg} in ${totalTime.toFixed(2)}s ===`)
 
     const top10 = results.slice(0, 10).map(r => ({
       portfolios: r.combination,
@@ -553,6 +570,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
+        timed_out: timedOut,
         stats: {
           events_fetched: events.length,
           sequences_found: sequences.size,
@@ -560,8 +578,11 @@ serve(async (req) => {
           portfolios_eligible: allEligiblePortfolios.length,
           portfolios_tested: topPortfolios.length,
           portfolios_excluded: allEligiblePortfolios.length - topPortfolios.length,
+          combinations_total: totalCombinations,
+          combinations_processed: processed,
           combinations_evaluated: results.length,
           combinations_stored: insertRows.length,
+          completion_percentage: Math.round((processed / totalCombinations) * 100),
           execution_time_seconds: Math.round(totalTime * 100) / 100,
         },
         configuration: {
