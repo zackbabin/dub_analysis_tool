@@ -227,40 +227,72 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="portfolioDepositsSection"></div>
                 <div id="portfolioCopiesSection"></div>
+                <div id="portfolioDepositsSection"></div>
             </div>
         `;
 
-        // Build Deposit Funds Section
-        const depositsSection = document.getElementById('portfolioDepositsSection');
-        depositsSection.innerHTML = `
-            <div class="qda-result-section">
-                <h2>Deposit Funds</h2>
-            </div>
-        `;
-        const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
-        depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
-
-        // Build Portfolio Copies Section with all enhancements
+        // Build Portfolio Copies Section with all enhancements (FIRST)
         const copiesSection = document.getElementById('portfolioCopiesSection');
-        const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
-        const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-        const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-        const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-        const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
 
-        copiesSection.innerHTML = `
-            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                <h2>Portfolio Copies</h2>
-                ${metricsHTML}
-                ${hiddenGemsHTML}
-                ${correlationHeaderHTML}
-            </div>
-        `;
-        const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-        copiesSection.querySelector('.qda-result-section').appendChild(copiesTable);
-        copiesSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+        if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
+            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+            const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
+            const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+            const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+
+            copiesSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Portfolio Copies</h2>
+                    ${metricsHTML}
+                    ${hiddenGemsHTML}
+                    ${correlationHeaderHTML}
+                </div>
+            `;
+
+            try {
+                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
+                copiesSection.querySelector('.qda-result-section').appendChild(copiesTable);
+                copiesSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+            } catch (e) {
+                console.error('Error building portfolio copies table:', e);
+                copiesSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
+            }
+        } else {
+            copiesSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Portfolio Copies</h2>
+                    <p style="color: #6c757d; font-style: italic;">Portfolio copy analysis data will be available after syncing.</p>
+                </div>
+            `;
+        }
+
+        // Build Deposit Funds Section (SECOND)
+        const depositsSection = document.getElementById('portfolioDepositsSection');
+
+        if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
+            depositsSection.innerHTML = `
+                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
+                    <h2>Deposit Funds</h2>
+                </div>
+            `;
+
+            try {
+                const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+                depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
+            } catch (e) {
+                console.error('Error building deposits table:', e);
+                depositsSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
+            }
+        } else {
+            depositsSection.innerHTML = `
+                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
+                    <h2>Deposit Funds</h2>
+                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data will be available after syncing.</p>
+                </div>
+            `;
+        }
 
         // === SUBSCRIPTION TAB ===
         const subscriptionContainer = this.outputContainers.subscription;
@@ -273,20 +305,37 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Build Subscriptions Section with all enhancements
         const subscriptionSection = document.getElementById('subscriptionAnalysisSection');
-        const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
-        const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
-        const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
 
-        subscriptionSection.innerHTML = `
-            <div class="qda-result-section">
-                <h2>Subscriptions</h2>
-                ${subMetricsHTML}
-                ${subCorrelationHeaderHTML}
-            </div>
-        `;
-        const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
-        subscriptionSection.querySelector('.qda-result-section').appendChild(subscriptionsTable);
-        subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subCombinationsHTML);
+        // Check if subscription data exists
+        if (results.correlationResults?.totalSubscriptions && results.regressionResults?.subscriptions) {
+            const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
+            const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
+            const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
+
+            subscriptionSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Subscriptions</h2>
+                    ${subMetricsHTML}
+                    ${subCorrelationHeaderHTML}
+                </div>
+            `;
+
+            try {
+                const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
+                subscriptionSection.querySelector('.qda-result-section').appendChild(subscriptionsTable);
+                subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subCombinationsHTML);
+            } catch (e) {
+                console.error('Error building subscriptions table:', e);
+                subscriptionSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying subscription analysis. Please try syncing again.</p>';
+            }
+        } else {
+            subscriptionSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Subscriptions</h2>
+                    <p style="color: #6c757d; font-style: italic;">Subscription analysis data will be available after syncing.</p>
+                </div>
+            `;
+        }
 
         // Add subscription price distribution
         const priceSection = document.getElementById('subscriptionPriceSection');
