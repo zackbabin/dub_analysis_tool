@@ -717,25 +717,24 @@ class SupabaseIntegration {
                     .eq('analysis_type', analysisType)
                     .gte('users_with_exposure', minExposure); // Filter: only combinations with enough users
 
-                // Sort by the requested metric
-                switch (metric) {
-                    case 'lift':
-                        query = query.order('lift', { ascending: false });
-                        break;
-                    case 'aic':
-                        query = query.order('aic', { ascending: true }); // Lower AIC is better
-                        break;
-                    case 'precision':
-                        query = query.order('precision', { ascending: false });
-                        break;
-                    case 'odds_ratio':
-                        query = query.order('odds_ratio', { ascending: false });
-                        break;
-                    case 'expected_value':
-                        query = query.order('expected_value', { ascending: false });
-                        break;
-                    default:
-                        query = query.order('combination_rank', { ascending: true });
+                // Sort by the requested metric (skip database sort for expected_value)
+                if (metric !== 'expected_value') {
+                    switch (metric) {
+                        case 'lift':
+                            query = query.order('lift', { ascending: false });
+                            break;
+                        case 'aic':
+                            query = query.order('aic', { ascending: true }); // Lower AIC is better
+                            break;
+                        case 'precision':
+                            query = query.order('precision', { ascending: false });
+                            break;
+                        case 'odds_ratio':
+                            query = query.order('odds_ratio', { ascending: false });
+                            break;
+                        default:
+                            query = query.order('combination_rank', { ascending: true });
+                    }
                 }
 
                 const { data, error } = await query;
@@ -745,8 +744,8 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                // If sorting by expected_value, calculate it client-side and re-sort
-                // (since it's a computed column that may not exist in the database yet)
+                // If sorting by expected_value, calculate it client-side and sort
+                // (since it's a computed column that doesn't exist in the database)
                 let sortedData = data || [];
                 if (metric === 'expected_value' && sortedData.length > 0) {
                     sortedData = sortedData.map(combo => ({
