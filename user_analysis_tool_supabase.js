@@ -227,39 +227,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="portfolioDepositsSection"></div>
-                <div id="portfolioCopiesSection"></div>
+                <div id="portfolioHeaderSection"></div>
+                <div id="portfolioContentSection"></div>
             </div>
         `;
 
-        // Build Deposit Funds Section (FIRST)
-        const depositsSection = document.getElementById('portfolioDepositsSection');
+        // Add Portfolio Analysis H1 Header
+        const portfolioHeaderSection = document.getElementById('portfolioHeaderSection');
+        portfolioHeaderSection.innerHTML = `
+            <div class="qda-result-section">
+                <h1>Portfolio Analysis</h1>
+            </div>
+        `;
 
-        if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
-            depositsSection.innerHTML = `
-                <div class="qda-result-section">
-                    <h2>Deposit Funds</h2>
-                </div>
-            `;
-
-            try {
-                const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
-                depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
-            } catch (e) {
-                console.error('Error building deposits table:', e);
-                depositsSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
-            }
-        } else {
-            depositsSection.innerHTML = `
-                <div class="qda-result-section">
-                    <h2>Deposit Funds</h2>
-                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data will be available after syncing.</p>
-                </div>
-            `;
-        }
-
-        // Build Portfolio Copies Section with all enhancements (SECOND)
-        const copiesSection = document.getElementById('portfolioCopiesSection');
+        // Build Portfolio Content Section
+        const portfolioContentSection = document.getElementById('portfolioContentSection');
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
@@ -268,9 +250,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
             const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
 
-            copiesSection.innerHTML = `
-                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                    <h2>Portfolio Copies</h2>
+            portfolioContentSection.innerHTML = `
+                <div class="qda-result-section">
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                     ${correlationHeaderHTML}
@@ -279,17 +260,36 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             try {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-                copiesSection.querySelector('.qda-result-section').appendChild(copiesTable);
-                copiesSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+                portfolioContentSection.querySelector('.qda-result-section').appendChild(copiesTable);
+                portfolioContentSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
-                copiesSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
+                portfolioContentSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
+            }
+
+            // Add Deposit Funds Section
+            if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
+                const depositHTML = `
+                    <div class="qda-result-section" style="margin-top: 2rem;">
+                        <h2>Deposit Funds</h2>
+                    </div>
+                `;
+                portfolioContentSection.insertAdjacentHTML('beforeend', depositHTML);
+
+                try {
+                    const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+                    const depositSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+                    depositSection.appendChild(depositsTable);
+                } catch (e) {
+                    console.error('Error building deposits table:', e);
+                    const depositSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+                    depositSection.innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
+                }
             }
         } else {
-            copiesSection.innerHTML = `
-                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                    <h2>Portfolio Copies</h2>
-                    <p style="color: #6c757d; font-style: italic;">Portfolio copy analysis data will be available after syncing.</p>
+            portfolioContentSection.innerHTML = `
+                <div class="qda-result-section">
+                    <p style="color: #6c757d; font-style: italic;">Portfolio analysis data will be available after syncing.</p>
                 </div>
             `;
         }
@@ -542,7 +542,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems${tooltipHTML}</h3>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Hidden Gems${tooltipHTML}</h2>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1, max 100 copies)</p>'
         ];
 
@@ -662,7 +662,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     generateCorrelationHeaderHTML(title, subtitle) {
         const parts = [
-            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h3>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`
         ];
         return parts.join('');
