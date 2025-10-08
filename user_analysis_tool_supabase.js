@@ -576,14 +576,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>High-Impact Creator Combinations</strong>
-                Identifies 3-creator combinations that drive subscriptions:
+                Identifies 2-creator pairs that drive subscriptions:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users exposed per combination, max 200 creators analyzed</li>
-                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
+                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 creators analyzed</li>
+                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower is better model fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by Expected Value. Users must view ALL 3 creators to be counted as "exposed."
+                Shows top 10 combinations sorted by AIC. Users must view BOTH creators to be counted as "exposed."
             </span>
         </span>`;
 
@@ -591,9 +591,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
                 `High-Impact Creator Combinations${tooltipHTML}`,
-                'Users who viewed these creator combinations were significantly more likely to subscribe',
+                'Users who viewed both of these creators were significantly more likely to subscribe',
                 topCombinations,
-                (combo) => `${combo.username_1 || combo.value_1}, ${combo.username_2 || combo.value_2}, ${combo.username_3 || combo.value_3}`,
+                (combo) => {
+                    const creator1 = combo.username_1 || combo.value_1;
+                    const creator2 = combo.username_2 || combo.value_2;
+                    return `${creator1}, ${creator2}`;
+                },
                 'Creators Viewed',
                 'Total Subs'
             ),
@@ -769,14 +773,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>High-Impact Portfolio Combinations</strong>
-                Identifies 3-portfolio combinations that drive copies:
+                Identifies 2-portfolio pairs that drive copies:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 3 users exposed per combination, max 200 portfolios analyzed</li>
-                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
+                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 portfolios analyzed</li>
+                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower is better model fit</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by Expected Value. Users must view ALL 3 portfolios to be counted as "exposed."
+                Shows top 10 combinations sorted by AIC. Users must view BOTH portfolios to be counted as "exposed."
             </span>
         </span>`;
 
@@ -784,9 +788,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
                 `High-Impact Portfolio Combinations${tooltipHTML}`,
-                'Users who viewed these portfolio combinations were significantly more likely to copy',
+                'Users who viewed both of these portfolios were significantly more likely to copy',
                 topCombinations,
-                (combo) => `${combo.value_1}, ${combo.value_2}, ${combo.value_3}`,
+                (combo) => `${combo.value_1}, ${combo.value_2}`,
                 'Portfolios Viewed',
                 'Total Copies'
             ),
@@ -854,7 +858,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         topSequences.forEach((seq, index) => {
-            const displayValue = `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`;
+            // Handle both 2-way and 3-way combinations (for backwards compatibility)
+            const displayValue = seq.value_3
+                ? `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`
+                : `${seq.value_1} → ${seq.value_2}`;
             const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
             parts.push(
                 `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
