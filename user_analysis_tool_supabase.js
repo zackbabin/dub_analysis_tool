@@ -244,34 +244,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContentSection = document.getElementById('portfolioContentSection');
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
-            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
-            const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-            const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-            const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
-
-            portfolioContentSection.innerHTML = `
-                <div class="qda-result-section">
-                    ${metricsHTML}
-                    ${hiddenGemsHTML}
-                    ${correlationHeaderHTML}
-                </div>
-            `;
-
-            try {
-                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-                portfolioContentSection.querySelector('.qda-result-section').appendChild(copiesTable);
-                portfolioContentSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
-            } catch (e) {
-                console.error('Error building portfolio copies table:', e);
-                portfolioContentSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
-            }
-
-            // Add Deposit Funds Section
+            // Add Deposit Funds Section FIRST
             if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
+                const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
                 const depositHTML = `
-                    <div class="qda-result-section" style="margin-top: 2rem;">
-                        <h2>Deposit Funds</h2>
+                    <div class="qda-result-section">
+                        ${depositHeaderHTML}
                     </div>
                 `;
                 portfolioContentSection.insertAdjacentHTML('beforeend', depositHTML);
@@ -285,6 +263,33 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     const depositSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
                     depositSection.innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
                 }
+            }
+
+            // Add Portfolio Copies Section SECOND
+            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+            const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
+            const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+            const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+
+            const copiesHTML = `
+                <div class="qda-result-section" style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid #e9ecef;">
+                    ${metricsHTML}
+                    ${hiddenGemsHTML}
+                    ${correlationHeaderHTML}
+                </div>
+            `;
+            portfolioContentSection.insertAdjacentHTML('beforeend', copiesHTML);
+
+            try {
+                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
+                const copiesSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+                copiesSection.appendChild(copiesTable);
+                copiesSection.insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+            } catch (e) {
+                console.error('Error building portfolio copies table:', e);
+                const copiesSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+                copiesSection.innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
             }
         } else {
             portfolioContentSection.innerHTML = `
