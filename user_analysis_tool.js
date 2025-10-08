@@ -86,7 +86,7 @@ class UserAnalysisTool {
         // Option 1: Fetch from Mixpanel via GitHub Actions
         const githubBtn = this.createModeButton(
             'Sync Live Data',
-            'Trigger GitHub Actions to fetch latest data from Mixpanel',
+            'Fetch the latest data from Mixpanel',
             '#28a745',
             '#28a745',
             () => this.runWorkflow('github')
