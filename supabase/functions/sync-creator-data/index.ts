@@ -135,6 +135,13 @@ serve(async (req) => {
       const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData)
       console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
 
+      // Debug: Log what we're about to insert
+      if (subscriptionRows.length > 0) {
+        console.log('Sample subscription row to be inserted:', subscriptionRows[0])
+      } else {
+        console.warn('⚠️ No subscription pricing rows to insert!')
+      }
+
       // No deduplication needed - data is already aggregated by price+interval in processing function
 
       if (subscriptionRows.length > 0) {
@@ -450,7 +457,14 @@ function processSubscriptionPricingData(data: any): any[] {
     hasHeaders: !!data.headers,
     headers: data.headers,
     metricsCount: Object.keys(data.series || {}).length,
+    seriesKeys: Object.keys(data.series || {}),
   })
+
+  // Debug: Show sample of series structure
+  if (data.series && data.series['A. Total Subscriptions']) {
+    const sampleCreatorIds = Object.keys(data.series['A. Total Subscriptions']).slice(0, 3)
+    console.log('Sample creator IDs from A. Total Subscriptions:', sampleCreatorIds)
+  }
 
   // Build a map to aggregate metrics for each price+interval combination
   const dataMap = new Map<string, any>()
@@ -512,7 +526,7 @@ function processSubscriptionPricingData(data: any): any[] {
               })
             }
 
-            const existing = dataMap.get(key)
+            const existing = dataMap.get(key)!
             existing[fieldName] = (existing[fieldName] || 0) + value
 
             // Add username if not undefined
@@ -532,5 +546,19 @@ function processSubscriptionPricingData(data: any): any[] {
   }))
 
   console.log(`Processed ${rows.length} subscription pricing rows`)
+
+  // Debug: Show sample rows
+  if (rows.length > 0) {
+    console.log('Sample subscription pricing rows:', rows.slice(0, 3).map(r => ({
+      price: r.subscription_price,
+      interval: r.subscription_interval,
+      totalSubs: r.total_subscriptions,
+      totalViews: r.total_paywall_views,
+      creatorCount: r.creator_usernames.length
+    })))
+  } else {
+    console.warn('⚠️ No subscription pricing rows were processed!')
+  }
+
   return rows
 }

@@ -189,7 +189,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             hiddenGems,
             hiddenGemsSummary,
             copyEngagementSummary,
-            topCopyCombos
+            topCopyCombos,
+            subscriptionDistribution
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
@@ -197,7 +198,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; })
+            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
         const topSequences = []; // Empty array for now
@@ -328,10 +330,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (results.correlationResults?.totalSubscriptions && results.regressionResults?.subscriptions) {
             const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
 
-            // Build price distribution HTML
+            // Build price distribution HTML from loaded subscription distribution data
             let priceDistributionHTML = '';
-            if (results.summaryStats && results.summaryStats.subscriptionPrices && Object.keys(results.summaryStats.subscriptionPrices).length > 0) {
-                const priceTableHTML = this.createSubscriptionPriceTableHTML(results.summaryStats.subscriptionPrices);
+            if (subscriptionDistribution && subscriptionDistribution.length > 0) {
+                // Convert loaded data to format expected by table generation
+                const priceData = {};
+                subscriptionDistribution.forEach(row => {
+                    // Use monthly_price as the key and total_subscriptions as the count
+                    const price = parseFloat(row.monthly_price || row.subscription_price);
+                    priceData[price] = (priceData[price] || 0) + (row.total_subscriptions || 0);
+                });
+
+                const priceTableHTML = this.createSubscriptionPriceTableHTML(priceData);
                 priceDistributionHTML = `
                     <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
                     ${priceTableHTML}
@@ -339,7 +349,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             } else {
                 priceDistributionHTML = `
                     <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
-                    <p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>
+                    <p style="color: #6c757d; font-style: italic;">No subscription price data available. Please run "Sync Creator Data" to fetch this data.</p>
                 `;
             }
 
