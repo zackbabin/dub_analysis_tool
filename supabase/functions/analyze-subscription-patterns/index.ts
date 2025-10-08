@@ -319,21 +319,8 @@ serve(async (_req) => {
 
     const results: CombinationResult[] = []
     let processed = 0
-    const startTime = Date.now()
-    const TIMEOUT_MS = 120000 // 120 seconds (leave 30s buffer for storage/response)
-    let timedOut = false
 
     for (const combo of generateCombinations(topCreators, 3)) {
-      // Check for timeout every 100 combinations
-      if (processed % 100 === 0) {
-        const elapsed = Date.now() - startTime
-        if (elapsed > TIMEOUT_MS) {
-          console.log(`⚠️ Timeout approaching at ${processed}/${totalCombinations} combinations (${elapsed}ms elapsed). Storing partial results...`)
-          timedOut = true
-          break
-        }
-      }
-
       const result = evaluateCombination(combo, users)
 
       // Only keep combinations where at least 1 user viewed all 3 creators AND at least 1 subscription occurred
