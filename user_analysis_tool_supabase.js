@@ -227,137 +227,83 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="qdaCombinedResultsInlinePortfolio"></div>
+                <div id="portfolioDepositsSection"></div>
+                <div id="portfolioCopiesSection"></div>
             </div>
         `;
 
-        // Render correlation tables for Deposits and Copies using parent class function
-        const portfolioCorrelations = {
-            totalDeposits: results.correlationResults.totalDeposits,
-            totalCopies: results.correlationResults.totalCopies,
-            totalSubscriptions: {} // Empty object to prevent errors in displayCombinedAnalysisInline
-        };
-        const portfolioRegressions = {
-            deposits: results.regressionResults.deposits,
-            copies: results.regressionResults.copies,
-            subscriptions: [] // Empty array to prevent errors
-        };
+        // Build Deposit Funds Section
+        const depositsSection = document.getElementById('portfolioDepositsSection');
+        depositsSection.innerHTML = `
+            <div class="qda-result-section">
+                <h2>Deposit Funds</h2>
+            </div>
+        `;
+        const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+        depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
 
-        // Temporarily set a container for displayCombinedAnalysisInline to use
-        const tempContainer = document.getElementById('qdaCombinedResultsInlinePortfolio');
-        tempContainer.innerHTML = '<div id="qdaCombinedResultsInline"></div>';
+        // Build Portfolio Copies Section with all enhancements
+        const copiesSection = document.getElementById('portfolioCopiesSection');
+        const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+        const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+        const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
+        const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+        const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
 
-        // Call parent's display function with all outcomes (subscriptions will be empty)
-        displayCombinedAnalysisInline(portfolioCorrelations, portfolioRegressions, null, tippingPoints);
-
-        // Remove the Subscriptions section from Portfolio tab (we only want Deposits and Copies)
-        const behavioralSection = document.getElementById('qdaCombinedResultsInline');
-        if (behavioralSection) {
-            const subscriptionsH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
-            if (subscriptionsH2) {
-                const subscriptionsTable = subscriptionsH2.nextElementSibling;
-                subscriptionsH2.remove();
-                if (subscriptionsTable && subscriptionsTable.tagName === 'TABLE') {
-                    subscriptionsTable.remove();
-                }
-            }
-
-            // Inject additional content into Portfolio Copies and Deposit Funds sections
-            const portfolioCopiesH2 = Array.from(behavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
-            if (portfolioCopiesH2) {
-                const table = portfolioCopiesH2.nextElementSibling;
-                if (table) {
-                    const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
-                    const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-                    const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-                    const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
-
-                    table.insertAdjacentHTML('beforebegin', metricsHTML + hiddenGemsHTML + correlationHeaderHTML);
-                    table.insertAdjacentHTML('afterend', combinationsHTML + portfolioSequencesHTML);
-                }
-            }
-        }
+        copiesSection.innerHTML = `
+            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
+                <h2>Portfolio Copies</h2>
+                ${metricsHTML}
+                ${hiddenGemsHTML}
+                ${correlationHeaderHTML}
+            </div>
+        `;
+        const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
+        copiesSection.querySelector('.qda-result-section').appendChild(copiesTable);
+        copiesSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
 
         // === SUBSCRIPTION TAB ===
         const subscriptionContainer = this.outputContainers.subscription;
         subscriptionContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="qdaCombinedResultsInlineSubscription"></div>
-                <div id="qdaSubscriptionPriceInline"></div>
+                <div id="subscriptionAnalysisSection"></div>
+                <div id="subscriptionPriceSection"></div>
             </div>
         `;
 
-        // Render correlation tables for Subscriptions using parent class function
-        const subscriptionCorrelations = {
-            totalDeposits: {}, // Empty to prevent errors
-            totalCopies: {}, // Empty to prevent errors
-            totalSubscriptions: results.correlationResults.totalSubscriptions
-        };
-        const subscriptionRegressions = {
-            deposits: [], // Empty to prevent errors
-            copies: [], // Empty to prevent errors
-            subscriptions: results.regressionResults.subscriptions
-        };
+        // Build Subscriptions Section with all enhancements
+        const subscriptionSection = document.getElementById('subscriptionAnalysisSection');
+        const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
+        const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
+        const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
 
-        // Temporarily set a container for displayCombinedAnalysisInline to use
-        const tempSubContainer = document.getElementById('qdaCombinedResultsInlineSubscription');
-        tempSubContainer.innerHTML = '<div id="qdaCombinedResultsInline"></div>';
-
-        // Call parent's display function with all outcomes
-        displayCombinedAnalysisInline(subscriptionCorrelations, subscriptionRegressions, null, tippingPoints);
-
-        // Remove Deposits and Copies sections from Subscription tab (we only want Subscriptions)
-        const subBehavioralSection = document.getElementById('qdaCombinedResultsInline');
-        if (subBehavioralSection) {
-            // Remove Deposit Funds section
-            const depositsH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Deposit Funds');
-            if (depositsH2) {
-                const depositsTable = depositsH2.nextElementSibling;
-                depositsH2.remove();
-                if (depositsTable && depositsTable.tagName === 'TABLE') {
-                    depositsTable.remove();
-                }
-            }
-
-            // Remove Portfolio Copies section
-            const copiesH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Portfolio Copies');
-            if (copiesH2) {
-                const copiesTable = copiesH2.nextElementSibling;
-                copiesH2.remove();
-                if (copiesTable && copiesTable.tagName === 'TABLE') {
-                    copiesTable.remove();
-                }
-            }
-
-            // Inject additional content into Subscriptions section
-            const subscriptionsH2 = Array.from(subBehavioralSection.querySelectorAll('h2')).find(h => h.textContent === 'Subscriptions');
-            if (subscriptionsH2) {
-                const table = subscriptionsH2.nextElementSibling;
-                if (table) {
-                    const metricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
-                    const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
-                    const combinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
-
-                    table.insertAdjacentHTML('beforebegin', metricsHTML + correlationHeaderHTML);
-                    table.insertAdjacentHTML('afterend', combinationsHTML);
-                }
-            }
-        }
+        subscriptionSection.innerHTML = `
+            <div class="qda-result-section">
+                <h2>Subscriptions</h2>
+                ${subMetricsHTML}
+                ${subCorrelationHeaderHTML}
+            </div>
+        `;
+        const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
+        subscriptionSection.querySelector('.qda-result-section').appendChild(subscriptionsTable);
+        subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subCombinationsHTML);
 
         // Add subscription price distribution
-        const priceContainer = document.getElementById('qdaSubscriptionPriceInline');
-        if (priceContainer && results.summaryStats) {
-            const priceSection = document.createElement('div');
-            priceSection.className = 'qda-result-section';
-            priceSection.innerHTML = '<h2>Subscription Price Distribution</h2>';
-            priceContainer.appendChild(priceSection);
+        const priceSection = document.getElementById('subscriptionPriceSection');
+        if (priceSection && results.summaryStats) {
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'qda-result-section';
+            priceDiv.style.borderTop = '1px solid #e9ecef';
+            priceDiv.style.paddingTop = '3rem';
+            priceDiv.style.marginTop = '3rem';
+            priceDiv.innerHTML = '<h2>Subscription Price Distribution</h2>';
+            priceSection.appendChild(priceDiv);
 
             if (results.summaryStats.subscriptionPrices && Object.keys(results.summaryStats.subscriptionPrices).length > 0) {
                 const priceTable = this.createSubscriptionPriceTable(results.summaryStats.subscriptionPrices);
-                priceSection.appendChild(priceTable);
+                priceDiv.appendChild(priceTable);
             } else {
-                priceSection.innerHTML += '<p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>';
+                priceDiv.innerHTML += '<p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>';
             }
         }
 
@@ -849,6 +795,135 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
 
+
+    /**
+     * Build correlation table (reusable for Deposits, Copies, Subscriptions)
+     */
+    buildCorrelationTable(correlationData, regressionData, outcomeKey, tippingPoints) {
+        const outcomeMap = {
+            'deposits': 'totalDeposits',
+            'copies': 'totalCopies',
+            'subscriptions': 'totalSubscriptions'
+        };
+        const outcome = outcomeMap[outcomeKey];
+
+        const allVariables = Object.keys(correlationData);
+        const excludedVars = window.SECTION_EXCLUSIONS?.[outcome] || [];
+        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
+
+        const combinedData = filteredVariables.map(variable => {
+            const correlation = correlationData[variable];
+            const regressionItem = regressionData.find(item => item.variable === variable);
+
+            let tippingPoint = 'N/A';
+            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
+                tippingPoint = tippingPoints[outcome][variable];
+            }
+
+            return {
+                variable: variable,
+                correlation: correlation,
+                tStat: regressionItem ? regressionItem.tStat : 0,
+                tippingPoint: tippingPoint
+            };
+        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+        // Calculate predictive strength using window function
+        combinedData.forEach(item => {
+            const result = window.calculatePredictiveStrength?.(item.correlation, item.tStat) || { strength: 'N/A', className: '' };
+            item.predictiveStrength = result.strength;
+            item.predictiveClass = result.className;
+        });
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const headers = [
+            { text: 'Variable', tooltip: null },
+            { text: 'Correlation', tooltip: null },
+            { text: 'T-Statistic', tooltip: null },
+            {
+                text: 'Predictive Strength',
+                tooltip: `<strong>Predictive Strength</strong>
+                    Combines statistical significance and effect size using a two-stage approach:
+                    <ul>
+                        <li><strong>Stage 1:</strong> T-statistic ≥1.96 (95% confidence)</li>
+                        <li><strong>Stage 2:</strong> Weighted score = Correlation (90%) + T-stat (10%)</li>
+                        <li><strong>Ranges:</strong> Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5)</li>
+                    </ul>
+                    Higher scores indicate stronger and more reliable predictive relationships.`
+            },
+            {
+                text: 'Tipping Point',
+                tooltip: `<strong>Tipping Point</strong>
+                    The "magic number" threshold where user behavior changes significantly:
+                    <ul>
+                        <li>Identifies the value where the largest jump in conversion rate occurs</li>
+                        <li>Only considers groups with 10+ users and >10% conversion rate</li>
+                        <li>Represents the minimum exposure needed for behavioral change</li>
+                    </ul>
+                    Example: If tipping point is 5, users who view 5+ items convert at much higher rates.`
+            }
+        ];
+
+        headers.forEach(headerData => {
+            const th = document.createElement('th');
+            if (headerData.tooltip) {
+                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
+            } else {
+                th.textContent = headerData.text;
+            }
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        const fragment = document.createDocumentFragment();
+
+        combinedData.slice(0, 10).forEach(item => {
+            const row = document.createElement('tr');
+
+            // Variable
+            const varCell = document.createElement('td');
+            varCell.textContent = window.getVariableLabel?.(item.variable) || item.variable;
+            row.appendChild(varCell);
+
+            // Correlation
+            const corrCell = document.createElement('td');
+            corrCell.textContent = item.correlation.toFixed(2);
+            row.appendChild(corrCell);
+
+            // T-Stat
+            const tStatCell = document.createElement('td');
+            tStatCell.textContent = item.tStat.toFixed(2);
+            row.appendChild(tStatCell);
+
+            // Predictive Strength
+            const strengthCell = document.createElement('td');
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = item.predictiveClass;
+            strengthSpan.textContent = item.predictiveStrength;
+            strengthCell.appendChild(strengthSpan);
+            row.appendChild(strengthCell);
+
+            // Tipping Point
+            const tpCell = document.createElement('td');
+            tpCell.textContent = item.tippingPoint !== 'N/A' ?
+                (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
+                'N/A';
+            row.appendChild(tpCell);
+
+            fragment.appendChild(row);
+        });
+
+        tbody.appendChild(fragment);
+        table.appendChild(tbody);
+
+        return table;
+    }
 
     /**
      * Process creator data for display
