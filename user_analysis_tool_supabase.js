@@ -314,12 +314,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (results.summaryStats && results.summaryStats.subscriptionPrices && Object.keys(results.summaryStats.subscriptionPrices).length > 0) {
                 const priceTableHTML = this.createSubscriptionPriceTableHTML(results.summaryStats.subscriptionPrices);
                 priceDistributionHTML = `
-                    <h3>Subscription Price Distribution</h3>
+                    <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
                     ${priceTableHTML}
                 `;
             } else {
                 priceDistributionHTML = `
-                    <h3>Subscription Price Distribution</h3>
+                    <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
                     <p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>
                 `;
             }
@@ -329,7 +329,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             subscriptionSection.innerHTML = `
                 <div class="qda-result-section">
-                    <h2>Subscriptions</h2>
+                    <h1>Subscription Analysis</h1>
                     ${subMetricsHTML}
                     ${priceDistributionHTML}
                     ${subCorrelationHeaderHTML}
@@ -347,7 +347,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         } else {
             subscriptionSection.innerHTML = `
                 <div class="qda-result-section">
-                    <h2>Subscriptions</h2>
+                    <h1>Subscription Analysis</h1>
                     <p style="color: #6c757d; font-style: italic;">Subscription analysis data will be available after syncing.</p>
                 </div>
             `;
