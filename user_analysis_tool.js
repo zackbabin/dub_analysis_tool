@@ -1812,8 +1812,11 @@ function displayDemographicBreakdownInline(stats) {
 
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
+    resultSection.style.marginTop = '2rem';
 
-    const title = document.createElement('h1');
+    const title = document.createElement('h2');
+    title.style.marginTop = '1.5rem';
+    title.style.marginBottom = '0.25rem';
     title.textContent = 'Demographic Breakdown';
     resultSection.appendChild(title);
 
@@ -1891,8 +1894,11 @@ function displayPersonaBreakdownInline(stats) {
 
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
+    resultSection.style.marginTop = '2rem';
 
-    const title = document.createElement('h1');
+    const title = document.createElement('h2');
+    title.style.marginTop = '1.5rem';
+    title.style.marginBottom = '0.25rem';
     title.textContent = 'Persona Breakdown';
     resultSection.appendChild(title);
 
