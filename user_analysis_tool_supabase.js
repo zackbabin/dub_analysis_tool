@@ -363,31 +363,73 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         try {
             const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
             if (creatorData && creatorData.length > 0) {
-                // Set up container structure
-                creatorContainer.innerHTML = `
-                    <div class="qda-analysis-results">
-                        <div id="creatorSummaryStatsInline"></div>
-                        <div id="creatorBreakdownInline"></div>
-                        <div id="creatorBehavioralAnalysisInline"></div>
-                    </div>
-                `;
-
-                // Use the creator analysis tool's display functions
-                const creatorTool = new CreatorAnalysisToolSupabase();
-                creatorTool.supabaseIntegration = this.supabaseIntegration;
-                creatorTool.outputContainer = creatorContainer;
-
                 // Process creator data
                 const creatorResults = await this.processCreatorData(creatorData[0]);
 
-                // Display using creator tool methods
-                if (creatorResults) {
-                    creatorTool.displayCreatorSummaryStats(creatorResults.summaryStats);
-                    await creatorTool.displayCreatorBreakdown(creatorResults.summaryStats);
+                if (creatorResults && creatorResults.summaryStats) {
+                    // Set up container structure
+                    creatorContainer.innerHTML = `
+                        <div class="qda-analysis-results">
+                            <div id="creatorSummarySection"></div>
+                            <div id="creatorCorrelationSection"></div>
+                        </div>
+                    `;
 
-                    const creatorAnalysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
-                    const creatorTippingPoints = creatorAnalysisData.tippingPoints;
-                    creatorTool.displayCreatorBehavioralAnalysis(creatorResults.correlationResults, creatorResults.regressionResults, creatorTippingPoints);
+                    // Display Summary Stats (3 metric cards)
+                    const summarySection = document.getElementById('creatorSummarySection');
+                    const stats = creatorResults.summaryStats;
+
+                    summarySection.innerHTML = `
+                        <div class="qda-result-section">
+                            <h1>Summary Statistics</h1>
+                            <div class="qda-metric-summary">
+                                ${this.createMetricCardHTML('Total Creators', stats.totalCreators.toLocaleString(), '18px')}
+                                ${this.createMetricCardHTML('Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString(), '18px')}
+                                ${this.createMetricCardHTML('Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString(), '18px')}
+                            </div>
+                        </div>
+                    `;
+
+                    // Display Creator Correlation Table (for subscriptions)
+                    const correlationSection = document.getElementById('creatorCorrelationSection');
+
+                    if (creatorResults.correlationResults?.totalSubscriptions && creatorResults.regressionResults?.subscriptions) {
+                        const creatorTippingPoints = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}').tippingPoints;
+
+                        correlationSection.innerHTML = `
+                            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
+                                <h2>Creator Subscription Drivers</h2>
+                                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top creator metrics that are the strongest predictors of subscriptions</p>
+                            </div>
+                        `;
+
+                        try {
+                            const creatorTable = this.buildCreatorCorrelationTable(
+                                creatorResults.correlationResults.totalSubscriptions,
+                                creatorResults.regressionResults.subscriptions,
+                                creatorTippingPoints
+                            );
+                            correlationSection.querySelector('.qda-result-section').appendChild(creatorTable);
+                        } catch (e) {
+                            console.error('Error building creator correlation table:', e);
+                            correlationSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying creator correlation analysis. Please try syncing again.</p>';
+                        }
+                    } else {
+                        correlationSection.innerHTML = `
+                            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
+                                <h2>Creator Subscription Drivers</h2>
+                                <p style="color: #6c757d; font-style: italic;">Creator correlation data will be available after syncing.</p>
+                            </div>
+                        `;
+                    }
+                } else {
+                    creatorContainer.innerHTML = `
+                        <div class="qda-analysis-results">
+                            <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
+                                Creator analysis data will be available after syncing.
+                            </p>
+                        </div>
+                    `;
                 }
             } else {
                 // No data available
@@ -844,6 +886,143 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
 
+
+    /**
+     * Create metric card HTML (for creator summary stats)
+     */
+    createMetricCardHTML(title, content, size = null) {
+        const fontSize = size || '14px';
+        return `
+            <div class="qda-metric-card">
+                <div style="font-weight: bold; margin-bottom: 5px;">${title}</div>
+                <div style="font-size: ${fontSize}; color: #333;">${content}</div>
+            </div>
+        `;
+    }
+
+    /**
+     * Build creator correlation table (specialized for creator metrics)
+     */
+    buildCreatorCorrelationTable(correlationData, regressionData, tippingPoints) {
+        const outcome = 'totalSubscriptions';
+
+        const allVariables = Object.keys(correlationData);
+        const filteredVariables = allVariables; // No exclusions for creator data
+
+        const combinedData = filteredVariables.map(variable => {
+            const correlation = correlationData[variable];
+            const regressionItem = regressionData.find(item => item.variable === variable);
+
+            let tippingPoint = 'N/A';
+            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
+                tippingPoint = tippingPoints[outcome][variable];
+            }
+
+            return {
+                variable: variable,
+                correlation: correlation,
+                tStat: regressionItem ? regressionItem.tStat : 0,
+                tippingPoint: tippingPoint
+            };
+        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+        // Calculate predictive strength
+        combinedData.forEach(item => {
+            const result = window.calculatePredictiveStrength?.(item.correlation, item.tStat) || { strength: 'N/A', className: '' };
+            item.predictiveStrength = result.strength;
+            item.predictiveClass = result.className;
+        });
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const headers = [
+            { text: 'Variable', tooltip: null },
+            { text: 'Correlation', tooltip: null },
+            { text: 'T-Statistic', tooltip: null },
+            {
+                text: 'Predictive Strength',
+                tooltip: `<strong>Predictive Strength</strong>
+                    Combines statistical significance and effect size using a two-stage approach:
+                    <ul>
+                        <li><strong>Stage 1:</strong> T-statistic ≥1.96 (95% confidence)</li>
+                        <li><strong>Stage 2:</strong> Weighted score = Correlation (90%) + T-stat (10%)</li>
+                        <li><strong>Ranges:</strong> Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5)</li>
+                    </ul>
+                    Higher scores indicate stronger and more reliable predictive relationships.`
+            },
+            {
+                text: 'Tipping Point',
+                tooltip: `<strong>Tipping Point</strong>
+                    The "magic number" threshold where creator behavior changes significantly:
+                    <ul>
+                        <li>Identifies the value where the largest jump in conversion rate occurs</li>
+                        <li>Only considers groups with 10+ creators and >10% conversion rate</li>
+                        <li>Represents the minimum exposure needed for behavioral change</li>
+                    </ul>
+                    Example: If tipping point is 5, creators with 5+ of this metric convert at much higher rates.`
+            }
+        ];
+
+        headers.forEach(headerData => {
+            const th = document.createElement('th');
+            if (headerData.tooltip) {
+                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
+            } else {
+                th.textContent = headerData.text;
+            }
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        const fragment = document.createDocumentFragment();
+
+        combinedData.slice(0, 10).forEach(item => {
+            const row = document.createElement('tr');
+
+            // Variable - convert camelCase to readable format
+            const varCell = document.createElement('td');
+            const readableVar = item.variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            varCell.textContent = readableVar;
+            row.appendChild(varCell);
+
+            // Correlation
+            const corrCell = document.createElement('td');
+            corrCell.textContent = item.correlation.toFixed(2);
+            row.appendChild(corrCell);
+
+            // T-Stat
+            const tStatCell = document.createElement('td');
+            tStatCell.textContent = item.tStat.toFixed(2);
+            row.appendChild(tStatCell);
+
+            // Predictive Strength
+            const strengthCell = document.createElement('td');
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = item.predictiveClass;
+            strengthSpan.textContent = item.predictiveStrength;
+            strengthCell.appendChild(strengthSpan);
+            row.appendChild(strengthCell);
+
+            // Tipping Point
+            const tpCell = document.createElement('td');
+            tpCell.textContent = item.tippingPoint !== 'N/A' ?
+                (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
+                'N/A';
+            row.appendChild(tpCell);
+
+            fragment.appendChild(row);
+        });
+
+        tbody.appendChild(fragment);
+        table.appendChild(tbody);
+
+        return table;
+    }
 
     /**
      * Build correlation table (reusable for Deposits, Copies, Subscriptions)
