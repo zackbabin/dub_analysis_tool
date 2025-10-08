@@ -203,7 +203,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             hiddenGemsSummary,
             copyEngagementSummary,
             topCopyCombos,
-            subscriptionDistribution
+            subscriptionDistribution,
+            copySequenceAnalysis,
+            subscriptionSequenceAnalysis
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
@@ -212,7 +214,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
+            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
+            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; }),
+            this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; })
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
         const topSequences = []; // Empty array for now
@@ -314,6 +318,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
                 // Add combinations after Portfolio Copy Drivers table
                 copyDriversSection.insertAdjacentHTML('beforeend', combinationsHTML);
+
+                // Add conversion path analysis after combinations
+                if (copySequenceAnalysis) {
+                    const copySequenceHTML = this.generateConversionPathHTML(copySequenceAnalysis, 'Copies');
+                    copyDriversSection.insertAdjacentHTML('beforeend', copySequenceHTML);
+                }
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 const copyDriversSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
@@ -381,6 +391,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
                 subscriptionSection.querySelector('.qda-result-section').appendChild(subscriptionsTable);
                 subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subCombinationsHTML);
+
+                // Add subscription conversion path analysis after combinations
+                if (subscriptionSequenceAnalysis) {
+                    const subSequenceHTML = this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions');
+                    subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subSequenceHTML);
+                }
             } catch (e) {
                 console.error('Error building subscriptions table:', e);
                 subscriptionSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying subscription analysis. Please try syncing again.</p>';
@@ -825,6 +841,194 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '</tbody></table>',
             '</div>'
         );
+
+        return parts.join('');
+    }
+
+    /**
+     * Generate Conversion Path Analysis HTML
+     * Displays Claude AI-powered event sequence analysis
+     */
+    generateConversionPathHTML(analysisData, outcomeType) {
+        if (!analysisData || !analysisData.predictive_sequences) {
+            return '';
+        }
+
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            `<h2>🔍 Conversion Path Analysis: ${outcomeType}</h2>`,
+            `<p class="qda-description" style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1.5rem;">${analysisData.summary}</p>`,
+
+            // Predictive Sequences Section
+            '<div class="path-analysis-section">',
+            '<h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">High-Impact Event Sequences</h3>',
+            '<p style="color: #6c757d; font-size: 0.9rem;">Patterns with strongest predictive power for ' + outcomeType.toLowerCase() + '</p>'
+        ];
+
+        // Add each predictive sequence
+        analysisData.predictive_sequences.slice(0, 5).forEach((seq, idx) => {
+            parts.push(
+                `<div class="sequence-card" style="
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1rem;
+                    background: #f8f9fa;
+                ">`,
+                    '<div style="display: flex; justify-content: space-between; align-items: start;">',
+                        '<div style="flex: 1;">',
+                            `<h4 style="margin: 0 0 0.5rem 0;">Pattern ${idx + 1}</h4>`,
+                            '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
+            );
+
+            // Add event nodes with arrows
+            seq.sequence.forEach((event, eventIdx) => {
+                parts.push(
+                    `<span style="
+                        background: #007bff;
+                        color: white;
+                        padding: 0.25rem 0.75rem;
+                        border-radius: 4px;
+                        font-size: 0.85rem;
+                    ">${event}</span>`
+                );
+                if (eventIdx < seq.sequence.length - 1) {
+                    parts.push('<span style="color: #6c757d; font-weight: bold;">→</span>');
+                }
+            });
+
+            parts.push(
+                            '</div>',
+                        '</div>',
+                        `<div style="
+                            background: white;
+                            border-radius: 4px;
+                            padding: 0.5rem 1rem;
+                            text-align: center;
+                            min-width: 80px;
+                        ">`,
+                            `<div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">
+                                ${seq.lift.toFixed(1)}x
+                            </div>`,
+                            '<div style="font-size: 0.75rem; color: #6c757d;">Lift</div>',
+                        '</div>',
+                    '</div>',
+
+                    `<div style="
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 1rem;
+                        margin-top: 1rem;
+                        padding-top: 1rem;
+                        border-top: 1px solid #dee2e6;
+                    ">`,
+                        `<div><strong>Prevalence (Converters):</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%</div>`,
+                        `<div><strong>Avg Time to Convert:</strong> ${Math.round(seq.avg_time_to_conversion_minutes)} min</div>`,
+                        `<div><strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}</div>`,
+                    '</div>',
+
+                    `<div style="
+                        margin-top: 1rem;
+                        padding: 0.75rem;
+                        background: white;
+                        border-radius: 4px;
+                        border-left: 3px solid #007bff;
+                    ">`,
+                        `<strong>💡 Insight:</strong> ${seq.insight}`,
+                    '</div>',
+                    `<div style="
+                        margin-top: 0.5rem;
+                        padding: 0.75rem;
+                        background: #d1ecf1;
+                        border-radius: 4px;
+                        color: #0c5460;
+                    ">`,
+                        `<strong>📋 Recommendation:</strong> ${seq.recommendation}`,
+                    '</div>',
+                '</div>'
+            );
+        });
+
+        parts.push('</div>'); // Close predictive sequences section
+
+        // Critical Triggers Section
+        if (analysisData.critical_triggers && analysisData.critical_triggers.length > 0) {
+            parts.push(
+                '<div class="path-analysis-section" style="margin-top: 2rem;">',
+                '<h3>⚡ Critical Conversion Triggers</h3>',
+                '<p style="color: #6c757d; font-size: 0.9rem;">Events that immediately precede conversion</p>'
+            );
+
+            analysisData.critical_triggers.forEach(trigger => {
+                parts.push(
+                    `<div style="
+                        border-left: 4px solid #ffc107;
+                        padding: 1rem;
+                        margin-bottom: 1rem;
+                        background: #fff3cd;
+                    ">`,
+                        `<h4 style="margin: 0 0 0.5rem 0;">${trigger.event}</h4>`,
+                        `<p style="margin: 0.5rem 0;"><strong>Follows:</strong> ${trigger.follows_sequence.join(' → ')}</p>`,
+                        `<p style="margin: 0.5rem 0;"><strong>Conversion Rate:</strong> ${(trigger.conversion_rate_after_trigger * 100).toFixed(1)}%</p>`,
+                        `<p style="margin: 0.5rem 0; font-style: italic;">${trigger.insight}</p>`,
+                    '</div>'
+                );
+            });
+
+            parts.push('</div>');
+        }
+
+        // Anti-Patterns Section
+        if (analysisData.anti_patterns && analysisData.anti_patterns.length > 0) {
+            parts.push(
+                '<div class="path-analysis-section" style="margin-top: 2rem;">',
+                '<h3>⚠️ Anti-Patterns (Avoid These)</h3>',
+                '<p style="color: #6c757d; font-size: 0.9rem;">Sequences associated with low conversion</p>'
+            );
+
+            analysisData.anti_patterns.forEach(pattern => {
+                parts.push(
+                    `<div style="
+                        border-left: 4px solid #dc3545;
+                        padding: 1rem;
+                        margin-bottom: 1rem;
+                        background: #f8d7da;
+                    ">`,
+                        `<h4 style="margin: 0 0 0.5rem 0;">${pattern.sequence.join(' → ')}</h4>`,
+                        `<p style="margin: 0.5rem 0;"><strong>Prevalence in Non-Converters:</strong> ${(pattern.prevalence_in_non_converters * 100).toFixed(1)}%</p>`,
+                        `<p style="margin: 0.5rem 0; font-style: italic;">${pattern.insight}</p>`,
+                    '</div>'
+                );
+            });
+
+            parts.push('</div>');
+        }
+
+        // Summary Recommendations
+        if (analysisData.top_recommendations && analysisData.top_recommendations.length > 0) {
+            parts.push(
+                `<div style="
+                    margin-top: 2rem;
+                    padding: 1.5rem;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 8px;
+                    color: white;
+                ">`,
+                    '<h3 style="margin-top: 0; color: white;">🎯 Top Recommendations</h3>',
+                    '<ul style="margin: 0; padding-left: 1.5rem;">'
+            );
+
+            analysisData.top_recommendations.forEach(rec => {
+                parts.push(`<li style="margin-bottom: 0.5rem;">${rec}</li>`);
+            });
+
+            parts.push(
+                    '</ul>',
+                '</div>'
+            );
+        }
+
+        parts.push('</div>'); // Close main section
 
         return parts.join('');
     }

@@ -671,6 +671,104 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger event sequence sync via Supabase Edge Function
+     * Fetches user event sequences from Mixpanel and joins with conversion outcomes
+     */
+    async triggerEventSequenceSync() {
+        console.log('Triggering event sequence sync via Supabase Edge Function...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('sync-event-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Event sequence sync failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during event sequence sync');
+            }
+
+            console.log('✅ Event sequence sync completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling event sequence sync Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Trigger event sequence analysis via Supabase Edge Function with Claude AI
+     * @param {string} outcomeType - Either 'copies' or 'subscriptions'
+     */
+    async triggerEventSequenceAnalysis(outcomeType) {
+        console.log(`Triggering event sequence analysis for ${outcomeType}...`);
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('analyze-event-sequences', {
+                body: { outcome_type: outcomeType }
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Event sequence analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during event sequence analysis');
+            }
+
+            console.log(`✅ Event sequence analysis for ${outcomeType} completed:`, data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling event sequence analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load latest event sequence analysis results from database
+     * @param {string} outcomeType - Either 'copies' or 'subscriptions'
+     */
+    async loadEventSequenceAnalysis(outcomeType) {
+        const cacheKey = `event_sequence_${outcomeType}`;
+
+        return this.cachedQuery(cacheKey, async () => {
+            console.log(`Loading event sequence analysis for ${outcomeType}...`);
+
+            try {
+                const { data, error } = await this.supabase
+                    .from('event_sequence_analysis')
+                    .select('*')
+                    .eq('analysis_type', outcomeType)
+                    .order('generated_at', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (error) {
+                    console.warn(`No sequence analysis found for ${outcomeType}:`, error);
+                    return null;
+                }
+
+                console.log(`✅ Loaded sequence analysis for ${outcomeType}`);
+
+                return {
+                    predictive_sequences: data.predictive_sequences || [],
+                    critical_triggers: data.critical_triggers || [],
+                    anti_patterns: data.anti_patterns || [],
+                    summary: data.summary || '',
+                    top_recommendations: data.recommendations || []
+                };
+            } catch (error) {
+                console.error(`Error loading sequence analysis for ${outcomeType}:`, error);
+                return null;
+            }
+        });
+    }
+
+    /**
      * Load engagement summary statistics
      * Returns summary comparing subscribers vs non-subscribers
      */
