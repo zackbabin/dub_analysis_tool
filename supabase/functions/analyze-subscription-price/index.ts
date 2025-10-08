@@ -320,6 +320,23 @@ function processSubscriptionPricingData(data: any): any[] {
 
   console.log(`Processed ${rows.length} creator subscription pricing rows`)
 
+  // Check for duplicates in the batch itself
+  const uniqueKeys = new Set<string>()
+  const duplicates: string[] = []
+
+  rows.forEach(row => {
+    const key = `${row.creator_id}|${row.subscription_price}|${row.subscription_interval}|${row.synced_at}`
+    if (uniqueKeys.has(key)) {
+      duplicates.push(key)
+    }
+    uniqueKeys.add(key)
+  })
+
+  if (duplicates.length > 0) {
+    console.warn(`⚠️ Found ${duplicates.length} duplicate keys in batch!`)
+    console.warn('Sample duplicates:', duplicates.slice(0, 5))
+  }
+
   // Debug: Show sample rows
   if (rows.length > 0) {
     console.log('Sample creator subscription pricing rows:', rows.slice(0, 3).map(r => ({

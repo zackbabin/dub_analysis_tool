@@ -985,10 +985,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         padding-top: 1rem;
                         border-top: 1px solid #dee2e6;
                     ">`,
-                        `<div><strong>Conversion Rate:</strong> ${(seq.prevalence_in_converters * seq.lift * (seq.prevalence_in_non_converters || 0.01)).toFixed(1)}%</div>`,
                         `<div>
                             <strong>Volume:</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%
-                            <span class="info-tooltip" style="margin-left: 0.25rem;">
+                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
                                 <span class="info-icon">i</span>
                                 <span class="tooltip-text">Percentage of converters who exhibited this sequence</span>
                             </span>
@@ -996,7 +995,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         `<div><strong>Avg Time to Convert:</strong> ${Math.round(seq.avg_time_to_conversion_minutes)} min</div>`,
                         `<div>
                             <strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}
-                            <span class="info-tooltip" style="margin-left: 0.25rem;">
+                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
                                 <span class="info-icon">i</span>
                                 <span class="tooltip-text">Average number of events users performed before conversion</span>
                             </span>
@@ -1019,10 +1018,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Critical Triggers Section
         if (analysisData.critical_triggers && analysisData.critical_triggers.length > 0) {
+            const triggerTooltip = `<span class="info-tooltip" style="margin-left: 0.5rem; vertical-align: middle;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">Events that immediately precede conversion, showing which actions are most likely to trigger the final conversion step</span>
+            </span>`;
+
             parts.push(
                 '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                '<h3>Critical Conversion Triggers</h3>',
-                '<p style="color: #6c757d; font-size: 0.9rem;">Events that immediately precede conversion</p>'
+                `<h3>Critical Conversion Triggers${triggerTooltip}</h3>`
             );
 
             analysisData.critical_triggers.forEach(trigger => {
@@ -1063,10 +1066,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Anti-Patterns Section
         if (analysisData.anti_patterns && analysisData.anti_patterns.length > 0) {
+            const antiPatternTooltip = `<span class="info-tooltip" style="margin-left: 0.5rem; vertical-align: middle;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">Event sequences commonly seen in non-converters, indicating behaviors that correlate with failure to convert</span>
+            </span>`;
+
             parts.push(
                 '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                '<h3>Anti-Patterns (Avoid These)</h3>',
-                '<p style="color: #6c757d; font-size: 0.9rem;">Sequences associated with low conversion</p>'
+                `<h3>Anti-Patterns (Avoid These)${antiPatternTooltip}</h3>`
             );
 
             analysisData.anti_patterns.forEach(pattern => {
@@ -1076,27 +1083,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         margin-bottom: 1rem;
                         background: #f8f9fa;
                         border-radius: 4px;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: start;
                     ">`,
-                        '<div style="flex: 1;">',
-                            `<h4 style="margin: 0 0 0.5rem 0;">${pattern.sequence.join(' → ')}</h4>`,
-                            `<p style="margin: 0.5rem 0; font-style: italic;">${pattern.insight}</p>`,
-                        '</div>',
-                        `<div style="
-                            background: white;
-                            border-radius: 4px;
-                            padding: 0.5rem 1rem;
-                            text-align: center;
-                            min-width: 80px;
-                            margin-left: 1rem;
-                        ">`,
-                            `<div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">
-                                ${(pattern.prevalence_in_non_converters * 100).toFixed(1)}%
-                            </div>`,
-                            '<div style="font-size: 0.75rem; color: #6c757d;">Seen by Non-Conv.</div>',
-                        '</div>',
+                        `<h4 style="margin: 0 0 0.5rem 0;">${pattern.sequence.join(' → ')}</h4>`,
+                        `<p style="margin: 0.5rem 0;">
+                            <strong>Volume:</strong> ${(pattern.prevalence_in_non_converters * 100).toFixed(1)}%
+                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
+                                <span class="info-icon">i</span>
+                                <span class="tooltip-text">Percentage of non-converters who exhibited this pattern</span>
+                            </span>
+                        </p>`,
+                        `<p style="margin: 0.5rem 0; font-style: italic;">${pattern.insight}</p>`,
                     '</div>'
                 );
             });
