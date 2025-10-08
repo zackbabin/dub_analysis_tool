@@ -543,7 +543,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">'
+            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
         ];
 
         metrics.forEach(metric => {
@@ -559,6 +559,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         parts.push('</div>');
+        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who subscribed vs. haven\'t subscribed</p>');
         return parts.join('');
     }
 
@@ -723,7 +724,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">'
+            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
         ];
 
         metrics.forEach(metric => {
@@ -739,6 +740,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         parts.push('</div>');
+        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who copied vs. haven\'t copied</p>');
         return parts.join('');
     }
 

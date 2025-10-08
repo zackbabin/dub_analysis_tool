@@ -19,7 +19,7 @@ interface UserData {
 }
 
 interface CombinationResult {
-  combination: [string, string, string]
+  combination: [string, string]
   log_likelihood: number
   aic: number
   odds_ratio: number
@@ -45,7 +45,7 @@ interface PortfolioCreatorCopyPair {
 }
 
 /**
- * Generate all 3-element combinations from an array
+ * Generate all 2-element combinations from an array
  */
 function* generateCombinations<T>(arr: T[], size: number): Generator<T[]> {
   if (size === 1) {
@@ -130,7 +130,7 @@ function evaluateCombination(
   const y: number[] = []
 
   for (const user of users) {
-    // Check if user viewed ALL portfolios in the combination (not just any)
+    // Check if user viewed BOTH portfolios in the combination
     const hasExposure = combination.every(ticker => user.portfolio_tickers.has(ticker))
     X.push(hasExposure ? 1 : 0)
     y.push(user.did_copy ? 1 : 0)
@@ -178,7 +178,7 @@ function evaluateCombination(
   const lift = overallConversionRate > 0 ? conversionRateInGroup / overallConversionRate : 0
 
   return {
-    combination: combination as [string, string, string],
+    combination: combination as [string, string],
     log_likelihood: model.log_likelihood,
     aic,
     odds_ratio: oddsRatio,
@@ -301,38 +301,38 @@ serve(async (_req) => {
     // Combinations are filtered by ≥1 exposure AND ≥1 conversion
     const allPortfolios = getTopPortfolios(users, 1) // Min 1 user per portfolio
 
-    // Safety limit: Cap at 125 portfolios to balance coverage vs timeout risk
-    // 125 portfolios = 317,750 combinations (~60-75 seconds processing time)
-    const MAX_PORTFOLIOS = 125
+    // Safety limit: Cap at 200 portfolios for 2-way analysis
+    // 200 portfolios = 19,900 pairs (much faster than 3-way)
+    const MAX_PORTFOLIOS = 200
     const topPortfolios = allPortfolios.slice(0, MAX_PORTFOLIOS)
 
-    if (topPortfolios.length < 3) {
+    if (topPortfolios.length < 2) {
       return new Response(
         JSON.stringify({
           success: true,
           stats: { pairs_synced: pairRows.length },
-          warning: 'Insufficient portfolios for pattern analysis (need 3+ with engagement)',
+          warning: 'Insufficient portfolios for pattern analysis (need 2+ with engagement)',
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1) * (topPortfolios.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topPortfolios.length} portfolios (${allPortfolios.length} total available, capped at ${MAX_PORTFOLIOS})`)
+    const totalCombinations = (topPortfolios.length * (topPortfolios.length - 1)) / 2
+    console.log(`Testing ${totalCombinations} 2-way combinations from ${topPortfolios.length} portfolios (${allPortfolios.length} total available, capped at ${MAX_PORTFOLIOS})`)
 
     const results: CombinationResult[] = []
     let processed = 0
 
-    for (const combo of generateCombinations(topPortfolios, 3)) {
+    for (const combo of generateCombinations(topPortfolios, 2)) {
       const result = evaluateCombination(combo, users)
 
-      // Only keep combinations where at least 1 user viewed all 3 portfolios AND at least 1 conversion occurred
+      // Only keep combinations where at least 1 user viewed both portfolios AND at least 1 conversion occurred
       if (result.users_with_exposure > 0 && result.total_conversions > 0) {
         results.push(result)
       }
 
       processed++
-      if (processed % 500 === 0) {
+      if (processed % 1000 === 0) {
         console.log(`Processed ${processed}/${totalCombinations} combinations...`)
       }
     }
@@ -348,7 +348,7 @@ serve(async (_req) => {
       combination_rank: index + 1,
       value_1: result.combination[0],
       value_2: result.combination[1],
-      value_3: result.combination[2],
+      value_3: null, // No longer using 3-way combinations
       log_likelihood: result.log_likelihood,
       aic: result.aic,
       odds_ratio: result.odds_ratio,
@@ -379,13 +379,10 @@ serve(async (_req) => {
       }
     }
 
-    const analysisStatus = timedOut
-      ? `⚠️ Pattern analysis timed out: ${insertRows.length} combinations stored (partial results from ${processed}/${totalCombinations} evaluated)`
-      : `✓ Pattern analysis complete: ${insertRows.length} combinations stored`
-    console.log(analysisStatus)
+    console.log(`✓ Pattern analysis complete: ${insertRows.length} combinations stored`)
 
     const top10 = results.slice(0, 10).map(r => ({
-      creators: r.combination,
+      portfolios: r.combination,
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,
       lift: Math.round(r.lift * 100) / 100,
@@ -395,7 +392,6 @@ serve(async (_req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        timed_out: timedOut,
         stats: {
           pairs_synced: pairRows.length,
           total_users: users.length,
@@ -404,7 +400,7 @@ serve(async (_req) => {
           combinations_processed: processed,
           combinations_evaluated: results.length,
           combinations_stored: insertRows.length,
-          completion_percentage: Math.round((processed / totalCombinations) * 100),
+          completion_percentage: 100,
         },
         top_10_combinations: top10,
       }),
