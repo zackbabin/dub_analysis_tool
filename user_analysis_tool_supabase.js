@@ -227,12 +227,38 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="portfolioCopiesSection"></div>
                 <div id="portfolioDepositsSection"></div>
+                <div id="portfolioCopiesSection"></div>
             </div>
         `;
 
-        // Build Portfolio Copies Section with all enhancements (FIRST)
+        // Build Deposit Funds Section (FIRST)
+        const depositsSection = document.getElementById('portfolioDepositsSection');
+
+        if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
+            depositsSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Deposit Funds</h2>
+                </div>
+            `;
+
+            try {
+                const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+                depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
+            } catch (e) {
+                console.error('Error building deposits table:', e);
+                depositsSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
+            }
+        } else {
+            depositsSection.innerHTML = `
+                <div class="qda-result-section">
+                    <h2>Deposit Funds</h2>
+                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data will be available after syncing.</p>
+                </div>
+            `;
+        }
+
+        // Build Portfolio Copies Section with all enhancements (SECOND)
         const copiesSection = document.getElementById('portfolioCopiesSection');
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
@@ -243,7 +269,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
 
             copiesSection.innerHTML = `
-                <div class="qda-result-section">
+                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
                     <h2>Portfolio Copies</h2>
                     ${metricsHTML}
                     ${hiddenGemsHTML}
@@ -261,35 +287,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
         } else {
             copiesSection.innerHTML = `
-                <div class="qda-result-section">
+                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
                     <h2>Portfolio Copies</h2>
                     <p style="color: #6c757d; font-style: italic;">Portfolio copy analysis data will be available after syncing.</p>
-                </div>
-            `;
-        }
-
-        // Build Deposit Funds Section (SECOND)
-        const depositsSection = document.getElementById('portfolioDepositsSection');
-
-        if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
-            depositsSection.innerHTML = `
-                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                    <h2>Deposit Funds</h2>
-                </div>
-            `;
-
-            try {
-                const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
-                depositsSection.querySelector('.qda-result-section').appendChild(depositsTable);
-            } catch (e) {
-                console.error('Error building deposits table:', e);
-                depositsSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
-            }
-        } else {
-            depositsSection.innerHTML = `
-                <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                    <h2>Deposit Funds</h2>
-                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data will be available after syncing.</p>
                 </div>
             `;
         }
@@ -299,7 +299,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         subscriptionContainer.innerHTML = `
             <div class="qda-analysis-results">
                 <div id="subscriptionAnalysisSection"></div>
-                <div id="subscriptionPriceSection"></div>
             </div>
         `;
 
@@ -309,6 +308,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Check if subscription data exists
         if (results.correlationResults?.totalSubscriptions && results.regressionResults?.subscriptions) {
             const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
+
+            // Build price distribution HTML
+            let priceDistributionHTML = '';
+            if (results.summaryStats && results.summaryStats.subscriptionPrices && Object.keys(results.summaryStats.subscriptionPrices).length > 0) {
+                const priceTableHTML = this.createSubscriptionPriceTableHTML(results.summaryStats.subscriptionPrices);
+                priceDistributionHTML = `
+                    <h3>Subscription Price Distribution</h3>
+                    ${priceTableHTML}
+                `;
+            } else {
+                priceDistributionHTML = `
+                    <h3>Subscription Price Distribution</h3>
+                    <p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>
+                `;
+            }
+
             const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
             const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
 
@@ -316,6 +331,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <div class="qda-result-section">
                     <h2>Subscriptions</h2>
                     ${subMetricsHTML}
+                    ${priceDistributionHTML}
                     ${subCorrelationHeaderHTML}
                 </div>
             `;
@@ -337,25 +353,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Add subscription price distribution
-        const priceSection = document.getElementById('subscriptionPriceSection');
-        if (priceSection && results.summaryStats) {
-            const priceDiv = document.createElement('div');
-            priceDiv.className = 'qda-result-section';
-            priceDiv.style.borderTop = '1px solid #e9ecef';
-            priceDiv.style.paddingTop = '3rem';
-            priceDiv.style.marginTop = '3rem';
-            priceDiv.innerHTML = '<h2>Subscription Price Distribution</h2>';
-            priceSection.appendChild(priceDiv);
-
-            if (results.summaryStats.subscriptionPrices && Object.keys(results.summaryStats.subscriptionPrices).length > 0) {
-                const priceTable = this.createSubscriptionPriceTable(results.summaryStats.subscriptionPrices);
-                priceDiv.appendChild(priceTable);
-            } else {
-                priceDiv.innerHTML += '<p style="color: #6c757d; font-style: italic;">Subscription price data will be available in a future update.</p>';
-            }
-        }
-
         // === CREATOR TAB ===
         const creatorContainer = this.outputContainers.creator;
 
@@ -371,11 +368,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     creatorContainer.innerHTML = `
                         <div class="qda-analysis-results">
                             <div id="creatorSummarySection"></div>
-                            <div id="creatorCorrelationSection"></div>
                         </div>
                     `;
 
-                    // Display Summary Stats (3 metric cards)
+                    // Display Summary Stats (3 metric cards only)
                     const summarySection = document.getElementById('creatorSummarySection');
                     const stats = creatorResults.summaryStats;
 
@@ -389,39 +385,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             </div>
                         </div>
                     `;
-
-                    // Display Creator Correlation Table (for subscriptions)
-                    const correlationSection = document.getElementById('creatorCorrelationSection');
-
-                    if (creatorResults.correlationResults?.totalSubscriptions && creatorResults.regressionResults?.subscriptions) {
-                        const creatorTippingPoints = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}').tippingPoints;
-
-                        correlationSection.innerHTML = `
-                            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                                <h2>Creator Subscription Drivers</h2>
-                                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top creator metrics that are the strongest predictors of subscriptions</p>
-                            </div>
-                        `;
-
-                        try {
-                            const creatorTable = this.buildCreatorCorrelationTable(
-                                creatorResults.correlationResults.totalSubscriptions,
-                                creatorResults.regressionResults.subscriptions,
-                                creatorTippingPoints
-                            );
-                            correlationSection.querySelector('.qda-result-section').appendChild(creatorTable);
-                        } catch (e) {
-                            console.error('Error building creator correlation table:', e);
-                            correlationSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying creator correlation analysis. Please try syncing again.</p>';
-                        }
-                    } else {
-                        correlationSection.innerHTML = `
-                            <div class="qda-result-section" style="border-top: 1px solid #e9ecef; padding-top: 3rem; margin-top: 3rem;">
-                                <h2>Creator Subscription Drivers</h2>
-                                <p style="color: #6c757d; font-style: italic;">Creator correlation data will be available after syncing.</p>
-                            </div>
-                        `;
-                    }
                 } else {
                     creatorContainer.innerHTML = `
                         <div class="qda-analysis-results">
@@ -1178,7 +1141,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Create subscription price table
+     * Create subscription price table HTML (returns HTML string)
+     */
+    createSubscriptionPriceTableHTML(priceData) {
+        const sortedPrices = Object.entries(priceData).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]));
+
+        let html = '<table class="qda-regression-table">';
+        html += '<thead><tr><th>Price Point</th><th>Count</th></tr></thead>';
+        html += '<tbody>';
+
+        sortedPrices.forEach(([price, count]) => {
+            html += `<tr><td>$${parseFloat(price).toFixed(2)}</td><td>${count}</td></tr>`;
+        });
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    /**
+     * Create subscription price table (returns DOM element)
      */
     createSubscriptionPriceTable(priceData) {
         const table = document.createElement('table');
