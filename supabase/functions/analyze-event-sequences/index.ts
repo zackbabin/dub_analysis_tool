@@ -119,15 +119,16 @@ serve(async (req) => {
     }
 
     // Prepare data for Claude - truncate sequences to prevent token overflow
-    const convertersSample = converters.slice(0, 50).map(u => ({
+    // With 200 converters + 100 non-converters at 40 events each, we stay well under 200k token limit
+    const convertersSample = converters.slice(0, 200).map(u => ({
       id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: (u.event_sequence || []).slice(0, 30), // Limit to first 30 events
+      sequence: (u.event_sequence || []).slice(0, 40), // Limit to first 40 events
       outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
     }))
 
-    const nonConvertersSample = nonConverters.slice(0, 25).map(u => ({
+    const nonConvertersSample = nonConverters.slice(0, 100).map(u => ({
       id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: (u.event_sequence || []).slice(0, 30) // Limit to first 30 events
+      sequence: (u.event_sequence || []).slice(0, 40) // Limit to first 40 events
     }))
 
     // Build Claude prompt
