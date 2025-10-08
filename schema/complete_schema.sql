@@ -27,15 +27,16 @@ CREATE TABLE IF NOT EXISTS conversion_pattern_combinations (
 );
 
 -- Table: creator_subscriptions_by_price
--- Aggregated subscription data by price point
+-- Creator-level subscription data with price and engagement metrics
 CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
     id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    creator_id text NOT NULL,
+    creator_username text,
     subscription_price numeric,
     subscription_interval text,
-    synced_at timestamp with time zone,
     total_subscriptions integer,
     total_paywall_views integer,
-    creator_usernames text[]
+    synced_at timestamp with time zone
 );
 
 -- Table: creators_insights
@@ -190,7 +191,7 @@ SELECT
     subscription_price as monthly_price,
     SUM(total_subscriptions)::bigint as total_subscriptions,
     SUM(total_paywall_views)::bigint as total_paywall_views,
-    array_agg(DISTINCT unnest(creator_usernames)) as creator_usernames
+    array_agg(creator_username ORDER BY creator_username) as creator_usernames
 FROM creator_subscriptions_by_price
 WHERE synced_at = (SELECT MAX(synced_at) FROM creator_subscriptions_by_price)
 GROUP BY subscription_price

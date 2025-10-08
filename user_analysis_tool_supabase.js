@@ -275,16 +275,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
             <div class="qda-analysis-results">
-                <div id="portfolioHeaderSection"></div>
                 <div id="portfolioContentSection"></div>
-            </div>
-        `;
-
-        // Add Portfolio Analysis H1 Header
-        const portfolioHeaderSection = document.getElementById('portfolioHeaderSection');
-        portfolioHeaderSection.innerHTML = `
-            <div class="qda-result-section">
-                <h1>Portfolio Analysis</h1>
             </div>
         `;
 
@@ -300,9 +291,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const copySequenceHTML = copySequenceAnalysis ?
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
 
-            // Build complete HTML structure as a single string
+            // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
                 <div class="qda-result-section">
+                    <h1 style="margin-bottom: 0.25rem;">Portfolio Analysis</h1>
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                 </div>
@@ -416,7 +408,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const subWrapper = document.createElement('div');
                 subWrapper.className = 'qda-result-section';
                 subWrapper.innerHTML = `
-                    <h1>Subscription Analysis</h1>
+                    <h1 style="margin-bottom: 0.25rem;">Subscription Analysis</h1>
                     ${subMetricsHTML}
                     ${priceDistributionHTML}
                     ${subCorrelationHeaderHTML}
@@ -1090,7 +1082,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div style="margin-top: 2rem;">',
-            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h3>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
@@ -1426,6 +1418,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     renderSubscriptionPriceChart(chartId, subscriptionDistribution) {
         // Aggregate data by monthly price with creator details
+        // Now each row is one creator with their price, so we need to aggregate by price
         const priceDataMap = {};
         subscriptionDistribution.forEach(row => {
             const price = parseFloat(row.monthly_price || row.subscription_price);
@@ -1435,21 +1428,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     creators: []
                 };
             }
-            priceDataMap[price].count += (row.total_subscriptions || 0);
 
-            // Store creator info with conversion rate
+            // Each row represents one creator at their price point
             const totalSubs = row.total_subscriptions || 0;
             const totalPaywallViews = row.total_paywall_views || 0;
             const conversionRate = totalPaywallViews > 0 ? (totalSubs / totalPaywallViews) : 0;
 
-            // Add creator usernames (may be array or single value)
-            const usernames = row.creator_usernames || [];
-            if (Array.isArray(usernames)) {
-                usernames.forEach(username => {
-                    priceDataMap[price].creators.push({
-                        username: username,
-                        conversionRate: conversionRate
-                    });
+            // Add this creator's subscriptions to the price point total
+            priceDataMap[price].count += totalSubs;
+
+            // Store creator info with their individual conversion rate
+            const username = row.creator_username || (Array.isArray(row.creator_usernames) ? row.creator_usernames[0] : null);
+            if (username && username !== 'undefined') {
+                priceDataMap[price].creators.push({
+                    username: username,
+                    conversionRate: conversionRate,
+                    totalSubs: totalSubs
                 });
             }
         });

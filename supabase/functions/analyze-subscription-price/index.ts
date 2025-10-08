@@ -104,7 +104,7 @@ serve(async (req) => {
             const { error: insertError } = await supabase
               .from('creator_subscriptions_by_price')
               .upsert(batch, {
-                onConflict: 'subscription_price,subscription_interval,synced_at',
+                onConflict: 'creator_id,synced_at',
                 ignoreDuplicates: false,
               })
 
@@ -244,8 +244,8 @@ function processSubscriptionPricingData(data: any): any[] {
     console.log('Sample creator IDs from A. Total Subscriptions:', sampleCreatorIds)
   }
 
-  // Build a map to aggregate metrics for each price+interval combination
-  const dataMap = new Map<string, any>()
+  // Build a map for each creator (one row per creator, not aggregated by price)
+  const creatorDataMap = new Map<string, any>()
 
   // Process both Total Subscriptions and Total Paywall Views metrics
   const metrics = {
@@ -288,51 +288,47 @@ function processSubscriptionPricingData(data: any): any[] {
             const intervalData = priceData[interval]
             const value = intervalData?.all || 0
 
+            if (value === 0) return // Skip if no data
+
             // Normalize interval: treat "Annual" and "Annually" the same
             const normalizedInterval = interval === 'Annual' ? 'Annually' : interval
 
-            const key = `${price}|${normalizedInterval}`
+            // Create unique key per creator (not per price)
+            const key = `${creatorId}|${normalizedUsername}`
 
-            if (!dataMap.has(key)) {
-              dataMap.set(key, {
+            if (!creatorDataMap.has(key)) {
+              creatorDataMap.set(key, {
+                creator_id: creatorId,
+                creator_username: normalizedUsername,
                 subscription_price: parseFloat(price),
                 subscription_interval: normalizedInterval,
                 total_subscriptions: 0,
                 total_paywall_views: 0,
-                creator_usernames: new Set<string>(),
                 synced_at: syncedAt,
               })
             }
 
-            const existing = dataMap.get(key)!
+            const existing = creatorDataMap.get(key)!
             existing[fieldName] = (existing[fieldName] || 0) + value
-
-            // Add username if not undefined
-            if (normalizedUsername && normalizedUsername !== 'undefined') {
-              existing.creator_usernames.add(normalizedUsername)
-            }
           })
         })
       })
     })
   })
 
-  // Convert Set to Array for creator_usernames
-  const rows = Array.from(dataMap.values()).map(row => ({
-    ...row,
-    creator_usernames: Array.from(row.creator_usernames),
-  }))
+  const rows = Array.from(creatorDataMap.values())
 
-  console.log(`Processed ${rows.length} subscription pricing rows`)
+  console.log(`Processed ${rows.length} creator subscription pricing rows`)
 
   // Debug: Show sample rows
   if (rows.length > 0) {
-    console.log('Sample subscription pricing rows:', rows.slice(0, 3).map(r => ({
+    console.log('Sample creator subscription pricing rows:', rows.slice(0, 3).map(r => ({
+      creatorId: r.creator_id,
+      username: r.creator_username,
       price: r.subscription_price,
       interval: r.subscription_interval,
       totalSubs: r.total_subscriptions,
       totalViews: r.total_paywall_views,
-      creatorCount: r.creator_usernames.length
     })))
   } else {
     console.warn('⚠️ No subscription pricing rows were processed!')

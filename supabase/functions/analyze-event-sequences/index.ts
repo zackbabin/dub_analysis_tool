@@ -118,16 +118,16 @@ serve(async (req) => {
       throw new Error(`No converter data available for ${outcomeType}`)
     }
 
-    // Prepare data for Claude
-    const convertersSample = converters.slice(0, 100).map(u => ({
+    // Prepare data for Claude - truncate sequences to prevent token overflow
+    const convertersSample = converters.slice(0, 50).map(u => ({
       id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: u.event_sequence,
+      sequence: (u.event_sequence || []).slice(0, 30), // Limit to first 30 events
       outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
     }))
 
-    const nonConvertersSample = nonConverters.slice(0, 50).map(u => ({
+    const nonConvertersSample = nonConverters.slice(0, 25).map(u => ({
       id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: u.event_sequence
+      sequence: (u.event_sequence || []).slice(0, 30) // Limit to first 30 events
     }))
 
     // Build Claude prompt
