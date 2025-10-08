@@ -93,6 +93,31 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue even if price analysis fails - it's supplementary data
         }
 
+        // Trigger event sequence sync
+        console.log('Triggering event sequence sync...');
+        try {
+            const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSync();
+            if (seqSyncResult && seqSyncResult.success) {
+                console.log('✅ Event sequence sync completed:', seqSyncResult.stats);
+
+                // After sync, trigger Claude AI analysis for both copies and subscriptions
+                console.log('Triggering event sequence analysis for copies...');
+                const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
+                if (copyAnalysisResult && copyAnalysisResult.success) {
+                    console.log('✅ Copy sequence analysis completed:', copyAnalysisResult.stats);
+                }
+
+                console.log('Triggering event sequence analysis for subscriptions...');
+                const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
+                if (subAnalysisResult && subAnalysisResult.success) {
+                    console.log('✅ Subscription sequence analysis completed:', subAnalysisResult.stats);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Event sequence analysis failed:', error.message);
+            // Continue even if sequence analysis fails - it's supplementary data
+        }
+
         return true;
     }
 
@@ -283,37 +308,38 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Add Deposit Funds Section AFTER Hidden Gems and Combinations
             if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
-                const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
-                const depositHTML = `
-                    <div class="qda-result-section" style="margin-top: 2rem;">
-                        ${depositHeaderHTML}
-                    </div>
-                `;
-                portfolioContentSection.insertAdjacentHTML('beforeend', depositHTML);
-
                 try {
+                    const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
                     const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
-                    const depositSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+
+                    const depositSection = document.createElement('div');
+                    depositSection.className = 'qda-result-section';
+                    depositSection.style.marginTop = '2rem';
+
+                    depositSection.innerHTML = depositHeaderHTML;
                     depositSection.appendChild(depositsTable);
+
+                    portfolioContentSection.appendChild(depositSection);
                 } catch (e) {
                     console.error('Error building deposits table:', e);
-                    const depositSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
-                    depositSection.innerHTML += '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
+                    const depositSection = document.createElement('div');
+                    depositSection.className = 'qda-result-section';
+                    depositSection.style.marginTop = '2rem';
+                    depositSection.innerHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits') + '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
+                    portfolioContentSection.appendChild(depositSection);
                 }
             }
 
             // Add Top Portfolio Copy Drivers Section LAST
-            const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-            const copyDriversHTML = `
-                <div class="qda-result-section" style="margin-top: 2rem;">
-                    ${correlationHeaderHTML}
-                </div>
-            `;
-            portfolioContentSection.insertAdjacentHTML('beforeend', copyDriversHTML);
-
             try {
+                const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-                const copyDriversSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
+
+                const copyDriversSection = document.createElement('div');
+                copyDriversSection.className = 'qda-result-section';
+                copyDriversSection.style.marginTop = '2rem';
+
+                copyDriversSection.innerHTML = correlationHeaderHTML;
                 copyDriversSection.appendChild(copiesTable);
 
                 // Add combinations after Portfolio Copy Drivers table
@@ -324,10 +350,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     const copySequenceHTML = this.generateConversionPathHTML(copySequenceAnalysis, 'Copies');
                     copyDriversSection.insertAdjacentHTML('beforeend', copySequenceHTML);
                 }
+
+                portfolioContentSection.appendChild(copyDriversSection);
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
-                const copyDriversSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
-                copyDriversSection.innerHTML += '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
+                const copyDriversSection = document.createElement('div');
+                copyDriversSection.className = 'qda-result-section';
+                copyDriversSection.style.marginTop = '2rem';
+                copyDriversSection.innerHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies') + '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
+                portfolioContentSection.appendChild(copyDriversSection);
             }
         } else {
             portfolioContentSection.innerHTML = `
