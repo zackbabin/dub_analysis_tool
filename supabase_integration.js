@@ -87,6 +87,21 @@ class SupabaseIntegration {
     }
 
     /**
+     * Clear cached combination data
+     * Call this after running analysis to force fresh data load
+     */
+    clearCombinationCache() {
+        const keysToDelete = [];
+        for (const [key] of this.queryCache) {
+            if (key.startsWith('combinations_')) {
+                keysToDelete.push(key);
+            }
+        }
+        keysToDelete.forEach(key => this.queryCache.delete(key));
+        console.log(`🗑️ Cleared ${keysToDelete.length} combination cache entries`);
+    }
+
+    /**
      * Invalidate specific cache entry or entire cache
      * Also clears in-flight request tracking for invalidated keys
      * @param {string|null} cacheKey - Specific key to invalidate, or null for all

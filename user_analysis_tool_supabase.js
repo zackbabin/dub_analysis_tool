@@ -179,6 +179,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Now renders to separate main tab containers instead of nested tabs
      */
     async buildCompleteHTML(results) {
+        // Clear combination cache to ensure fresh data after analysis runs
+        this.supabaseIntegration.clearCombinationCache();
+
         // Load all engagement data in parallel with base analysis
         const [
             engagementSummary,
