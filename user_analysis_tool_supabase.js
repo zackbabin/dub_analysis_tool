@@ -292,74 +292,73 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioContentSection = document.getElementById('portfolioContentSection');
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
-            // Add Portfolio Copies Section FIRST
+            // Build all HTML sections first
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-            // const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences); // COMMENTED OUT
 
-            const copiesHTML = `
+            const copySequenceHTML = copySequenceAnalysis ?
+                this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
+
+            // Build complete HTML structure as a single string
+            let portfolioHTML = `
                 <div class="qda-result-section">
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                 </div>
             `;
-            portfolioContentSection.insertAdjacentHTML('beforeend', copiesHTML);
 
-            // Add Deposit Funds Section AFTER Hidden Gems and Combinations
+            // Add Deposit Funds Section
             if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
                 try {
                     const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
                     const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
 
-                    const depositSection = document.createElement('div');
-                    depositSection.className = 'qda-result-section';
-                    depositSection.style.marginTop = '2rem';
+                    // Create wrapper for deposit section
+                    const depositWrapper = document.createElement('div');
+                    depositWrapper.className = 'qda-result-section';
+                    depositWrapper.style.marginTop = '2rem';
+                    depositWrapper.innerHTML = depositHeaderHTML;
+                    depositWrapper.appendChild(depositsTable);
 
-                    depositSection.innerHTML = depositHeaderHTML;
-                    depositSection.appendChild(depositsTable);
-
-                    portfolioContentSection.appendChild(depositSection);
+                    portfolioHTML += depositWrapper.outerHTML;
                 } catch (e) {
                     console.error('Error building deposits table:', e);
-                    const depositSection = document.createElement('div');
-                    depositSection.className = 'qda-result-section';
-                    depositSection.style.marginTop = '2rem';
-                    depositSection.innerHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits') + '<p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>';
-                    portfolioContentSection.appendChild(depositSection);
+                    portfolioHTML += `
+                        <div class="qda-result-section" style="margin-top: 2rem;">
+                            ${this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits')}
+                            <p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>
+                        </div>
+                    `;
                 }
             }
 
-            // Add Top Portfolio Copy Drivers Section LAST
+            // Add Top Portfolio Copy Drivers Section
             try {
                 const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
 
-                const copyDriversSection = document.createElement('div');
-                copyDriversSection.className = 'qda-result-section';
-                copyDriversSection.style.marginTop = '2rem';
+                // Create wrapper for copy drivers section
+                const copyDriversWrapper = document.createElement('div');
+                copyDriversWrapper.className = 'qda-result-section';
+                copyDriversWrapper.style.marginTop = '2rem';
+                copyDriversWrapper.innerHTML = correlationHeaderHTML;
+                copyDriversWrapper.appendChild(copiesTable);
+                copyDriversWrapper.insertAdjacentHTML('beforeend', combinationsHTML + copySequenceHTML);
 
-                copyDriversSection.innerHTML = correlationHeaderHTML;
-                copyDriversSection.appendChild(copiesTable);
-
-                // Add combinations after Portfolio Copy Drivers table
-                copyDriversSection.insertAdjacentHTML('beforeend', combinationsHTML);
-
-                // Add conversion path analysis after combinations
-                if (copySequenceAnalysis) {
-                    const copySequenceHTML = this.generateConversionPathHTML(copySequenceAnalysis, 'Copies');
-                    copyDriversSection.insertAdjacentHTML('beforeend', copySequenceHTML);
-                }
-
-                portfolioContentSection.appendChild(copyDriversSection);
+                portfolioHTML += copyDriversWrapper.outerHTML;
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
-                const copyDriversSection = document.createElement('div');
-                copyDriversSection.className = 'qda-result-section';
-                copyDriversSection.style.marginTop = '2rem';
-                copyDriversSection.innerHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies') + '<p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>';
-                portfolioContentSection.appendChild(copyDriversSection);
+                portfolioHTML += `
+                    <div class="qda-result-section" style="margin-top: 2rem;">
+                        ${this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies')}
+                        <p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>
+                    </div>
+                `;
             }
+
+            // Insert complete HTML once
+            portfolioContentSection.innerHTML = portfolioHTML;
         } else {
             portfolioContentSection.innerHTML = `
                 <div class="qda-result-section">
@@ -383,22 +382,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (results.correlationResults?.totalSubscriptions && results.regressionResults?.subscriptions) {
             const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
 
-            // Build price distribution HTML from loaded subscription distribution data
+            // Build price distribution chart from loaded subscription distribution data
             let priceDistributionHTML = '';
             if (subscriptionDistribution && subscriptionDistribution.length > 0) {
-                // Convert loaded data to format expected by table generation
-                const priceData = {};
-                subscriptionDistribution.forEach(row => {
-                    // Use monthly_price as the key and total_subscriptions as the count
-                    const price = parseFloat(row.monthly_price || row.subscription_price);
-                    priceData[price] = (priceData[price] || 0) + (row.total_subscriptions || 0);
-                });
+                // Generate unique ID for chart container
+                const chartId = `subscription-price-chart-${Date.now()}`;
 
-                const priceTableHTML = this.createSubscriptionPriceTableHTML(priceData);
                 priceDistributionHTML = `
                     <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
-                    ${priceTableHTML}
+                    <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
                 `;
+
+                // Render chart after DOM is ready
+                setTimeout(() => {
+                    this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
+                }, 100);
             } else {
                 priceDistributionHTML = `
                     <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
@@ -408,29 +406,37 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
             const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
+            const subSequenceHTML = subscriptionSequenceAnalysis ?
+                this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions') : '';
 
-            subscriptionSection.innerHTML = `
-                <div class="qda-result-section">
+            try {
+                const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
+
+                // Create complete section wrapper
+                const subWrapper = document.createElement('div');
+                subWrapper.className = 'qda-result-section';
+                subWrapper.innerHTML = `
                     <h1>Subscription Analysis</h1>
                     ${subMetricsHTML}
                     ${priceDistributionHTML}
                     ${subCorrelationHeaderHTML}
-                </div>
-            `;
+                `;
+                subWrapper.appendChild(subscriptionsTable);
+                subWrapper.insertAdjacentHTML('beforeend', subCombinationsHTML + subSequenceHTML);
 
-            try {
-                const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
-                subscriptionSection.querySelector('.qda-result-section').appendChild(subscriptionsTable);
-                subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subCombinationsHTML);
-
-                // Add subscription conversion path analysis after combinations
-                if (subscriptionSequenceAnalysis) {
-                    const subSequenceHTML = this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions');
-                    subscriptionSection.querySelector('.qda-result-section').insertAdjacentHTML('beforeend', subSequenceHTML);
-                }
+                // Insert complete HTML once
+                subscriptionSection.innerHTML = subWrapper.outerHTML;
             } catch (e) {
                 console.error('Error building subscriptions table:', e);
-                subscriptionSection.querySelector('.qda-result-section').innerHTML += '<p style="color: #dc3545;">Error displaying subscription analysis. Please try syncing again.</p>';
+                subscriptionSection.innerHTML = `
+                    <div class="qda-result-section">
+                        <h1>Subscription Analysis</h1>
+                        ${subMetricsHTML}
+                        ${priceDistributionHTML}
+                        ${subCorrelationHeaderHTML}
+                        <p style="color: #dc3545;">Error displaying subscription analysis. Please try syncing again.</p>
+                    </div>
+                `;
             }
         } else {
             subscriptionSection.innerHTML = `
@@ -1413,6 +1419,73 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.error('Error processing creator data:', e);
             return null;
         }
+    }
+
+    /**
+     * Render subscription price distribution as Highcharts bar chart
+     */
+    renderSubscriptionPriceChart(chartId, subscriptionDistribution) {
+        // Aggregate data by monthly price
+        const priceData = {};
+        subscriptionDistribution.forEach(row => {
+            const price = parseFloat(row.monthly_price || row.subscription_price);
+            priceData[price] = (priceData[price] || 0) + (row.total_subscriptions || 0);
+        });
+
+        // Sort by price and prepare chart data
+        const sortedData = Object.entries(priceData)
+            .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
+            .map(([price, count]) => ({
+                name: `$${parseFloat(price).toFixed(2)}`,
+                y: parseInt(count)
+            }));
+
+        // Render Highcharts bar chart
+        Highcharts.chart(chartId, {
+            chart: {
+                type: 'column',
+                backgroundColor: 'transparent'
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                type: 'category',
+                title: {
+                    text: 'Monthly Price'
+                },
+                labels: {
+                    rotation: -45,
+                    style: {
+                        fontSize: '11px'
+                    }
+                }
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: 'Total Subscriptions'
+                }
+            },
+            legend: {
+                enabled: false
+            },
+            tooltip: {
+                pointFormat: '<b>{point.y}</b> subscriptions'
+            },
+            series: [{
+                name: 'Subscriptions',
+                data: sortedData,
+                color: '#2563eb',
+                dataLabels: {
+                    enabled: true,
+                    format: '{point.y}'
+                }
+            }],
+            credits: {
+                enabled: false
+            }
+        });
     }
 
     /**

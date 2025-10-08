@@ -294,13 +294,13 @@ serve(async (_req) => {
     const analyzedAt = new Date().toISOString()
     const batchSize = 500
 
-    // Get creators with at least 3 users (balances coverage vs timeout risk)
+    // Get creators with at least 1 user (maximize coverage)
     // Combinations are filtered by ≥1 exposure AND ≥1 subscription
-    const allCreators = getTopCreators(users, 3) // Min 3 users per creator
+    const allCreators = getTopCreators(users, 1) // Min 1 user per creator
 
-    // Safety limit: Cap at 200 creators to prevent timeout
-    // 200 creators = 1,313,400 combinations (~4-5 min processing time)
-    const MAX_CREATORS = 200
+    // Safety limit: Cap at 125 creators to balance coverage vs timeout risk
+    // 125 creators = 317,750 combinations (~60-75 seconds processing time)
+    const MAX_CREATORS = 125
     const topCreators = allCreators.slice(0, MAX_CREATORS)
 
     if (topCreators.length < 3) {
@@ -315,7 +315,7 @@ serve(async (_req) => {
     }
 
     const totalCombinations = (topCreators.length * (topCreators.length - 1) * (topCreators.length - 2)) / 6
-    console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators (${allCreators.length} total available, capped at ${MAX_CREATORS} for performance)`)
+    console.log(`Testing ${totalCombinations} combinations from ${topCreators.length} creators (${allCreators.length} total available, capped at ${MAX_CREATORS})`)
 
     const results: CombinationResult[] = []
     let processed = 0
