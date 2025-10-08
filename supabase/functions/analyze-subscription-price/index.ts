@@ -54,10 +54,10 @@ serve(async (req) => {
     const { data: syncLog, error: syncLogError } = await supabase
       .from('sync_logs')
       .insert({
-        tool_type: 'subscription_price',
+        tool_type: 'user',
         sync_started_at: syncStartTime.toISOString(),
         sync_status: 'in_progress',
-        source: 'mixpanel',
+        source: 'mixpanel_subscription_price',
         triggered_by: 'manual',
       })
       .select()
@@ -166,10 +166,12 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error('Error in subscription price analysis:', error)
+    console.error('Error stack:', error.stack)
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message || 'Unknown error occurred',
+        details: error.stack || 'No stack trace available',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
