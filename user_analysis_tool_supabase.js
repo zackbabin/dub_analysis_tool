@@ -515,7 +515,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         [summaryContainer, portfolioContainer, subscriptionContainer, creatorContainer].forEach(container => {
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${timestampStr}`;
+            timestamp.textContent = `Last updated: ${timestampStr}; Data from last 30 days`;
             const resultsDiv = container.querySelector('.qda-analysis-results');
             if (resultsDiv) {
                 resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
@@ -1064,42 +1064,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             parts.push('</div>');
         }
 
-        // Anti-Patterns Section
-        if (analysisData.anti_patterns && analysisData.anti_patterns.length > 0) {
-            const antiPatternTooltip = `<span class="info-tooltip" style="margin-left: 0.5rem; vertical-align: middle;">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">Event sequences commonly seen in non-converters, indicating behaviors that correlate with failure to convert</span>
-            </span>`;
-
-            parts.push(
-                '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                `<h3>Anti-Patterns (Avoid These)${antiPatternTooltip}</h3>`
-            );
-
-            analysisData.anti_patterns.forEach(pattern => {
-                parts.push(
-                    `<div style="
-                        padding: 1rem;
-                        margin-bottom: 1rem;
-                        background: #f8f9fa;
-                        border-radius: 4px;
-                    ">`,
-                        `<h4 style="margin: 0 0 0.5rem 0;">${pattern.sequence.join(' → ')}</h4>`,
-                        `<p style="margin: 0.5rem 0;">
-                            <strong>Volume:</strong> ${(pattern.prevalence_in_non_converters * 100).toFixed(1)}%
-                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
-                                <span class="info-icon">i</span>
-                                <span class="tooltip-text">Percentage of non-converters who exhibited this pattern</span>
-                            </span>
-                        </p>`,
-                        `<p style="margin: 0.5rem 0; font-style: italic;">${pattern.insight}</p>`,
-                    '</div>'
-                );
-            });
-
-            parts.push('</div>');
-        }
-
         parts.push('</div>'); // Close main section
 
         return parts.join('');
@@ -1497,8 +1461,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     ? (data.totalSubscriptions / data.totalPaywallViews)
                     : 0;
 
-                // Take top 10 creators (just names)
-                const topCreators = data.creators.slice(0, 10);
+                // Take top 5 creators (just names)
+                const topCreators = data.creators.slice(0, 5);
 
                 return {
                     name: `$${parseFloat(price).toFixed(2)}`,
@@ -1565,7 +1529,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 color: '#2563eb',
                 dataLabels: {
                     enabled: true,
-                    format: '{point.y}'
+                    format: '{point.y}',
+                    inside: false,
+                    y: -5
                 }
             }],
             credits: {
