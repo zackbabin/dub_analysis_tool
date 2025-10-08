@@ -1782,11 +1782,6 @@ function displaySummaryStatsInline(stats) {
     title.style.marginBottom = '0.25rem';
     resultSection.appendChild(title);
 
-    const subtitle = document.createElement('p');
-    subtitle.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;';
-    subtitle.textContent = 'All Freemium users that have been KYC approved';
-    resultSection.appendChild(subtitle);
-
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';
 

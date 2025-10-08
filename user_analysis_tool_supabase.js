@@ -381,8 +381,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const chartId = `subscription-price-chart-${Date.now()}`;
 
                 priceDistributionHTML = `
-                    <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
-                    <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
+                    <div style="margin-top: 3rem;">
+                        <h2 style="margin-top: 0; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
+                        <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
+                    </div>
                 `;
 
                 // Render chart after DOM is ready
@@ -391,8 +393,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 }, 100);
             } else {
                 priceDistributionHTML = `
-                    <h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
-                    <p style="color: #6c757d; font-style: italic;">No subscription price data available. Please run "Sync Creator Data" to fetch this data.</p>
+                    <div style="margin-top: 3rem;">
+                        <h2 style="margin-top: 0; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
+                        <p style="color: #6c757d; font-style: italic;">No subscription price data available. Please run "Sync Creator Data" to fetch this data.</p>
+                    </div>
                 `;
             }
 
@@ -501,7 +505,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Add timestamp to all tabs
+        // Add timestamp and data scope to all tabs
         const timestampStr = new Date().toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
@@ -512,13 +516,28 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
         localStorage.setItem('qdaLastUpdated', timestampStr);
 
-        [summaryContainer, portfolioContainer, subscriptionContainer, creatorContainer].forEach(container => {
-            const timestamp = document.createElement('div');
-            timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${timestampStr}; Data from last 30 days`;
+        // Add timestamp (top right) and data scope (top left) to each container
+        const tabConfigs = [
+            { container: summaryContainer, scopeText: 'All Freemium users that have been KYC approved' },
+            { container: portfolioContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
+            { container: subscriptionContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
+            { container: creatorContainer, scopeText: 'Data for KYC approved users from the last 30 days' }
+        ];
+
+        tabConfigs.forEach(({ container, scopeText }) => {
             const resultsDiv = container.querySelector('.qda-analysis-results');
             if (resultsDiv) {
+                // Add timestamp (top right)
+                const timestamp = document.createElement('div');
+                timestamp.className = 'qda-timestamp';
+                timestamp.textContent = `Last updated: ${timestampStr}`;
                 resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+
+                // Add data scope text (top left)
+                const dataScope = document.createElement('div');
+                dataScope.className = 'qda-data-scope';
+                dataScope.textContent = scopeText;
+                resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
             }
         });
     }
@@ -633,7 +652,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div class="qda-result-section" style="margin-top: 3rem;">',
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Hidden Gems${tooltipHTML}</h2>`,
+            `<h2 style="margin-top: 0; margin-bottom: 0.5rem;">Hidden Gems${tooltipHTML}</h2>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1, max 100 copies)</p>'
         ];
 
