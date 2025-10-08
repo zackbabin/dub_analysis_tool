@@ -17,7 +17,6 @@ const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 // Mixpanel Chart IDs
 const CHART_IDS = {
   creatorInsights: '85130412',      // Insights: All 11 metrics from Insights by Creators chart
-  subscriptionPricing: '85154450',  // Subscriptions by Price (for Breakdown section)
 }
 
 interface MixpanelCredentials {
@@ -84,13 +83,10 @@ serve(async (req) => {
       // Date range configured in Mixpanel chart settings
       console.log(`Fetching data from Mixpanel charts (date range configured in each chart)`)
 
-      // Fetch all charts in parallel
-      const [creatorInsightsData, subscriptionPricingData] = await Promise.all([
-        fetchInsightsData(credentials, CHART_IDS.creatorInsights, 'Creator Insights'),
-        fetchInsightsData(credentials, CHART_IDS.subscriptionPricing, 'Subscription Pricing'),
-      ])
+      // Fetch creator insights data
+      const creatorInsightsData = await fetchInsightsData(credentials, CHART_IDS.creatorInsights, 'Creator Insights')
 
-      console.log('All chart data fetched successfully')
+      console.log('Creator insights data fetched successfully')
 
       // Process and insert data into database
       const stats: CreatorSyncStats = {
@@ -128,47 +124,6 @@ serve(async (req) => {
         }
 
         stats.creatorsFetched = totalProcessed
-        stats.totalRecordsInserted += totalProcessed
-      }
-
-      // Process and insert breakdown data (Subscription Pricing)
-      const subscriptionRows = processSubscriptionPricingData(subscriptionPricingData)
-      console.log(`Processed ${subscriptionRows.length} subscription pricing rows, inserting...`)
-
-      // Debug: Log what we're about to insert
-      if (subscriptionRows.length > 0) {
-        console.log('Sample subscription row to be inserted:', subscriptionRows[0])
-      } else {
-        console.warn('⚠️ No subscription pricing rows to insert!')
-      }
-
-      // No deduplication needed - data is already aggregated by price+interval in processing function
-
-      if (subscriptionRows.length > 0) {
-        const batchSize = 500
-        let totalProcessed = 0
-
-        for (let i = 0; i < subscriptionRows.length; i += batchSize) {
-          const batch = subscriptionRows.slice(i, i + batchSize)
-
-          if (batch.length > 0) {
-            const { error: insertError } = await supabase
-              .from('creator_subscriptions_by_price')
-              .upsert(batch, {
-                onConflict: 'subscription_price,subscription_interval,synced_at',
-                ignoreDuplicates: false,
-              })
-
-            if (insertError) {
-              console.error('Error upserting subscriptions batch:', insertError)
-              throw insertError
-            }
-
-            totalProcessed += batch.length
-            console.log(`Upserted subscriptions batch: ${totalProcessed}/${subscriptionRows.length} records`)
-          }
-        }
-
         stats.totalRecordsInserted += totalProcessed
       }
 
@@ -445,120 +400,3 @@ function processCreatorInsightsData(data: any): any[] {
 }
 
 
-function processSubscriptionPricingData(data: any): any[] {
-  if (!data || !data.series) {
-    console.log('No subscription pricing data')
-    return []
-  }
-
-  const syncedAt = new Date().toISOString()
-
-  console.log('Subscription pricing data structure:', {
-    hasHeaders: !!data.headers,
-    headers: data.headers,
-    metricsCount: Object.keys(data.series || {}).length,
-    seriesKeys: Object.keys(data.series || {}),
-  })
-
-  // Debug: Show sample of series structure
-  if (data.series && data.series['A. Total Subscriptions']) {
-    const sampleCreatorIds = Object.keys(data.series['A. Total Subscriptions']).slice(0, 3)
-    console.log('Sample creator IDs from A. Total Subscriptions:', sampleCreatorIds)
-  }
-
-  // Build a map to aggregate metrics for each price+interval combination
-  const dataMap = new Map<string, any>()
-
-  // Process both Total Subscriptions and Total Paywall Views metrics
-  const metrics = {
-    'A. Total Subscriptions': 'total_subscriptions',
-    'B. Total Paywall Views': 'total_paywall_views',
-  }
-
-  Object.entries(metrics).forEach(([metricName, fieldName]) => {
-    const metric = data.series[metricName]
-    if (!metric) {
-      console.log(`No "${metricName}" metric found`)
-      return
-    }
-
-    // Structure: creatorId -> username -> price -> interval -> count
-    Object.keys(metric).forEach(creatorId => {
-      if (creatorId === '$overall') return
-
-      const creatorData = metric[creatorId]
-
-      // Iterate through usernames
-      Object.keys(creatorData).forEach(username => {
-        if (username === '$overall') return
-
-        const usernameData = creatorData[username]
-
-        // Normalize username by removing @ prefix
-        const normalizedUsername = username.startsWith('@') ? username.substring(1) : username
-
-        // Iterate through price levels
-        Object.keys(usernameData).forEach(price => {
-          if (price === '$overall' || price === '$non_numeric_values') return
-
-          const priceData = usernameData[price]
-
-          // Iterate through interval levels
-          Object.keys(priceData).forEach(interval => {
-            if (interval === '$overall' || interval === 'undefined') return
-
-            const intervalData = priceData[interval]
-            const value = intervalData?.all || 0
-
-            // Normalize interval: treat "Annual" and "Annually" the same
-            const normalizedInterval = interval === 'Annual' ? 'Annually' : interval
-
-            const key = `${price}|${normalizedInterval}`
-
-            if (!dataMap.has(key)) {
-              dataMap.set(key, {
-                subscription_price: parseFloat(price),
-                subscription_interval: normalizedInterval,
-                total_subscriptions: 0,
-                total_paywall_views: 0,
-                creator_usernames: new Set<string>(),
-                synced_at: syncedAt,
-              })
-            }
-
-            const existing = dataMap.get(key)!
-            existing[fieldName] = (existing[fieldName] || 0) + value
-
-            // Add username if not undefined
-            if (normalizedUsername && normalizedUsername !== 'undefined') {
-              existing.creator_usernames.add(normalizedUsername)
-            }
-          })
-        })
-      })
-    })
-  })
-
-  // Convert Set to Array for creator_usernames
-  const rows = Array.from(dataMap.values()).map(row => ({
-    ...row,
-    creator_usernames: Array.from(row.creator_usernames),
-  }))
-
-  console.log(`Processed ${rows.length} subscription pricing rows`)
-
-  // Debug: Show sample rows
-  if (rows.length > 0) {
-    console.log('Sample subscription pricing rows:', rows.slice(0, 3).map(r => ({
-      price: r.subscription_price,
-      interval: r.subscription_interval,
-      totalSubs: r.total_subscriptions,
-      totalViews: r.total_paywall_views,
-      creatorCount: r.creator_usernames.length
-    })))
-  } else {
-    console.warn('⚠️ No subscription pricing rows were processed!')
-  }
-
-  return rows
-}

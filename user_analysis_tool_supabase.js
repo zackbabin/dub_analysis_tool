@@ -80,6 +80,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const result = await this.supabaseIntegration.triggerMixpanelSync();
 
         console.log('✅ Supabase sync completed:', result.stats);
+
+        // Also trigger subscription price analysis
+        console.log('Triggering subscription price analysis...');
+        try {
+            const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
+            if (priceResult && priceResult.success) {
+                console.log('✅ Subscription price analysis completed:', priceResult.stats);
+            }
+        } catch (error) {
+            console.warn('⚠️ Subscription price analysis failed:', error.message);
+            // Continue even if price analysis fails - it's supplementary data
+        }
+
         return true;
     }
 

@@ -590,6 +590,36 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger subscription price analysis via Supabase Edge Function
+     * Fetches and analyzes subscription pricing data from Mixpanel
+     */
+    async triggerSubscriptionPriceAnalysis() {
+        console.log('Triggering subscription price analysis via Supabase Edge Function...');
+
+        try {
+            // Call the Edge Function (no credentials needed - they're in Supabase secrets)
+            const { data, error } = await this.supabase.functions.invoke('analyze-subscription-price', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Subscription price analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during subscription price analysis');
+            }
+
+            console.log('✅ Subscription price analysis completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling subscription price analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Load subscription price distribution data
      * Returns data grouped by normalized monthly price
      */
