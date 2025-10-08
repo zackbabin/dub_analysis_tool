@@ -186,17 +186,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             hiddenGems,
             hiddenGemsSummary,
             copyEngagementSummary,
-            topCopyCombos,
-            topSequences
+            topCopyCombos
+            // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopSubscriptionCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; })
+            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; })
+            // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
+        const topSequences = []; // Empty array for now
 
         // === SUMMARY TAB ===
         const summaryContainer = this.outputContainers.summary;
@@ -270,7 +271,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
             const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-            const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences);
+            // const portfolioSequencesHTML = this.generatePortfolioSequencesHTML(topSequences); // COMMENTED OUT
 
             const copiesHTML = `
                 <div class="qda-result-section" style="margin-top: 3rem; padding-top: 3rem; border-top: 1px solid #e9ecef;">
@@ -285,7 +286,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
                 const copiesSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
                 copiesSection.appendChild(copiesTable);
-                copiesSection.insertAdjacentHTML('beforeend', combinationsHTML + portfolioSequencesHTML);
+                copiesSection.insertAdjacentHTML('beforeend', combinationsHTML); // Removed portfolioSequencesHTML
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 const copiesSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
