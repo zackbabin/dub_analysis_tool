@@ -920,6 +920,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <li><strong>Data Source:</strong> User event sequences from Mixpanel (up to 200 converters, 100 non-converters, first 40 events each)</li>
                     <li><strong>AI Method:</strong> Claude Sonnet 4 analyzes temporal patterns, frequency thresholds, and key differentiators</li>
                     <li><strong>Analysis:</strong> Identifies sequences where order matters, minimum event counts for conversion, and critical moments before conversion</li>
+                    <li><strong>Sorting:</strong> Patterns sorted by impact score (lift × prevalence in converters) to prioritize patterns with both high predictive power and broad user reach</li>
                     <li><strong>Output:</strong> High-impact sequences, critical triggers, and anti-patterns with actionable insights</li>
                 </ul>
             </span>
@@ -944,7 +945,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Predictive Sequences Section
             '<div class="path-analysis-section">',
             '<h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">High-Impact Event Sequences</h3>',
-            '<p style="color: #6c757d; font-size: 0.9rem;">Patterns with strongest predictive power for ' + outcomeType.toLowerCase() + '</p>'
+            '<p style="color: #6c757d; font-size: 0.9rem;">Patterns sorted by impact (lift × prevalence), showing sequences that drive conversion for the most users</p>'
         ];
 
         // Add each predictive sequence

@@ -156,10 +156,23 @@ ${JSON.stringify(nonConvertersSample, null, 2)}
 4. TIME WINDOWS: Average time between key events in successful conversion paths
 5. CRITICAL MOMENTS: Last 2-3 events before conversion (immediate triggers)
 6. Focus on actionable patterns that product teams can optimize
+
+CONSISTENCY REQUIREMENTS:
+- Use the EXACT event names as they appear in the data provided - do not rename, rephrase, or clean up event names
+- Maintain stable pattern identification - if data hasn't materially changed, return the same top patterns in the same order
+- Keep insights and recommendations similarly worded when the underlying patterns are consistent
+- Calculate metrics (lift, prevalence) using the same methodology each time
+- This ensures analysis stability and makes trend tracking easier over time
 </analysis_instructions>
 
 <output_format>
 Return ONLY valid JSON with this exact structure (no markdown, no code blocks):
+
+IMPORTANT: Sort "predictive_sequences" by their impact score, calculated as:
+  Impact = lift × prevalence_in_converters
+This prioritizes patterns that have both high predictive power (lift) AND affect the most converters (prevalence).
+Order from highest impact to lowest impact.
+
 {
   "predictive_sequences": [
     {
