@@ -475,14 +475,14 @@ serve(async (req) => {
     const results: CombinationResult[] = []
     let processed = 0
     let skippedLowExposure = 0
-    const startTime = Date.now()
+    const analysisLoopStartTime = Date.now()
     const TIMEOUT_MS = 120000 // 120 seconds (leave 30s buffer for storage/response)
     let timedOut = false
 
     for (const combo of generateCombinations3(topPortfolios)) {
       // Check for timeout every 100 combinations
       if (processed % 100 === 0) {
-        const elapsed = Date.now() - startTime
+        const elapsed = Date.now() - analysisLoopStartTime
         if (elapsed > TIMEOUT_MS) {
           console.log(`⚠️ Timeout approaching at ${processed}/${totalCombinations} combinations (${elapsed}ms elapsed). Storing partial results...`)
           timedOut = true
