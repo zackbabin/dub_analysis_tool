@@ -208,18 +208,9 @@ serve(async (req) => {
           },
           body: JSON.stringify({})
         }).then(() => console.log('✓ Copy analysis invoked'))
-          .catch((err) => console.warn('⚠️ Copy analysis failed:', err)),
+          .catch((err) => console.warn('⚠️ Copy analysis failed:', err))
 
-        fetch(`${supabaseUrl}/functions/v1/analyze-portfolio-sequences`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({})
-        }).then(() => console.log('✓ Portfolio sequence analysis invoked'))
-          .catch((err) => console.warn('⚠️ Portfolio sequence analysis failed:', err))
+        // Portfolio sequence analysis removed - not used in UI
       ]
 
       // Keep promises referenced but don't await (fire-and-forget that survives function return)

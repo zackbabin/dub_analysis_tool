@@ -1070,34 +1070,8 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * Trigger portfolio sequence analysis via Edge Function
-     * Analyzes which sequences of 3 PDP views drive the highest copy conversion
-     */
-    async triggerPortfolioSequenceAnalysis() {
-        console.log('Triggering portfolio sequence analysis...');
-
-        try {
-            const { data, error } = await this.supabase.functions.invoke('analyze-portfolio-sequences', {
-                body: {}
-            });
-
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Portfolio sequence analysis failed: ${error.message}`);
-            }
-
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during portfolio sequence analysis');
-            }
-
-            console.log('✅ Portfolio sequence analysis completed successfully:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling portfolio sequence analysis Edge Function:', error);
-            throw error;
-        }
-    }
+    // Portfolio sequence analysis removed - not used in UI
+    // Function and edge function deleted
 
     /**
      * Load top portfolio sequence combinations (wrapper for backwards compatibility)

@@ -572,7 +572,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip">
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>High-Impact Creator Combinations</strong>
@@ -616,7 +616,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip">
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Hidden Gems</strong>
@@ -769,7 +769,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip">
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>High-Impact Portfolio Combinations</strong>
@@ -811,7 +811,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip">
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Portfolio Sequence Analysis</strong>
@@ -826,7 +826,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </span>
         </span>`;
 
-        const impactTooltipHTML = `<span class="info-tooltip">
+        const impactTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Impact (Lift)</strong>
@@ -892,7 +892,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip">
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Conversion Path Analysis</strong>
@@ -1110,7 +1110,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Uses array.join() for optimal string building performance
      */
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
-        const impactTooltipHTML = `<span class="info-tooltip">
+        const impactTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Impact (Lift)</strong>
