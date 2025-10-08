@@ -264,10 +264,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
             portfolioContentSection.insertAdjacentHTML('beforeend', copiesHTML);
 
-            // Add combinations after Hidden Gems
-            const copiesSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
-            copiesSection.insertAdjacentHTML('beforeend', combinationsHTML);
-
             // Add Deposit Funds Section AFTER Hidden Gems and Combinations
             if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
                 const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
@@ -302,6 +298,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
                 const copyDriversSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
                 copyDriversSection.appendChild(copiesTable);
+
+                // Add combinations after Portfolio Copy Drivers table
+                copyDriversSection.insertAdjacentHTML('beforeend', combinationsHTML);
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 const copyDriversSection = portfolioContentSection.querySelector('.qda-result-section:last-child');
