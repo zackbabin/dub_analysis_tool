@@ -1425,20 +1425,50 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Render subscription price distribution as Highcharts bar chart
      */
     renderSubscriptionPriceChart(chartId, subscriptionDistribution) {
-        // Aggregate data by monthly price
-        const priceData = {};
+        // Aggregate data by monthly price with creator details
+        const priceDataMap = {};
         subscriptionDistribution.forEach(row => {
             const price = parseFloat(row.monthly_price || row.subscription_price);
-            priceData[price] = (priceData[price] || 0) + (row.total_subscriptions || 0);
+            if (!priceDataMap[price]) {
+                priceDataMap[price] = {
+                    count: 0,
+                    creators: []
+                };
+            }
+            priceDataMap[price].count += (row.total_subscriptions || 0);
+
+            // Store creator info with conversion rate
+            const totalSubs = row.total_subscriptions || 0;
+            const totalPaywallViews = row.total_paywall_views || 0;
+            const conversionRate = totalPaywallViews > 0 ? (totalSubs / totalPaywallViews) : 0;
+
+            // Add creator usernames (may be array or single value)
+            const usernames = row.creator_usernames || [];
+            if (Array.isArray(usernames)) {
+                usernames.forEach(username => {
+                    priceDataMap[price].creators.push({
+                        username: username,
+                        conversionRate: conversionRate
+                    });
+                });
+            }
         });
 
-        // Sort by price and prepare chart data
-        const sortedData = Object.entries(priceData)
+        // Sort by price and prepare chart data with tooltip info
+        const sortedData = Object.entries(priceDataMap)
             .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-            .map(([price, count]) => ({
-                name: `$${parseFloat(price).toFixed(2)}`,
-                y: parseInt(count)
-            }));
+            .map(([price, data]) => {
+                // Sort creators by conversion rate and take top 10
+                const topCreators = data.creators
+                    .sort((a, b) => b.conversionRate - a.conversionRate)
+                    .slice(0, 10);
+
+                return {
+                    name: `$${parseFloat(price).toFixed(2)}`,
+                    y: data.count,
+                    creators: topCreators
+                };
+            });
 
         // Render Highcharts bar chart
         Highcharts.chart(chartId, {
@@ -1471,7 +1501,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 enabled: false
             },
             tooltip: {
-                pointFormat: '<b>{point.y}</b> subscriptions'
+                useHTML: true,
+                formatter: function() {
+                    let tooltipHTML = `<b>${this.point.name}</b><br/>`;
+                    tooltipHTML += `<b>${this.point.y}</b> total subscriptions<br/><br/>`;
+
+                    if (this.point.creators && this.point.creators.length > 0) {
+                        tooltipHTML += '<b>Top Creators:</b><br/>';
+                        this.point.creators.forEach(creator => {
+                            const rate = (creator.conversionRate * 100).toFixed(1);
+                            tooltipHTML += `${creator.username}: ${rate}% conversion<br/>`;
+                        });
+                    }
+
+                    return tooltipHTML;
+                }
             },
             series: [{
                 name: 'Subscriptions',
