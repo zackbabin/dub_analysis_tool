@@ -1634,19 +1634,15 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
 // Display helper functions
 function createMetricCard(title, content, size = null) {
     const card = document.createElement('div');
-    card.className = 'qda-metric-card';
+    card.style.cssText = 'background-color: #f8f9fa; padding: 1rem; border-radius: 8px;';
 
-    const titleEl = document.createElement('strong');
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;';
     titleEl.textContent = title;
     card.appendChild(titleEl);
 
-    card.appendChild(document.createElement('br'));
-
-    const contentEl = document.createElement('span');
-    if (size) {
-        contentEl.style.fontSize = size;
-        contentEl.style.fontWeight = 'bold';
-    }
+    const contentEl = document.createElement('div');
+    contentEl.style.cssText = 'font-size: 1.5rem; font-weight: bold;';
     contentEl.textContent = content;
     card.appendChild(contentEl);
 
@@ -1781,6 +1777,11 @@ function displaySummaryStatsInline(stats) {
     const title = document.createElement('h1');
     title.textContent = '📈 Summary Statistics';
     resultSection.appendChild(title);
+
+    const subtitle = document.createElement('p');
+    subtitle.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;';
+    subtitle.textContent = 'All Freemium users that have been KYC approved';
+    resultSection.appendChild(subtitle);
 
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';

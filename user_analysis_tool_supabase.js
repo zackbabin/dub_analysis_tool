@@ -378,10 +378,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     summarySection.innerHTML = `
                         <div class="qda-result-section">
                             <h1>Summary Statistics</h1>
-                            <div class="qda-metric-summary">
-                                ${this.createMetricCardHTML('Total Creators', stats.totalCreators.toLocaleString(), '18px')}
-                                ${this.createMetricCardHTML('Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString(), '18px')}
-                                ${this.createMetricCardHTML('Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString(), '18px')}
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">
+                                ${this.createMetricCardHTML('Total Creators', stats.totalCreators.toLocaleString())}
+                                ${this.createMetricCardHTML('Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString())}
+                                ${this.createMetricCardHTML('Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString())}
                             </div>
                         </div>
                     `;
@@ -854,11 +854,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Create metric card HTML (for creator summary stats)
      */
     createMetricCardHTML(title, content, size = null) {
-        const fontSize = size || '14px';
         return `
-            <div class="qda-metric-card">
-                <div style="font-weight: bold; margin-bottom: 5px;">${title}</div>
-                <div style="font-size: ${fontSize}; color: #333;">${content}</div>
+            <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${title}</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">${content}</div>
             </div>
         `;
     }
