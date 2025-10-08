@@ -1118,6 +1118,9 @@ const SECTION_EXCLUSIONS = {
     'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
 };
 
+// Expose to window for access by Supabase version
+window.SECTION_EXCLUSIONS = SECTION_EXCLUSIONS;
+
 /**
  * Helper: Convert column name to camelCase
  */
