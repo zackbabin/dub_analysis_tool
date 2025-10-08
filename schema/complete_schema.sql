@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS conversion_pattern_combinations (
 
 -- Table: creator_subscriptions_by_price
 -- Creator-level subscription data with price and engagement metrics
+-- Each creator can have multiple price points and intervals
 CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
     id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     creator_id text NOT NULL,
@@ -37,7 +38,7 @@ CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
     total_subscriptions integer,
     total_paywall_views integer,
     synced_at timestamp with time zone,
-    UNIQUE(creator_id, synced_at)
+    UNIQUE(creator_id, subscription_price, subscription_interval, synced_at)
 );
 
 -- Table: creators_insights

@@ -104,7 +104,7 @@ serve(async (req) => {
             const { error: insertError } = await supabase
               .from('creator_subscriptions_by_price')
               .upsert(batch, {
-                onConflict: 'creator_id,synced_at',
+                onConflict: 'creator_id,subscription_price,subscription_interval,synced_at',
                 ignoreDuplicates: false,
               })
 
@@ -293,8 +293,8 @@ function processSubscriptionPricingData(data: any): any[] {
             // Normalize interval: treat "Annual" and "Annually" the same
             const normalizedInterval = interval === 'Annual' ? 'Annually' : interval
 
-            // Create unique key per creator (not per price)
-            const key = `${creatorId}|${normalizedUsername}`
+            // Create unique key per creator-price-interval combination
+            const key = `${creatorId}|${normalizedUsername}|${price}|${normalizedInterval}`
 
             if (!creatorDataMap.has(key)) {
               creatorDataMap.set(key, {

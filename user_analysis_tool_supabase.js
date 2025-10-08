@@ -422,7 +422,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 console.error('Error building subscriptions table:', e);
                 subscriptionSection.innerHTML = `
                     <div class="qda-result-section">
-                        <h1>Subscription Analysis</h1>
+                        <h1 style="margin-bottom: 0.25rem;">Subscription Analysis</h1>
                         ${subMetricsHTML}
                         ${priceDistributionHTML}
                         ${subCorrelationHeaderHTML}
@@ -463,7 +463,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
                     summarySection.innerHTML = `
                         <div class="qda-result-section">
-                            <h1>Summary Statistics</h1>
+                            <h1 style="margin-bottom: 0.25rem;">Summary Statistics</h1>
                             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">
                                 ${this.createMetricCardHTML('Total Creators', stats.totalCreators.toLocaleString())}
                                 ${this.createMetricCardHTML('Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString())}
