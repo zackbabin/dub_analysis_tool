@@ -580,10 +580,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
                     <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 creators analyzed</li>
-                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower is better model fit</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by AIC. Users must view BOTH creators to be counted as "exposed."
+                Shows top 10 combinations sorted by Expected Value. Users must view BOTH creators to be counted as "exposed."
             </span>
         </span>`;
 
@@ -777,10 +777,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
                     <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 portfolios analyzed</li>
-                    <li><strong>Ranking:</strong> By AIC (Akaike Information Criterion) - lower is better model fit</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
-                Shows top 10 combinations sorted by AIC. Users must view BOTH portfolios to be counted as "exposed."
+                Shows top 10 combinations sorted by Expected Value. Users must view BOTH portfolios to be counted as "exposed."
             </span>
         </span>`;
 

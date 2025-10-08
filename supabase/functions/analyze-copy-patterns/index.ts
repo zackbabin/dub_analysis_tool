@@ -339,9 +339,13 @@ serve(async (_req) => {
 
     console.log(`Kept ${results.length} combinations with at least 1 user exposure`)
 
-    // Sort by AIC (lower is better model fit) and store ALL results
-    // UI will handle filtering (minExposure) and limiting (top N)
-    results.sort((a, b) => a.aic - b.aic)
+    // Sort by Expected Value (lift × total_conversions) - balances impact and volume
+    // Higher EV = better business impact (combines predictive power with reach)
+    results.sort((a, b) => {
+      const evA = a.lift * a.total_conversions
+      const evB = b.lift * b.total_conversions
+      return evB - evA // Descending order
+    })
 
     const insertRows = results.map((result, index) => ({
       analysis_type: 'copy',
