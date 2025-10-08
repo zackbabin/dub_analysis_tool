@@ -100,47 +100,81 @@ serve(async (req) => {
       )
 
       // Process event sequences data
-      // Expected format from Mixpanel chart: array of objects with distinct_id and events array
       const stats: SyncStats = {
         eventSequencesFetched: 0,
         totalRecordsInserted: 0,
         chartId,
       }
 
-      if (!eventSequencesData?.series || eventSequencesData.series.length === 0) {
+      if (!eventSequencesData?.series) {
         console.warn('No event sequence data returned from Mixpanel')
         throw new Error('No event sequence data available')
       }
 
-      // Process the Insights API response
-      // The structure depends on how chart 85247935 is configured
-      // Typically: { series: [...], labels: [...], data: { values: {...} } }
       console.log('Processing event sequences...')
 
+      // Parse Mixpanel Insights response structure:
+      // series: { "metric_key": { "distinct_id": { "timestamp": { "all": count }, "$overall": {...} } } }
+
+      // Build user event sequences from nested structure
+      const userEventsMap = new Map<string, Array<{event: string, time: string, count: number}>>()
+
+      for (const [metricKey, metricData] of Object.entries(eventSequencesData.series)) {
+        if (typeof metricData !== 'object' || metricData === null) continue
+
+        // Clean up metric name (remove prefix like "A. ", "B. ", etc.)
+        const eventName = metricKey.replace(/^[A-Z]\.\s*/, '').replace(/^Total\s+/, '')
+
+        for (const [distinctId, userData] of Object.entries(metricData as Record<string, any>)) {
+          // Skip $overall aggregates and focus on actual distinct_ids
+          if (distinctId === '$overall') continue
+
+          // Get or create event array for this user
+          if (!userEventsMap.has(distinctId)) {
+            userEventsMap.set(distinctId, [])
+          }
+          const userEvents = userEventsMap.get(distinctId)!
+
+          // Extract individual event occurrences with timestamps
+          for (const [timestamp, data] of Object.entries(userData)) {
+            // Skip $overall for this user
+            if (timestamp === '$overall') continue
+
+            const count = (data as any)?.all || 0
+            if (count > 0) {
+              userEvents.push({
+                event: eventName,
+                time: timestamp,
+                count: count
+              })
+            }
+          }
+        }
+      }
+
+      console.log(`Found ${userEventsMap.size} users with event sequences`)
+
+      // Convert to rows for database insertion
       const eventSequenceRows: any[] = []
 
-      // Parse the response based on Mixpanel Insights API structure
-      // This may need adjustment based on actual chart configuration
-      if (eventSequencesData.data && eventSequencesData.data.values) {
-        const values = eventSequencesData.data.values
+      for (const [distinctId, events] of userEventsMap.entries()) {
+        const subscriber = subscriberMap.get(distinctId)
 
-        // Iterate through distinct_ids in the response
-        for (const [distinctId, events] of Object.entries(values)) {
-          const subscriber = subscriberMap.get(distinctId as string)
+        // Sort events by timestamp
+        events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 
-          // Determine if user has subscribed (paywall_views or stripe_modal_views > 0)
-          const hasSubscribed =
-            (subscriber?.paywall_views || 0) > 0 ||
-            (subscriber?.stripe_modal_views || 0) > 0
+        // Determine if user has subscribed
+        const hasSubscribed =
+          (subscriber?.paywall_views || 0) > 0 ||
+          (subscriber?.stripe_modal_views || 0) > 0
 
-          eventSequenceRows.push({
-            distinct_id: distinctId,
-            event_sequence: events, // Store as JSONB
-            total_copies: subscriber?.total_copies || 0,
-            total_subscriptions: hasSubscribed ? 1 : 0,
-            synced_at: syncStartTime.toISOString()
-          })
-        }
+        eventSequenceRows.push({
+          distinct_id: distinctId,
+          event_sequence: events, // Store as JSONB array
+          total_copies: subscriber?.total_copies || 0,
+          total_subscriptions: hasSubscribed ? 1 : 0,
+          synced_at: syncStartTime.toISOString()
+        })
       }
 
       console.log(`Processed ${eventSequenceRows.length} event sequences`)
