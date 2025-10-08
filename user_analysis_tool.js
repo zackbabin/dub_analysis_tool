@@ -1779,6 +1779,7 @@ function displaySummaryStatsInline(stats) {
 
     const title = document.createElement('h1');
     title.textContent = 'Summary Statistics';
+    title.style.marginBottom = '0.25rem';
     resultSection.appendChild(title);
 
     const subtitle = document.createElement('p');
