@@ -377,10 +377,8 @@ function processCreatorInsightsData(data: any): any[] {
       }
     }
 
-    rows.push({
-      creator_id: String(creatorData.creator_id),
-      creator_username: creatorData.creator_username,
-      creator_type: finalType,
+    // Build metrics object with all metric data for flexible storage
+    const metrics: Record<string, number> = {
       total_profile_views: creatorData.total_profile_views || 0,
       total_pdp_views: creatorData.total_pdp_views || 0,
       total_paywall_views: creatorData.total_paywall_views || 0,
@@ -392,6 +390,36 @@ function processCreatorInsightsData(data: any): any[] {
       total_copies: creatorData.total_copies || 0,
       total_investment_count: creatorData.total_investment_count || 0,
       total_investments: creatorData.total_investments || 0,
+    }
+
+    // Add any additional metrics that weren't in the original schema
+    // This allows for flexibility when new metrics are added to Mixpanel
+    Object.keys(creatorData).forEach(key => {
+      if (!metrics.hasOwnProperty(key) &&
+          key !== 'creator_id' &&
+          key !== 'creator_username' &&
+          typeof creatorData[key] === 'number') {
+        metrics[key] = creatorData[key]
+      }
+    })
+
+    rows.push({
+      creator_id: String(creatorData.creator_id),
+      creator_username: creatorData.creator_username,
+      creator_type: finalType,
+      metrics: metrics, // Store all metrics in JSONB column
+      // Keep original columns for backward compatibility during migration
+      total_profile_views: metrics.total_profile_views,
+      total_pdp_views: metrics.total_pdp_views,
+      total_paywall_views: metrics.total_paywall_views,
+      total_stripe_views: metrics.total_stripe_views,
+      total_subscriptions: metrics.total_subscriptions,
+      total_subscription_revenue: metrics.total_subscription_revenue,
+      total_cancelled_subscriptions: metrics.total_cancelled_subscriptions,
+      total_expired_subscriptions: metrics.total_expired_subscriptions,
+      total_copies: metrics.total_copies,
+      total_investment_count: metrics.total_investment_count,
+      total_investments: metrics.total_investments,
     })
   })
 

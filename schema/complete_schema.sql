@@ -42,24 +42,27 @@ CREATE TABLE IF NOT EXISTS creator_subscriptions_by_price (
 
 -- Table: creators_insights
 -- Creator-level metrics and analytics
+-- Uses JSONB for flexible metric storage to accommodate new Mixpanel metrics
 CREATE TABLE IF NOT EXISTS creators_insights (
     id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     creator_id text NOT NULL,
     creator_username text,
+    creator_type text,
+    metrics jsonb DEFAULT '{}'::jsonb,
+    -- Legacy columns maintained for backward compatibility
     total_profile_views integer,
     total_pdp_views integer,
     total_paywall_views integer,
     total_stripe_views integer,
     total_subscriptions integer,
-    synced_at timestamp with time zone,
-    updated_at timestamp with time zone,
-    creator_type text,
     total_subscription_revenue numeric,
     total_cancelled_subscriptions integer,
     total_expired_subscriptions integer,
     total_copies integer,
     total_investment_count integer,
-    total_investments numeric
+    total_investments numeric,
+    synced_at timestamp with time zone,
+    updated_at timestamp with time zone
 );
 
 -- Table: subscribers_insights

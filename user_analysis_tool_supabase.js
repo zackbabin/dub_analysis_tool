@@ -892,9 +892,23 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        const tooltipHTML = `<span class="info-tooltip">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Conversion Path Analysis</strong>
+                AI-powered event sequence analysis to identify predictive patterns:
+                <ul>
+                    <li><strong>Data Source:</strong> User event sequences from Mixpanel (up to 50 converters, 25 non-converters, first 30 events each)</li>
+                    <li><strong>AI Method:</strong> Claude Sonnet 4 analyzes temporal patterns, frequency thresholds, and key differentiators</li>
+                    <li><strong>Analysis:</strong> Identifies sequences where order matters, minimum event counts for conversion, and critical moments before conversion</li>
+                    <li><strong>Output:</strong> High-impact sequences, critical triggers, and anti-patterns with actionable insights</li>
+                </ul>
+            </span>
+        </span>`;
+
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h2>🔍 Conversion Path Analysis: ${outcomeType}</h2>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Conversion Path Analysis: ${outcomeType}${tooltipHTML}</h2>`,
             `<p class="qda-description" style="font-size: 0.9rem; color: #6c757d; margin-bottom: 1.5rem;">${analysisData.summary}</p>`,
 
             // Predictive Sequences Section
@@ -972,16 +986,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         border-radius: 4px;
                         border-left: 3px solid #007bff;
                     ">`,
-                        `<strong>💡 Insight:</strong> ${seq.insight}`,
-                    '</div>',
-                    `<div style="
-                        margin-top: 0.5rem;
-                        padding: 0.75rem;
-                        background: #d1ecf1;
-                        border-radius: 4px;
-                        color: #0c5460;
-                    ">`,
-                        `<strong>📋 Recommendation:</strong> ${seq.recommendation}`,
+                        `<strong>Insight:</strong> ${seq.insight}`,
                     '</div>',
                 '</div>'
             );
@@ -993,17 +998,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (analysisData.critical_triggers && analysisData.critical_triggers.length > 0) {
             parts.push(
                 '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                '<h3>⚡ Critical Conversion Triggers</h3>',
+                '<h3>Critical Conversion Triggers</h3>',
                 '<p style="color: #6c757d; font-size: 0.9rem;">Events that immediately precede conversion</p>'
             );
 
             analysisData.critical_triggers.forEach(trigger => {
                 parts.push(
                     `<div style="
-                        border-left: 4px solid #ffc107;
+                        border-left: 4px solid #007bff;
                         padding: 1rem;
                         margin-bottom: 1rem;
-                        background: #fff3cd;
+                        background: #f8f9fa;
+                        border-radius: 4px;
                     ">`,
                         `<h4 style="margin: 0 0 0.5rem 0;">${trigger.event}</h4>`,
                         `<p style="margin: 0.5rem 0;"><strong>Follows:</strong> ${trigger.follows_sequence.join(' → ')}</p>`,
@@ -1020,17 +1026,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (analysisData.anti_patterns && analysisData.anti_patterns.length > 0) {
             parts.push(
                 '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                '<h3>⚠️ Anti-Patterns (Avoid These)</h3>',
+                '<h3>Anti-Patterns (Avoid These)</h3>',
                 '<p style="color: #6c757d; font-size: 0.9rem;">Sequences associated with low conversion</p>'
             );
 
             analysisData.anti_patterns.forEach(pattern => {
                 parts.push(
                     `<div style="
-                        border-left: 4px solid #dc3545;
+                        border-left: 4px solid #6c757d;
                         padding: 1rem;
                         margin-bottom: 1rem;
-                        background: #f8d7da;
+                        background: #f8f9fa;
+                        border-radius: 4px;
                     ">`,
                         `<h4 style="margin: 0 0 0.5rem 0;">${pattern.sequence.join(' → ')}</h4>`,
                         `<p style="margin: 0.5rem 0;"><strong>Prevalence in Non-Converters:</strong> ${(pattern.prevalence_in_non_converters * 100).toFixed(1)}%</p>`,
@@ -1040,30 +1047,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
 
             parts.push('</div>');
-        }
-
-        // Summary Recommendations
-        if (analysisData.top_recommendations && analysisData.top_recommendations.length > 0) {
-            parts.push(
-                `<div style="
-                    margin-top: 2rem;
-                    padding: 1.5rem;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border-radius: 8px;
-                    color: white;
-                ">`,
-                    '<h3 style="margin-top: 0; color: white;">🎯 Top Recommendations</h3>',
-                    '<ul style="margin: 0; padding-left: 1.5rem;">'
-            );
-
-            analysisData.top_recommendations.forEach(rec => {
-                parts.push(`<li style="margin-bottom: 0.5rem;">${rec}</li>`);
-            });
-
-            parts.push(
-                    '</ul>',
-                '</div>'
-            );
         }
 
         parts.push('</div>'); // Close main section
