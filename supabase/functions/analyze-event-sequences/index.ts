@@ -118,36 +118,29 @@ serve(async (req) => {
       throw new Error(`No converter data available for ${outcomeType}`)
     }
 
-    // Prepare data for Claude - truncate sequences to prevent token overflow
-    // With 200 converters + 100 non-converters at 40 events each, we stay well under 200k token limit
-    const convertersSample = converters.slice(0, 200).map(u => ({
-      id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: (u.event_sequence || []).slice(0, 40), // Limit to first 40 events
-      outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
-    }))
+    // Prepare data for Claude with prompt caching
+    // Balance converters and non-converters to equal counts for fair analysis
+    // With caching, we can analyze 400 users per batch (200 converters + 200 non-converters)
+    // Process up to 100 events per user (up from 40) for richer sequence data
+    const BATCH_SIZE = 200 // Per group (converters and non-converters)
+    const EVENTS_PER_USER = 100
+    const MAX_BATCHES = 5 // Process up to 1000 converters + 1000 non-converters total
 
-    const nonConvertersSample = nonConverters.slice(0, 100).map(u => ({
-      id: u.distinct_id?.slice(0, 8) || 'unknown',
-      sequence: (u.event_sequence || []).slice(0, 40) // Limit to first 40 events
-    }))
+    // Balance to equal sizes
+    const minSize = Math.min(converters.length, nonConverters.length)
+    const balancedConverters = converters.slice(0, minSize)
+    const balancedNonConverters = nonConverters.slice(0, minSize)
 
-    // Build Claude prompt
-    const prompt = `You are a data scientist analyzing user behavior sequences to identify predictive patterns for ${outcomeType}.
+    console.log(`Balanced dataset: ${balancedConverters.length} converters, ${balancedNonConverters.length} non-converters`)
+
+    // Build system prompt (will be cached across batches)
+    const systemPrompt = `You are a data scientist analyzing user behavior sequences to identify predictive patterns for ${outcomeType}.
 
 <context>
 Platform: Investment social network where users copy portfolios and subscribe to creators
 Outcome: ${outcomeType} (${outcomeType === 'copies' ? 'total_copies >= 3' : 'has subscribed'})
-Dataset: ${converters.length} high converters, ${nonConverters.length} non-converters
 Goal: Find event sequences that PREDICT conversion (not just correlate)
 </context>
-
-<data>
-HIGH CONVERTERS (sample):
-${JSON.stringify(convertersSample, null, 2)}
-
-NON-CONVERTERS (sample):
-${JSON.stringify(nonConvertersSample, null, 2)}
-</data>
 
 <analysis_instructions>
 1. TEMPORAL PATTERNS: Identify sequences where order matters (e.g., "Profile View → PDP View → Copy" vs "PDP View → Profile View")
@@ -206,45 +199,142 @@ Order from highest impact to lowest impact.
 }
 </output_format>`
 
-    // Call Claude API
-    console.log('Calling Claude API for analysis...')
+    // Process users in batches with prompt caching
+    console.log('Processing users in batches with prompt caching...')
 
-    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': claudeApiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
-        messages: [{
-          role: 'user',
-          content: prompt
-        }]
+    const totalBatches = Math.min(
+      Math.ceil(balancedConverters.length / BATCH_SIZE),
+      MAX_BATCHES
+    )
+
+    const allBatchResults: AnalysisResult[] = []
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const start = batchIndex * BATCH_SIZE
+      const end = Math.min(start + BATCH_SIZE, balancedConverters.length)
+
+      const convertersBatch = balancedConverters.slice(start, end).map(u => ({
+        id: u.distinct_id?.slice(0, 8) || 'unknown',
+        sequence: (u.event_sequence || []).slice(0, EVENTS_PER_USER),
+        outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
+      }))
+
+      const nonConvertersBatch = balancedNonConverters.slice(start, end).map(u => ({
+        id: u.distinct_id?.slice(0, 8) || 'unknown',
+        sequence: (u.event_sequence || []).slice(0, EVENTS_PER_USER)
+      }))
+
+      console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters`)
+
+      // Build data section for this batch
+      const dataPrompt = `<data>
+Dataset size: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters (Batch ${batchIndex + 1}/${totalBatches})
+
+HIGH CONVERTERS:
+${JSON.stringify(convertersBatch, null, 2)}
+
+NON-CONVERTERS:
+${JSON.stringify(nonConvertersBatch, null, 2)}
+</data>
+
+Analyze this batch and return the top predictive patterns found.`
+
+      // Call Claude API with prompt caching
+      const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeApiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'prompt-caching-2024-07-31'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 8000,
+          system: [
+            {
+              type: 'text',
+              text: systemPrompt,
+              cache_control: { type: 'ephemeral' }
+            }
+          ],
+          messages: [{
+            role: 'user',
+            content: dataPrompt
+          }]
+        })
       })
-    })
 
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text()
-      throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`)
+      if (!claudeResponse.ok) {
+        const errorText = await claudeResponse.text()
+        throw new Error(`Claude API error (batch ${batchIndex + 1}): ${claudeResponse.status} - ${errorText}`)
+      }
+
+      const claudeData = await claudeResponse.json()
+
+      // Log cache usage
+      const usage = claudeData.usage
+      console.log(`Batch ${batchIndex + 1} tokens:`, {
+        input: usage?.input_tokens || 0,
+        cache_creation: usage?.cache_creation_input_tokens || 0,
+        cache_read: usage?.cache_read_input_tokens || 0,
+        output: usage?.output_tokens || 0
+      })
+
+      // Parse batch result
+      try {
+        const responseText = claudeData.content[0].text
+        const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+        const batchResult: AnalysisResult = JSON.parse(cleanedText)
+        allBatchResults.push(batchResult)
+      } catch (parseError) {
+        console.error(`Failed to parse batch ${batchIndex + 1} response:`, parseError)
+        console.error('Raw response:', claudeData.content[0].text)
+        throw new Error(`Failed to parse batch ${batchIndex + 1} analysis results`)
+      }
     }
 
-    const claudeData = await claudeResponse.json()
-    console.log('✓ Claude analysis completed')
+    console.log(`✓ Completed ${totalBatches} batches, merging results...`)
 
-    // Parse Claude's response
-    let analysisResult: AnalysisResult
-    try {
-      const responseText = claudeData.content[0].text
-      // Remove markdown code blocks if present
-      const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      analysisResult = JSON.parse(cleanedText)
-    } catch (parseError) {
-      console.error('Failed to parse Claude response:', parseError)
-      console.error('Raw response:', claudeData.content[0].text)
-      throw new Error('Failed to parse Claude analysis results')
+    // Merge results from all batches
+    const analysisResult = mergeBatchResults(allBatchResults)
+    console.log('✓ Analysis completed and merged')
+
+    // Helper function to merge batch results
+    function mergeBatchResults(results: AnalysisResult[]): AnalysisResult {
+      if (results.length === 1) return results[0]
+
+      // Collect all sequences and sort by impact (lift × prevalence)
+      const allSequences = results.flatMap(r => r.predictive_sequences)
+      const sortedSequences = allSequences
+        .sort((a, b) => {
+          const impactA = a.lift * a.prevalence_in_converters
+          const impactB = b.lift * b.prevalence_in_converters
+          return impactB - impactA
+        })
+        .slice(0, 10) // Keep top 10
+
+      // Collect all triggers and patterns
+      const allTriggers = results.flatMap(r => r.critical_triggers || []).slice(0, 5)
+      const allAntiPatterns = results.flatMap(r => r.anti_patterns || []).slice(0, 5)
+
+      // Combine summaries
+      const summaries = results.map(r => r.summary).filter(Boolean)
+      const combinedSummary = summaries.length > 0
+        ? `Analysis of ${totalBatches} batches (${balancedConverters.length} total users): ${summaries[0]}`
+        : 'Combined analysis across multiple batches'
+
+      // Combine recommendations
+      const allRecommendations = results.flatMap(r => r.top_recommendations || [])
+      const uniqueRecommendations = [...new Set(allRecommendations)].slice(0, 5)
+
+      return {
+        predictive_sequences: sortedSequences,
+        critical_triggers: allTriggers,
+        anti_patterns: allAntiPatterns,
+        summary: combinedSummary,
+        top_recommendations: uniqueRecommendations
+      }
     }
 
     // Store results in database
@@ -274,8 +364,10 @@ Order from highest impact to lowest impact.
         message: `Event sequence analysis for ${outcomeType} completed successfully`,
         analysis: analysisResult,
         stats: {
-          converters_analyzed: converters.length,
-          non_converters_analyzed: nonConverters.length,
+          total_converters_analyzed: balancedConverters.length,
+          total_non_converters_analyzed: balancedNonConverters.length,
+          batches_processed: totalBatches,
+          events_per_user: EVENTS_PER_USER,
           patterns_found: analysisResult.predictive_sequences.length
         }
       }),
