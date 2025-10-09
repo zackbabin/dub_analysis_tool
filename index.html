@@ -634,6 +634,7 @@
 
             // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
+            userTool.supabaseIntegration = window.supabaseIntegration;
 
             // Initialize with output containers (this will restore cached results)
             userTool.outputContainers = {

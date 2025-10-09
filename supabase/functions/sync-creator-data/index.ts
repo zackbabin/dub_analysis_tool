@@ -407,8 +407,7 @@ function processCreatorInsightsData(data: any): any[] {
       creator_id: String(creatorData.creator_id),
       creator_username: creatorData.creator_username,
       creator_type: finalType,
-      metrics: metrics, // Store all metrics in JSONB column
-      // Keep original columns for backward compatibility during migration
+      raw_data: metrics, // Store all metrics in raw_data JSONB column
       total_profile_views: metrics.total_profile_views,
       total_pdp_views: metrics.total_pdp_views,
       total_paywall_views: metrics.total_paywall_views,
