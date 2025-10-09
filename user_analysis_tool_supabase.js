@@ -264,17 +264,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs
         try {
-            localStorage.setItem('dubAnalysisResults', JSON.stringify({
+            const cacheData = {
                 summary: this.outputContainers.summary.innerHTML,
                 portfolio: this.outputContainers.portfolio.innerHTML,
                 subscription: this.outputContainers.subscription.innerHTML,
                 creator: this.outputContainers.creator.innerHTML,
                 subscriptionDistribution: this.cachedSubscriptionDistribution, // Cache chart data
                 timestamp: new Date().toISOString()
-            }));
+            };
+            console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
+            localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
             console.log('✅ Cached complete analysis for all tabs');
+
+            // Verify it was saved
+            const saved = localStorage.getItem('dubAnalysisResults');
+            const savedTimestamp = JSON.parse(saved).timestamp;
+            console.log('✅ Verified cache saved with timestamp:', savedTimestamp);
         } catch (error) {
-            console.warn('Failed to cache:', error);
+            console.error('❌ Failed to cache:', error);
         }
     }
 
@@ -513,7 +520,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Add timestamp and data scope to first 3 tabs (creator tab handled separately)
-        const timestampStr = new Date().toLocaleString('en-US', {
+        // Use current time as the sync timestamp (this is when fresh data was fetched)
+        const now = new Date();
+        const timestampStr = now.toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
             year: 'numeric',
@@ -521,6 +530,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             minute: '2-digit',
             hour12: true
         });
+
+        // Store both the display string and ISO timestamp for consistency
+        const timestampISO = now.toISOString();
         localStorage.setItem('qdaLastUpdated', timestampStr);
 
         // Add timestamp (top right) and data scope (top left) to each container
