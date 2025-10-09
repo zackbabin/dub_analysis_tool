@@ -513,11 +513,7 @@
             const syncBtn = document.getElementById('syncLiveDataBtn');
             const uploadBtn = document.getElementById('manualUploadBtn');
 
-            // Sync Live Data click handler
-            syncBtn.onclick = () => userTool.runWorkflow('github');
-
-            // Manual Upload Data click handler
-            uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
+            // Click handlers will be set by updateButtonStates() based on active tab
 
             // Store original hover functions to restore later
             const syncHoverIn = () => {
@@ -558,20 +554,21 @@
         }
 
         // Update button states based on active tab
-        function updateButtonStates(activeTab, buttons) {
+        function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
 
             if (activeTab === 'creator') {
-                // On Creator tab: disable Sync, enable Upload
-                syncBtn.disabled = true;
-                syncBtn.style.background = '#f8f9fa';
-                syncBtn.style.borderColor = '#e9ecef';
-                syncBtn.style.cursor = 'not-allowed';
-                syncBtn.style.pointerEvents = 'none';
-                syncBtn.querySelector('div:first-child').style.color = '#adb5bd';
-                syncBtn.querySelector('div:last-child').style.color = '#ced4da';
-                syncBtn.onmouseover = null;
-                syncBtn.onmouseout = null;
+                // On Creator tab: enable both Sync and Upload
+                syncBtn.disabled = false;
+                syncBtn.style.background = 'white';
+                syncBtn.style.borderColor = '#28a745';
+                syncBtn.style.cursor = 'pointer';
+                syncBtn.style.pointerEvents = 'auto';
+                syncBtn.querySelector('div:first-child').style.color = '#28a745';
+                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+                syncBtn.onmouseover = syncHoverIn;
+                syncBtn.onmouseout = syncHoverOut;
+                syncBtn.onclick = () => creatorTool.runWorkflow('sync');
 
                 uploadBtn.disabled = false;
                 uploadBtn.style.background = 'white';
@@ -582,6 +579,7 @@
                 uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
+                uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
             } else {
                 // On User tabs: enable Sync, disable Upload
                 syncBtn.disabled = false;
@@ -593,6 +591,7 @@
                 syncBtn.querySelector('div:last-child').style.color = '#6c757d';
                 syncBtn.onmouseover = syncHoverIn;
                 syncBtn.onmouseout = syncHoverOut;
+                syncBtn.onclick = () => userTool.runWorkflow('github');
 
                 uploadBtn.disabled = true;
                 uploadBtn.style.background = '#f8f9fa';
@@ -607,7 +606,7 @@
         }
 
         // Tab switching functionality
-        function initializeTabs(buttons) {
+        function initializeTabs(buttons, userTool, creatorTool) {
             const tabButtons = document.querySelectorAll('.tab-btn');
             const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -629,7 +628,7 @@
                     }
 
                     // Update button states based on active tab
-                    updateButtonStates(targetTab, buttons);
+                    updateButtonStates(targetTab, buttons, userTool, creatorTool);
                 });
             });
         }
@@ -686,10 +685,10 @@
             const buttons = createUnifiedDataSource(userTool, creatorTool);
 
             // Initialize tab switching with button state management
-            initializeTabs(buttons);
+            initializeTabs(buttons, userTool, creatorTool);
 
             // Set initial button states (Summary tab is active by default)
-            updateButtonStates('summary', buttons);
+            updateButtonStates('summary', buttons, userTool, creatorTool);
 
             console.log('✅ Unified data source component created');
         };
