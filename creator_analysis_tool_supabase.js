@@ -84,6 +84,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             header
                 .trim()
                 .toLowerCase()
+                .replace(/^report\d+:\s*/i, '') // Remove "report#:" prefix
                 .replace(/[^a-z0-9_]/g, '_') // Replace non-alphanumeric with underscore
                 .replace(/_+/g, '_') // Replace multiple underscores with single
                 .replace(/^_|_$/g, '') // Remove leading/trailing underscores
@@ -92,9 +93,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         console.log('Original headers:', rawHeaders);
         console.log('Cleaned headers:', cleanedHeaders);
 
+        // Columns to drop
+        const columnsTosDrop = ['email', 'phone', 'createdby', 'cancelledat', 'sketchinvestigationresultid'];
+
         // Find important column indices
         const handleIndex = cleanedHeaders.findIndex(h => h === 'handle');
         const useruuidIndex = cleanedHeaders.findIndex(h => h === 'useruuid');
+        const descriptionIndex = cleanedHeaders.findIndex(h => h === 'description');
+        const birthdateIndex = cleanedHeaders.findIndex(h => h === 'birthdate');
 
         if (handleIndex === -1) {
             throw new Error('CSV must contain "handle" column');
@@ -115,11 +121,42 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 continue;
             }
 
-            // Build raw_data object with all CSV columns
+            // Build raw_data object with all CSV columns (except dropped ones)
             const rawData = {};
             cleanedHeaders.forEach((header, index) => {
-                rawData[header] = values[index]?.trim() || null;
+                // Skip columns that should be dropped
+                if (!columnsTosDrop.includes(header)) {
+                    rawData[header] = values[index]?.trim() || null;
+                }
             });
+
+            // Calculate description_length
+            if (descriptionIndex !== -1) {
+                const description = values[descriptionIndex]?.trim() || '';
+                rawData.description_length = description.length;
+            }
+
+            // Calculate age from birthdate
+            if (birthdateIndex !== -1) {
+                const birthdate = values[birthdateIndex]?.trim();
+                if (birthdate) {
+                    try {
+                        const birthDate = new Date(birthdate);
+                        const today = new Date();
+                        let age = today.getFullYear() - birthDate.getFullYear();
+                        const monthDiff = today.getMonth() - birthDate.getMonth();
+                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                            age--;
+                        }
+                        rawData.age = age;
+                    } catch (error) {
+                        console.warn(`Invalid birthdate format on line ${i + 1}: ${birthdate}`);
+                        rawData.age = null;
+                    }
+                } else {
+                    rawData.age = null;
+                }
+            }
 
             // Extract creator_username and creator_id
             const creatorUsername = values[handleIndex]?.trim();
