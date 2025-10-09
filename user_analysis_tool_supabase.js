@@ -948,7 +948,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <strong>Conversion Path Analysis</strong>
                 AI-powered event sequence analysis to identify predictive patterns:
                 <ul>
-                    <li><strong>Data Source:</strong> User event sequences from Mixpanel (up to 200 converters, 100 non-converters, first 40 events each)</li>
+                    <li><strong>Data Source:</strong> User event sequences from Mixpanel (up to 1000 converters + 1000 non-converters, 100 events per user)</li>
+                    <li><strong>Processing:</strong> Batch processing with prompt caching analyzes users in groups of 200 for efficiency</li>
                     <li><strong>AI Method:</strong> Claude Sonnet 4 analyzes temporal patterns, frequency thresholds, and key differentiators</li>
                     <li><strong>Analysis:</strong> Identifies sequences where order matters, minimum event counts for conversion, and critical moments before conversion</li>
                     <li><strong>Sorting:</strong> Patterns sorted by impact score (lift × prevalence in converters) to prioritize patterns with both high predictive power and broad user reach</li>
