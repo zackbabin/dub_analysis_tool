@@ -72,14 +72,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Renames columns, cleans headers, stores all data in raw_data JSONB
      */
     parseAndCleanCreatorCSV(csvContent) {
-        // Parse CSV
-        const lines = csvContent.trim().split('\n');
-        if (lines.length < 2) {
+        // Use the shared CSV parser which handles quoted fields properly
+        const parsedCSV = window.CSVUtils.parseCSV(csvContent);
+
+        if (!parsedCSV || !parsedCSV.data || parsedCSV.data.length === 0) {
             throw new Error('CSV file is empty or invalid');
         }
 
-        // Get headers and clean them
-        const rawHeaders = lines[0].split(',');
+        const rawHeaders = parsedCSV.headers;
         const cleanedHeaders = rawHeaders.map(header =>
             header
                 .trim()
@@ -111,34 +111,27 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Process each data row
         const cleanedData = [];
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            const values = this.parseCSVLine(line);
-            if (values.length !== rawHeaders.length) {
-                console.warn(`Skipping line ${i + 1}: column count mismatch`);
-                continue;
-            }
-
+        parsedCSV.data.forEach((row, index) => {
             // Build raw_data object with all CSV columns (except dropped ones)
             const rawData = {};
-            cleanedHeaders.forEach((header, index) => {
+            cleanedHeaders.forEach((header, colIndex) => {
+                const originalHeader = rawHeaders[colIndex];
                 // Skip columns that should be dropped
                 if (!columnsTosDrop.includes(header)) {
-                    rawData[header] = values[index]?.trim() || null;
+                    const value = row[originalHeader];
+                    rawData[header] = value ? String(value).trim() : null;
                 }
             });
 
             // Calculate description_length
             if (descriptionIndex !== -1) {
-                const description = values[descriptionIndex]?.trim() || '';
-                rawData.description_length = description.length;
+                const description = row[rawHeaders[descriptionIndex]] || '';
+                rawData.description_length = String(description).length;
             }
 
             // Calculate age from birthdate
             if (birthdateIndex !== -1) {
-                const birthdate = values[birthdateIndex]?.trim();
+                const birthdate = row[rawHeaders[birthdateIndex]];
                 if (birthdate) {
                     try {
                         const birthDate = new Date(birthdate);
@@ -150,7 +143,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         }
                         rawData.age = age;
                     } catch (error) {
-                        console.warn(`Invalid birthdate format on line ${i + 1}: ${birthdate}`);
+                        console.warn(`Invalid birthdate format on row ${index + 2}: ${birthdate}`);
                         rawData.age = null;
                     }
                 } else {
@@ -159,12 +152,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             // Extract creator_username and creator_id
-            const creatorUsername = values[handleIndex]?.trim();
-            const creatorId = values[useruuidIndex]?.trim();
+            let creatorUsername = row[rawHeaders[handleIndex]]?.trim();
+            const creatorId = row[rawHeaders[useruuidIndex]]?.trim();
 
             if (!creatorUsername || !creatorId) {
-                console.warn(`Skipping line ${i + 1}: missing handle or useruuid`);
-                continue;
+                console.warn(`Skipping row ${index + 2}: missing handle or useruuid`);
+                return;
+            }
+
+            // Normalize username: ensure it starts with @ to match creators_insights format
+            if (!creatorUsername.startsWith('@')) {
+                creatorUsername = '@' + creatorUsername;
             }
 
             cleanedData.push({
@@ -172,16 +170,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 creator_username: creatorUsername,
                 raw_data: rawData
             });
-        }
+        });
 
         // Deduplicate by creator_username (keep last occurrence)
         const deduped = {};
+        const duplicates = {};
         cleanedData.forEach(row => {
+            if (deduped[row.creator_username]) {
+                duplicates[row.creator_username] = (duplicates[row.creator_username] || 0) + 1;
+            }
             deduped[row.creator_username] = row;
         });
         const dedupedArray = Object.values(deduped);
 
         console.log(`Original rows: ${cleanedData.length}, After deduplication: ${dedupedArray.length}`);
+        if (Object.keys(duplicates).length > 0) {
+            console.log(`Found ${Object.keys(duplicates).length} usernames with duplicates:`, Object.keys(duplicates).slice(0, 10));
+        }
 
         return dedupedArray;
     }

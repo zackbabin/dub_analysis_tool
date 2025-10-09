@@ -31,7 +31,9 @@ BEGIN
     COALESCE(existing.total_investments, 0)::numeric as total_investments
   FROM uploaded
   LEFT JOIN creators_insights existing
-    ON uploaded.creator_username = existing.creator_username;
+    ON uploaded.creator_username = existing.creator_username
+    OR uploaded.creator_username = '@' || existing.creator_username
+    OR LTRIM(uploaded.creator_username, '@') = LTRIM(existing.creator_username, '@');
 END;
 $$ LANGUAGE plpgsql;
 
