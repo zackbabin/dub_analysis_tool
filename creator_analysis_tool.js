@@ -695,9 +695,37 @@ class CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
+        const titleContainer = document.createElement('div');
+        titleContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 1rem;';
+
         const title = document.createElement('h1');
         title.textContent = 'Behavioral Analysis';
-        section.appendChild(title);
+        title.style.marginBottom = '0.25rem';
+        titleContainer.appendChild(title);
+
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Behavioral Analysis</strong>
+                Statistical correlation and regression analysis to identify key creator metrics:
+                <ul>
+                    <li><strong>Method:</strong> Pearson correlation coefficient with t-statistic significance testing</li>
+                    <li><strong>Variables:</strong> Profile views, PDP views, paywall views, stripe views, subscription revenue, cancellations, expirations, investment count, investment amount</li>
+                    <li><strong>Outcomes:</strong> Portfolio copies and subscriptions</li>
+                    <li><strong>Significance:</strong> t-statistic > 1.96 indicates 95% confidence level</li>
+                    <li><strong>Predictive Strength:</strong> Two-stage scoring: (1) Statistical significance, (2) Weighted score = Correlation (90%) + T-stat (10%)</li>
+                    <li><strong>Tipping Points:</strong> Identifies threshold values where conversion rates significantly increase</li>
+                </ul>
+                Results sorted by absolute correlation strength.
+            </span>
+        </span>`;
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.innerHTML = tooltipHTML;
+        titleContainer.appendChild(tooltipSpan);
+
+        section.appendChild(titleContainer);
 
         const outcomes = [
             { outcome: 'totalCopies', label: 'Portfolio Copies', key: 'copies' },
