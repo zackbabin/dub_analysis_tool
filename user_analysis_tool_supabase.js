@@ -42,19 +42,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (saved) {
                 const data = JSON.parse(saved);
                 if (this.outputContainers) {
-                    // Restore cached HTML to each tab (if available and container exists)
-                    if (data.summary && this.outputContainers.summary) {
-                        this.outputContainers.summary.innerHTML = data.summary;
-                    }
-                    if (data.portfolio && this.outputContainers.portfolio) {
-                        this.outputContainers.portfolio.innerHTML = data.portfolio;
-                    }
-                    if (data.subscription && this.outputContainers.subscription) {
-                        this.outputContainers.subscription.innerHTML = data.subscription;
-                    }
-                    if (data.creator && this.outputContainers.creator) {
-                        this.outputContainers.creator.innerHTML = data.creator;
-                    }
+                    // Restore cached HTML to each tab (if available)
+                    if (data.summary) this.outputContainers.summary.innerHTML = data.summary;
+                    if (data.portfolio) this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    if (data.subscription) this.outputContainers.subscription.innerHTML = data.subscription;
+                    if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
                     console.log('✅ Restored analysis results from', data.timestamp);
                 }
