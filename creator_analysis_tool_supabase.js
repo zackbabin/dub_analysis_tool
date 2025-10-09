@@ -174,7 +174,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             });
         }
 
-        return cleanedData;
+        // Deduplicate by creator_username (keep last occurrence)
+        const deduped = {};
+        cleanedData.forEach(row => {
+            deduped[row.creator_username] = row;
+        });
+        const dedupedArray = Object.values(deduped);
+
+        console.log(`Original rows: ${cleanedData.length}, After deduplication: ${dedupedArray.length}`);
+
+        return dedupedArray;
     }
 
     /**
