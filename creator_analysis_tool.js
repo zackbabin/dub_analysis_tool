@@ -610,18 +610,26 @@ class CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
+        // Add H1 title
+        const title = document.createElement('h1');
+        title.textContent = 'Creator Analysis';
+        section.appendChild(title);
+
         const metricSummary = document.createElement('div');
         metricSummary.className = 'qda-metric-summary';
 
-        // Core metrics
+        // Core metrics with same style as other tabs
         const metrics = [
-            ['Total Creators', stats.totalCreators.toLocaleString(), '18px'],
-            ['Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString(), '18px'],
-            ['Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString(), '18px']
+            ['Total Creators', stats.totalCreators.toLocaleString()],
+            ['Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString()],
+            ['Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString()]
         ];
 
-        metrics.forEach(([title, content, size]) => {
-            metricSummary.appendChild(this.createMetricCard(title, content, size));
+        metrics.forEach(([title, content]) => {
+            const card = document.createElement('div');
+            card.className = 'qda-metric-card';
+            card.innerHTML = `<strong>${title}</strong><br><span style="font-size: 24px; font-weight: bold;">${content}</span>`;
+            metricSummary.appendChild(card);
         });
 
         section.appendChild(metricSummary);
@@ -688,17 +696,6 @@ class CreatorAnalysisTool {
         const container = document.getElementById('creatorBehavioralAnalysisInline');
         container.innerHTML = '';
 
-        // Add H1 title
-        const mainSection = document.createElement('div');
-        mainSection.className = 'qda-result-section';
-
-        const title = document.createElement('h1');
-        title.textContent = 'Creator Analysis';
-        title.style.marginBottom = '0.25rem';
-        mainSection.appendChild(title);
-
-        container.appendChild(mainSection);
-
         const outcomes = [
             { outcome: 'totalCopies', label: 'Top Portfolio Copy Drivers', key: 'copies' },
             { outcome: 'totalSubscriptions', label: 'Top Subscription Drivers', key: 'subscriptions' }
@@ -736,11 +733,6 @@ class CreatorAnalysisTool {
             const tooltipSpan = document.createElement('span');
             tooltipSpan.innerHTML = tooltipHTML;
             outcomeSection.appendChild(tooltipSpan);
-
-            const subtitle = document.createElement('p');
-            subtitle.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;';
-            subtitle.textContent = `The top creator metrics that are the strongest predictors of ${config.key}`;
-            outcomeSection.appendChild(subtitle);
 
             const allVariables = Object.keys(correlationResults[config.outcome]);
             const regressionData = regressionResults[config.key];

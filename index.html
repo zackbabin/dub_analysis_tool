@@ -395,13 +395,11 @@
         <button class="tab-btn" data-tab="creator">Creator Analysis</button>
     </div>
 
-    <!-- Data Source Selection (shown on all tabs) -->
-    <div class="tab-container">
-        <div id="unifiedToolContainer"></div>
-    </div>
-
     <!-- Summary Stats Tab -->
     <div id="summary-tab" class="tab-pane active">
+        <div class="tab-container">
+            <div id="unifiedToolContainer"></div>
+        </div>
         <div class="tab-results-container">
             <div id="summaryResultsContainer"></div>
         </div>
@@ -409,6 +407,9 @@
 
     <!-- Portfolio Analysis Tab -->
     <div id="portfolio-tab" class="tab-pane">
+        <div class="tab-container">
+            <div id="unifiedToolContainer2"></div>
+        </div>
         <div class="tab-results-container">
             <div id="portfolioResultsContainer"></div>
         </div>
@@ -416,6 +417,9 @@
 
     <!-- Subscription Analysis Tab -->
     <div id="subscription-tab" class="tab-pane">
+        <div class="tab-container">
+            <div id="unifiedToolContainer3"></div>
+        </div>
         <div class="tab-results-container">
             <div id="subscriptionResultsContainer"></div>
         </div>
@@ -423,8 +427,10 @@
 
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
-        <div class="tab-results-container">
+        <div class="tab-container">
             <div id="creatorToolContainer"></div>
+        </div>
+        <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
         </div>
     </div>
@@ -494,15 +500,34 @@
             // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
 
-            // Pass container references for first 3 tabs only
-            userTool.createUI(
+            // Create UI in each of the 3 tab containers
+            const containers = [
                 document.getElementById('unifiedToolContainer'),
-                {
-                    summary: document.getElementById('summaryResultsContainer'),
-                    portfolio: document.getElementById('portfolioResultsContainer'),
-                    subscription: document.getElementById('subscriptionResultsContainer')
+                document.getElementById('unifiedToolContainer2'),
+                document.getElementById('unifiedToolContainer3')
+            ];
+
+            containers.forEach(container => {
+                if (container) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'qda-inline-widget';
+                    wrapper.style.maxWidth = '800px';
+                    wrapper.style.margin = '0 auto';
+
+                    const content = document.createElement('div');
+                    content.className = 'qda-content';
+                    content.appendChild(userTool.createDataSourceSection());
+                    wrapper.appendChild(content);
+                    container.appendChild(wrapper);
                 }
-            );
+            });
+
+            // Pass output container references for first 3 tabs only
+            userTool.outputContainers = {
+                summary: document.getElementById('summaryResultsContainer'),
+                portfolio: document.getElementById('portfolioResultsContainer'),
+                subscription: document.getElementById('subscriptionResultsContainer')
+            };
 
             console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
 
