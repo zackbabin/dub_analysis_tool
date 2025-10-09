@@ -55,11 +55,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         // Re-render subscription price chart if data is cached
                         if (data.subscriptionDistribution) {
                             setTimeout(() => {
-                                const chartContainers = document.querySelectorAll('[id^="subscription-price-chart-"]');
-                                if (chartContainers.length > 0) {
-                                    this.renderSubscriptionPriceChart(chartContainers[0].id, data.subscriptionDistribution);
+                                const chartContainer = this.outputContainers.subscription.querySelector('[id^="subscription-price-chart-"]');
+                                if (chartContainer) {
+                                    this.renderSubscriptionPriceChart(chartContainer.id, data.subscriptionDistribution);
                                 }
-                            }, 100);
+                            }, 500);
                         }
                     }
                     if (data.creator && this.outputContainers.creator) {
