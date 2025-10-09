@@ -109,8 +109,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             null
         );
         uploadBtn.disabled = true;
-        uploadBtn.style.opacity = '0.5';
+        uploadBtn.style.background = '#f8f9fa';
+        uploadBtn.style.opacity = '0.6';
         uploadBtn.style.cursor = 'not-allowed';
+        uploadBtn.style.pointerEvents = 'none';
         buttonContainer.appendChild(uploadBtn);
 
         section.appendChild(buttonContainer);

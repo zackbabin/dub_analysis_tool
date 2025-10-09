@@ -51,8 +51,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             null
         );
         syncBtn.disabled = true;
-        syncBtn.style.opacity = '0.5';
+        syncBtn.style.background = '#f8f9fa';
+        syncBtn.style.opacity = '0.6';
         syncBtn.style.cursor = 'not-allowed';
+        syncBtn.style.pointerEvents = 'none';
         buttonContainer.appendChild(syncBtn);
 
         // Manually Upload Data button
