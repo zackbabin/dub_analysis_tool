@@ -396,7 +396,7 @@
     </div>
 
     <!-- Unified Data Source Component (shared across all tabs) -->
-    <div id="unifiedDataSource" style="max-width: 1200px; margin: 20px auto;">
+    <div id="unifiedDataSource">
         <!-- This will be populated by JavaScript -->
     </div>
 
@@ -495,7 +495,7 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);">
+                <div style="max-width: 1200px; margin: 0 auto; background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);">
                     <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
                     <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                         <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
@@ -569,6 +569,7 @@
                 syncBtn.style.cursor = 'not-allowed';
                 syncBtn.style.pointerEvents = 'none';
                 syncBtn.querySelector('div:first-child').style.color = '#adb5bd';
+                syncBtn.querySelector('div:last-child').style.color = '#ced4da';
                 syncBtn.onmouseover = null;
                 syncBtn.onmouseout = null;
 
@@ -578,6 +579,7 @@
                 uploadBtn.style.cursor = 'pointer';
                 uploadBtn.style.pointerEvents = 'auto';
                 uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
             } else {
@@ -588,6 +590,7 @@
                 syncBtn.style.cursor = 'pointer';
                 syncBtn.style.pointerEvents = 'auto';
                 syncBtn.querySelector('div:first-child').style.color = '#28a745';
+                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
                 syncBtn.onmouseover = syncHoverIn;
                 syncBtn.onmouseout = syncHoverOut;
 
@@ -597,6 +600,7 @@
                 uploadBtn.style.cursor = 'not-allowed';
                 uploadBtn.style.pointerEvents = 'none';
                 uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
+                uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
                 uploadBtn.onmouseover = null;
                 uploadBtn.onmouseout = null;
             }
