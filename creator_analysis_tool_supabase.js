@@ -73,6 +73,48 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: Display results - Skip breakdown section, only show summary and behavioral analysis
+     */
+    displayResults(results) {
+        // Clear output container
+        this.outputContainer.innerHTML = '';
+
+        // Create results div
+        const resultsDiv = document.createElement('div');
+        resultsDiv.id = 'creatorAnalysisResultsInline';
+        resultsDiv.className = 'qda-analysis-results';
+        this.outputContainer.appendChild(resultsDiv);
+
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+
+        const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
+        const lastUpdated = analysisData.lastUpdated;
+        if (lastUpdated) {
+            timestamp.textContent = `Last updated: ${lastUpdated}`;
+            resultsDiv.appendChild(timestamp);
+        }
+
+        // Create containers - SKIP creatorBreakdownInline
+        resultsDiv.innerHTML += `
+            <div id="creatorSummaryStatsInline"></div>
+            <div id="creatorBehavioralAnalysisInline"></div>
+        `;
+
+        // Display results - SKIP displayCreatorBreakdown
+        this.displayCreatorSummaryStats(results.summaryStats);
+
+        const tippingPoints = analysisData.tippingPoints;
+        this.displayCreatorBehavioralAnalysis(results.correlationResults, results.regressionResults, tippingPoints);
+
+        resultsDiv.style.display = 'block';
+
+        // Save HTML for restoration
+        this.saveAnalysisResults(this.outputContainer.innerHTML);
+    }
+
+    /**
      * Override: Run the upload workflow using Supabase
      */
     async runUploadWorkflow(csvContent) {
