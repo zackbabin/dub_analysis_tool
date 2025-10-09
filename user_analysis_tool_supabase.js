@@ -266,7 +266,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 portfolio: this.outputContainers.portfolio.innerHTML,
                 subscription: this.outputContainers.subscription.innerHTML,
                 creator: this.outputContainers.creator.innerHTML,
-                subscriptionDistribution: subscriptionDistribution, // Cache chart data
+                subscriptionDistribution: this.cachedSubscriptionDistribution, // Cache chart data
                 timestamp: new Date().toISOString()
             }));
             console.log('✅ Cached complete analysis for all tabs');
@@ -308,6 +308,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
         const topSequences = []; // Empty array for now
+
+        // Store subscription distribution for caching
+        this.cachedSubscriptionDistribution = subscriptionDistribution;
 
         // === SUMMARY TAB ===
         const summaryContainer = this.outputContainers.summary;
