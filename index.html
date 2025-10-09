@@ -557,19 +557,24 @@
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
 
-            if (activeTab === 'creator') {
-                // On Creator tab: enable both Sync and Upload
-                syncBtn.disabled = false;
-                syncBtn.style.background = 'white';
-                syncBtn.style.borderColor = '#28a745';
-                syncBtn.style.cursor = 'pointer';
-                syncBtn.style.pointerEvents = 'auto';
-                syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
-                syncBtn.onmouseover = syncHoverIn;
-                syncBtn.onmouseout = syncHoverOut;
-                syncBtn.onclick = () => creatorTool.runWorkflow('sync');
+            // Sync Live Data button is always enabled and triggers BOTH user and creator syncs
+            syncBtn.disabled = false;
+            syncBtn.style.background = 'white';
+            syncBtn.style.borderColor = '#28a745';
+            syncBtn.style.cursor = 'pointer';
+            syncBtn.style.pointerEvents = 'auto';
+            syncBtn.querySelector('div:first-child').style.color = '#28a745';
+            syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+            syncBtn.onmouseover = syncHoverIn;
+            syncBtn.onmouseout = syncHoverOut;
+            // Sync triggers both user and creator data fetching
+            syncBtn.onclick = () => {
+                userTool.runWorkflow('github');
+                creatorTool.runWorkflow('sync');
+            };
 
+            if (activeTab === 'creator') {
+                // On Creator tab: enable Upload
                 uploadBtn.disabled = false;
                 uploadBtn.style.background = 'white';
                 uploadBtn.style.borderColor = '#28a745';
@@ -581,18 +586,7 @@
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
             } else {
-                // On User tabs: enable Sync, disable Upload
-                syncBtn.disabled = false;
-                syncBtn.style.background = 'white';
-                syncBtn.style.borderColor = '#28a745';
-                syncBtn.style.cursor = 'pointer';
-                syncBtn.style.pointerEvents = 'auto';
-                syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
-                syncBtn.onmouseover = syncHoverIn;
-                syncBtn.onmouseout = syncHoverOut;
-                syncBtn.onclick = () => userTool.runWorkflow('github');
-
+                // On User tabs: disable Upload
                 uploadBtn.disabled = true;
                 uploadBtn.style.background = '#f8f9fa';
                 uploadBtn.style.borderColor = '#e9ecef';
