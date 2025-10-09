@@ -1413,55 +1413,35 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Render subscription price distribution as Highcharts bar chart
      */
     renderSubscriptionPriceChart(chartId, subscriptionDistribution) {
-        // Aggregate data by monthly price with creator details
-        // Now each row is one creator with their price, so we need to aggregate by price
-        const priceDataMap = {};
-        subscriptionDistribution.forEach(row => {
-            const price = parseFloat(row.monthly_price || row.subscription_price);
-            if (!priceDataMap[price]) {
-                priceDataMap[price] = {
-                    totalSubscriptions: 0,
-                    totalPaywallViews: 0,
-                    creators: []
-                };
-            }
+        // Data is already aggregated by price from the database view
+        // Each row represents one price point with aggregated totals
+        const sortedData = subscriptionDistribution
+            .map(row => {
+                const price = parseFloat(row.monthly_price || row.subscription_price);
+                const totalSubs = parseInt(row.total_subscriptions) || 0;
+                const totalPaywallViews = parseInt(row.total_paywall_views) || 0;
+                const creators = Array.isArray(row.creator_usernames) ? row.creator_usernames : [];
+                const creatorCount = parseInt(row.creator_count) || creators.length;
 
-            // Each row represents one creator at their price point
-            const totalSubs = row.total_subscriptions || 0;
-            const totalPaywallViews = row.total_paywall_views || 0;
-
-            // Aggregate totals for this price point
-            priceDataMap[price].totalSubscriptions += totalSubs;
-            priceDataMap[price].totalPaywallViews += totalPaywallViews;
-
-            // Store creator username
-            const username = row.creator_username || (Array.isArray(row.creator_usernames) ? row.creator_usernames[0] : null);
-            if (username && username !== 'undefined') {
-                priceDataMap[price].creators.push(username);
-            }
-        });
-
-        // Sort by price and prepare chart data with tooltip info
-        const sortedData = Object.entries(priceDataMap)
-            .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-            .map(([price, data]) => {
                 // Calculate overall conversion rate for this price point
-                const overallConversionRate = data.totalPaywallViews > 0
-                    ? (data.totalSubscriptions / data.totalPaywallViews)
+                const overallConversionRate = totalPaywallViews > 0
+                    ? (totalSubs / totalPaywallViews)
                     : 0;
 
                 // Take top 5 creators (just names)
-                const topCreators = data.creators.slice(0, 5);
+                const topCreators = creators.slice(0, 5);
 
                 return {
-                    name: `$${parseFloat(price).toFixed(2)}`,
-                    y: data.totalSubscriptions,  // Total subscriptions across all creators at this price
-                    creatorCount: data.creators.length,
-                    totalPaywallViews: data.totalPaywallViews,
+                    name: `$${price.toFixed(2)}`,
+                    price: price,
+                    y: totalSubs,  // Total subscriptions across all creators at this price
+                    creatorCount: creatorCount,
+                    totalPaywallViews: totalPaywallViews,
                     conversionRate: overallConversionRate,
                     creators: topCreators
                 };
-            });
+            })
+            .sort((a, b) => a.price - b.price);
 
         // Render Highcharts bar chart
         Highcharts.chart(chartId, {
