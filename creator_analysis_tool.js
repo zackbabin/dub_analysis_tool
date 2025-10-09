@@ -332,25 +332,44 @@ class CreatorAnalysisTool {
      * Clean and transform creator data
      */
     cleanCreatorData(parsedData) {
-        return parsedData.data.map(row => ({
-            // Identifiers
-            creatorId: row['creator_id'] || '',
-            creatorUsername: row['creator_username'] || '',
-            creatorType: row['creator_type'] || 'Regular',
+        return parsedData.data.map(row => {
+            const cleanRow = {
+                // Identifiers
+                creatorId: row['creator_id'] || '',
+                creatorUsername: row['creator_username'] || '',
+                creatorType: row['creator_type'] || 'Regular',
 
-            // All 11 metrics from Insights by Creators chart
-            totalProfileViews: this.cleanNumeric(row['total_profile_views']),
-            totalPDPViews: this.cleanNumeric(row['total_pdp_views']),
-            totalPaywallViews: this.cleanNumeric(row['total_paywall_views']),
-            totalStripeViews: this.cleanNumeric(row['total_stripe_views']),
-            totalSubscriptions: this.cleanNumeric(row['total_subscriptions']),
-            totalSubscriptionRevenue: this.cleanNumeric(row['total_subscription_revenue']),
-            totalCancelledSubscriptions: this.cleanNumeric(row['total_cancelled_subscriptions']),
-            totalExpiredSubscriptions: this.cleanNumeric(row['total_expired_subscriptions']),
-            totalCopies: this.cleanNumeric(row['total_copies']),
-            totalInvestmentCount: this.cleanNumeric(row['total_investment_count']),
-            totalInvestments: this.cleanNumeric(row['total_investments'])
-        })).filter(row => row.creatorId);
+                // Enriched metrics (always present)
+                totalCopies: this.cleanNumeric(row['total_copies']),
+                totalSubscriptions: this.cleanNumeric(row['total_subscriptions'])
+            };
+
+            // Extract all numeric fields from raw_data JSONB
+            if (row['raw_data']) {
+                let rawData;
+                try {
+                    // Parse raw_data if it's a string
+                    rawData = typeof row['raw_data'] === 'string'
+                        ? JSON.parse(row['raw_data'])
+                        : row['raw_data'];
+                } catch (e) {
+                    console.warn('Failed to parse raw_data for', row['creator_username'], e);
+                    rawData = {};
+                }
+
+                // Add all numeric fields from raw_data
+                Object.keys(rawData).forEach(key => {
+                    const value = rawData[key];
+                    // Only include numeric fields (skip strings, nulls, etc.)
+                    const numericValue = this.cleanNumeric(value);
+                    if (numericValue !== 0 || (typeof value === 'number' || !isNaN(parseFloat(value)))) {
+                        cleanRow[key] = numericValue;
+                    }
+                });
+            }
+
+            return cleanRow;
+        }).filter(row => row.creatorId);
     }
 
     /**
@@ -418,31 +437,43 @@ class CreatorAnalysisTool {
     }
 
     /**
-     * Calculate correlations for creator variables
+     * Calculate correlations for creator variables (dynamic from raw_data)
      */
     calculateCorrelations(data) {
-        // All 11 metrics from Insights by Creators chart
-        // Note: We exclude totalCopies and totalSubscriptions since they are the outcome variables
-        const variables = [
-            'totalProfileViews',
-            'totalPDPViews',
-            'totalPaywallViews',
-            'totalStripeViews',
-            'totalSubscriptionRevenue',
-            'totalCancelledSubscriptions',
-            'totalExpiredSubscriptions',
-            'totalInvestmentCount',
-            'totalInvestments'
-        ];
+        if (!data || data.length === 0) {
+            return {};
+        }
+
+        // Dynamically detect all numeric variables from the first row
+        const firstRow = data[0];
+        const allKeys = Object.keys(firstRow);
+
+        // Exclude non-numeric and identifier fields
+        const excludedKeys = ['creatorId', 'creatorUsername', 'creatorType', 'totalCopies', 'totalSubscriptions'];
+
+        // Get all numeric variables that have at least some variation
+        const variables = allKeys.filter(key => {
+            if (excludedKeys.includes(key)) return false;
+
+            // Check if this field has numeric values with variation
+            const values = data.map(d => d[key] || 0);
+            const hasVariation = new Set(values).size > 1;
+            const isNumeric = values.every(v => typeof v === 'number' || !isNaN(v));
+
+            return isNumeric && hasVariation;
+        });
+
+        console.log(`Found ${variables.length} numeric variables for correlation analysis:`, variables.slice(0, 10));
 
         const correlations = {};
 
         // Pre-extract all variable arrays
         const variableArrays = {};
         ['totalCopies', 'totalSubscriptions'].concat(variables).forEach(varName => {
-            variableArrays[varName] = data.map(d => d[varName]);
+            variableArrays[varName] = data.map(d => d[varName] || 0);
         });
 
+        // Calculate correlations for both outcome variables
         ['totalCopies', 'totalSubscriptions'].forEach(outcome => {
             correlations[outcome] = {};
             variables.forEach(variable => {

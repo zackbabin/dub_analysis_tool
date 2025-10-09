@@ -53,7 +53,7 @@ function parseCSVLine(line, delimiter = ',') {
 }
 
 /**
- * Parse CSV text into structured data
+ * Parse CSV text into structured data, handling multiline quoted fields
  * @param {string} text - Raw CSV text content
  * @param {Object} options - Parsing options
  * @param {boolean} options.skipEmpty - Skip empty lines (default: true)
@@ -61,27 +61,87 @@ function parseCSVLine(line, delimiter = ',') {
  * @returns {Object} - { headers: string[], data: Object[] }
  */
 function parseCSV(text, options = {}) {
-    const { skipEmpty = true, delimiter = ',' } = options;
+    const { delimiter = ',' } = options;
 
-    // Split into lines and optionally filter empty
-    const lines = text.split('\n');
-    const filteredLines = skipEmpty ? lines.filter(l => l.trim()) : lines;
+    // Parse CSV respecting quoted fields that may contain newlines
+    const rows = [];
+    let currentRow = [];
+    let currentField = '';
+    let inQuotes = false;
+    let i = 0;
 
-    if (filteredLines.length === 0) {
+    while (i < text.length) {
+        const char = text[i];
+        const nextChar = text[i + 1];
+
+        if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+                // Escaped quote
+                currentField += '"';
+                i += 2;
+                continue;
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+                i++;
+                continue;
+            }
+        }
+
+        if (char === delimiter && !inQuotes) {
+            // End of field
+            currentRow.push(currentField.trim());
+            currentField = '';
+            i++;
+            continue;
+        }
+
+        if ((char === '\n' || char === '\r') && !inQuotes) {
+            // End of row
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                if (currentRow.some(f => f)) { // Only add non-empty rows
+                    rows.push(currentRow);
+                }
+                currentRow = [];
+                currentField = '';
+            }
+            // Skip \r\n combination
+            if (char === '\r' && nextChar === '\n') {
+                i += 2;
+            } else {
+                i++;
+            }
+            continue;
+        }
+
+        // Regular character (including newlines within quotes)
+        currentField += char;
+        i++;
+    }
+
+    // Add final field and row
+    if (currentField || currentRow.length > 0) {
+        currentRow.push(currentField.trim());
+        if (currentRow.some(f => f)) {
+            rows.push(currentRow);
+        }
+    }
+
+    if (rows.length === 0) {
         return { headers: [], data: [] };
     }
 
-    // Parse headers using proper CSV parsing
-    const headers = parseCSVLine(filteredLines[0], delimiter);
+    // First row is headers
+    const headers = rows[0];
 
-    // Parse data rows
-    const data = filteredLines.slice(1).map(line => {
-        const values = parseCSVLine(line, delimiter);
-        const row = {};
+    // Convert remaining rows to objects
+    const data = rows.slice(1).map(row => {
+        const obj = {};
         headers.forEach((h, i) => {
-            row[h] = values[i] || '';
+            obj[h] = row[i] || '';
         });
-        return row;
+        return obj;
     });
 
     return { headers, data };

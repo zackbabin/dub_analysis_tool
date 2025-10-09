@@ -442,20 +442,9 @@
                 </div>
             </div>
             <div id="creatorStatusSection" style="display: none;"></div>
-            <div id="creatorUploadSection" style="max-width: 800px; margin: 15px auto 0 auto; display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa;">
-                <div style="text-align: center;">
-                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
-                        Select Creator CSV File
-                    </label>
-                    <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
-                        Upload a single CSV file containing creator data
-                    </div>
-                    <input type="file" id="creatorFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
-                    <button id="creatorProcessButton" class="qda-btn" style="display: none;">
-                        Process File
-                    </button>
-                </div>
-            </div>
+            <!-- File upload is now handled by unified data source component -->
+            <input type="file" id="creatorFileInput" accept=".csv" style="display: none;">
+            <button id="creatorProcessButton" style="display: none;"></button>
         </div>
         <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
