@@ -998,6 +998,18 @@ class CreatorAnalysisTool {
      */
     restoreAnalysisResults() {
         try {
+            // Version check - clear cache if structure has changed
+            const CACHE_VERSION = '2.0'; // Updated structure with new H1 placement
+            const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
+
+            if (cachedVersion !== CACHE_VERSION) {
+                console.log('Cache version mismatch, clearing old cache...');
+                localStorage.removeItem('creatorAnalysisResultsHTML');
+                localStorage.removeItem('creatorAnalysisResults');
+                localStorage.setItem('creatorAnalysisCacheVersion', CACHE_VERSION);
+                return;
+            }
+
             const saved = localStorage.getItem('creatorAnalysisResultsHTML');
             if (saved) {
                 const data = JSON.parse(saved);
