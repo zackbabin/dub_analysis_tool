@@ -526,40 +526,44 @@ class SupabaseIntegration {
      * Queries the creators_insights table
      */
     async loadCreatorDataFromSupabase() {
-        console.log('Loading creator data from Supabase...');
+        console.log('Loading creator data from uploaded_creators...');
 
         try {
-            // IMPORTANT: Paginate to ensure we get ALL records
-            let allData = [];
-            let page = 0;
-            const pageSize = 1000;
-            let hasMore = true;
+            // Get the most recent upload batch
+            const { data: latestUpload, error: timestampError } = await this.supabase
+                .from('uploaded_creators')
+                .select('uploaded_at')
+                .order('uploaded_at', { ascending: false })
+                .limit(1)
+                .single();
 
-            while (hasMore) {
-                const { data, error } = await this.supabase
-                    .from('creators_insights')
-                    .select('*')
-                    .range(page * pageSize, (page + 1) * pageSize - 1);
-
-                if (error) {
-                    console.error('Supabase query error:', error);
-                    throw error;
-                }
-
-                if (data && data.length > 0) {
-                    allData = allData.concat(data);
-                    console.log(`✅ Loaded page ${page + 1}: ${data.length} records (total: ${allData.length})`);
-                    hasMore = data.length === pageSize; // Continue if we got a full page
-                    page++;
-                } else {
-                    hasMore = false;
-                }
+            if (timestampError) {
+                console.error('Error getting latest upload timestamp:', timestampError);
+                throw timestampError;
             }
 
-            console.log(`✅ Finished loading ${allData.length} total creator records from Supabase`);
+            if (!latestUpload) {
+                throw new Error('No uploaded creator data found');
+            }
+
+            const latestTimestamp = latestUpload.uploaded_at;
+            console.log(`Loading creators from upload: ${latestTimestamp}`);
+
+            // Load all creators from the latest upload
+            const { data, error } = await this.supabase
+                .from('uploaded_creators')
+                .select('*')
+                .eq('uploaded_at', latestTimestamp);
+
+            if (error) {
+                console.error('Supabase query error:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} creator records from latest upload`);
 
             // Convert to CSV format for compatibility with existing analysis code
-            return this.convertCreatorDataToCSVFormat(allData);
+            return this.convertCreatorDataToCSVFormat(data);
         } catch (error) {
             console.error('Error loading creator data from Supabase:', error);
             throw error;
@@ -1100,42 +1104,34 @@ class SupabaseIntegration {
     }
 
     /**
-     * Create creator analysis CSV with all metrics
+     * Create creator analysis CSV from uploaded_creators data
+     * Takes raw_data JSONB and adds total_copies + total_subscriptions columns
      */
     createCreatorAnalysisCSV(data) {
-        const headers = [
-            'creator_id',
-            'creator_username',
-            'creator_type',
-            'total_profile_views',
-            'total_pdp_views',
-            'total_paywall_views',
-            'total_stripe_views',
-            'total_subscriptions',
-            'total_subscription_revenue',
-            'total_cancelled_subscriptions',
-            'total_expired_subscriptions',
-            'total_copies',
-            'total_investment_count',
-            'total_investments'
-        ];
+        if (!data || data.length === 0) {
+            return '';
+        }
 
-        const rows = data.map(row => [
-            row.creator_id || '',
-            row.creator_username || '',
-            row.creator_type || 'Regular',
-            row.total_profile_views || 0,
-            row.total_pdp_views || 0,
-            row.total_paywall_views || 0,
-            row.total_stripe_views || 0,
-            row.total_subscriptions || 0,
-            row.total_subscription_revenue || 0,
-            row.total_cancelled_subscriptions || 0,
-            row.total_expired_subscriptions || 0,
-            row.total_copies || 0,
-            row.total_investment_count || 0,
-            row.total_investments || 0
-        ]);
+        // Get all unique keys from raw_data across all rows
+        const allKeys = new Set();
+        data.forEach(row => {
+            if (row.raw_data) {
+                Object.keys(row.raw_data).forEach(key => allKeys.add(key));
+            }
+        });
+
+        // Build headers: all raw_data keys + total_copies + total_subscriptions
+        const rawDataKeys = Array.from(allKeys).sort();
+        const headers = [...rawDataKeys, 'total_copies', 'total_subscriptions'];
+
+        // Build rows
+        const rows = data.map(row => {
+            const rawData = row.raw_data || {};
+            const rowData = rawDataKeys.map(key => rawData[key] ?? '');
+            rowData.push(row.total_copies || 0);
+            rowData.push(row.total_subscriptions || 0);
+            return rowData;
+        });
 
         return this.arrayToCSV(headers, rows);
     }
@@ -1172,46 +1168,26 @@ class SupabaseIntegration {
 
             console.log(`Enriched ${enrichedData.length} creator records`);
 
-            // Step 2: Upsert enriched data into creators_insights
-            // Extract metrics from raw_data for correlation analysis
-            const upsertData = enrichedData.map(row => {
-                const raw = row.raw_data || {};
-                return {
-                    creator_id: row.creator_id,
-                    creator_username: row.creator_username,
-                    creator_type: raw.creator_type || 'Regular',
-                    raw_data: row.raw_data,
-                    // Metrics from enrichment (join with existing creators_insights)
-                    total_copies: row.total_copies || 0,
-                    total_subscriptions: row.total_subscriptions || 0,
-                    total_investment_count: row.total_investment_count || 0,
-                    total_investments: row.total_investments || 0,
-                    // Extract other metrics from raw_data for correlation analysis
-                    total_profile_views: parseInt(raw.total_profile_views || 0),
-                    total_pdp_views: parseInt(raw.total_pdp_views || 0),
-                    total_paywall_views: parseInt(raw.total_paywall_views || 0),
-                    total_stripe_views: parseInt(raw.total_stripe_views || 0),
-                    total_subscription_revenue: parseFloat(raw.total_subscription_revenue || 0),
-                    total_cancelled_subscriptions: parseInt(raw.total_cancelled_subscriptions || 0),
-                    total_expired_subscriptions: parseInt(raw.total_expired_subscriptions || 0),
-                    synced_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-            });
+            // Step 2: Insert enriched data into uploaded_creators table
+            // Keep it simple: raw_data + total_copies + total_subscriptions
+            const upsertData = enrichedData.map(row => ({
+                creator_id: row.creator_id,
+                creator_username: row.creator_username,
+                raw_data: row.raw_data,
+                total_copies: row.total_copies || 0,
+                total_subscriptions: row.total_subscriptions || 0
+            }));
 
-            const { error: upsertError } = await this.supabase
-                .from('creators_insights')
-                .upsert(upsertData, {
-                    onConflict: 'creator_username',
-                    ignoreDuplicates: false
-                });
+            const { error: insertError } = await this.supabase
+                .from('uploaded_creators')
+                .insert(upsertData);
 
-            if (upsertError) {
-                console.error('Upsert error:', upsertError);
-                throw new Error(`Failed to upload creator data: ${upsertError.message}`);
+            if (insertError) {
+                console.error('Insert error:', insertError);
+                throw new Error(`Failed to upload creator data: ${insertError.message}`);
             }
 
-            console.log(`✅ Uploaded ${upsertData.length} creator records to database`);
+            console.log(`✅ Uploaded ${upsertData.length} creator records to uploaded_creators table`);
 
             return {
                 success: true,
