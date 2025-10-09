@@ -4,6 +4,55 @@
  */
 
 /**
+ * Parse a single CSV line, properly handling quoted fields with commas
+ * @param {string} line - CSV line to parse
+ * @param {string} delimiter - Column delimiter (default: ',')
+ * @returns {string[]} - Array of field values
+ */
+function parseCSVLine(line, delimiter = ',') {
+    const fields = [];
+    let current = '';
+    let inQuotes = false;
+    let i = 0;
+
+    while (i < line.length) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+                // Escaped quote
+                current += '"';
+                i += 2;
+                continue;
+            } else {
+                // Toggle quote state
+                inQuotes = !inQuotes;
+                i++;
+                continue;
+            }
+        }
+
+        if (char === delimiter && !inQuotes) {
+            // End of field
+            fields.push(current.trim());
+            current = '';
+            i++;
+            continue;
+        }
+
+        // Regular character
+        current += char;
+        i++;
+    }
+
+    // Add the last field
+    fields.push(current.trim());
+
+    return fields;
+}
+
+/**
  * Parse CSV text into structured data
  * @param {string} text - Raw CSV text content
  * @param {Object} options - Parsing options
@@ -22,17 +71,15 @@ function parseCSV(text, options = {}) {
         return { headers: [], data: [] };
     }
 
-    // Parse headers
-    const headers = filteredLines[0]
-        .split(delimiter)
-        .map(h => h.trim().replace(/"/g, ''));
+    // Parse headers using proper CSV parsing
+    const headers = parseCSVLine(filteredLines[0], delimiter);
 
     // Parse data rows
     const data = filteredLines.slice(1).map(line => {
-        const values = line.split(delimiter);
+        const values = parseCSVLine(line, delimiter);
         const row = {};
         headers.forEach((h, i) => {
-            row[h] = values[i] ? values[i].trim().replace(/"/g, '') : '';
+            row[h] = values[i] || '';
         });
         return row;
     });
@@ -57,9 +104,7 @@ function parseCSVHeaders(text, options = {}) {
         return [];
     }
 
-    return lines[0]
-        .split(delimiter)
-        .map(h => h.trim().replace(/"/g, ''));
+    return parseCSVLine(lines[0], delimiter);
 }
 
 /**
