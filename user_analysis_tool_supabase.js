@@ -1455,7 +1455,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
                 return {
                     name: `$${parseFloat(price).toFixed(2)}`,
-                    y: data.totalSubscriptions,
+                    y: data.creators.length,  // Count of creators at this price point
+                    totalSubscriptions: data.totalSubscriptions,
+                    totalPaywallViews: data.totalPaywallViews,
                     conversionRate: overallConversionRate,
                     creators: topCreators
                 };
@@ -1485,7 +1487,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             yAxis: {
                 min: 0,
                 title: {
-                    text: 'Total Subscriptions'
+                    text: 'Number of Creators'
                 }
             },
             legend: {
@@ -1495,7 +1497,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 useHTML: true,
                 formatter: function() {
                     let tooltipHTML = `<b>${this.point.name}</b><br/>`;
-                    tooltipHTML += `<b>${this.point.y}</b> total subscriptions<br/>`;
+                    tooltipHTML += `<b>${this.point.y}</b> creators at this price<br/>`;
+                    tooltipHTML += `<b>${this.point.totalSubscriptions.toLocaleString()}</b> total subscriptions<br/>`;
+                    tooltipHTML += `<b>${this.point.totalPaywallViews.toLocaleString()}</b> total paywall views<br/>`;
 
                     // Show overall conversion rate for this price point
                     const conversionRate = (this.point.conversionRate * 100).toFixed(1);
@@ -1513,7 +1517,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 }
             },
             series: [{
-                name: 'Subscriptions',
+                name: 'Creator Count',
                 data: sortedData,
                 color: '#2563eb',
                 dataLabels: {

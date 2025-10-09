@@ -248,122 +248,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.textContent = 'Breakdown';
         section.appendChild(title);
 
-        try {
-            // Load breakdown data from Supabase
-            const subscriptionDist = await this.supabaseIntegration.loadSubscriptionDistribution();
-
-            // Subscription Price Distribution Chart
-            const subSection = document.createElement('div');
-            subSection.style.marginBottom = '2rem';
-
-            const subTitle = document.createElement('h4');
-            subTitle.textContent = 'Subscription Price Distribution (Monthly)';
-            subSection.appendChild(subTitle);
-
-            if (subscriptionDist && subscriptionDist.length > 0) {
-                const subChartContainer = document.createElement('div');
-                subChartContainer.id = 'subscriptionDistributionChart';
-                subChartContainer.style.width = '100%';
-                subChartContainer.style.height = '400px';
-                subSection.appendChild(subChartContainer);
-
-                // Wait for DOM to update before creating chart
-                setTimeout(() => {
-                    this.createSubscriptionDistributionChart(subscriptionDist, 'subscriptionDistributionChart');
-                }, 100);
-            } else {
-                const placeholder = document.createElement('p');
-                placeholder.textContent = 'No subscription price data available.';
-                placeholder.style.fontStyle = 'italic';
-                placeholder.style.color = '#6c757d';
-                subSection.appendChild(placeholder);
-            }
-
-            section.appendChild(subSection);
-
-        } catch (error) {
-            console.error('Error loading breakdown data:', error);
-            console.error('Error details:', error.message, error.stack);
-            const errorMsg = document.createElement('p');
-            errorMsg.textContent = `Error loading breakdown data: ${error.message || 'Please try syncing again.'}`;
-            errorMsg.style.color = '#dc3545';
-            section.appendChild(errorMsg);
-        }
+        // Subscription price distribution has been moved to User Analysis Tool
+        const note = document.createElement('p');
+        note.textContent = 'Subscription price distribution is available in the User Analysis tool.';
+        note.style.fontStyle = 'italic';
+        note.style.color = '#6c757d';
+        section.appendChild(note);
 
         container.appendChild(section);
-    }
-
-    /**
-     * Create subscription price distribution chart
-     */
-    createSubscriptionDistributionChart(data, containerId) {
-        const categories = data.map(d => `$${parseFloat(d.monthly_price).toFixed(2)}`);
-        const subscriptions = data.map(d => parseInt(d.total_subscriptions));
-        const paywallViews = data.map(d => parseInt(d.total_paywall_views || 0));
-        const usernames = data.map(d => d.creator_usernames || []);
-
-        Highcharts.chart(containerId, {
-            chart: { type: 'column' },
-            title: { text: null },
-            xAxis: {
-                categories: categories,
-                title: { text: 'Monthly Subscription Price' }
-            },
-            yAxis: {
-                title: { text: 'Count' },
-                min: 0
-            },
-            tooltip: {
-                useHTML: true,
-                shared: true,
-                headerFormat: '',
-                formatter: function() {
-                    const index = this.points[0].point.index;
-                    const subs = subscriptions[index];
-                    const paywall = paywallViews[index];
-                    const ratio = paywall > 0 ? ((subs / paywall) * 100).toFixed(2) : '0.00';
-                    const creators = usernames[index] || [];
-                    const topCreators = creators.slice(0, 10);
-
-                    let tooltip = `<span style="color:#2563eb">\u25CF</span> Total Subscriptions: <b>${subs.toLocaleString()}</b><br/>`;
-                    tooltip += `<span style="color:#10b981">\u25CF</span> Total Paywall Views: <b>${paywall.toLocaleString()}</b><br/>`;
-                    tooltip += `<span style="color:#f59e0b">\u25CF</span> Subscriptions to Paywall Ratio: <b>${ratio}%</b><br/>`;
-
-                    if (topCreators.length > 0) {
-                        tooltip += '<br/><b>Top Creators:</b><br/>';
-                        topCreators.forEach(creator => {
-                            tooltip += `• ${creator}<br/>`;
-                        });
-                        if (creators.length > 10) {
-                            tooltip += `<i>... and ${creators.length - 10} more</i>`;
-                        }
-                    }
-
-                    return tooltip;
-                }
-            },
-            legend: {
-                enabled: true,
-                align: 'center',
-                verticalAlign: 'bottom'
-            },
-            plotOptions: {
-                column: {
-                    grouping: true,
-                    shadow: false,
-                    borderWidth: 0
-                }
-            },
-            series: [{
-                name: 'Total Subscriptions',
-                data: subscriptions,
-                color: '#2563eb'
-            }, {
-                name: 'Total Paywall Views',
-                data: paywallViews,
-                color: '#10b981'
-            }]
-        });
     }
 
 }
