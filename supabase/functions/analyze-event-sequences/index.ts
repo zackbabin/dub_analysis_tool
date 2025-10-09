@@ -207,24 +207,54 @@ Order from highest impact to lowest impact.
       MAX_BATCHES
     )
 
+    // Helper function to deduplicate consecutive identical events
+    // e.g., ["View", "View", "View", "Click", "Click"] -> ["View", "Click"]
+    const dedupeSequence = (sequence: string[]): string[] => {
+      if (!sequence || sequence.length === 0) return []
+      const deduped: string[] = [sequence[0]]
+      for (let i = 1; i < sequence.length; i++) {
+        if (sequence[i] !== sequence[i - 1]) {
+          deduped.push(sequence[i])
+        }
+      }
+      return deduped
+    }
+
     const allBatchResults: AnalysisResult[] = []
 
     for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
       const start = batchIndex * BATCH_SIZE
       const end = Math.min(start + BATCH_SIZE, balancedConverters.length)
 
-      const convertersBatch = balancedConverters.slice(start, end).map(u => ({
-        id: u.distinct_id?.slice(0, 8) || 'unknown',
-        sequence: (u.event_sequence || []).slice(0, EVENTS_PER_USER),
-        outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
-      }))
+      let totalRawEvents = 0
+      let totalDedupedEvents = 0
 
-      const nonConvertersBatch = balancedNonConverters.slice(start, end).map(u => ({
-        id: u.distinct_id?.slice(0, 8) || 'unknown',
-        sequence: (u.event_sequence || []).slice(0, EVENTS_PER_USER)
-      }))
+      const convertersBatch = balancedConverters.slice(start, end).map(u => {
+        const rawSequence = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
+        const dedupedSequence = dedupeSequence(rawSequence)
+        totalRawEvents += rawSequence.length
+        totalDedupedEvents += dedupedSequence.length
+        return {
+          id: u.distinct_id?.slice(0, 8) || 'unknown',
+          sequence: dedupedSequence,
+          outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
+        }
+      })
 
+      const nonConvertersBatch = balancedNonConverters.slice(start, end).map(u => {
+        const rawSequence = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
+        const dedupedSequence = dedupeSequence(rawSequence)
+        totalRawEvents += rawSequence.length
+        totalDedupedEvents += dedupedSequence.length
+        return {
+          id: u.distinct_id?.slice(0, 8) || 'unknown',
+          sequence: dedupedSequence
+        }
+      })
+
+      const reductionPercent = ((1 - totalDedupedEvents / totalRawEvents) * 100).toFixed(1)
       console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters`)
+      console.log(`Event deduplication: ${totalRawEvents} raw events → ${totalDedupedEvents} unique events (${reductionPercent}% reduction)`)
 
       // Build data section for this batch
       const dataPrompt = `<data>
