@@ -96,14 +96,40 @@ serve(async (req) => {
 
       // Process creators insights
       const creatorRows = processCreatorInsightsData(creatorInsightsData)
-      console.log(`Processed ${creatorRows.length} creator rows, inserting...`)
+      console.log(`Processed ${creatorRows.length} creator rows (before dedup)`)
 
-      if (creatorRows.length > 0) {
+      // Deduplicate by creator_username (keep last occurrence with merged data)
+      const deduped = new Map<string, any>()
+      creatorRows.forEach(row => {
+        const existing = deduped.get(row.creator_username)
+        if (existing) {
+          // Merge metrics - sum all numeric fields
+          Object.keys(row).forEach(key => {
+            if (typeof row[key] === 'number' && key !== 'creator_id') {
+              existing[key] = (existing[key] || 0) + row[key]
+            }
+          })
+          // Also merge raw_data
+          if (row.raw_data && existing.raw_data) {
+            Object.keys(row.raw_data).forEach(key => {
+              if (typeof row.raw_data[key] === 'number') {
+                existing.raw_data[key] = (existing.raw_data[key] || 0) + row.raw_data[key]
+              }
+            })
+          }
+        } else {
+          deduped.set(row.creator_username, row)
+        }
+      })
+      const uniqueCreatorRows = Array.from(deduped.values())
+      console.log(`After deduplication: ${uniqueCreatorRows.length} unique creators`)
+
+      if (uniqueCreatorRows.length > 0) {
         const batchSize = 500
         let totalProcessed = 0
 
-        for (let i = 0; i < creatorRows.length; i += batchSize) {
-          const batch = creatorRows.slice(i, i + batchSize)
+        for (let i = 0; i < uniqueCreatorRows.length; i += batchSize) {
+          const batch = uniqueCreatorRows.slice(i, i + batchSize)
 
           if (batch.length > 0) {
             const { error: insertError } = await supabase
@@ -119,7 +145,7 @@ serve(async (req) => {
             }
 
             totalProcessed += batch.length
-            console.log(`Upserted batch: ${totalProcessed}/${creatorRows.length} records`)
+            console.log(`Upserted batch: ${totalProcessed}/${uniqueCreatorRows.length} records`)
           }
         }
 
