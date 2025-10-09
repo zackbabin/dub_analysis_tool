@@ -637,11 +637,9 @@ class CreatorAnalysisTool {
         metrics.forEach(([title, content]) => {
             const card = document.createElement('div');
             card.className = 'qda-metric-card';
-            card.style.padding = '1rem';
-            card.style.borderRadius = '8px';
             card.innerHTML = `
                 <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${title}</div>
-                <div style="font-size: 1.5rem; font-weight: bold;">${content}</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
             `;
             metricSummary.appendChild(card);
         });

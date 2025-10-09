@@ -55,15 +55,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const syncBtn = this.createModeButton(
             'Sync Live Data',
             'Not available for this analysis',
-            '#dee2e6',
-            '#6c757d',
+            '#e9ecef',
+            '#adb5bd',
             null
         );
         syncBtn.disabled = true;
         syncBtn.style.background = '#f8f9fa';
-        syncBtn.style.opacity = '0.6';
         syncBtn.style.cursor = 'not-allowed';
         syncBtn.style.pointerEvents = 'none';
+        syncBtn.onmouseover = null;
+        syncBtn.onmouseout = null;
         buttonContainer.appendChild(syncBtn);
 
         // Manually Upload Data button

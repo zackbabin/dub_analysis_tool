@@ -827,7 +827,10 @@ class UserAnalysisTool {
      * UI Helper: Show progress bar
      */
     showProgress(percent) {
-        document.getElementById('unifiedProgressSection').style.display = 'block';
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
         this.updateProgress(percent);
     }
 
@@ -836,8 +839,10 @@ class UserAnalysisTool {
      */
     updateProgress(percent, label = null) {
         const progressBar = document.getElementById('unifiedProgressBar');
-        progressBar.style.width = `${percent}%`;
-        progressBar.textContent = label || `${Math.round(percent)}%`;
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = label || `${Math.round(percent)}%`;
+        }
     }
 }
 

@@ -104,15 +104,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const uploadBtn = this.createModeButton(
             'Manually Upload Data',
             'Not available for this analysis',
-            '#dee2e6',
-            '#6c757d',
+            '#e9ecef',
+            '#adb5bd',
             null
         );
         uploadBtn.disabled = true;
         uploadBtn.style.background = '#f8f9fa';
-        uploadBtn.style.opacity = '0.6';
         uploadBtn.style.cursor = 'not-allowed';
         uploadBtn.style.pointerEvents = 'none';
+        uploadBtn.onmouseover = null;
+        uploadBtn.onmouseout = null;
         buttonContainer.appendChild(uploadBtn);
 
         section.appendChild(buttonContainer);
