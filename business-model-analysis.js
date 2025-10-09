@@ -53,7 +53,25 @@ class BusinessModelAnalysis {
 
     updateAssumption(key, value) {
         this.assumptions[key] = parseFloat(value) || 0;
-        this.render();
+        // Don't re-render everything, just update the calculations
+        this.updateCalculations();
+    }
+
+    updateCalculations() {
+        const projections = this.calculateProjections();
+        const yearlyProjections = this.calculateYearlyProjections(projections);
+
+        // Update monthly comparison table
+        const monthlyContainer = document.getElementById('monthlyComparisonContainer');
+        if (monthlyContainer) {
+            monthlyContainer.innerHTML = this.renderMonthlyComparison(projections);
+        }
+
+        // Update year comparison
+        const yearContainer = document.getElementById('yearComparisonContainer');
+        if (yearContainer) {
+            yearContainer.innerHTML = this.renderYearComparisonContent(yearlyProjections);
+        }
     }
 
     calculateProjections() {
@@ -187,8 +205,12 @@ class BusinessModelAnalysis {
                 </div>
 
                 ${this.renderAssumptions()}
-                ${this.renderMonthlyComparison(projections)}
-                ${this.renderYearComparison(yearlyProjections)}
+                <div id="monthlyComparisonContainer">
+                    ${this.renderMonthlyComparison(projections)}
+                </div>
+                <div id="yearComparisonContainer">
+                    ${this.renderYearComparisonContent(yearlyProjections)}
+                </div>
             </div>
         `;
 
@@ -214,9 +236,9 @@ class BusinessModelAnalysis {
             <div>
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Conversion Rates</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Install → KYC (%)', 'installToKYC', 0.1)}
-                    ${this.renderInput('KYC → Linked Bank (%)', 'kycToLinkedBank', 0.1)}
-                    ${this.renderInput('Linked Bank → ACH (%)', 'linkedBankToACH', 0.1)}
+                    ${this.renderInput('Install → KYC (%)', 'installToKYC')}
+                    ${this.renderInput('KYC → Linked Bank (%)', 'kycToLinkedBank')}
+                    ${this.renderInput('Linked Bank → ACH (%)', 'linkedBankToACH')}
                 </div>
             </div>
         `;
@@ -227,14 +249,14 @@ class BusinessModelAnalysis {
             <div>
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">User Behavior (Per User)</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Trades', 'avgMonthlyTrades', 0.01)}
-                    ${this.renderInput('Trade Volume Growth (% monthly)', 'tradeVolumeGrowth', 0.1)}
-                    ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances', 0.01)}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth', 0.1)}
-                    ${this.renderInput('Monthly Portfolio Creations', 'avgMonthlyPortfolioCreations', 0.01)}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'portfolioCreationGrowth', 0.1)}
-                    ${this.renderInput('Monthly Installs', 'monthlyInstalls', 1000)}
-                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate', 0.1)}
+                    ${this.renderInput('Monthly Trades', 'avgMonthlyTrades')}
+                    ${this.renderInput('Trade Volume Growth (% monthly)', 'tradeVolumeGrowth')}
+                    ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
+                    ${this.renderInput('Monthly Portfolio Creations', 'avgMonthlyPortfolioCreations')}
+                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'portfolioCreationGrowth')}
+                    ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
+                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
                 </div>
             </div>
         `;
@@ -245,11 +267,11 @@ class BusinessModelAnalysis {
             <div style="background: #e7f3ff; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Model A: Transaction Fee</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Transaction Fee ($ per trade)', 'modelA_transactionFee', 0.01)}
-                    ${this.renderInput('Subscription Price ($/mo)', 'modelA_subscriptionPrice', 0.01)}
-                    ${this.renderInput('Dub Revenue Share (%)', 'modelA_dubRevenueShare', 1)}
-                    ${this.renderInput('Subscription Conversion (% of KYC)', 'modelA_subscriptionConversion', 0.1)}
-                    ${this.renderInput('Subscription Churn (% monthly)', 'modelA_subscriptionChurnRate', 0.1)}
+                    ${this.renderInput('Transaction Fee ($ per trade)', 'modelA_transactionFee')}
+                    ${this.renderInput('Subscription Price ($/mo)', 'modelA_subscriptionPrice')}
+                    ${this.renderInput('Dub Revenue Share (%)', 'modelA_dubRevenueShare')}
+                    ${this.renderInput('Subscription Conversion (% of KYC)', 'modelA_subscriptionConversion')}
+                    ${this.renderInput('Subscription Churn (% monthly)', 'modelA_subscriptionChurnRate')}
                 </div>
             </div>
         `;
@@ -260,24 +282,24 @@ class BusinessModelAnalysis {
             <div style="background: #e8f5e9; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #2e7d32; text-transform: uppercase; margin: 0 0 12px 0;">Model B: Maintenance Fee</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'modelB_maintenanceFee', 0.01)}
-                    ${this.renderInput('Waived Fees (% of funded acct)', 'modelB_waivedFeesPercent', 0.1)}
-                    ${this.renderInput('Subscription Price ($/mo)', 'modelB_subscriptionPrice', 0.01)}
-                    ${this.renderInput('Dub Revenue Share (%)', 'modelB_dubRevenueShare', 1)}
-                    ${this.renderInput('Subscription Conversion (% of KYC)', 'modelB_subscriptionConversion', 0.1)}
-                    ${this.renderInput('Subscription Churn (% monthly)', 'modelB_subscriptionChurnRate', 0.1)}
+                    ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'modelB_maintenanceFee')}
+                    ${this.renderInput('Waived Fees (% of funded acct)', 'modelB_waivedFeesPercent')}
+                    ${this.renderInput('Subscription Price ($/mo)', 'modelB_subscriptionPrice')}
+                    ${this.renderInput('Dub Revenue Share (%)', 'modelB_dubRevenueShare')}
+                    ${this.renderInput('Subscription Conversion (% of KYC)', 'modelB_subscriptionConversion')}
+                    ${this.renderInput('Subscription Churn (% monthly)', 'modelB_subscriptionChurnRate')}
                 </div>
             </div>
         `;
     }
 
-    renderInput(label, key, step) {
+    renderInput(label, key) {
         return `
             <div>
                 <label style="display: block; font-size: 11px; color: #6c757d; margin-bottom: 4px;">${label}</label>
                 <input
                     type="number"
-                    step="${step}"
+                    step="0.01"
                     value="${this.assumptions[key]}"
                     data-key="${key}"
                     style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
@@ -294,7 +316,7 @@ class BusinessModelAnalysis {
                     <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
                         <thead>
                             <tr style="border-bottom: 2px solid #dee2e6;">
-                                <th style="text-align: left; padding: 8px; font-weight: bold; position: sticky; left: 0; background: white; z-index: 1;">Metric</th>
+                                <th style="text-align: left; padding: 8px; font-weight: bold; position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">Metric</th>
                                 ${projections.map(p => `<th style="text-align: right; padding: 8px; font-weight: bold; ${p.month % 12 === 0 ? 'background: #f8f9fa;' : ''}">M${p.month}</th>`).join('')}
                             </tr>
                         </thead>
@@ -319,9 +341,6 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
-
-                            ${this.renderMetricRow('DIFFERENCE', null, projections, true, '#f3e5f5')}
-                            ${this.renderDifferenceRow(projections)}
                         </tbody>
                     </table>
                 </div>
@@ -333,7 +352,7 @@ class BusinessModelAnalysis {
         if (isHeader) {
             return `
                 <tr style="background: ${bgColor || '#f8f9fa'};">
-                    <td style="padding: 8px; font-weight: bold; position: sticky; left: 0; background: ${bgColor || '#f8f9fa'}; z-index: 1;">${label}</td>
+                    <td style="padding: 8px; font-weight: bold; position: sticky; left: 0; background: ${bgColor || '#f8f9fa'}; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
                     ${projections.map(() => '<td></td>').join('')}
                 </tr>
             `;
@@ -341,7 +360,7 @@ class BusinessModelAnalysis {
 
         return `
             <tr>
-                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1;">${label}</td>
+                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
                 ${projections.map(p => {
                     const value = p[key];
                     const formatted = isCurrency ? this.formatCurrency(value) : this.formatNumber(value);
@@ -352,20 +371,7 @@ class BusinessModelAnalysis {
         `;
     }
 
-    renderDifferenceRow(projections) {
-        return `
-            <tr style="font-weight: bold;">
-                <td style="padding: 8px; position: sticky; left: 0; background: white; z-index: 1;">Model B - Model A</td>
-                ${projections.map(p => {
-                    const diff = p.modelB_totalRevenue - p.modelA_totalRevenue;
-                    const bg = p.month % 12 === 0 ? '#f8f9fa' : 'white';
-                    return `<td style="text-align: right; padding: 8px; background: ${bg};">${this.formatCurrency(diff)}</td>`;
-                }).join('')}
-            </tr>
-        `;
-    }
-
-    renderYearComparison(yearlyProjections) {
+    renderYearComparisonContent(yearlyProjections) {
         const year3 = yearlyProjections[2];
         const diffAmount = year3.modelB_totalRevenue - year3.modelA_totalRevenue;
         const diffPercent = ((year3.modelB_totalRevenue - year3.modelA_totalRevenue) / year3.modelA_totalRevenue) * 100;
@@ -377,12 +383,12 @@ class BusinessModelAnalysis {
                     <div style="padding: 20px; background: #e7f3ff; border-radius: 8px; border: 2px solid #90caf9;">
                         <div style="font-size: 13px; color: #495057; margin-bottom: 8px;">Model A: Transaction Fee</div>
                         <div style="font-size: 24px; font-weight: bold; color: #0d47a1; margin-bottom: 8px;">${this.formatCurrency(year3.modelA_totalRevenue)}</div>
-                        <div style="font-size: 11px; color: #6c757d;">$${this.assumptions.modelA_transactionFee} per trade + $${this.assumptions.modelA_subscriptionPrice}/mo subscription</div>
+                        <div style="font-size: 11px; color: #6c757d;">$${this.assumptions.modelA_transactionFee.toFixed(2)} per trade + $${this.assumptions.modelA_subscriptionPrice.toFixed(2)}/mo subscription</div>
                     </div>
                     <div style="padding: 20px; background: #e8f5e9; border-radius: 8px; border: 2px solid #81c784;">
                         <div style="font-size: 13px; color: #495057; margin-bottom: 8px;">Model B: Maintenance Fee</div>
                         <div style="font-size: 24px; font-weight: bold; color: #1b5e20; margin-bottom: 8px;">${this.formatCurrency(year3.modelB_totalRevenue)}</div>
-                        <div style="font-size: 11px; color: #6c757d;">$${this.assumptions.modelB_maintenanceFee}/mo per account + $${this.assumptions.modelB_subscriptionPrice}/mo subscription</div>
+                        <div style="font-size: 11px; color: #6c757d;">$${this.assumptions.modelB_maintenanceFee.toFixed(2)}/mo per account + $${this.assumptions.modelB_subscriptionPrice.toFixed(2)}/mo subscription</div>
                     </div>
                     <div style="padding: 20px; background: #f3e5f5; border-radius: 8px; border: 2px solid #ce93d8;">
                         <div style="font-size: 13px; color: #495057; margin-bottom: 8px;">Difference (B - A)</div>
