@@ -22,6 +22,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.supabaseIntegration = window.supabaseIntegration;
         }
 
+        // Clear old cached results (cache version bump to force refresh)
+        const CACHE_VERSION = 'v3'; // Increment this to invalidate old cache
+        const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
+        if (cachedVersion !== CACHE_VERSION) {
+            localStorage.removeItem('creatorAnalysisResults');
+            localStorage.setItem('creatorAnalysisCacheVersion', CACHE_VERSION);
+            console.log('Cleared old creator analysis cache');
+        }
+
         // Call parent to create base UI
         super.createUI(container, outputContainer);
     }
