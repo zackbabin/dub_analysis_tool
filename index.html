@@ -424,6 +424,7 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-results-container">
+            <div id="creatorToolContainer"></div>
             <div id="creatorResultsContainer"></div>
         </div>
     </div>
@@ -490,21 +491,29 @@
             // Initialize Supabase Integration with credentials
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Initialize User Analysis Tool
+            // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
 
-            // Pass container references for each tab
+            // Pass container references for first 3 tabs only
             userTool.createUI(
                 document.getElementById('unifiedToolContainer'),
                 {
                     summary: document.getElementById('summaryResultsContainer'),
                     portfolio: document.getElementById('portfolioResultsContainer'),
-                    subscription: document.getElementById('subscriptionResultsContainer'),
-                    creator: document.getElementById('creatorResultsContainer')
+                    subscription: document.getElementById('subscriptionResultsContainer')
                 }
             );
 
-            console.log('✅ User Analysis Tool (Supabase) initialized with 4 main tabs');
+            console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
+
+            // Initialize Creator Analysis Tool separately
+            const creatorTool = new CreatorAnalysisToolSupabase();
+            creatorTool.createUI(
+                document.getElementById('creatorToolContainer'),
+                document.getElementById('creatorResultsContainer')
+            );
+
+            console.log('✅ Creator Analysis Tool (Supabase) initialized');
         };
     </script>
 </body>

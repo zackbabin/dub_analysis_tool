@@ -474,69 +474,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // === CREATOR TAB ===
-        const creatorContainer = this.outputContainers.creator;
-
-        // Load and display creator analysis data
-        try {
-            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-            if (creatorData && creatorData.length > 0) {
-                // Process creator data
-                const creatorResults = await this.processCreatorData(creatorData[0]);
-
-                if (creatorResults && creatorResults.summaryStats) {
-                    // Set up container structure
-                    creatorContainer.innerHTML = `
-                        <div class="qda-analysis-results">
-                            <div id="creatorSummarySection"></div>
-                        </div>
-                    `;
-
-                    // Display Summary Stats (3 metric cards only)
-                    const summarySection = document.getElementById('creatorSummarySection');
-                    const stats = creatorResults.summaryStats;
-
-                    summarySection.innerHTML = `
-                        <div class="qda-result-section">
-                            <h1 style="margin-bottom: 0.25rem;">Summary Statistics</h1>
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">
-                                ${this.createMetricCardHTML('Total Creators', stats.totalCreators.toLocaleString())}
-                                ${this.createMetricCardHTML('Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString())}
-                                ${this.createMetricCardHTML('Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString())}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    creatorContainer.innerHTML = `
-                        <div class="qda-analysis-results">
-                            <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
-                                Creator analysis data will be available after syncing.
-                            </p>
-                        </div>
-                    `;
-                }
-            } else {
-                // No data available
-                creatorContainer.innerHTML = `
-                    <div class="qda-analysis-results">
-                        <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
-                            Creator analysis data will be available after syncing.
-                        </p>
-                    </div>
-                `;
-            }
-        } catch (e) {
-            console.warn('Failed to load creator analysis:', e);
-            creatorContainer.innerHTML = `
-                <div class="qda-analysis-results">
-                    <p style="color: #6c757d; font-style: italic; text-align: center; padding: 60px 20px;">
-                        Creator analysis data will be available after syncing.
-                    </p>
-                </div>
-            `;
-        }
-
-        // Add timestamp and data scope to all tabs
+        // Add timestamp and data scope to first 3 tabs (creator tab handled separately)
         const timestampStr = new Date().toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
@@ -551,8 +489,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const tabConfigs = [
             { container: summaryContainer, scopeText: 'All Freemium users that have been KYC approved' },
             { container: portfolioContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
-            { container: subscriptionContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
-            { container: creatorContainer, scopeText: 'Data for KYC approved users from the last 30 days' }
+            { container: subscriptionContainer, scopeText: 'Data for KYC approved users from the last 30 days' }
         ];
 
         tabConfigs.forEach(({ container, scopeText }) => {
