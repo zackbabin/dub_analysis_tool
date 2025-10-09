@@ -588,32 +588,66 @@
             }
         }
 
+        // Switch to a specific tab
+        function switchToTab(tabName, buttons, userTool, creatorTool) {
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+
+            // Remove active class from all buttons and panes
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+
+            // Find and activate the target button
+            const targetButton = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
+
+            // Show corresponding tab pane
+            const targetPane = document.getElementById(`${tabName}-tab`);
+            if (targetPane) {
+                targetPane.classList.add('active');
+            }
+
+            // Update button states based on active tab
+            updateButtonStates(tabName, buttons, userTool, creatorTool);
+        }
+
         // Tab switching functionality
         function initializeTabs(buttons, userTool, creatorTool) {
             const tabButtons = document.querySelectorAll('.tab-btn');
-            const tabPanes = document.querySelectorAll('.tab-pane');
 
             tabButtons.forEach(button => {
                 button.addEventListener('click', () => {
                     const targetTab = button.getAttribute('data-tab');
 
-                    // Remove active class from all buttons and panes
-                    tabButtons.forEach(btn => btn.classList.remove('active'));
-                    tabPanes.forEach(pane => pane.classList.remove('active'));
+                    // Update URL hash
+                    window.location.hash = targetTab;
 
-                    // Add active class to clicked button
-                    button.classList.add('active');
-
-                    // Show corresponding tab pane
-                    const targetPane = document.getElementById(`${targetTab}-tab`);
-                    if (targetPane) {
-                        targetPane.classList.add('active');
-                    }
-
-                    // Update button states based on active tab
-                    updateButtonStates(targetTab, buttons, userTool, creatorTool);
+                    // Switch to the tab
+                    switchToTab(targetTab, buttons, userTool, creatorTool);
                 });
             });
+
+            // Listen for hash changes (browser back/forward)
+            window.addEventListener('hashchange', () => {
+                const hash = window.location.hash.slice(1); // Remove the '#'
+                const validTabs = ['summary', 'portfolio', 'subscription', 'creator'];
+                const targetTab = validTabs.includes(hash) ? hash : 'summary';
+                switchToTab(targetTab, buttons, userTool, creatorTool);
+            });
+
+            // Initialize tab from URL hash on page load
+            const initialHash = window.location.hash.slice(1);
+            const validTabs = ['summary', 'portfolio', 'subscription', 'creator'];
+            const initialTab = validTabs.includes(initialHash) ? initialHash : 'summary';
+
+            // Set initial hash if not present
+            if (!window.location.hash) {
+                window.location.hash = 'summary';
+            }
+
+            switchToTab(initialTab, buttons, userTool, creatorTool);
         }
 
         // Initialize User Analysis Tool
@@ -671,9 +705,6 @@
 
             // Initialize tab switching with button state management
             initializeTabs(buttons, userTool, creatorTool);
-
-            // Set initial button states (Summary tab is active by default)
-            updateButtonStates('summary', buttons, userTool, creatorTool);
 
             console.log('✅ Unified data source component created');
         };
