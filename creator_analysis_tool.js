@@ -610,10 +610,6 @@ class CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
-        const title = document.createElement('h1');
-        title.textContent = 'Summary Statistics';
-        section.appendChild(title);
-
         const metricSummary = document.createElement('div');
         metricSummary.className = 'qda-metric-summary';
 
@@ -692,50 +688,59 @@ class CreatorAnalysisTool {
         const container = document.getElementById('creatorBehavioralAnalysisInline');
         container.innerHTML = '';
 
-        const section = document.createElement('div');
-        section.className = 'qda-result-section';
-
-        const titleContainer = document.createElement('div');
-        titleContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 1rem;';
+        // Add H1 title
+        const mainSection = document.createElement('div');
+        mainSection.className = 'qda-result-section';
 
         const title = document.createElement('h1');
-        title.textContent = 'Behavioral Analysis';
+        title.textContent = 'Creator Analysis';
         title.style.marginBottom = '0.25rem';
-        titleContainer.appendChild(title);
+        mainSection.appendChild(title);
 
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>Behavioral Analysis</strong>
-                Statistical correlation and regression analysis to identify key creator metrics:
-                <ul>
-                    <li><strong>Method:</strong> Pearson correlation coefficient with t-statistic significance testing</li>
-                    <li><strong>Variables:</strong> Profile views, PDP views, paywall views, stripe views, subscription revenue, cancellations, expirations, investment count, investment amount</li>
-                    <li><strong>Outcomes:</strong> Portfolio copies and subscriptions</li>
-                    <li><strong>Significance:</strong> t-statistic > 1.96 indicates 95% confidence level</li>
-                    <li><strong>Predictive Strength:</strong> Two-stage scoring: (1) Statistical significance, (2) Weighted score = Correlation (90%) + T-stat (10%)</li>
-                    <li><strong>Tipping Points:</strong> Identifies threshold values where conversion rates significantly increase</li>
-                </ul>
-                Results sorted by absolute correlation strength.
-            </span>
-        </span>`;
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.innerHTML = tooltipHTML;
-        titleContainer.appendChild(tooltipSpan);
-
-        section.appendChild(titleContainer);
+        container.appendChild(mainSection);
 
         const outcomes = [
-            { outcome: 'totalCopies', label: 'Portfolio Copies', key: 'copies' },
-            { outcome: 'totalSubscriptions', label: 'Subscriptions', key: 'subscriptions' }
+            { outcome: 'totalCopies', label: 'Top Portfolio Copy Drivers', key: 'copies' },
+            { outcome: 'totalSubscriptions', label: 'Top Subscription Drivers', key: 'subscriptions' }
         ];
 
-        outcomes.forEach(config => {
-            const outcomeTitle = document.createElement('h4');
-            outcomeTitle.textContent = config.label;
-            section.appendChild(outcomeTitle);
+        outcomes.forEach((config, index) => {
+            // Create a separate section for each outcome
+            const outcomeSection = document.createElement('div');
+            outcomeSection.className = 'qda-result-section';
+            outcomeSection.style.cssText = index === 0 ? 'margin-top: 3rem;' : 'margin-top: 3rem;';
+
+            // Add H2 section header with tooltip
+            const sectionTitle = document.createElement('h2');
+            sectionTitle.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+            sectionTitle.textContent = config.label;
+            outcomeSection.appendChild(sectionTitle);
+
+            // Add tooltip next to H2
+            const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Creator Behavioral Analysis</strong>
+                    Statistical correlation and regression analysis to identify key creator metrics:
+                    <ul>
+                        <li><strong>Method:</strong> Pearson correlation coefficient with t-statistic significance testing</li>
+                        <li><strong>Variables:</strong> Profile views, PDP views, paywall views, stripe views, subscription revenue, cancellations, expirations, investment count, investment amount</li>
+                        <li><strong>Significance:</strong> t-statistic > 1.96 indicates 95% confidence level</li>
+                        <li><strong>Predictive Strength:</strong> Two-stage scoring: (1) Statistical significance, (2) Weighted score = Correlation (90%) + T-stat (10%)</li>
+                        <li><strong>Tipping Points:</strong> Identifies threshold values where conversion rates significantly increase</li>
+                    </ul>
+                    Results sorted by absolute correlation strength.
+                </span>
+            </span>`;
+
+            const tooltipSpan = document.createElement('span');
+            tooltipSpan.innerHTML = tooltipHTML;
+            outcomeSection.appendChild(tooltipSpan);
+
+            const subtitle = document.createElement('p');
+            subtitle.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;';
+            subtitle.textContent = `The top creator metrics that are the strongest predictors of ${config.key}`;
+            outcomeSection.appendChild(subtitle);
 
             const allVariables = Object.keys(correlationResults[config.outcome]);
             const regressionData = regressionResults[config.key];
@@ -765,10 +770,10 @@ class CreatorAnalysisTool {
             });
 
             const table = this.createBehavioralTable(combinedData);
-            section.appendChild(table);
-        });
+            outcomeSection.appendChild(table);
 
-        container.appendChild(section);
+            container.appendChild(outcomeSection);
+        });
     }
 
     /**
