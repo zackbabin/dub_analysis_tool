@@ -51,20 +51,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = 'display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;';
 
-        // Sync Live Data button (disabled)
+        // Sync Live Data button (enabled)
         const syncBtn = this.createModeButton(
             'Sync Live Data',
-            'Not available for this analysis',
-            '#e9ecef',
-            '#adb5bd',
-            null
+            'Fetch latest creator data from Mixpanel',
+            '#007bff',
+            '#007bff',
+            () => this.runWorkflow('sync')
         );
-        syncBtn.disabled = true;
-        syncBtn.style.background = '#f8f9fa';
-        syncBtn.style.cursor = 'not-allowed';
-        syncBtn.style.pointerEvents = 'none';
-        syncBtn.onmouseover = null;
-        syncBtn.onmouseout = null;
         buttonContainer.appendChild(syncBtn);
 
         // Manually Upload Data button
