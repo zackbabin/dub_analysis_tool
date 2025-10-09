@@ -654,6 +654,7 @@
             // Initialize Creator Analysis Tool
             const creatorTool = new CreatorAnalysisToolSupabase();
             creatorTool.outputContainer = document.getElementById('creatorResultsContainer');
+            creatorTool.supabaseIntegration = window.supabaseIntegration;
 
             // Setup file upload handler
             const fileInput = document.getElementById('creatorFileInput');
