@@ -1415,28 +1415,51 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     renderSubscriptionPriceChart(chartId, subscriptionDistribution) {
         // Data is already aggregated by price from the database view
         // Each row represents one price point with aggregated totals
-        const sortedData = subscriptionDistribution
-            .map(row => {
-                const price = parseFloat(row.monthly_price || row.subscription_price);
-                const totalSubs = parseInt(row.total_subscriptions) || 0;
-                const totalPaywallViews = parseInt(row.total_paywall_views) || 0;
-                const creators = Array.isArray(row.creator_usernames) ? row.creator_usernames : [];
-                const creatorCount = parseInt(row.creator_count) || creators.length;
+        // Group by rounded price (to 2 decimals) to combine similar prices like 49.99 and 49.995
+        const priceMap = {};
 
+        subscriptionDistribution.forEach(row => {
+            const rawPrice = parseFloat(row.monthly_price || row.subscription_price);
+            const roundedPrice = Math.round(rawPrice * 100) / 100; // Round to 2 decimals
+            const totalSubs = parseInt(row.total_subscriptions) || 0;
+            const totalPaywallViews = parseInt(row.total_paywall_views) || 0;
+            const creators = Array.isArray(row.creator_usernames) ? row.creator_usernames : [];
+            const creatorCount = parseInt(row.creator_count) || creators.length;
+
+            if (!priceMap[roundedPrice]) {
+                priceMap[roundedPrice] = {
+                    price: roundedPrice,
+                    totalSubs: 0,
+                    totalPaywallViews: 0,
+                    creatorCount: 0,
+                    creators: []
+                };
+            }
+
+            // Aggregate data for this rounded price
+            priceMap[roundedPrice].totalSubs += totalSubs;
+            priceMap[roundedPrice].totalPaywallViews += totalPaywallViews;
+            priceMap[roundedPrice].creatorCount += creatorCount;
+            priceMap[roundedPrice].creators.push(...creators);
+        });
+
+        const sortedData = Object.values(priceMap)
+            .map(data => {
                 // Calculate overall conversion rate for this price point
-                const overallConversionRate = totalPaywallViews > 0
-                    ? (totalSubs / totalPaywallViews)
+                const overallConversionRate = data.totalPaywallViews > 0
+                    ? (data.totalSubs / data.totalPaywallViews)
                     : 0;
 
-                // Take top 5 creators (just names)
-                const topCreators = creators.slice(0, 5);
+                // Take top 5 unique creators
+                const uniqueCreators = [...new Set(data.creators)];
+                const topCreators = uniqueCreators.slice(0, 5);
 
                 return {
-                    name: `$${price.toFixed(2)}`,
-                    price: price,
-                    y: totalSubs,  // Total subscriptions across all creators at this price
-                    creatorCount: creatorCount,
-                    totalPaywallViews: totalPaywallViews,
+                    name: `$${data.price.toFixed(2)}`,
+                    price: data.price,
+                    y: data.totalSubs,  // Total subscriptions across all creators at this price
+                    creatorCount: data.creatorCount,
+                    totalPaywallViews: data.totalPaywallViews,
                     conversionRate: overallConversionRate,
                     creators: topCreators
                 };

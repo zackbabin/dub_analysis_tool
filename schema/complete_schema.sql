@@ -192,17 +192,22 @@ FROM hidden_gems_portfolios;
 -- View: latest_subscription_distribution
 -- Most recent subscription price distribution
 -- Each bar represents the count of creators at that price point
+-- Normalizes all prices to monthly equivalent (quarterly/3, annually/12)
 CREATE OR REPLACE VIEW latest_subscription_distribution AS
 SELECT
-    subscription_price as monthly_price,
+    CASE
+        WHEN subscription_interval = 'Quarterly' THEN subscription_price / 3.0
+        WHEN subscription_interval IN ('Annually', 'Annual') THEN subscription_price / 12.0
+        ELSE subscription_price
+    END as monthly_price,
     COUNT(DISTINCT creator_id)::bigint as creator_count,
     SUM(total_subscriptions)::bigint as total_subscriptions,
     SUM(total_paywall_views)::bigint as total_paywall_views,
     array_agg(DISTINCT creator_username ORDER BY creator_username) as creator_usernames
 FROM creator_subscriptions_by_price
 WHERE synced_at = (SELECT MAX(synced_at) FROM creator_subscriptions_by_price)
-GROUP BY subscription_price
-ORDER BY subscription_price;
+GROUP BY monthly_price
+ORDER BY monthly_price;
 
 -- View: latest_sync_status
 -- Most recent sync status by tool type
