@@ -142,57 +142,65 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Override: Process and analyze data (skip parent's progress hiding)
      */
     async processAndAnalyze(csvContent) {
-        // Parse CSV
-        this.updateProgress(50, 'Parsing data...');
-        const parsedData = this.parseCSV(csvContent);
+        try {
+            // Parse CSV
+            this.updateProgress(50, 'Parsing data...');
+            console.log('Parsing CSV content, length:', csvContent?.length);
+            const parsedData = this.parseCSV(csvContent);
+            console.log('Parsed data rows:', parsedData?.data?.length);
 
-        // Clean and transform data
-        this.updateProgress(60, 'Cleaning data...');
-        const cleanData = this.cleanCreatorData(parsedData);
+            // Clean and transform data
+            this.updateProgress(60, 'Cleaning data...');
+            const cleanData = this.cleanCreatorData(parsedData);
+            console.log('Cleaned data rows:', cleanData?.length);
 
-        // Run analysis
-        this.updateProgress(75, 'Analyzing data...');
-        const results = this.performCreatorAnalysis(cleanData);
+            // Run analysis
+            this.updateProgress(75, 'Analyzing data...');
+            const results = this.performCreatorAnalysis(cleanData);
 
-        this.updateProgress(90, 'Generating insights...');
+            this.updateProgress(90, 'Generating insights...');
 
-        // Calculate tipping points
-        const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
+            // Calculate tipping points
+            const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
 
-        // Clear cleanData reference to free memory
-        results.cleanData = null;
+            // Clear cleanData reference to free memory
+            results.cleanData = null;
 
-        // Save results to localStorage
-        const now = new Date();
-        const timestamp = now.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+            // Save results to localStorage
+            const now = new Date();
+            const timestamp = now.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
 
-        localStorage.setItem('creatorAnalysisResults', JSON.stringify({
-            summaryStats: results.summaryStats,
-            correlationResults: results.correlationResults,
-            regressionResults: results.regressionResults,
-            tippingPoints: tippingPoints,
-            lastUpdated: timestamp
-        }));
+            localStorage.setItem('creatorAnalysisResults', JSON.stringify({
+                summaryStats: results.summaryStats,
+                correlationResults: results.correlationResults,
+                regressionResults: results.regressionResults,
+                tippingPoints: tippingPoints,
+                lastUpdated: timestamp
+            }));
 
-        // Display results
-        this.displayResults(results);
+            // Display results
+            this.displayResults(results);
 
-        this.updateProgress(100, 'Complete!');
+            this.updateProgress(100, 'Complete!');
 
-        // Hide progress bar after completion (with safety check)
-        setTimeout(() => {
-            const progressSection = document.getElementById('creatorProgressSection');
-            if (progressSection) {
-                progressSection.style.display = 'none';
-            }
-        }, 2000);
+            // Hide progress bar after completion (with safety check)
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Error in processAndAnalyze:', error);
+            throw error;
+        }
     }
 
     /**
@@ -224,6 +232,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Load and display the updated data
             const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+
+            if (!contents || !contents[0]) {
+                throw new Error('No data returned from database');
+            }
+
+            console.log('Loaded CSV length:', contents[0].length);
             this.updateProgress(90, 'Analyzing data...');
 
             // Process and analyze
