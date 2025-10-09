@@ -78,6 +78,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         section.appendChild(buttonContainer);
 
+        // File upload section (hidden by default)
+        const uploadSection = document.createElement('div');
+        uploadSection.id = 'creatorUploadSection';
+        uploadSection.style.cssText = 'display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;';
+        uploadSection.innerHTML = `
+            <div style="text-align: center;">
+                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
+                    Select Creator CSV File
+                </label>
+                <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
+                    Upload a single CSV file containing creator data
+                </div>
+                <input type="file" id="creatorFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+                <button id="creatorProcessButton" class="qda-btn" style="display: none;">
+                    Process File
+                </button>
+            </div>
+        `;
+        section.appendChild(uploadSection);
+
         return section;
     }
 
@@ -121,6 +141,63 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Save HTML for restoration
         this.saveAnalysisResults(this.outputContainer.innerHTML);
+    }
+
+    /**
+     * Override: Process and analyze data (skip parent's progress hiding)
+     */
+    async processAndAnalyze(csvContent) {
+        // Parse CSV
+        this.updateProgress(50, 'Parsing data...');
+        const parsedData = this.parseCSV(csvContent);
+
+        // Clean and transform data
+        this.updateProgress(60, 'Cleaning data...');
+        const cleanData = this.cleanCreatorData(parsedData);
+
+        // Run analysis
+        this.updateProgress(75, 'Analyzing data...');
+        const results = this.performCreatorAnalysis(cleanData);
+
+        this.updateProgress(90, 'Generating insights...');
+
+        // Calculate tipping points
+        const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
+
+        // Clear cleanData reference to free memory
+        results.cleanData = null;
+
+        // Save results to localStorage
+        const now = new Date();
+        const timestamp = now.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        localStorage.setItem('creatorAnalysisResults', JSON.stringify({
+            summaryStats: results.summaryStats,
+            correlationResults: results.correlationResults,
+            regressionResults: results.regressionResults,
+            tippingPoints: tippingPoints,
+            lastUpdated: timestamp
+        }));
+
+        // Display results
+        this.displayResults(results);
+
+        this.updateProgress(100, 'Complete!');
+
+        // Hide progress bar after completion (with safety check)
+        setTimeout(() => {
+            const progressSection = document.getElementById('creatorProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }, 2000);
     }
 
     /**
@@ -384,9 +461,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         this.updateProgress(100, 'Complete!');
 
-        // Hide progress bar after completion
+        // Hide progress bar after completion (with safety check)
         setTimeout(() => {
-            document.getElementById('creatorProgressSection').style.display = 'none';
+            const progressSection = document.getElementById('creatorProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
         }, 2000);
     }
 

@@ -194,6 +194,12 @@ class CreatorAnalysisTool {
         const fileInput = document.getElementById('creatorFileInput');
         const processButton = document.getElementById('creatorProcessButton');
 
+        if (!uploadSection || !fileInput || !processButton) {
+            this.addStatusMessage('❌ Error: Upload section not found. Please refresh the page.', 'error');
+            console.error('Missing upload section elements');
+            return;
+        }
+
         uploadSection.style.display = 'block';
 
         // Handle file selection
@@ -305,9 +311,12 @@ class CreatorAnalysisTool {
 
         this.updateProgress(100, 'Complete!');
 
-        // Hide progress bar after completion
+        // Hide progress bar after completion (with safety check)
         setTimeout(() => {
-            document.getElementById('creatorProgressSection').style.display = 'none';
+            const progressSection = document.getElementById('creatorProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
         }, 2000);
     }
 
@@ -1060,14 +1069,19 @@ class CreatorAnalysisTool {
     }
 
     showProgress(percent) {
-        document.getElementById('creatorProgressSection').style.display = 'block';
+        const progressSection = document.getElementById('creatorProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
         this.updateProgress(percent);
     }
 
     updateProgress(percent, label = null) {
         const progressBar = document.getElementById('creatorProgressBar');
-        progressBar.style.width = `${percent}%`;
-        progressBar.textContent = label || `${Math.round(percent)}%`;
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            progressBar.textContent = label || `${Math.round(percent)}%`;
+        }
     }
 }
 
