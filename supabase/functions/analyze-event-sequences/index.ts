@@ -120,12 +120,12 @@ serve(async (req) => {
 
     // Prepare data for Claude with prompt caching
     // Balance converters and non-converters to equal counts for fair analysis
-    // With caching, we can analyze 200 users per batch (100 converters + 100 non-converters)
+    // With caching, we can analyze 120 users per batch (60 converters + 60 non-converters)
     // Reduced batch size to stay under 200k token limit
     // Process up to 100 events per user for richer sequence data
-    const BATCH_SIZE = 100 // Per group (converters and non-converters)
+    const BATCH_SIZE = 60 // Per group (converters and non-converters)
     const EVENTS_PER_USER = 100
-    const MAX_BATCHES = 10 // Process up to 1000 converters + 1000 non-converters total
+    const MAX_BATCHES = 15 // Process up to 900 converters + 900 non-converters total
 
     // Balance to equal sizes
     const minSize = Math.min(converters.length, nonConverters.length)
