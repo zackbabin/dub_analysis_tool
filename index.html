@@ -395,10 +395,22 @@
         <button class="tab-btn" data-tab="creator">Creator Analysis</button>
     </div>
 
+    <!-- Unified Data Source Component (shared across all tabs) -->
+    <div id="unifiedDataSource" style="max-width: 1200px; margin: 20px auto;">
+        <!-- This will be populated by JavaScript -->
+    </div>
+
     <!-- Summary Stats Tab -->
     <div id="summary-tab" class="tab-pane active">
         <div class="tab-container">
-            <div id="unifiedToolContainer"></div>
+            <div id="unifiedProgressSection" style="margin: 20px 0; display: none;">
+                <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                    <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        0%
+                    </div>
+                </div>
+            </div>
+            <div id="unifiedStatusSection" style="display: none;"></div>
         </div>
         <div class="tab-results-container">
             <div id="summaryResultsContainer"></div>
@@ -407,9 +419,6 @@
 
     <!-- Portfolio Analysis Tab -->
     <div id="portfolio-tab" class="tab-pane">
-        <div class="tab-container">
-            <div id="unifiedToolContainer2"></div>
-        </div>
         <div class="tab-results-container">
             <div id="portfolioResultsContainer"></div>
         </div>
@@ -417,9 +426,6 @@
 
     <!-- Subscription Analysis Tab -->
     <div id="subscription-tab" class="tab-pane">
-        <div class="tab-container">
-            <div id="unifiedToolContainer3"></div>
-        </div>
         <div class="tab-results-container">
             <div id="subscriptionResultsContainer"></div>
         </div>
@@ -428,7 +434,28 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-container">
-            <div id="creatorToolContainer"></div>
+            <div id="creatorProgressSection" style="margin: 20px 0; display: none;">
+                <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                    <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                        0%
+                    </div>
+                </div>
+            </div>
+            <div id="creatorStatusSection" style="display: none;"></div>
+            <div id="creatorUploadSection" style="display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;">
+                <div style="text-align: center;">
+                    <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
+                        Select Creator CSV File
+                    </label>
+                    <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
+                        Upload a single CSV file containing creator data
+                    </div>
+                    <input type="file" id="creatorFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+                    <button id="creatorProcessButton" class="qda-btn" style="display: none;">
+                        Process File
+                    </button>
+                </div>
+            </div>
         </div>
         <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
@@ -464,8 +491,119 @@
         const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
 
+        // Create unified data source component
+        function createUnifiedDataSource(userTool, creatorTool) {
+            const container = document.getElementById('unifiedDataSource');
+            container.innerHTML = `
+                <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
+                            <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
+                        </div>
+                        <div id="manualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
+                            <div style="font-size: 12px; color: #6c757d;">Upload creator CSV file for analysis</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const syncBtn = document.getElementById('syncLiveDataBtn');
+            const uploadBtn = document.getElementById('manualUploadBtn');
+
+            // Sync Live Data click handler
+            syncBtn.onclick = () => userTool.runWorkflow('github');
+
+            // Manual Upload Data click handler
+            uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
+
+            // Store original hover functions to restore later
+            const syncHoverIn = () => {
+                if (!syncBtn.disabled) {
+                    syncBtn.style.background = '#28a745';
+                    syncBtn.querySelector('div:first-child').style.color = 'white';
+                    syncBtn.querySelector('div:last-child').style.color = 'white';
+                }
+            };
+            const syncHoverOut = () => {
+                if (!syncBtn.disabled) {
+                    syncBtn.style.background = 'white';
+                    syncBtn.querySelector('div:first-child').style.color = '#28a745';
+                    syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+                }
+            };
+            const uploadHoverIn = () => {
+                if (!uploadBtn.disabled) {
+                    uploadBtn.style.background = '#28a745';
+                    uploadBtn.querySelector('div:first-child').style.color = 'white';
+                    uploadBtn.querySelector('div:last-child').style.color = 'white';
+                }
+            };
+            const uploadHoverOut = () => {
+                if (!uploadBtn.disabled) {
+                    uploadBtn.style.background = 'white';
+                    uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                    uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
+                }
+            };
+
+            syncBtn.onmouseover = syncHoverIn;
+            syncBtn.onmouseout = syncHoverOut;
+            uploadBtn.onmouseover = uploadHoverIn;
+            uploadBtn.onmouseout = uploadHoverOut;
+
+            return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
+        }
+
+        // Update button states based on active tab
+        function updateButtonStates(activeTab, buttons) {
+            const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
+
+            if (activeTab === 'creator') {
+                // On Creator tab: disable Sync, enable Upload
+                syncBtn.disabled = true;
+                syncBtn.style.background = '#f8f9fa';
+                syncBtn.style.borderColor = '#e9ecef';
+                syncBtn.style.cursor = 'not-allowed';
+                syncBtn.style.pointerEvents = 'none';
+                syncBtn.querySelector('div:first-child').style.color = '#adb5bd';
+                syncBtn.onmouseover = null;
+                syncBtn.onmouseout = null;
+
+                uploadBtn.disabled = false;
+                uploadBtn.style.background = 'white';
+                uploadBtn.style.borderColor = '#28a745';
+                uploadBtn.style.cursor = 'pointer';
+                uploadBtn.style.pointerEvents = 'auto';
+                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                uploadBtn.onmouseover = uploadHoverIn;
+                uploadBtn.onmouseout = uploadHoverOut;
+            } else {
+                // On User tabs: enable Sync, disable Upload
+                syncBtn.disabled = false;
+                syncBtn.style.background = 'white';
+                syncBtn.style.borderColor = '#28a745';
+                syncBtn.style.cursor = 'pointer';
+                syncBtn.style.pointerEvents = 'auto';
+                syncBtn.querySelector('div:first-child').style.color = '#28a745';
+                syncBtn.onmouseover = syncHoverIn;
+                syncBtn.onmouseout = syncHoverOut;
+
+                uploadBtn.disabled = true;
+                uploadBtn.style.background = '#f8f9fa';
+                uploadBtn.style.borderColor = '#e9ecef';
+                uploadBtn.style.cursor = 'not-allowed';
+                uploadBtn.style.pointerEvents = 'none';
+                uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
+                uploadBtn.onmouseover = null;
+                uploadBtn.onmouseout = null;
+            }
+        }
+
         // Tab switching functionality
-        function initializeTabs() {
+        function initializeTabs(buttons) {
             const tabButtons = document.querySelectorAll('.tab-btn');
             const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -485,66 +623,71 @@
                     if (targetPane) {
                         targetPane.classList.add('active');
                     }
+
+                    // Update button states based on active tab
+                    updateButtonStates(targetTab, buttons);
                 });
             });
         }
 
         // Initialize User Analysis Tool
         window.onload = function() {
-            // Initialize tab switching
-            initializeTabs();
-
             // Initialize Supabase Integration with credentials
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
 
-            // Initialize with output containers first (this will restore cached results)
-            userTool.createUI(
-                document.getElementById('unifiedToolContainer'),
-                {
-                    summary: document.getElementById('summaryResultsContainer'),
-                    portfolio: document.getElementById('portfolioResultsContainer'),
-                    subscription: document.getElementById('subscriptionResultsContainer')
-                }
-            );
-
-            // Clone the UI to the other two tab containers
-            const sourceUI = document.getElementById('unifiedToolContainer').cloneNode(true);
-            document.getElementById('unifiedToolContainer2').innerHTML = sourceUI.innerHTML;
-            document.getElementById('unifiedToolContainer3').innerHTML = sourceUI.innerHTML;
-
-            // Re-attach event listeners to cloned buttons
-            [document.getElementById('unifiedToolContainer2'), document.getElementById('unifiedToolContainer3')].forEach(container => {
-                const button = container.querySelector('div[style*="cursor: pointer"]');
-                if (button) {
-                    button.onclick = () => userTool.runWorkflow('github');
-                    // Re-attach hover effects
-                    const borderColor = '#28a745';
-                    button.onmouseover = () => {
-                        button.style.background = borderColor;
-                        button.querySelector('div:first-child').style.color = 'white';
-                        button.querySelector('div:last-child').style.color = 'white';
-                    };
-                    button.onmouseout = () => {
-                        button.style.background = 'white';
-                        button.querySelector('div:first-child').style.color = borderColor;
-                        button.querySelector('div:last-child').style.color = '#6c757d';
-                    };
-                }
-            });
+            // Initialize with output containers (this will restore cached results)
+            userTool.outputContainers = {
+                summary: document.getElementById('summaryResultsContainer'),
+                portfolio: document.getElementById('portfolioResultsContainer'),
+                subscription: document.getElementById('subscriptionResultsContainer')
+            };
+            userTool.restoreAnalysisResults();
 
             console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
 
-            // Initialize Creator Analysis Tool separately
+            // Initialize Creator Analysis Tool
             const creatorTool = new CreatorAnalysisToolSupabase();
-            creatorTool.createUI(
-                document.getElementById('creatorToolContainer'),
-                document.getElementById('creatorResultsContainer')
-            );
+            creatorTool.outputContainer = document.getElementById('creatorResultsContainer');
+
+            // Setup file upload handler
+            const fileInput = document.getElementById('creatorFileInput');
+            const processButton = document.getElementById('creatorProcessButton');
+
+            fileInput.onchange = () => {
+                if (fileInput.files.length > 0) {
+                    processButton.style.display = 'block';
+                }
+            };
+
+            processButton.onclick = async () => {
+                try {
+                    const file = fileInput.files[0];
+                    if (!file) return;
+
+                    creatorTool.showProgress(10);
+                    const csvContent = await creatorTool.readFileAsText(file);
+                    await creatorTool.runUploadWorkflow(csvContent);
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    alert(`❌ Upload error: ${error.message}`);
+                }
+            };
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
+
+            // Create unified data source component
+            const buttons = createUnifiedDataSource(userTool, creatorTool);
+
+            // Initialize tab switching with button state management
+            initializeTabs(buttons);
+
+            // Set initial button states (Summary tab is active by default)
+            updateButtonStates('summary', buttons);
+
+            console.log('✅ Unified data source component created');
         };
     </script>
 </body>
