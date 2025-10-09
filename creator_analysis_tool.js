@@ -937,19 +937,8 @@ class CreatorAnalysisTool {
      * Get variable label for display
      */
     getVariableLabel(variable) {
-        const labels = {
-            'totalProfileViews': 'Total Profile Views',
-            'totalPDPViews': 'Total PDP Views',
-            'totalPaywallViews': 'Total Paywall Views',
-            'totalStripeViews': 'Total Stripe Views',
-            'totalSubscriptionRevenue': 'Total Subscription Revenue',
-            'totalCancelledSubscriptions': 'Total Cancelled Subscriptions',
-            'totalExpiredSubscriptions': 'Total Expired Subscriptions',
-            'totalInvestmentCount': 'Total Investment Count',
-            'totalInvestments': 'Total Investments ($)'
-        };
-
-        return labels[variable] || variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+        // Convert camelCase to Title Case (e.g., totalProfileViews -> Total Profile Views)
+        return variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
     }
 
     /**
