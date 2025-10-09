@@ -317,34 +317,14 @@ serve(async (_req) => {
     const totalCombinations = (topCreators.length * (topCreators.length - 1)) / 2
     console.log(`Testing ${totalCombinations} 2-way combinations from ${topCreators.length} creators (${allCreators.length} total available, capped at ${MAX_CREATORS})`)
 
-    const results: CombinationResult[] = []
+    // Stream results to database in batches to reduce memory usage
+    // Instead of keeping all 19,900 results in memory, insert in chunks
+    const STREAM_BATCH_SIZE = 100
+    let streamBatch: CombinationResult[] = []
     let processed = 0
+    let keptCount = 0
 
-    for (const combo of generateCombinations(topCreators, 2)) {
-      const result = evaluateCombination(combo, users)
-
-      // Only keep combinations where at least 1 user viewed both creators AND at least 1 subscription occurred
-      if (result.users_with_exposure > 0 && result.total_conversions > 0) {
-        results.push(result)
-      }
-
-      processed++
-      if (processed % 1000 === 0) {
-        console.log(`Processed ${processed}/${totalCombinations} combinations...`)
-      }
-    }
-
-    console.log(`Kept ${results.length} combinations with at least 1 user exposure`)
-
-    // Sort by Expected Value (lift × total_conversions) - balances impact and volume
-    // Higher EV = better business impact (combines predictive power with reach)
-    results.sort((a, b) => {
-      const evA = a.lift * a.total_conversions
-      const evB = b.lift * b.total_conversions
-      return evB - evA // Descending order
-    })
-
-    // Build creator ID to username map
+    // Build creator ID to username map first (needed for streaming inserts)
     console.log('Building creator username map...')
     const creatorIdToUsername = new Map<string, string>()
     for (const pair of pairRows) {
@@ -354,49 +334,139 @@ serve(async (_req) => {
     }
     console.log(`✓ Mapped ${creatorIdToUsername.size} creator IDs to usernames`)
 
-    const insertRows = results.map((result, index) => ({
-      analysis_type: 'subscription',
-      combination_rank: index + 1,
-      value_1: result.combination[0],
-      value_2: result.combination[1],
-      value_3: null, // No longer using 3-way combinations
-      username_1: creatorIdToUsername.get(result.combination[0]) || null,
-      username_2: creatorIdToUsername.get(result.combination[1]) || null,
-      username_3: null, // No longer using 3-way combinations
-      log_likelihood: result.log_likelihood,
-      aic: result.aic,
-      odds_ratio: result.odds_ratio,
-      precision: result.precision,
-      recall: result.recall,
-      lift: result.lift,
-      users_with_exposure: result.users_with_exposure,
-      conversion_rate_in_group: result.conversion_rate_in_group,
-      overall_conversion_rate: result.overall_conversion_rate,
-      total_conversions: result.total_conversions,
-      analyzed_at: analyzedAt,
-    }))
-
+    // Clear old data before streaming new results
     await supabaseClient
       .from('conversion_pattern_combinations')
       .delete()
       .eq('analysis_type', 'subscription')
 
-    for (let i = 0; i < insertRows.length; i += batchSize) {
-      const batch = insertRows.slice(i, i + batchSize)
+    for (const combo of generateCombinations(topCreators, 2)) {
+      const result = evaluateCombination(combo, users)
+
+      // Only keep combinations where at least 1 user viewed both creators AND at least 1 subscription occurred
+      if (result.users_with_exposure > 0 && result.total_conversions > 0) {
+        streamBatch.push(result)
+        keptCount++
+
+        // Insert batch when it reaches size limit
+        if (streamBatch.length >= STREAM_BATCH_SIZE) {
+          const insertRows = streamBatch.map((r, index) => ({
+            analysis_type: 'subscription',
+            combination_rank: keptCount - streamBatch.length + index + 1, // Temporary rank
+            value_1: r.combination[0],
+            value_2: r.combination[1],
+            value_3: null,
+            username_1: creatorIdToUsername.get(r.combination[0]) || null,
+            username_2: creatorIdToUsername.get(r.combination[1]) || null,
+            username_3: null,
+            log_likelihood: r.log_likelihood,
+            aic: r.aic,
+            odds_ratio: r.odds_ratio,
+            precision: r.precision,
+            recall: r.recall,
+            lift: r.lift,
+            users_with_exposure: r.users_with_exposure,
+            conversion_rate_in_group: r.conversion_rate_in_group,
+            overall_conversion_rate: r.overall_conversion_rate,
+            total_conversions: r.total_conversions,
+            analyzed_at: analyzedAt,
+          }))
+
+          const { error: insertError } = await supabaseClient
+            .from('conversion_pattern_combinations')
+            .insert(insertRows)
+
+          if (insertError) {
+            console.error('Error inserting batch:', insertError)
+            throw insertError
+          }
+
+          streamBatch = [] // Clear batch after insert
+        }
+      }
+
+      processed++
+      if (processed % 1000 === 0) {
+        console.log(`Processed ${processed}/${totalCombinations} combinations (kept ${keptCount})...`)
+      }
+    }
+
+    // Insert remaining results
+    if (streamBatch.length > 0) {
+      const insertRows = streamBatch.map((r, index) => ({
+        analysis_type: 'subscription',
+        combination_rank: keptCount - streamBatch.length + index + 1,
+        value_1: r.combination[0],
+        value_2: r.combination[1],
+        value_3: null,
+        username_1: creatorIdToUsername.get(r.combination[0]) || null,
+        username_2: creatorIdToUsername.get(r.combination[1]) || null,
+        username_3: null,
+        log_likelihood: r.log_likelihood,
+        aic: r.aic,
+        odds_ratio: r.odds_ratio,
+        precision: r.precision,
+        recall: r.recall,
+        lift: r.lift,
+        users_with_exposure: r.users_with_exposure,
+        conversion_rate_in_group: r.conversion_rate_in_group,
+        overall_conversion_rate: r.overall_conversion_rate,
+        total_conversions: r.total_conversions,
+        analyzed_at: analyzedAt,
+      }))
+
       const { error: insertError } = await supabaseClient
         .from('conversion_pattern_combinations')
-        .insert(batch)
+        .insert(insertRows)
 
       if (insertError) {
-        console.error('Error inserting results:', insertError)
+        console.error('Error inserting final batch:', insertError)
         throw insertError
       }
     }
 
-    console.log(`✓ Pattern analysis complete: ${insertRows.length} combinations stored`)
+    console.log(`✓ Pattern analysis complete: ${keptCount} combinations streamed to database`)
 
-    const top10 = results.slice(0, 10).map(r => ({
-      creators: r.combination,
+    // Now fetch all results back to sort by Expected Value and update ranks
+    console.log('Sorting results by Expected Value...')
+    const { data: allResults, error: fetchError } = await supabaseClient
+      .from('conversion_pattern_combinations')
+      .select('*')
+      .eq('analysis_type', 'subscription')
+
+    if (fetchError) {
+      console.error('Error fetching results for sorting:', fetchError)
+      throw fetchError
+    }
+
+    // Sort by Expected Value (lift × total_conversions)
+    const sortedResults = (allResults || []).sort((a, b) => {
+      const evA = a.lift * a.total_conversions
+      const evB = b.lift * b.total_conversions
+      return evB - evA
+    })
+
+    // Update ranks in batches
+    for (let i = 0; i < sortedResults.length; i += batchSize) {
+      const batch = sortedResults.slice(i, i + batchSize)
+      const updates = batch.map((result, index) => ({
+        id: result.id,
+        combination_rank: i + index + 1
+      }))
+
+      for (const update of updates) {
+        await supabaseClient
+          .from('conversion_pattern_combinations')
+          .update({ combination_rank: update.combination_rank })
+          .eq('id', update.id)
+      }
+    }
+
+    console.log(`✓ Updated ranks for ${sortedResults.length} combinations`)
+
+    // Prepare top 10 results for response
+    const top10 = results.map(r => ({
+      creators: [r.value_1, r.value_2],
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,
       lift: Math.round(r.lift * 100) / 100,
@@ -412,8 +482,8 @@ serve(async (_req) => {
           creators_tested: topCreators.length,
           combinations_total: totalCombinations,
           combinations_processed: processed,
-          combinations_evaluated: results.length,
-          combinations_stored: insertRows.length,
+          combinations_evaluated: sortedResults.length,
+          combinations_stored: sortedResults.length,
           completion_percentage: 100,
         },
         top_10_combinations: top10,

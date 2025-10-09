@@ -222,13 +222,17 @@ serve(async (req) => {
       // Results stored in conversion_pattern_combinations table
       console.log('Pattern analysis functions use stored engagement data (no duplicate Mixpanel calls)')
 
-      // Refresh materialized view
-      console.log('Refreshing main_analysis materialized view...')
-      const { error: refreshError } = await supabase.rpc('refresh_main_analysis')
-      if (refreshError) {
-        console.error('Error refreshing materialized view:', refreshError)
-        // Don't throw - this is not critical
-      }
+      // Refresh materialized view asynchronously (don't block Edge Function completion)
+      console.log('Triggering main_analysis materialized view refresh (async)...')
+      supabase.rpc('refresh_main_analysis')
+        .then(({ error: refreshError }) => {
+          if (refreshError) {
+            console.error('Error refreshing materialized view:', refreshError)
+          } else {
+            console.log('✓ Materialized view refreshed successfully')
+          }
+        })
+        .catch(err => console.warn('Materialized view refresh failed:', err))
 
       // Update sync log with success
       const syncEndTime = new Date()
