@@ -500,34 +500,40 @@
             // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
 
-            // Create UI in each of the 3 tab containers
-            const containers = [
+            // Initialize with output containers first (this will restore cached results)
+            userTool.createUI(
                 document.getElementById('unifiedToolContainer'),
-                document.getElementById('unifiedToolContainer2'),
-                document.getElementById('unifiedToolContainer3')
-            ];
+                {
+                    summary: document.getElementById('summaryResultsContainer'),
+                    portfolio: document.getElementById('portfolioResultsContainer'),
+                    subscription: document.getElementById('subscriptionResultsContainer')
+                }
+            );
 
-            containers.forEach(container => {
-                if (container) {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'qda-inline-widget';
-                    wrapper.style.maxWidth = '800px';
-                    wrapper.style.margin = '0 auto';
+            // Clone the UI to the other two tab containers
+            const sourceUI = document.getElementById('unifiedToolContainer').cloneNode(true);
+            document.getElementById('unifiedToolContainer2').innerHTML = sourceUI.innerHTML;
+            document.getElementById('unifiedToolContainer3').innerHTML = sourceUI.innerHTML;
 
-                    const content = document.createElement('div');
-                    content.className = 'qda-content';
-                    content.appendChild(userTool.createDataSourceSection());
-                    wrapper.appendChild(content);
-                    container.appendChild(wrapper);
+            // Re-attach event listeners to cloned buttons
+            [document.getElementById('unifiedToolContainer2'), document.getElementById('unifiedToolContainer3')].forEach(container => {
+                const button = container.querySelector('div[style*="cursor: pointer"]');
+                if (button) {
+                    button.onclick = () => userTool.runWorkflow('github');
+                    // Re-attach hover effects
+                    const borderColor = '#28a745';
+                    button.onmouseover = () => {
+                        button.style.background = borderColor;
+                        button.querySelector('div:first-child').style.color = 'white';
+                        button.querySelector('div:last-child').style.color = 'white';
+                    };
+                    button.onmouseout = () => {
+                        button.style.background = 'white';
+                        button.querySelector('div:first-child').style.color = borderColor;
+                        button.querySelector('div:last-child').style.color = '#6c757d';
+                    };
                 }
             });
-
-            // Pass output container references for first 3 tabs only
-            userTool.outputContainers = {
-                summary: document.getElementById('summaryResultsContainer'),
-                portfolio: document.getElementById('portfolioResultsContainer'),
-                subscription: document.getElementById('subscriptionResultsContainer')
-            };
 
             console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
 
