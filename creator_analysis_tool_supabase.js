@@ -221,17 +221,64 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         console.log('✅ Creator sync completed:', result.stats);
-        this.updateProgress(30, 'Loading data...');
+        this.updateProgress(50, 'Loading data...');
 
         // Step 2: Load data from Supabase
         const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-        this.updateProgress(50, 'Processing data...');
+        this.updateProgress(75, 'Processing data...');
 
         console.log('✅ Data loaded from Supabase');
 
-        // Step 3: Process and analyze data
-        // contents is an array with one CSV string
-        await this.processAndAnalyze(contents[0]);
+        // Step 3: Parse and display summary stats only (no correlation analysis)
+        const parsedData = this.parseCSV(contents[0]);
+        const cleanData = this.cleanCreatorData(parsedData);
+        const summaryStats = this.calculateCreatorSummaryStats(cleanData);
+
+        this.updateProgress(90, 'Displaying results...');
+
+        // Display only summary stats and breakdown (no behavioral analysis)
+        this.outputContainer.innerHTML = '';
+        const resultsDiv = document.createElement('div');
+        resultsDiv.id = 'creatorAnalysisResultsInline';
+        resultsDiv.className = 'qda-analysis-results';
+        this.outputContainer.appendChild(resultsDiv);
+
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        const now = new Date();
+        const timestampText = now.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        timestamp.textContent = `Last updated: ${timestampText}`;
+        resultsDiv.appendChild(timestamp);
+
+        resultsDiv.innerHTML += `
+            <div id="creatorSummaryStatsInline"></div>
+            <div id="creatorBreakdownInline"></div>
+        `;
+
+        this.displayCreatorSummaryStats(summaryStats);
+        this.displayCreatorBreakdown(summaryStats);
+
+        // Add note about correlation analysis
+        const note = document.createElement('div');
+        note.className = 'info-message';
+        note.style.marginTop = '2rem';
+        note.innerHTML = '<strong>Note:</strong> Correlation analysis is only available when using manual CSV upload with raw creator data.';
+        resultsDiv.appendChild(note);
+
+        this.updateProgress(100, 'Complete!');
+
+        // Hide progress bar after completion
+        setTimeout(() => {
+            document.getElementById('creatorProgressSection').style.display = 'none';
+        }, 2000);
     }
 
     /**
