@@ -109,7 +109,7 @@ serve(async (req) => {
             const { error: insertError } = await supabase
               .from('creators_insights')
               .upsert(batch, {
-                onConflict: 'creator_id,synced_at',
+                onConflict: 'creator_username',
                 ignoreDuplicates: false,
               })
 
