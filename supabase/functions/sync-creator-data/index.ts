@@ -153,14 +153,6 @@ serve(async (req) => {
         stats.totalRecordsInserted += totalProcessed
       }
 
-      // Refresh materialized view
-      console.log('Refreshing creator_analysis materialized view...')
-      const { error: refreshError } = await supabase.rpc('refresh_creator_analysis')
-      if (refreshError) {
-        console.error('Error refreshing materialized view:', refreshError)
-        // Don't throw - this is not critical
-      }
-
       console.log('Creator sync completed successfully')
 
       // Update sync log with success
