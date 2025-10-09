@@ -42,11 +42,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (saved) {
                 const data = JSON.parse(saved);
                 if (this.outputContainers) {
-                    // Restore cached HTML to each tab (if available)
-                    if (data.summary) this.outputContainers.summary.innerHTML = data.summary;
-                    if (data.portfolio) this.outputContainers.portfolio.innerHTML = data.portfolio;
-                    if (data.subscription) this.outputContainers.subscription.innerHTML = data.subscription;
-                    if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
+                    // Restore cached HTML to each tab (if available and container exists)
+                    if (data.summary && this.outputContainers.summary) {
+                        this.outputContainers.summary.innerHTML = data.summary;
+                    }
+                    if (data.portfolio && this.outputContainers.portfolio) {
+                        this.outputContainers.portfolio.innerHTML = data.portfolio;
+                    }
+                    if (data.subscription && this.outputContainers.subscription) {
+                        this.outputContainers.subscription.innerHTML = data.subscription;
+
+                        // Re-render subscription price chart if data is cached
+                        if (data.subscriptionDistribution) {
+                            setTimeout(() => {
+                                const chartContainers = document.querySelectorAll('[id^="subscription-price-chart-"]');
+                                if (chartContainers.length > 0) {
+                                    this.renderSubscriptionPriceChart(chartContainers[0].id, data.subscriptionDistribution);
+                                }
+                            }, 100);
+                        }
+                    }
+                    if (data.creator && this.outputContainers.creator) {
+                        this.outputContainers.creator.innerHTML = data.creator;
+                    }
 
                     console.log('✅ Restored analysis results from', data.timestamp);
                 }
@@ -72,7 +90,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = 'display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;';
 
-        // Only show "Sync Live Data" button
+        // "Sync Live Data" button
         const githubBtn = this.createModeButton(
             'Sync Live Data',
             'Fetch the latest data from Mixpanel',
@@ -81,6 +99,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             () => this.runWorkflow('github')
         );
         buttonContainer.appendChild(githubBtn);
+
+        // "Manually Upload Data" button (disabled)
+        const uploadBtn = this.createModeButton(
+            'Manually Upload Data',
+            'Not available for this analysis',
+            '#dee2e6',
+            '#6c757d',
+            null
+        );
+        uploadBtn.disabled = true;
+        uploadBtn.style.opacity = '0.5';
+        uploadBtn.style.cursor = 'not-allowed';
+        buttonContainer.appendChild(uploadBtn);
 
         section.appendChild(buttonContainer);
 
@@ -235,6 +266,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 portfolio: this.outputContainers.portfolio.innerHTML,
                 subscription: this.outputContainers.subscription.innerHTML,
                 creator: this.outputContainers.creator.innerHTML,
+                subscriptionDistribution: subscriptionDistribution, // Cache chart data
                 timestamp: new Date().toISOString()
             }));
             console.log('✅ Cached complete analysis for all tabs');

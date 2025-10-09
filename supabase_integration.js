@@ -523,7 +523,7 @@ class SupabaseIntegration {
 
     /**
      * Load creator data from Supabase database
-     * Queries the creator_analysis materialized view
+     * Queries the creators_insights table
      */
     async loadCreatorDataFromSupabase() {
         console.log('Loading creator data from Supabase...');
@@ -537,7 +537,7 @@ class SupabaseIntegration {
 
             while (hasMore) {
                 const { data, error } = await this.supabase
-                    .from('creator_analysis')
+                    .from('creators_insights')
                     .select('*')
                     .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -1173,17 +1173,31 @@ class SupabaseIntegration {
             console.log(`Enriched ${enrichedData.length} creator records`);
 
             // Step 2: Upsert enriched data into creators_insights
-            const upsertData = enrichedData.map(row => ({
-                creator_id: row.creator_id,
-                creator_username: row.creator_username,
-                raw_data: row.raw_data,
-                total_copies: row.total_copies || 0,
-                total_subscriptions: row.total_subscriptions || 0,
-                total_investment_count: row.total_investment_count || 0,
-                total_investments: row.total_investments || 0,
-                synced_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            }));
+            // Extract metrics from raw_data for correlation analysis
+            const upsertData = enrichedData.map(row => {
+                const raw = row.raw_data || {};
+                return {
+                    creator_id: row.creator_id,
+                    creator_username: row.creator_username,
+                    creator_type: raw.creator_type || 'Regular',
+                    raw_data: row.raw_data,
+                    // Metrics from enrichment (join with existing creators_insights)
+                    total_copies: row.total_copies || 0,
+                    total_subscriptions: row.total_subscriptions || 0,
+                    total_investment_count: row.total_investment_count || 0,
+                    total_investments: row.total_investments || 0,
+                    // Extract other metrics from raw_data for correlation analysis
+                    total_profile_views: parseInt(raw.total_profile_views || 0),
+                    total_pdp_views: parseInt(raw.total_pdp_views || 0),
+                    total_paywall_views: parseInt(raw.total_paywall_views || 0),
+                    total_stripe_views: parseInt(raw.total_stripe_views || 0),
+                    total_subscription_revenue: parseFloat(raw.total_subscription_revenue || 0),
+                    total_cancelled_subscriptions: parseInt(raw.total_cancelled_subscriptions || 0),
+                    total_expired_subscriptions: parseInt(raw.total_expired_subscriptions || 0),
+                    synced_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+            });
 
             const { error: upsertError } = await this.supabase
                 .from('creators_insights')

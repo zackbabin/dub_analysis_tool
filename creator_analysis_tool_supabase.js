@@ -27,6 +27,50 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: Create mode section - Disable "Sync Live Data" button, enable "Manually Upload Data"
+     */
+    createModeSection() {
+        const section = document.createElement('div');
+        section.style.cssText = 'margin-bottom: 20px;';
+
+        const title = document.createElement('h4');
+        title.textContent = 'Select Data Source';
+        title.style.cssText = 'margin: 0 0 15px 0; color: #333;';
+        section.appendChild(title);
+
+        // Mode buttons
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;';
+
+        // Sync Live Data button (disabled)
+        const syncBtn = this.createModeButton(
+            'Sync Live Data',
+            'Not available for this analysis',
+            '#dee2e6',
+            '#6c757d',
+            null
+        );
+        syncBtn.disabled = true;
+        syncBtn.style.opacity = '0.5';
+        syncBtn.style.cursor = 'not-allowed';
+        buttonContainer.appendChild(syncBtn);
+
+        // Manually Upload Data button
+        const uploadBtn = this.createModeButton(
+            'Manually Upload Data',
+            'Upload creator CSV file for analysis',
+            '#28a745',
+            '#28a745',
+            () => this.runWorkflow('upload')
+        );
+        buttonContainer.appendChild(uploadBtn);
+
+        section.appendChild(buttonContainer);
+
+        return section;
+    }
+
+    /**
      * Override: Run the upload workflow using Supabase
      */
     async runUploadWorkflow(csvContent) {
@@ -274,11 +318,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         resultsDiv.innerHTML += `
             <div id="creatorSummaryStatsInline"></div>
-            <div id="creatorBreakdownInline"></div>
         `;
 
         this.displayCreatorSummaryStats(summaryStats);
-        this.displayCreatorBreakdown(summaryStats);
 
         // Add note about correlation analysis
         const note = document.createElement('div');
@@ -293,30 +335,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         setTimeout(() => {
             document.getElementById('creatorProgressSection').style.display = 'none';
         }, 2000);
-    }
-
-    /**
-     * Override: Display creator breakdown with Supabase breakdown data
-     */
-    async displayCreatorBreakdown(stats) {
-        const container = document.getElementById('creatorBreakdownInline');
-        container.innerHTML = '';
-
-        const section = document.createElement('div');
-        section.className = 'qda-result-section';
-
-        const title = document.createElement('h1');
-        title.textContent = 'Breakdown';
-        section.appendChild(title);
-
-        // Subscription price distribution has been moved to User Analysis Tool
-        const note = document.createElement('p');
-        note.textContent = 'Subscription price distribution is available in the User Analysis tool.';
-        note.style.fontStyle = 'italic';
-        note.style.color = '#6c757d';
-        section.appendChild(note);
-
-        container.appendChild(section);
     }
 
 }
