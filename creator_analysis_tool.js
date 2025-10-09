@@ -190,51 +190,16 @@ class CreatorAnalysisTool {
      * Shows the upload section and sets up file input handler
      */
     showUploadSection() {
-        const uploadSection = document.getElementById('creatorUploadSection');
         const fileInput = document.getElementById('creatorFileInput');
-        const processButton = document.getElementById('creatorProcessButton');
 
-        if (!uploadSection || !fileInput || !processButton) {
-            this.addStatusMessage('❌ Error: Upload section not found. Please refresh the page.', 'error');
-            console.error('Missing upload section elements');
+        if (!fileInput) {
+            this.addStatusMessage('❌ Error: File input not found. Please refresh the page.', 'error');
+            console.error('Missing file input element');
             return;
         }
 
-        uploadSection.style.display = 'block';
-
-        // Handle file selection
-        fileInput.onchange = () => {
-            if (fileInput.files.length > 0) {
-                processButton.style.display = 'block';
-                this.addStatusMessage(`✓ Selected: ${fileInput.files[0].name}`, 'success');
-            }
-        };
-
-        // Handle process button click
-        processButton.onclick = async () => {
-            try {
-                const file = fileInput.files[0];
-                if (!file) {
-                    this.addStatusMessage('❌ Please select a file', 'error');
-                    return;
-                }
-
-                this.addStatusMessage('📤 Processing uploaded file...', 'info');
-                this.showProgress(10);
-
-                // Read the CSV file
-                const csvContent = await this.readFileAsText(file);
-                this.updateProgress(30, 'Uploading and enriching data...');
-
-                // Call the upload method (to be implemented in Supabase version)
-                await this.runUploadWorkflow(csvContent);
-
-                this.addStatusMessage('✅ Creator data uploaded successfully!', 'success');
-            } catch (error) {
-                this.addStatusMessage(`❌ Upload error: ${error.message}`, 'error');
-                console.error('Upload error:', error);
-            }
-        };
+        // Trigger file picker
+        fileInput.click();
     }
 
     /**

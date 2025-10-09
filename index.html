@@ -445,7 +445,6 @@
             <div id="creatorStatusSection" style="display: none;"></div>
             <!-- File upload is now handled by unified data source component -->
             <input type="file" id="creatorFileInput" accept=".csv" style="display: none;">
-            <button id="creatorProcessButton" style="display: none;"></button>
         </div>
         <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
@@ -695,25 +694,23 @@
 
             // Setup file upload handler
             const fileInput = document.getElementById('creatorFileInput');
-            const processButton = document.getElementById('creatorProcessButton');
 
-            fileInput.onchange = () => {
+            fileInput.onchange = async () => {
                 if (fileInput.files.length > 0) {
-                    processButton.style.display = 'block';
-                }
-            };
-
-            processButton.onclick = async () => {
-                try {
                     const file = fileInput.files[0];
-                    if (!file) return;
+                    creatorTool.clearStatus();
+                    creatorTool.showStatus();
+                    creatorTool.addStatusMessage(`✓ Selected: ${file.name}`, 'success');
+                    creatorTool.addStatusMessage('📤 Processing uploaded file...', 'info');
 
-                    creatorTool.showProgress(10);
-                    const csvContent = await creatorTool.readFileAsText(file);
-                    await creatorTool.runUploadWorkflow(csvContent);
-                } catch (error) {
-                    console.error('Upload error:', error);
-                    alert(`❌ Upload error: ${error.message}`);
+                    try {
+                        creatorTool.showProgress(10);
+                        const csvContent = await creatorTool.readFileAsText(file);
+                        await creatorTool.runUploadWorkflow(csvContent);
+                    } catch (error) {
+                        console.error('Upload error:', error);
+                        creatorTool.addStatusMessage(`❌ Upload error: ${error.message}`, 'error');
+                    }
                 }
             };
 
