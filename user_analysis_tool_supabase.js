@@ -57,6 +57,37 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
+     * Override: Create data source section - Only show "Sync Live Data" button (hide "Manually Upload Data")
+     */
+    createDataSourceSection() {
+        const section = document.createElement('div');
+        section.style.cssText = 'margin-bottom: 20px;';
+
+        const title = document.createElement('h4');
+        title.textContent = 'Select Data Source';
+        title.style.cssText = 'margin: 0 0 15px 0; color: #333;';
+        section.appendChild(title);
+
+        // Mode buttons container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;';
+
+        // Only show "Sync Live Data" button
+        const githubBtn = this.createModeButton(
+            'Sync Live Data',
+            'Fetch the latest data from Mixpanel',
+            '#28a745',
+            '#28a745',
+            () => this.runWorkflow('github')
+        );
+        buttonContainer.appendChild(githubBtn);
+
+        section.appendChild(buttonContainer);
+
+        return section;
+    }
+
+    /**
      * Override: Create token section - No configuration needed since credentials are hardcoded
      */
     createTokenSection() {

@@ -27,6 +27,145 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: Run the upload workflow using Supabase
+     */
+    async runUploadWorkflow(csvContent) {
+        if (!this.supabaseIntegration) {
+            throw new Error('Supabase not configured. Please check your configuration.');
+        }
+
+        try {
+            this.updateProgress(40, 'Cleaning and processing data...');
+
+            // Parse and clean the CSV
+            const cleanedData = this.parseAndCleanCreatorCSV(csvContent);
+            console.log(`Parsed ${cleanedData.length} creator records`);
+
+            this.updateProgress(60, 'Uploading to database...');
+
+            // Upload and enrich data through Supabase
+            const result = await this.supabaseIntegration.uploadAndEnrichCreatorData(cleanedData);
+
+            if (!result || !result.success) {
+                throw new Error(result?.error || 'Failed to upload creator data');
+            }
+
+            console.log('✅ Creator data uploaded:', result.stats);
+            this.updateProgress(80, 'Loading updated data...');
+
+            // Load and display the updated data
+            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+            this.updateProgress(90, 'Analyzing data...');
+
+            // Process and analyze
+            await this.processAndAnalyze(contents[0]);
+
+            this.updateProgress(100, 'Complete!');
+        } catch (error) {
+            console.error('Upload workflow error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Parse and clean creator CSV data
+     * Renames columns, cleans headers, stores all data in raw_data JSONB
+     */
+    parseAndCleanCreatorCSV(csvContent) {
+        // Parse CSV
+        const lines = csvContent.trim().split('\n');
+        if (lines.length < 2) {
+            throw new Error('CSV file is empty or invalid');
+        }
+
+        // Get headers and clean them
+        const rawHeaders = lines[0].split(',');
+        const cleanedHeaders = rawHeaders.map(header =>
+            header
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, '_') // Replace non-alphanumeric with underscore
+                .replace(/_+/g, '_') // Replace multiple underscores with single
+                .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+        );
+
+        console.log('Original headers:', rawHeaders);
+        console.log('Cleaned headers:', cleanedHeaders);
+
+        // Find important column indices
+        const handleIndex = cleanedHeaders.findIndex(h => h === 'handle');
+        const useruuidIndex = cleanedHeaders.findIndex(h => h === 'useruuid');
+
+        if (handleIndex === -1) {
+            throw new Error('CSV must contain "handle" column');
+        }
+        if (useruuidIndex === -1) {
+            throw new Error('CSV must contain "useruuid" column');
+        }
+
+        // Process each data row
+        const cleanedData = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const values = this.parseCSVLine(line);
+            if (values.length !== rawHeaders.length) {
+                console.warn(`Skipping line ${i + 1}: column count mismatch`);
+                continue;
+            }
+
+            // Build raw_data object with all CSV columns
+            const rawData = {};
+            cleanedHeaders.forEach((header, index) => {
+                rawData[header] = values[index]?.trim() || null;
+            });
+
+            // Extract creator_username and creator_id
+            const creatorUsername = values[handleIndex]?.trim();
+            const creatorId = values[useruuidIndex]?.trim();
+
+            if (!creatorUsername || !creatorId) {
+                console.warn(`Skipping line ${i + 1}: missing handle or useruuid`);
+                continue;
+            }
+
+            cleanedData.push({
+                creator_id: creatorId,
+                creator_username: creatorUsername,
+                raw_data: rawData
+            });
+        }
+
+        return cleanedData;
+    }
+
+    /**
+     * Parse a CSV line handling quoted fields
+     */
+    parseCSVLine(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        values.push(current); // Add the last value
+
+        return values.map(v => v.replace(/^"|"$/g, '')); // Remove quotes
+    }
+
+    /**
      * Override: Run the sync workflow using Supabase
      */
     async runSyncWorkflow() {

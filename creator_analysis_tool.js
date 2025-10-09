@@ -88,7 +88,37 @@ class CreatorAnalysisTool {
         );
         buttonContainer.appendChild(syncBtn);
 
+        // Manually Upload Data button
+        const uploadBtn = this.createModeButton(
+            'Manually Upload Data',
+            'Upload creator CSV file for analysis',
+            '#dee2e6',
+            '#6c757d',
+            () => this.runWorkflow('upload')
+        );
+        buttonContainer.appendChild(uploadBtn);
+
         section.appendChild(buttonContainer);
+
+        // File upload section (hidden by default)
+        const uploadSection = document.createElement('div');
+        uploadSection.id = 'creatorUploadSection';
+        uploadSection.style.cssText = 'display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;';
+        uploadSection.innerHTML = `
+            <div style="text-align: center;">
+                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
+                    Select Creator CSV File
+                </label>
+                <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
+                    Upload a single CSV file containing creator data
+                </div>
+                <input type="file" id="creatorFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+                <button id="creatorProcessButton" class="qda-btn" style="display: none;">
+                    Process File
+                </button>
+            </div>
+        `;
+        section.appendChild(uploadSection);
 
         return section;
     }
@@ -147,11 +177,77 @@ class CreatorAnalysisTool {
         try {
             if (mode === 'sync') {
                 await this.runSyncWorkflow();
+            } else if (mode === 'upload') {
+                this.showUploadSection();
             }
         } catch (error) {
             this.addStatusMessage(`❌ Error: ${error.message}`, 'error');
             console.error('Workflow error:', error);
         }
+    }
+
+    /**
+     * Shows the upload section and sets up file input handler
+     */
+    showUploadSection() {
+        const uploadSection = document.getElementById('creatorUploadSection');
+        const fileInput = document.getElementById('creatorFileInput');
+        const processButton = document.getElementById('creatorProcessButton');
+
+        uploadSection.style.display = 'block';
+
+        // Handle file selection
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                processButton.style.display = 'block';
+                this.addStatusMessage(`✓ Selected: ${fileInput.files[0].name}`, 'success');
+            }
+        };
+
+        // Handle process button click
+        processButton.onclick = async () => {
+            try {
+                const file = fileInput.files[0];
+                if (!file) {
+                    this.addStatusMessage('❌ Please select a file', 'error');
+                    return;
+                }
+
+                this.addStatusMessage('📤 Processing uploaded file...', 'info');
+                this.showProgress(10);
+
+                // Read the CSV file
+                const csvContent = await this.readFileAsText(file);
+                this.updateProgress(30, 'Uploading and enriching data...');
+
+                // Call the upload method (to be implemented in Supabase version)
+                await this.runUploadWorkflow(csvContent);
+
+                this.addStatusMessage('✅ Creator data uploaded successfully!', 'success');
+            } catch (error) {
+                this.addStatusMessage(`❌ Upload error: ${error.message}`, 'error');
+                console.error('Upload error:', error);
+            }
+        };
+    }
+
+    /**
+     * Reads a file as text
+     */
+    readFileAsText(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
+    }
+
+    /**
+     * Runs the upload workflow (to be overridden by Supabase version)
+     */
+    async runUploadWorkflow(csvContent) {
+        throw new Error('runUploadWorkflow must be overridden by subclass');
     }
 
     /**

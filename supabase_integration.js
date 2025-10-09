@@ -1140,6 +1140,81 @@ class SupabaseIntegration {
         return this.arrayToCSV(headers, rows);
     }
 
+    /**
+     * Upload and enrich creator data
+     * Calls RPC function to join with existing creators_insights and upsert
+     *
+     * @param {Array} creatorData - Array of cleaned creator objects with creator_id, creator_username, raw_data
+     * @returns {Promise} - { success: true, stats: { uploaded: N, enriched: N } }
+     */
+    async uploadAndEnrichCreatorData(creatorData) {
+        if (!creatorData || creatorData.length === 0) {
+            throw new Error('No creator data to upload');
+        }
+
+        try {
+            console.log(`Uploading ${creatorData.length} creator records...`);
+
+            // Step 1: Call RPC function to enrich data with existing metrics
+            const { data: enrichedData, error: rpcError } = await this.supabase
+                .rpc('upload_creator_data', {
+                    creator_data: creatorData.map(c => ({
+                        creator_id: c.creator_id,
+                        creator_username: c.creator_username,
+                        raw_data: c.raw_data
+                    }))
+                });
+
+            if (rpcError) {
+                console.error('RPC error:', rpcError);
+                throw new Error(`Failed to enrich creator data: ${rpcError.message}`);
+            }
+
+            console.log(`Enriched ${enrichedData.length} creator records`);
+
+            // Step 2: Upsert enriched data into creators_insights
+            const upsertData = enrichedData.map(row => ({
+                creator_id: row.creator_id,
+                creator_username: row.creator_username,
+                raw_data: row.raw_data,
+                total_copies: row.total_copies || 0,
+                total_subscriptions: row.total_subscriptions || 0,
+                total_investment_count: row.total_investment_count || 0,
+                total_investments: row.total_investments || 0,
+                synced_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }));
+
+            const { error: upsertError } = await this.supabase
+                .from('creators_insights')
+                .upsert(upsertData, {
+                    onConflict: 'creator_username',
+                    ignoreDuplicates: false
+                });
+
+            if (upsertError) {
+                console.error('Upsert error:', upsertError);
+                throw new Error(`Failed to upload creator data: ${upsertError.message}`);
+            }
+
+            console.log(`✅ Uploaded ${upsertData.length} creator records to database`);
+
+            return {
+                success: true,
+                stats: {
+                    uploaded: upsertData.length,
+                    enriched: enrichedData.length
+                }
+            };
+        } catch (error) {
+            console.error('Upload and enrich error:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
     // ========================================================================
     // DEPRECATED METHODS
     // ========================================================================
