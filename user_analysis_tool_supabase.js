@@ -62,9 +62,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             }, 500);
                         }
                     }
-                    if (data.creator && this.outputContainers.creator) {
-                        this.outputContainers.creator.innerHTML = data.creator;
-                    }
 
                     console.log('✅ Restored analysis results from', data.timestamp);
                 }
@@ -262,13 +259,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Step 2: Build complete HTML with fresh data (modifies DOM directly)
         await this.buildCompleteHTML(results);
 
-        // Step 3: Cache complete rendered HTML for all tabs
+        // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
             const cacheData = {
-                summary: this.outputContainers.summary.innerHTML,
-                portfolio: this.outputContainers.portfolio.innerHTML,
-                subscription: this.outputContainers.subscription.innerHTML,
-                creator: this.outputContainers.creator.innerHTML,
+                summary: this.outputContainers.summary?.innerHTML || '',
+                portfolio: this.outputContainers.portfolio?.innerHTML || '',
+                subscription: this.outputContainers.subscription?.innerHTML || '',
                 subscriptionDistribution: this.cachedSubscriptionDistribution, // Cache chart data
                 timestamp: new Date().toISOString()
             };

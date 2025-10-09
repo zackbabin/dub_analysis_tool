@@ -454,6 +454,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         note.innerHTML = '<strong>Note:</strong> Correlation analysis is only available when using manual CSV upload with raw creator data.';
         resultsDiv.appendChild(note);
 
+        // Save timestamp to localStorage so it persists on refresh
+        localStorage.setItem('creatorAnalysisResults', JSON.stringify({
+            summaryStats: summaryStats,
+            lastUpdated: timestampText
+        }));
+        console.log('✅ Cached creator sync results with timestamp:', timestampText);
+
         this.updateProgress(100, 'Complete!');
 
         // Hide progress bar after completion (with safety check)
