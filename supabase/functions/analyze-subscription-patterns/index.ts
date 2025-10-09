@@ -340,53 +340,68 @@ serve(async (_req) => {
       .delete()
       .eq('analysis_type', 'subscription')
 
-    for (const combo of generateCombinations(topCreators, 2)) {
-      const result = evaluateCombination(combo, users)
+    // Parallel evaluation with controlled concurrency
+    // Evaluates 4 combinations simultaneously (pure CPU work, no API calls)
+    const EVAL_CONCURRENCY = 4
+    const allCombinations = Array.from(generateCombinations(topCreators, 2))
 
-      // Only keep combinations where at least 1 user viewed both creators AND at least 1 subscription occurred
-      if (result.users_with_exposure > 0 && result.total_conversions > 0) {
-        streamBatch.push(result)
-        keptCount++
+    console.log(`Starting parallel evaluation with concurrency ${EVAL_CONCURRENCY}...`)
 
-        // Insert batch when it reaches size limit
-        if (streamBatch.length >= STREAM_BATCH_SIZE) {
-          const insertRows = streamBatch.map((r, index) => ({
-            analysis_type: 'subscription',
-            combination_rank: keptCount - streamBatch.length + index + 1, // Temporary rank
-            value_1: r.combination[0],
-            value_2: r.combination[1],
-            value_3: null,
-            username_1: creatorIdToUsername.get(r.combination[0]) || null,
-            username_2: creatorIdToUsername.get(r.combination[1]) || null,
-            username_3: null,
-            log_likelihood: r.log_likelihood,
-            aic: r.aic,
-            odds_ratio: r.odds_ratio,
-            precision: r.precision,
-            recall: r.recall,
-            lift: r.lift,
-            users_with_exposure: r.users_with_exposure,
-            conversion_rate_in_group: r.conversion_rate_in_group,
-            overall_conversion_rate: r.overall_conversion_rate,
-            total_conversions: r.total_conversions,
-            analyzed_at: analyzedAt,
-          }))
+    // Process combinations in parallel chunks
+    for (let i = 0; i < allCombinations.length; i += EVAL_CONCURRENCY) {
+      const chunk = allCombinations.slice(i, Math.min(i + EVAL_CONCURRENCY, allCombinations.length))
 
-          const { error: insertError } = await supabaseClient
-            .from('conversion_pattern_combinations')
-            .insert(insertRows)
+      // Evaluate chunk in parallel
+      const chunkResults = await Promise.all(
+        chunk.map(combo => Promise.resolve(evaluateCombination(combo, users)))
+      )
 
-          if (insertError) {
-            console.error('Error inserting batch:', insertError)
-            throw insertError
+      // Filter and collect results
+      for (const result of chunkResults) {
+        if (result.users_with_exposure > 0 && result.total_conversions > 0) {
+          streamBatch.push(result)
+          keptCount++
+
+          // Insert batch when it reaches size limit
+          if (streamBatch.length >= STREAM_BATCH_SIZE) {
+            const insertRows = streamBatch.map((r, index) => ({
+              analysis_type: 'subscription',
+              combination_rank: keptCount - streamBatch.length + index + 1, // Temporary rank
+              value_1: r.combination[0],
+              value_2: r.combination[1],
+              value_3: null,
+              username_1: creatorIdToUsername.get(r.combination[0]) || null,
+              username_2: creatorIdToUsername.get(r.combination[1]) || null,
+              username_3: null,
+              log_likelihood: r.log_likelihood,
+              aic: r.aic,
+              odds_ratio: r.odds_ratio,
+              precision: r.precision,
+              recall: r.recall,
+              lift: r.lift,
+              users_with_exposure: r.users_with_exposure,
+              conversion_rate_in_group: r.conversion_rate_in_group,
+              overall_conversion_rate: r.overall_conversion_rate,
+              total_conversions: r.total_conversions,
+              analyzed_at: analyzedAt,
+            }))
+
+            const { error: insertError } = await supabaseClient
+              .from('conversion_pattern_combinations')
+              .insert(insertRows)
+
+            if (insertError) {
+              console.error('Error inserting batch:', insertError)
+              throw insertError
+            }
+
+            streamBatch = [] // Clear batch after insert
           }
-
-          streamBatch = [] // Clear batch after insert
         }
       }
 
-      processed++
-      if (processed % 1000 === 0) {
+      processed += chunk.length
+      if (processed % 1000 === 0 || i + EVAL_CONCURRENCY >= allCombinations.length) {
         console.log(`Processed ${processed}/${totalCombinations} combinations (kept ${keptCount})...`)
       }
     }
