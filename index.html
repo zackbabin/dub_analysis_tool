@@ -393,6 +393,7 @@
         <button class="tab-btn" data-tab="portfolio">Portfolio Analysis</button>
         <button class="tab-btn" data-tab="subscription">Subscription Analysis</button>
         <button class="tab-btn" data-tab="creator">Creator Analysis</button>
+        <button class="tab-btn" data-tab="business-model">Business Model Analysis</button>
     </div>
 
     <!-- Unified Data Source Component (shared across all tabs) -->
@@ -451,6 +452,13 @@
         </div>
     </div>
 
+    <!-- Business Model Analysis Tab -->
+    <div id="business-model-tab" class="tab-pane">
+        <div class="tab-container">
+            <div id="businessModelContent"></div>
+        </div>
+    </div>
+
     <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -474,6 +482,9 @@
 
     <!-- Load Creator Analysis Tool Supabase Version -->
     <script src="creator_analysis_tool_supabase.js"></script>
+
+    <!-- Load Business Model Analysis Tool -->
+    <script src="business-model-analysis.js"></script>
 
     <script>
         // Supabase Configuration
@@ -609,6 +620,14 @@
                 targetPane.classList.add('active');
             }
 
+            // Hide/show data source component based on tab
+            const dataSourceElement = document.getElementById('unifiedDataSource');
+            if (tabName === 'business-model') {
+                dataSourceElement.style.display = 'none';
+            } else {
+                dataSourceElement.style.display = 'block';
+            }
+
             // Update button states based on active tab
             updateButtonStates(tabName, buttons, userTool, creatorTool);
         }
@@ -632,14 +651,14 @@
             // Listen for hash changes (browser back/forward)
             window.addEventListener('hashchange', () => {
                 const hash = window.location.hash.slice(1); // Remove the '#'
-                const validTabs = ['summary', 'portfolio', 'subscription', 'creator'];
+                const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
                 const targetTab = validTabs.includes(hash) ? hash : 'summary';
                 switchToTab(targetTab, buttons, userTool, creatorTool);
             });
 
             // Initialize tab from URL hash on page load
             const initialHash = window.location.hash.slice(1);
-            const validTabs = ['summary', 'portfolio', 'subscription', 'creator'];
+            const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
             const initialTab = validTabs.includes(initialHash) ? initialHash : 'summary';
 
             // Set initial hash if not present
@@ -707,6 +726,10 @@
             initializeTabs(buttons, userTool, creatorTool);
 
             console.log('✅ Unified data source component created');
+
+            // Initialize Business Model Analysis Tool
+            const businessModelAnalysis = new BusinessModelAnalysis('businessModelContent');
+            console.log('✅ Business Model Analysis Tool initialized');
         };
     </script>
 </body>
