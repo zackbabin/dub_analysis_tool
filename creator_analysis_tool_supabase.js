@@ -449,89 +449,67 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Override: Run the sync workflow using Supabase
+     * Only syncs Mixpanel data to creators_insights table - does NOT run analysis
      */
     async runSyncWorkflow() {
         if (!this.supabaseIntegration) {
             throw new Error('Supabase not configured. Please check your configuration.');
         }
 
-        // Step 1: Trigger Supabase Edge Function
-        this.updateProgress(15, 'Syncing data...');
+        this.clearStatus();
+        this.showStatus();
 
-        console.log('Triggering Supabase creator sync...');
-        const result = await this.supabaseIntegration.triggerCreatorSync();
+        try {
+            this.updateProgress(20, 'Syncing Mixpanel data...');
 
-        if (!result || !result.success) {
-            throw new Error('Failed to sync creator data');
-        }
+            console.log('Triggering Supabase creator enrichment sync...');
+            const result = await this.supabaseIntegration.triggerCreatorSync();
 
-        console.log('✅ Creator sync completed:', result.stats);
-        this.updateProgress(50, 'Loading data...');
-
-        // Step 2: Load data from Supabase
-        const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-        this.updateProgress(75, 'Processing data...');
-
-        console.log('✅ Data loaded from Supabase');
-
-        // Step 3: Parse and display summary stats only (no correlation analysis)
-        const parsedData = this.parseCSV(contents[0]);
-        const cleanData = this.cleanCreatorData(parsedData);
-        const summaryStats = this.calculateCreatorSummaryStats(cleanData);
-
-        this.updateProgress(90, 'Displaying results...');
-
-        // Display only summary stats and breakdown (no behavioral analysis)
-        this.outputContainer.innerHTML = '';
-        const resultsDiv = document.createElement('div');
-        resultsDiv.id = 'creatorAnalysisResultsInline';
-        resultsDiv.className = 'qda-analysis-results';
-        this.outputContainer.appendChild(resultsDiv);
-
-        // Add timestamp
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        const now = new Date();
-        const timestampText = now.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-        timestamp.textContent = `Last updated: ${timestampText}`;
-        resultsDiv.appendChild(timestamp);
-
-        resultsDiv.innerHTML += `
-            <div id="creatorSummaryStatsInline"></div>
-        `;
-
-        this.displayCreatorSummaryStats(summaryStats);
-
-        // Add note about correlation analysis
-        const note = document.createElement('div');
-        note.className = 'info-message';
-        note.style.marginTop = '2rem';
-        note.innerHTML = '<strong>Note:</strong> Correlation analysis is only available when using manual CSV upload with raw creator data.';
-        resultsDiv.appendChild(note);
-
-        // Save timestamp to localStorage so it persists on refresh
-        localStorage.setItem('creatorAnalysisResults', JSON.stringify({
-            summaryStats: summaryStats,
-            lastUpdated: timestampText
-        }));
-        console.log('✅ Cached creator sync results with timestamp:', timestampText);
-
-        this.updateProgress(100, 'Complete!');
-
-        // Hide progress bar after completion (with safety check)
-        setTimeout(() => {
-            const progressSection = document.getElementById('creatorProgressSection');
-            if (progressSection) {
-                progressSection.style.display = 'none';
+            if (!result || !result.success) {
+                throw new Error('Failed to sync creator data');
             }
-        }, 2000);
+
+            console.log('✅ Creator enrichment sync completed:', result.stats);
+            this.updateProgress(100, 'Sync complete!');
+
+            // Display success message
+            this.outputContainer.innerHTML = '';
+            const successDiv = document.createElement('div');
+            successDiv.className = 'qda-analysis-results';
+            successDiv.innerHTML = `
+                <div style="padding: 30px; text-align: center; background: #e8f5e9; border-radius: 8px; border: 2px solid #4caf50;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
+                    <h3 style="color: #2e7d32; margin: 0 0 10px 0;">Mixpanel Data Synced Successfully</h3>
+                    <p style="color: #555; margin: 0 0 20px 0;">
+                        Enriched ${result.stats.enrichedCreators || 0} creators with Mixpanel user profile data
+                    </p>
+                    <div style="font-size: 14px; color: #666; background: white; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                        <strong>Stats:</strong><br>
+                        Total Mixpanel users: ${result.stats.totalMixpanelUsers || 0}<br>
+                        Matched creators: ${result.stats.matchedCreators || 0}<br>
+                        Enriched: ${result.stats.enrichedCreators || 0}
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
+                        <strong>📝 Note:</strong> To run correlation analysis, upload 3 CSV files using "Manually Upload Data"
+                    </div>
+                </div>
+            `;
+            this.outputContainer.appendChild(successDiv);
+
+            this.addStatusMessage('✅ Sync complete!', 'success');
+
+            // Hide progress bar after completion
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Sync workflow error:', error);
+            this.addStatusMessage(`❌ Sync failed: ${error.message}`, 'error');
+            throw error;
+        }
     }
 
 }
