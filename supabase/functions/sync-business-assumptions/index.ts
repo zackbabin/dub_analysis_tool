@@ -53,10 +53,23 @@ serve(async (req) => {
     // Fetch data from Mixpanel
     const data = await fetchBusinessAssumptionsData(credentials)
 
-    // Calculate averages
-    const totalRebalances = calculateAverage(data.series['A. Total Rebalances'])
-    const tradesPerUser = calculateAverage(data.series['Trades per user'])
-    const portfoliosCreatedPerUser = calculateAverage(data.series['Portfolios Created per user'])
+    // Log available series keys for debugging
+    console.log('Available series keys:', Object.keys(data.series || {}))
+
+    // Calculate averages with fallback
+    const totalRebalances = data.series['Total Rebalances']
+      ? calculateAverage(data.series['Total Rebalances'])
+      : data.series['Rebalances per user']
+        ? calculateAverage(data.series['Rebalances per user'])
+        : 0
+
+    const tradesPerUser = data.series['Trades per user']
+      ? calculateAverage(data.series['Trades per user'])
+      : 0
+
+    const portfoliosCreatedPerUser = data.series['Portfolios Created per user']
+      ? calculateAverage(data.series['Portfolios Created per user'])
+      : 0
 
     console.log('Calculated averages:', {
       totalRebalances,
