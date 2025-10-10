@@ -493,8 +493,8 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'modelA_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelA_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true, false, 'Calculated as: Total Trading Events × Transaction Fee per trade<br><br>Total Trading Events = Total Trades + Total Rebalances + Total Portfolios Created')}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers accumulate monthly based on subscription conversion rate and churn rate')}
+                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true, false, 'Calculated as: Total Trading Events × Transaction Fee per trade<br><br>Total Trading Events = Total Trades + Total Rebalances + Total Portfolios Created<br><br>Each component is calculated based on Cumulative Funded Accounts (which includes account closure rates), multiplied by the respective activity rate per user and growth rate')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers = New subscribers added each month minus churned subscribers<br><br>New Subscribers = KYC Approved × (1 - Account Closure Rate) × Subscription Conversion Rate<br><br>Churned Subscribers = Previous Active Subscribers × Subscription Churn Rate')}
                             ${this.renderMetricRow('Total Revenue', 'modelA_totalRevenue', projections, false, '#cfe2ff', true, true)}
 
                             ${this.renderMetricRow('MODEL B: MAINTENANCE FEE', null, projections, true, '#e8f5e9')}
@@ -508,8 +508,8 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'modelB_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelB_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true, false, 'Calculated as: Cumulative Funded Accounts × (1 - Waived Fees %) × Monthly Maintenance Fee per account<br><br>Only accounts that have not waived the fee are charged the monthly maintenance fee')}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers accumulate monthly based on subscription conversion rate and churn rate')}
+                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true, false, 'Calculated as: Cumulative Funded Accounts × (1 - Waived Fees %) × Monthly Maintenance Fee per account<br><br>Cumulative Funded Accounts includes account closure rates applied to new funded accounts each month<br><br>Only accounts that have not waived the fee are charged the monthly maintenance fee')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers = New subscribers added each month minus churned subscribers<br><br>New Subscribers = KYC Approved × (1 - Account Closure Rate) × Subscription Conversion Rate<br><br>Churned Subscribers = Previous Active Subscribers × Subscription Churn Rate')}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
                         </tbody>
                     </table>
