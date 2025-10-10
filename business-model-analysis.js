@@ -502,15 +502,12 @@ class BusinessModelAnalysis {
                     </div>
                     <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year1.modelB_totalRevenue - year1.modelA_totalRevenue)}</div>
-                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year1.modelB_totalRevenue - year1.modelA_totalRevenue) / year1.modelA_totalRevenue) * 100)} higher</div>
                     </div>
                     <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year2.modelB_totalRevenue - year2.modelA_totalRevenue)}</div>
-                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year2.modelB_totalRevenue - year2.modelA_totalRevenue) / year2.modelA_totalRevenue) * 100)} higher</div>
                     </div>
                     <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year3.modelB_totalRevenue - year3.modelA_totalRevenue)}</div>
-                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year3.modelB_totalRevenue - year3.modelA_totalRevenue) / year3.modelA_totalRevenue) * 100)} higher</div>
                     </div>
                 </div>
 
