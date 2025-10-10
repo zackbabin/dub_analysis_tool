@@ -395,6 +395,8 @@ class BusinessModelAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
                     ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
+                    ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
                 </div>
             </div>
         `;
@@ -407,8 +409,6 @@ class BusinessModelAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Trades', 'avgMonthlyTrades')}
                     ${this.renderInput('Trade Volume Growth (% monthly)', 'tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'portfolioCreationGrowth')}
                 </div>
