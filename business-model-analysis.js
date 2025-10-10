@@ -298,22 +298,23 @@ class BusinessModelAnalysis {
                 }
                 .metric-tooltip .tooltip-text {
                     visibility: hidden;
-                    width: 300px;
+                    width: 400px;
                     background-color: #2d3748;
                     color: #fff;
                     text-align: left;
                     border-radius: 6px;
-                    padding: 10px;
+                    padding: 12px;
                     position: absolute;
                     z-index: 1000;
                     bottom: 125%;
                     left: 50%;
-                    margin-left: -150px;
+                    margin-left: -200px;
                     opacity: 0;
                     transition: opacity 0.3s;
                     font-size: 12px;
-                    line-height: 1.5;
+                    line-height: 1.6;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    white-space: normal;
                 }
                 .metric-tooltip .tooltip-text::after {
                     content: "";
@@ -494,8 +495,8 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'modelA_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelA_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true, false, 'Total Trading Events × Transaction Fee per trade')}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true, false, 'Active Subscribers × Subscription Price × Dub Revenue Share')}
+                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true, false, 'Calculated as: Total Trading Events × Transaction Fee per trade<br><br>Total Trading Events = Total Trades + Total Rebalances + Total Portfolios Created')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers accumulate monthly based on subscription conversion rate and churn rate')}
                             ${this.renderMetricRow('Total Revenue', 'modelA_totalRevenue', projections, false, '#cfe2ff', true, true)}
 
                             ${this.renderMetricRow('MODEL B: MAINTENANCE FEE', null, projections, true, '#e8f5e9')}
@@ -509,8 +510,8 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'modelB_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelB_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true, false, 'Cumulative Funded Accounts × (1 - Waived Fees %) × Monthly Maintenance Fee')}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true, false, 'Active Subscribers × Subscription Price × Dub Revenue Share')}
+                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true, false, 'Calculated as: Cumulative Funded Accounts × (1 - Waived Fees %) × Monthly Maintenance Fee per account<br><br>Only accounts that have not waived the fee are charged the monthly maintenance fee')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true, false, 'Calculated as: Active Subscribers × Subscription Price × Dub Revenue Share %<br><br>Active Subscribers accumulate monthly based on subscription conversion rate and churn rate')}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
                         </tbody>
                     </table>
