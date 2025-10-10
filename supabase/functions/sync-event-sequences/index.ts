@@ -344,7 +344,7 @@ serve(async (req) => {
       stats.eventSequencesFetched = rawEventRows.length
 
       // Upsert raw data in batches to event_sequences_raw table
-      const batchSize = 500 // Reduced to avoid statement timeout
+      const batchSize = 250 // Further reduced to avoid statement timeout (was 500)
       let totalInserted = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {

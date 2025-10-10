@@ -286,8 +286,6 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
     if (attributes) {
       rows.push({
-        creator_id: normalizedEmail,
-        creator_username: null, // Will be updated from uploaded_creators if needed
         email: normalizedEmail,
         total_deposits: attributes.totalDeposits,
         active_created_portfolios: attributes.activeCreatedPortfolios,

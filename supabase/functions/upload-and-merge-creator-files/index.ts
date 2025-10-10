@@ -361,7 +361,6 @@ serve(async (req) => {
     const uploadedAt = new Date().toISOString()
 
     const dbRows = finalCreators.map(creator => ({
-      creator_id: creator.creatorUsername || creator.email, // Use username as ID if available
       creator_username: creator.creatorUsername || null,
       email: creator.email,
       raw_data: creator, // Store entire object as JSONB
