@@ -472,6 +472,7 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-container">
+            <div id="creatorContent"></div>
             <div id="creatorProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
                 <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
                     <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
@@ -829,7 +830,10 @@
 
             // Initialize Creator Analysis Tool
             const creatorTool = new CreatorAnalysisToolSupabase();
-            creatorTool.outputContainer = document.getElementById('creatorResultsContainer');
+            creatorTool.createUI(
+                document.getElementById('creatorContent'),
+                document.getElementById('creatorResultsContainer')
+            );
             creatorTool.supabaseIntegration = window.supabaseIntegration;
 
             // Setup 3-file upload handler with Process Files button
