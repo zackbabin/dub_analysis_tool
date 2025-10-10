@@ -228,6 +228,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: Show the upload section with 3 file inputs
+     */
+    showUploadSection() {
+        const uploadSection = document.getElementById('creatorUploadSection');
+        if (uploadSection) {
+            uploadSection.style.display = 'block';
+        }
+    }
+
+    /**
      * Override: Run the upload workflow using Supabase with 3 files
      */
     async runUploadWorkflow() {
