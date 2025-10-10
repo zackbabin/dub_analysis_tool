@@ -298,31 +298,29 @@ class BusinessModelAnalysis {
                 }
                 .metric-tooltip .tooltip-text {
                     visibility: hidden;
-                    width: 400px;
+                    width: 420px;
                     background-color: #2d3748;
                     color: #fff;
                     text-align: left;
                     border-radius: 6px;
-                    padding: 12px;
-                    position: absolute;
-                    z-index: 1000;
-                    bottom: 125%;
-                    left: 50%;
-                    margin-left: -200px;
+                    padding: 14px;
+                    position: fixed;
+                    z-index: 10000;
                     opacity: 0;
                     transition: opacity 0.3s;
                     font-size: 12px;
                     line-height: 1.6;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
                     white-space: normal;
+                    pointer-events: none;
                 }
                 .metric-tooltip .tooltip-text::after {
                     content: "";
                     position: absolute;
                     top: 100%;
                     left: 50%;
-                    margin-left: -5px;
-                    border-width: 5px;
+                    transform: translateX(-50%);
+                    border-width: 6px;
                     border-style: solid;
                     border-color: #2d3748 transparent transparent transparent;
                 }
@@ -688,6 +686,23 @@ class BusinessModelAnalysis {
         if (syncButton) {
             syncButton.addEventListener('click', () => this.syncBusinessAssumptions());
         }
+
+        // Attach tooltip positioning listeners
+        const tooltips = this.container.querySelectorAll('.metric-tooltip');
+        tooltips.forEach(tooltip => {
+            tooltip.addEventListener('mouseenter', (e) => {
+                const tooltipText = tooltip.querySelector('.tooltip-text');
+                if (tooltipText) {
+                    const rect = tooltip.getBoundingClientRect();
+                    // Center the tooltip horizontally on the trigger element
+                    const left = rect.left + (rect.width / 2);
+                    tooltipText.style.left = `${left}px`;
+                    tooltipText.style.top = `${rect.top}px`;
+                    // Adjust to center the tooltip box itself
+                    tooltipText.style.transform = 'translate(-50%, calc(-100% - 10px))';
+                }
+            });
+        });
     }
 }
 
