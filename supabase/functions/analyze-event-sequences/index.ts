@@ -120,12 +120,13 @@ serve(async (req) => {
 
     // Prepare data for Claude with prompt caching
     // Balance converters and non-converters to equal counts for fair analysis
-    // With caching, we can analyze 120 users per batch (60 converters + 60 non-converters)
-    // Reduced batch size to stay under 200k token limit
+    // With caching, we can analyze 60 users per batch (30 converters + 30 non-converters)
+    // Smaller batches stay well under 200k token limit per API call
     // Process up to 100 events per user for richer sequence data
-    const BATCH_SIZE = 60 // Per group (converters and non-converters)
+    // More batches = same total coverage but safer token usage
+    const BATCH_SIZE = 30 // Per group (converters and non-converters) - reduced from 60
     const EVENTS_PER_USER = 100
-    const MAX_BATCHES = 15 // Process up to 900 converters + 900 non-converters total
+    const MAX_BATCHES = 30 // Process up to 900 converters + 900 non-converters total - increased from 15
 
     // Balance to equal sizes
     const minSize = Math.min(converters.length, nonConverters.length)
@@ -254,7 +255,7 @@ Order from highest impact to lowest impact.
       })
 
       const reductionPercent = ((1 - totalDedupedEvents / totalRawEvents) * 100).toFixed(1)
-      console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters`)
+      console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters (${convertersBatch.length + nonConvertersBatch.length} total users)`)
       console.log(`Event deduplication: ${totalRawEvents} raw events → ${totalDedupedEvents} unique events (${reductionPercent}% reduction)`)
 
       // Build data section for this batch
