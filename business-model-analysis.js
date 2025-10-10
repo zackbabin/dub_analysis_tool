@@ -170,9 +170,9 @@ class BusinessModelAnalysis {
             modelB_cumulativeFundedAccounts += modelB_fundedAccounts;
 
             // Trading activity - MODEL A - based on Model A cumulative funded accounts
-            const tradeVolumeMultiplier = Math.pow(1 + this.assumptions.tradeVolumeGrowth / 100, month);
-            const rebalanceMultiplier = Math.pow(1 + this.assumptions.rebalanceGrowth / 100, month);
-            const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month);
+            const tradeVolumeMultiplier = Math.pow(1 + this.assumptions.tradeVolumeGrowth / 100, month - 1);
+            const rebalanceMultiplier = Math.pow(1 + this.assumptions.rebalanceGrowth / 100, month - 1);
+            const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month - 1);
 
             const modelA_trades = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
             const modelA_rebalances = this.assumptions.avgMonthlyRebalances * rebalanceMultiplier; // Use input value directly with growth
