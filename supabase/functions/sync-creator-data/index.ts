@@ -83,45 +83,16 @@ serve(async (req) => {
 
       console.log('User profile data fetched successfully')
 
-      // Get list of emails from uploaded_creators (most recent batch)
-      console.log('Fetching list of uploaded creator emails...')
-      const { data: uploadedCreators, error: uploadError } = await supabase
-        .from('uploaded_creators')
-        .select('email, creator_username')
-        .order('uploaded_at', { ascending: false })
+      // Process ALL Mixpanel data (no filtering)
+      console.log('Processing all Mixpanel user profiles...')
 
-      if (uploadError) {
-        throw new Error(`Failed to fetch uploaded creators: ${uploadError.message}`)
-      }
-
-      if (!uploadedCreators || uploadedCreators.length === 0) {
-        throw new Error('No uploaded creators found. Please upload creator files first.')
-      }
-
-      // Get most recent upload timestamp
-      const { data: latestUpload } = await supabase
-        .from('uploaded_creators')
-        .select('uploaded_at')
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      const latestUploadTime = latestUpload?.uploaded_at
-
-      // Get creators from most recent batch only
-      const recentCreators = uploadedCreators.filter(c => c.uploaded_at === latestUploadTime)
-      const creatorEmails = new Set(recentCreators.map(c => c.email.toLowerCase().trim()))
-
-      console.log(`Found ${creatorEmails.size} creator emails in most recent upload`)
-
-      // Process Mixpanel data
       const stats: SyncStats = {
         totalMixpanelUsers: 0,
         matchedCreators: 0,
         enrichedCreators: 0,
       }
 
-      const enrichmentRows = processUserProfileData(userProfileData, creatorEmails, stats)
+      const enrichmentRows = processUserProfileData(userProfileData, null, stats)
 
       console.log(`Processed ${enrichmentRows.length} creator enrichment rows`)
       console.log(`Stats: ${stats.totalMixpanelUsers} total users, ${stats.matchedCreators} matched creators`)
@@ -254,7 +225,7 @@ async function fetchInsightsData(
 // Helper Functions - Data Processing
 // ============================================================================
 
-function processUserProfileData(data: any, creatorEmails: Set<string>, stats: SyncStats): any[] {
+function processUserProfileData(data: any, creatorEmails: Set<string> | null, stats: SyncStats): any[] {
   if (!data || !data.series) {
     console.log('No user profile data')
     return []
@@ -303,8 +274,8 @@ function processUserProfileData(data: any, creatorEmails: Set<string>, stats: Sy
     const normalizedEmail = email.toLowerCase().trim()
     stats.totalMixpanelUsers++
 
-    // Check if this email is in our uploaded creators list
-    if (!creatorEmails.has(normalizedEmail)) {
+    // If creatorEmails filter is provided, check if email is in the list
+    if (creatorEmails !== null && !creatorEmails.has(normalizedEmail)) {
       continue // Skip users not in uploaded creators
     }
 

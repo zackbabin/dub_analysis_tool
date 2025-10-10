@@ -346,6 +346,11 @@ class BusinessModelAnalysis {
         `;
 
         this.attachEventListeners();
+
+        // Add anchor links to all headers
+        if (window.addAnchorLinks) {
+            window.addAnchorLinks(this.container);
+        }
     }
 
     renderAssumptions() {

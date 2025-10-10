@@ -45,12 +45,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Restore cached HTML to each tab (if available and container exists)
                     if (data.summary && this.outputContainers.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.summary);
                     }
                     if (data.portfolio && this.outputContainers.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.portfolio);
                     }
                     if (data.subscription && this.outputContainers.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.subscription);
 
                         // Re-render subscription price chart if data is cached
                         if (data.subscriptionDistribution) {
@@ -251,9 +254,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const data = JSON.parse(cached);
                 if (data.timestamp) {
                     // Restore cached HTML to each tab (if available)
-                    if (data.summary) this.outputContainers.summary.innerHTML = data.summary;
-                    if (data.portfolio) this.outputContainers.portfolio.innerHTML = data.portfolio;
-                    if (data.subscription) this.outputContainers.subscription.innerHTML = data.subscription;
+                    if (data.summary) {
+                        this.outputContainers.summary.innerHTML = data.summary;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.summary);
+                    }
+                    if (data.portfolio) {
+                        this.outputContainers.portfolio.innerHTML = data.portfolio;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.portfolio);
+                    }
+                    if (data.subscription) {
+                        this.outputContainers.subscription.innerHTML = data.subscription;
+                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.subscription);
+                    }
                     if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
                     const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
@@ -563,6 +575,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
             }
         });
+
+        // Add anchor links to all H1 and H2 headers
+        if (window.addAnchorLinks) {
+            window.addAnchorLinks(summaryContainer);
+            window.addAnchorLinks(portfolioContainer);
+            window.addAnchorLinks(subscriptionContainer);
+        }
     }
 
     /**

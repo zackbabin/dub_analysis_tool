@@ -379,6 +379,30 @@
             margin-bottom: 4px;
         }
 
+        /* Anchor Link Styles */
+        .anchor-link {
+            position: relative;
+            scroll-margin-top: 20px;
+        }
+
+        .anchor-link .anchor-icon {
+            position: absolute;
+            left: -24px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            text-decoration: none;
+            color: #17a2b8;
+            font-size: 0.8em;
+        }
+
+        .anchor-link:hover .anchor-icon {
+            opacity: 1;
+        }
+
+        .anchor-icon:hover {
+            color: #138496;
+        }
+
         /* Portfolio and Creator Tooltip Styles */
         .portfolio-tooltip,
         .creator-tooltip {
@@ -687,6 +711,66 @@
             }
 
             switchToTab(initialTab, buttons, userTool, creatorTool);
+        }
+
+        // Utility function to create anchor-friendly slug from text
+        function createSlug(text) {
+            return text
+                .toLowerCase()
+                .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+                .replace(/\s+/g, '-') // Replace spaces with hyphens
+                .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+                .trim();
+        }
+
+        // Utility function to add anchor links to H1, H2, and H3 elements
+        function addAnchorLinks(container) {
+            if (!container) return;
+
+            const headers = container.querySelectorAll('h1, h2, h3');
+            headers.forEach(header => {
+                // Skip if already has anchor-link class
+                if (header.classList.contains('anchor-link')) return;
+
+                // Get the text content (strip out any existing HTML)
+                const textContent = header.textContent.trim();
+
+                // Create slug from text
+                const slug = createSlug(textContent);
+
+                // Add anchor-link class and id
+                header.classList.add('anchor-link');
+                header.id = slug;
+
+                // Create anchor icon
+                const anchorIcon = document.createElement('a');
+                anchorIcon.href = `#${slug}`;
+                anchorIcon.className = 'anchor-icon';
+                anchorIcon.innerHTML = '🔗';
+                anchorIcon.title = 'Link to this section';
+
+                // Prevent default and update URL without scrolling
+                anchorIcon.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    history.pushState(null, null, `#${slug}`);
+
+                    // Copy link to clipboard
+                    const fullUrl = window.location.href;
+                    navigator.clipboard.writeText(fullUrl).then(() => {
+                        // Show brief feedback
+                        const originalText = anchorIcon.innerHTML;
+                        anchorIcon.innerHTML = '✓';
+                        setTimeout(() => {
+                            anchorIcon.innerHTML = originalText;
+                        }, 1000);
+                    }).catch(err => {
+                        console.error('Failed to copy link:', err);
+                    });
+                });
+
+                // Insert anchor icon as first child
+                header.insertBefore(anchorIcon, header.firstChild);
+            });
         }
 
         // Initialize User Analysis Tool
