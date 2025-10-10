@@ -435,18 +435,8 @@
 
     <!-- Unified Data Source Component (shared across all tabs) -->
     <div id="unifiedDataSource">
-        <!-- This will be populated by JavaScript -->
+        <!-- This will be populated by JavaScript, including progress bar and status -->
     </div>
-
-    <!-- Unified Progress Bar (visible across first 3 tabs) -->
-    <div id="unifiedProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
-        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-            <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                0%
-            </div>
-        </div>
-    </div>
-    <div id="unifiedStatusSection" style="max-width: 800px; margin: 20px auto; display: none;"></div>
 
     <!-- Summary Stats Tab -->
     <div id="summary-tab" class="tab-pane active">
@@ -538,18 +528,30 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div style="max-width: 800px; margin: 0 auto; background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);">
-                    <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                        <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
-                            <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
-                        </div>
-                        <div id="manualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
-                            <div style="font-size: 12px; color: #6c757d;">Upload creator CSV file for analysis</div>
+                <div style="max-width: 800px; margin: 0 auto;">
+                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
+                        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                            <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
+                                <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
+                            </div>
+                            <div id="manualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
+                                <div style="font-size: 12px; color: #6c757d;">Upload creator CSV file for analysis</div>
+                            </div>
                         </div>
                     </div>
+                    <!-- Progress bar -->
+                    <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px;">
+                        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                            <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                                0%
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Status section -->
+                    <div id="unifiedStatusSection" style="display: none;"></div>
                 </div>
             `;
 

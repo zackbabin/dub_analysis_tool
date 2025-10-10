@@ -41,6 +41,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             wrapper.style.padding = '0';
             wrapper.style.background = 'transparent';
         }
+
+        // Also remove padding from content div to avoid empty space
+        const content = container.querySelector('.qda-content');
+        if (content) {
+            content.style.padding = '0';
+        }
     }
 
     /**
