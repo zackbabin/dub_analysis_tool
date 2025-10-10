@@ -25,6 +25,8 @@ interface AnalysisResult {
     avg_events_before_conversion: number
     insight: string
     recommendation: string
+    top_portfolios?: string[]
+    top_creators?: string[]
   }>
   critical_triggers: Array<{
     event: string
@@ -120,13 +122,14 @@ serve(async (req) => {
 
     // Prepare data for Claude with prompt caching
     // Balance converters and non-converters to equal counts for fair analysis
-    // With separate Edge Functions, we can analyze 200 users per batch (100 converters + 100 non-converters)
+    // With separate Edge Functions and enriched events, we can analyze 500 users per batch (250 converters + 250 non-converters)
     // Each Edge Function invocation has independent 200k token limit
-    // Process up to 150 events per user for richer sequence data
+    // Process up to 200 events per user for richer sequence data
     // Event deduplication reduces ~40-60% of tokens
-    const BATCH_SIZE = 100 // Per group (converters and non-converters) - increased for separate Edge Functions
-    const EVENTS_PER_USER = 150
-    const MAX_BATCHES = 15 // Process up to 1500 converters + 1500 non-converters total
+    // Enriched events (~60 chars) × 500 users × 200 events = 6M chars ≈ 150k tokens (75% of limit)
+    const BATCH_SIZE = 250 // Per group (converters and non-converters) - aggressive setting for maximum coverage
+    const EVENTS_PER_USER = 200
+    const MAX_BATCHES = 10 // Process up to 2500 converters + 2500 non-converters total (5000 users)
 
     // Balance to equal sizes
     const minSize = Math.min(converters.length, nonConverters.length)
@@ -142,6 +145,11 @@ serve(async (req) => {
 Platform: Investment social network where users copy portfolios and subscribe to creators
 Outcome: ${outcomeType} (${outcomeType === 'copies' ? 'total_copies >= 3' : 'has subscribed'})
 Goal: Find event sequences that PREDICT conversion (not just correlate)
+
+IMPORTANT: Events may include contextual properties in parentheses:
+- "Viewed Premium PDP ($PELOSI by @dubAdvisors)" = User viewed the $PELOSI portfolio by creator @dubAdvisors
+- "Viewed Regular Creator Profile (@brettsimba)" = User viewed @brettsimba's profile
+When these properties are present, analyze which specific portfolios/creators drive conversions.
 </context>
 
 <analysis_instructions>
@@ -150,10 +158,12 @@ Goal: Find event sequences that PREDICT conversion (not just correlate)
 3. KEY DIFFERENTIATORS: Events present in converters but rare in non-converters
 4. TIME WINDOWS: Average time between key events in successful conversion paths
 5. CRITICAL MOMENTS: Last 2-3 events before conversion (immediate triggers)
-6. Focus on actionable patterns that product teams can optimize
+6. PORTFOLIO/CREATOR ANALYSIS: When events include properties like "(ticker by @username)", identify which specific portfolios and creators have the highest conversion rates
+7. Focus on actionable patterns that product teams can optimize
 
 CONSISTENCY REQUIREMENTS:
 - Use the EXACT event names as they appear in the data provided - do not rename, rephrase, or clean up event names
+- Preserve the property format exactly: "Event Name (property)"
 - Maintain stable pattern identification - if data hasn't materially changed, return the same top patterns in the same order
 - Keep insights and recommendations similarly worded when the underlying patterns are consistent
 - Calculate metrics (lift, prevalence) using the same methodology each time
@@ -178,7 +188,9 @@ Order from highest impact to lowest impact.
       "avg_time_to_conversion_minutes": 240,
       "avg_events_before_conversion": 8,
       "insight": "Users who view 3+ creator profiles before PDP interaction are 5.6x more likely to copy",
-      "recommendation": "Encourage profile browsing before portfolio exposure"
+      "recommendation": "Encourage profile browsing before portfolio exposure",
+      "top_portfolios": ["$PELOSI", "$BRETTSIMBA", "$AAPL"],
+      "top_creators": ["@dubAdvisors", "@brettsimba", "@KianSaidi"]
     }
   ],
   "critical_triggers": [
@@ -199,6 +211,8 @@ Order from highest impact to lowest impact.
   "summary": "Overall predictive findings in 2-3 sentences",
   "top_recommendations": ["Action 1", "Action 2", "Action 3"]
 }
+
+IMPORTANT: For each predictive_sequence, include "top_portfolios" and "top_creators" arrays with the top 3 most common portfolios/creators found in that pattern (based on the enriched event properties). If no properties are present in the sequence, use empty arrays [].
 </output_format>`
 
     // Process users in batches with prompt caching

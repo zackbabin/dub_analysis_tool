@@ -16,6 +16,13 @@ interface SyncStats {
   eventSequencesFetched: number
   totalRawRecordsInserted: number
   chartId: string
+  pdpPropertiesFetched: number
+  profilePropertiesFetched: number
+}
+
+interface EventProperties {
+  portfolioTicker?: string
+  creatorUsername?: string
 }
 
 serve(async (req) => {
@@ -81,11 +88,31 @@ serve(async (req) => {
 
       console.log('✓ Event sequences fetched successfully')
 
+      // Fetch event properties in parallel (non-blocking - graceful degradation if fails)
+      let pdpPropertiesData = null
+      let profilePropertiesData = null
+
+      try {
+        console.log('Fetching event properties for enrichment...')
+        const results = await Promise.all([
+          fetchInsightsData(credentials, '85312972', 'PDP Properties'),
+          fetchInsightsData(credentials, '85312975', 'Profile Properties')
+        ])
+        pdpPropertiesData = results[0]
+        profilePropertiesData = results[1]
+        console.log('✓ Event properties fetched successfully')
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch event properties - will proceed with non-enriched events:', error.message)
+        // Continue without enrichment - pdpPropertiesData and profilePropertiesData remain null
+      }
+
       // Process event sequences data (store raw, no joining yet)
       const stats: SyncStats = {
         eventSequencesFetched: 0,
         totalRawRecordsInserted: 0,
         chartId,
+        pdpPropertiesFetched: 0,
+        profilePropertiesFetched: 0,
       }
 
       if (!eventSequencesData?.series) {
@@ -136,19 +163,185 @@ serve(async (req) => {
 
       console.log(`Found ${userEventsMap.size} users with event sequences`)
 
-      // Convert to raw rows for database insertion (no processing yet)
+      // Build property lookup maps for event enrichment
+      console.log('Building property lookup maps...')
+
+      // Key: `${distinct_id}|${event_name}|${timestamp}`
+      const pdpPropertyMap = new Map<string, EventProperties>()
+      const profilePropertyMap = new Map<string, EventProperties>()
+
+      try {
+        // Parse PDP properties (Chart 85312972)
+      // Structure: series -> metric -> distinct_id -> time -> portfolioTicker -> creatorId -> creatorUsername -> all
+      if (pdpPropertiesData?.series) {
+        let pdpEventsProcessed = 0
+        const startTime = Date.now()
+
+        for (const [metricKey, metricData] of Object.entries(pdpPropertiesData.series)) {
+          if (typeof metricData !== 'object' || metricData === null) continue
+
+          const eventName = metricKey.replace(/^[A-Z]\.\s*/, '').replace(/^Total\s+/, '')
+
+          for (const [distinctId, distinctData] of Object.entries(metricData as Record<string, any>)) {
+            if (distinctId === '$overall') continue
+
+            for (const [timestamp, timeData] of Object.entries(distinctData)) {
+              if (timestamp === '$overall') continue
+
+              // Navigate through nested structure: portfolioTicker -> creatorId -> creatorUsername
+              for (const [ticker, tickerData] of Object.entries(timeData as Record<string, any>)) {
+                if (ticker === '$overall') continue
+
+                for (const [creatorId, creatorData] of Object.entries(tickerData as Record<string, any>)) {
+                  if (creatorId === '$overall') continue
+
+                  for (const [username, countData] of Object.entries(creatorData as Record<string, any>)) {
+                    if (username === 'all') continue
+
+                    const key = `${distinctId}|${eventName}|${timestamp}`
+
+                    // Store first occurrence (deduplicate if multiple at same timestamp)
+                    if (!pdpPropertyMap.has(key)) {
+                      pdpPropertyMap.set(key, {
+                        portfolioTicker: ticker,
+                        creatorUsername: username
+                      })
+                      stats.pdpPropertiesFetched++
+                    }
+
+                    pdpEventsProcessed++
+                    // Progress logging every 10k events
+                    if (pdpEventsProcessed % 10000 === 0) {
+                      console.log(`PDP properties: processed ${pdpEventsProcessed} events, ${pdpPropertyMap.size} unique...`)
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        const pdpParseTime = ((Date.now() - startTime) / 1000).toFixed(1)
+        console.log(`✓ Parsed PDP properties in ${pdpParseTime}s (${pdpEventsProcessed} events, ${pdpPropertyMap.size} unique)`)
+      }
+
+      // Parse Profile properties (Chart 85312975)
+      // Structure: series -> metric -> distinct_id -> time -> creatorId -> creatorUsername -> all
+      if (profilePropertiesData?.series) {
+        let profileEventsProcessed = 0
+        const startTime = Date.now()
+
+        for (const [metricKey, metricData] of Object.entries(profilePropertiesData.series)) {
+          if (typeof metricData !== 'object' || metricData === null) continue
+
+          const eventName = metricKey.replace(/^[A-Z]\.\s*/, '').replace(/^Total\s+/, '')
+
+          for (const [distinctId, distinctData] of Object.entries(metricData as Record<string, any>)) {
+            if (distinctId === '$overall') continue
+
+            for (const [timestamp, timeData] of Object.entries(distinctData)) {
+              if (timestamp === '$overall') continue
+
+              // Navigate through nested structure: creatorId -> creatorUsername
+              for (const [creatorId, creatorData] of Object.entries(timeData as Record<string, any>)) {
+                if (creatorId === '$overall') continue
+
+                for (const [username, countData] of Object.entries(creatorData as Record<string, any>)) {
+                  if (username === 'all') continue
+
+                  const key = `${distinctId}|${eventName}|${timestamp}`
+
+                  // Store first occurrence (deduplicate if multiple at same timestamp)
+                  if (!profilePropertyMap.has(key)) {
+                    profilePropertyMap.set(key, {
+                      creatorUsername: username
+                    })
+                    stats.profilePropertiesFetched++
+                  }
+
+                  profileEventsProcessed++
+                  // Progress logging every 10k events
+                  if (profileEventsProcessed % 10000 === 0) {
+                    console.log(`Profile properties: processed ${profileEventsProcessed} events, ${profilePropertyMap.size} unique...`)
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        const profileParseTime = ((Date.now() - startTime) / 1000).toFixed(1)
+        console.log(`✓ Parsed Profile properties in ${profileParseTime}s (${profileEventsProcessed} events, ${profilePropertyMap.size} unique)`)
+      }
+
+        console.log(`✓ Built property maps: ${pdpPropertyMap.size} PDP properties, ${profilePropertyMap.size} profile properties`)
+      } catch (error) {
+        console.warn('⚠️ Failed to parse event properties - will proceed with non-enriched events:', error.message)
+        // Continue without enrichment - maps remain empty
+      }
+
+      // Helper function to enrich event name with properties
+      function enrichEventName(event: string, timestamp: string, distinctId: string): string {
+        const key = `${distinctId}|${event}|${timestamp}`
+
+        // Check if event is a PDP view
+        if (event.includes('PDP')) {
+          const props = pdpPropertyMap.get(key)
+          if (props?.portfolioTicker && props?.creatorUsername) {
+            return `${event} (${props.portfolioTicker} by ${props.creatorUsername})`
+          }
+        }
+
+        // Check if event is a Creator Profile view
+        if (event.includes('Creator Profile')) {
+          const props = profilePropertyMap.get(key)
+          if (props?.creatorUsername) {
+            return `${event} (${props.creatorUsername})`
+          }
+        }
+
+        // Return unchanged if no properties found
+        return event
+      }
+
+      // Convert to raw rows for database insertion with enrichment
+      console.log('Enriching event sequences with properties...')
+      const enrichStartTime = Date.now()
       const rawEventRows: any[] = []
+      let totalEventsEnriched = 0
+      let eventsWithProperties = 0
 
       for (const [distinctId, events] of userEventsMap.entries()) {
         // Sort events by timestamp
         events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 
+        // Enrich events with properties
+        const enrichedEvents = events.map(evt => {
+          const originalEvent = evt.event
+          const enrichedEvent = enrichEventName(evt.event, evt.time, distinctId)
+
+          totalEventsEnriched++
+          if (enrichedEvent !== originalEvent) {
+            eventsWithProperties++
+          }
+
+          return {
+            event: enrichedEvent,
+            time: evt.time,
+            count: evt.count
+          }
+        })
+
         rawEventRows.push({
           distinct_id: distinctId,
-          event_data: events, // Store raw events as JSONB
+          event_data: enrichedEvents, // Store enriched events as JSONB
           synced_at: syncStartTime.toISOString()
         })
       }
+
+      const enrichTime = ((Date.now() - enrichStartTime) / 1000).toFixed(1)
+      const enrichmentRate = ((eventsWithProperties / totalEventsEnriched) * 100).toFixed(1)
+      console.log(`✓ Enriched ${totalEventsEnriched} events in ${enrichTime}s (${eventsWithProperties} enriched, ${enrichmentRate}% coverage)`)
 
       console.log(`Prepared ${rawEventRows.length} raw event sequences`)
       stats.eventSequencesFetched = rawEventRows.length
