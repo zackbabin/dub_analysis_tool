@@ -1,7 +1,7 @@
 // Supabase Edge Function: sync-event-sequences
 // Fetches user event sequences from Mixpanel Insights API (Chart ID: 85247935)
-// Joins with subscribers_insights to get conversion outcomes (total_copies, subscriptions)
-// Stores in user_event_sequences table for Claude analysis
+// Stores raw data in event_sequences_raw table for later processing
+// Processing happens in separate process-event-sequences function
 // Triggered manually alongside other sync functions
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -14,7 +14,7 @@ import {
 
 interface SyncStats {
   eventSequencesFetched: number
-  totalRecordsInserted: number
+  totalRawRecordsInserted: number
   chartId: string
 }
 
@@ -81,28 +81,10 @@ serve(async (req) => {
 
       console.log('✓ Event sequences fetched successfully')
 
-      // Fetch subscribers_insights to get conversion outcomes
-      console.log('Fetching conversion outcomes from subscribers_insights...')
-      const { data: subscribers, error: subscribersError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_copies, paywall_views, stripe_modal_views')
-
-      if (subscribersError) {
-        console.error('Failed to fetch subscribers:', subscribersError)
-        throw subscribersError
-      }
-
-      console.log(`✓ Fetched ${subscribers?.length || 0} subscriber records`)
-
-      // Create lookup map for fast joining
-      const subscriberMap = new Map(
-        (subscribers || []).map(s => [s.distinct_id, s])
-      )
-
-      // Process event sequences data
+      // Process event sequences data (store raw, no joining yet)
       const stats: SyncStats = {
         eventSequencesFetched: 0,
-        totalRecordsInserted: 0,
+        totalRawRecordsInserted: 0,
         chartId,
       }
 
@@ -154,55 +136,46 @@ serve(async (req) => {
 
       console.log(`Found ${userEventsMap.size} users with event sequences`)
 
-      // Convert to rows for database insertion
-      const eventSequenceRows: any[] = []
+      // Convert to raw rows for database insertion (no processing yet)
+      const rawEventRows: any[] = []
 
       for (const [distinctId, events] of userEventsMap.entries()) {
-        const subscriber = subscriberMap.get(distinctId)
-
         // Sort events by timestamp
         events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
 
-        // Determine if user has subscribed
-        const hasSubscribed =
-          (subscriber?.paywall_views || 0) > 0 ||
-          (subscriber?.stripe_modal_views || 0) > 0
-
-        eventSequenceRows.push({
+        rawEventRows.push({
           distinct_id: distinctId,
-          event_sequence: events, // Store as JSONB array
-          total_copies: subscriber?.total_copies || 0,
-          total_subscriptions: hasSubscribed ? 1 : 0,
+          event_data: events, // Store raw events as JSONB
           synced_at: syncStartTime.toISOString()
         })
       }
 
-      console.log(`Processed ${eventSequenceRows.length} event sequences`)
-      stats.eventSequencesFetched = eventSequenceRows.length
+      console.log(`Prepared ${rawEventRows.length} raw event sequences`)
+      stats.eventSequencesFetched = rawEventRows.length
 
-      // Upsert in batches
-      const batchSize = 500
+      // Upsert raw data in batches to event_sequences_raw table
+      const batchSize = 1000 // Larger batches since no processing
       let totalInserted = 0
 
-      for (let i = 0; i < eventSequenceRows.length; i += batchSize) {
-        const batch = eventSequenceRows.slice(i, i + batchSize)
+      for (let i = 0; i < rawEventRows.length; i += batchSize) {
+        const batch = rawEventRows.slice(i, i + batchSize)
         const { error: insertError } = await supabase
-          .from('user_event_sequences')
+          .from('event_sequences_raw')
           .upsert(batch, {
             onConflict: 'distinct_id',
             ignoreDuplicates: false
           })
 
         if (insertError) {
-          console.error('Error upserting event sequences batch:', insertError)
+          console.error('Error upserting raw event sequences batch:', insertError)
           throw insertError
         }
 
         totalInserted += batch.length
-        console.log(`Upserted batch: ${totalInserted}/${eventSequenceRows.length} records`)
+        console.log(`Upserted batch: ${totalInserted}/${rawEventRows.length} raw records`)
       }
 
-      stats.totalRecordsInserted = totalInserted
+      stats.totalRawRecordsInserted = totalInserted
 
       // Update sync log with success
       const syncEndTime = new Date()
@@ -211,16 +184,18 @@ serve(async (req) => {
         .update({
           sync_completed_at: syncEndTime.toISOString(),
           sync_status: 'completed',
-          total_records_inserted: stats.totalRecordsInserted,
+          total_records_inserted: stats.totalRawRecordsInserted,
         })
         .eq('id', syncLogId)
 
-      console.log('Event sequences sync completed successfully')
+      console.log('Event sequences sync completed successfully (raw data stored)')
+      console.log('Call process-event-sequences to complete processing')
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Event sequences sync completed successfully',
+          message: 'Event sequences sync completed successfully - raw data stored',
+          note: 'Call process-event-sequences function to complete processing',
           stats,
         }),
         {

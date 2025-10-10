@@ -94,13 +94,13 @@ class BusinessModelAnalysis {
         const portfoliosEl = document.getElementById('current-avgMonthlyPortfolioCreations');
 
         if (tradesEl) {
-            tradesEl.textContent = `Current: ${this.currentValues.tradesPerUser.toFixed(3)}`;
+            tradesEl.textContent = `Current: ${this.currentValues.tradesPerUser.toFixed(2)}`;
         }
         if (rebalancesEl) {
-            rebalancesEl.textContent = `Current: ${this.currentValues.rebalancesPerUser.toFixed(3)}`;
+            rebalancesEl.textContent = `Current: ${this.currentValues.rebalancesPerUser.toFixed(2)}`;
         }
         if (portfoliosEl) {
-            portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(6)}`;
+            portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(2)}`;
         }
     }
 
@@ -286,6 +286,7 @@ class BusinessModelAnalysis {
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">
                     ${this.renderConversionRates()}
+                    ${this.renderOtherAssumptions()}
                     ${this.renderUserBehavior()}
                     ${this.renderModelA()}
                     ${this.renderModelB()}
@@ -307,6 +308,18 @@ class BusinessModelAnalysis {
         `;
     }
 
+    renderOtherAssumptions() {
+        return `
+            <div>
+                <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Other Assumptions</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
+                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
+                </div>
+            </div>
+        `;
+    }
+
     renderUserBehavior() {
         return `
             <div>
@@ -318,8 +331,6 @@ class BusinessModelAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'portfolioCreationGrowth')}
-                    ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
-                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
                 </div>
             </div>
         `;
@@ -366,9 +377,10 @@ class BusinessModelAnalysis {
                 <input
                     type="number"
                     step="0.01"
-                    value="${this.assumptions[key]}"
+                    value="${this.assumptions[key].toFixed(2)}"
                     data-key="${key}"
                     style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
+                    onblur="this.value = parseFloat(this.value).toFixed(2)"
                 />
                 ${showCurrent ? `<div id="current-${key}" style="font-size: 10px; color: #17a2b8; margin-top: 4px;">Current: Loading...</div>` : ''}
             </div>
