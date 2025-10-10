@@ -40,7 +40,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      */
     createModeSection() {
         const section = document.createElement('div');
-        section.style.cssText = 'margin-bottom: 20px;';
+        // No margin on wrapper since upload section is hidden by default
 
         // File upload section (hidden by default) - Now supports 3 files
         const uploadSection = document.createElement('div');
