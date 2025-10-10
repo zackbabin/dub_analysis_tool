@@ -187,7 +187,7 @@ async function fetchConversionFunnelData(credentials: MixpanelCredentials) {
 
   const params = new URLSearchParams({
     project_id: PROJECT_ID,
-    bookmark_id: FUNNEL_ID,
+    funnel_id: FUNNEL_ID,
     from_date: fromDate,
     to_date: toDate,
   })
