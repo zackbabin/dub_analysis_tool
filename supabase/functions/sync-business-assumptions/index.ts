@@ -57,19 +57,13 @@ serve(async (req) => {
     console.log('Available series keys:', Object.keys(data.series || {}))
 
     // Calculate averages with fallback
-    const totalRebalances = data.series['A. Total Rebalances']
-      ? calculateAverage(data.series['A. Total Rebalances'])
-      : data.series['Rebalances per user']
-        ? calculateAverage(data.series['Rebalances per user'])
-        : 0
+    const totalRebalances = calculateAverage(
+      data.series['A. Total Rebalances'] || data.series['Rebalances per user']
+    )
 
-    const tradesPerUser = data.series['Trades per user']
-      ? calculateAverage(data.series['Trades per user'])
-      : 0
+    const tradesPerUser = calculateAverage(data.series['Trades per user'])
 
-    const portfoliosCreatedPerUser = data.series['Portfolios Created per user']
-      ? calculateAverage(data.series['Portfolios Created per user'])
-      : 0
+    const portfoliosCreatedPerUser = calculateAverage(data.series['Portfolios Created per user'])
 
     console.log('Calculated averages:', {
       totalRebalances,
@@ -159,7 +153,9 @@ async function fetchBusinessAssumptionsData(credentials: MixpanelCredentials) {
   return data
 }
 
-function calculateAverage(seriesData: Record<string, number>): number {
+function calculateAverage(seriesData: Record<string, number> | undefined | null): number {
+  if (!seriesData) return 0
+
   const values = Object.values(seriesData)
   if (values.length === 0) return 0
 
