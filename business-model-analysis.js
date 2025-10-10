@@ -453,36 +453,66 @@ class BusinessModelAnalysis {
     }
 
     renderYearComparisonContent(yearlyProjections) {
+        const year1 = yearlyProjections[0];
+        const year2 = yearlyProjections[1];
+        const year3 = yearlyProjections[2];
+
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 24px 0; font-size: 18px; font-weight: bold;">3-Year Revenue Comparison</h3>
 
-                ${yearlyProjections.map((year, index) => {
-                    const yearNum = index + 1;
-                    const diffAmount = year.modelB_totalRevenue - year.modelA_totalRevenue;
-                    const diffPercent = ((year.modelB_totalRevenue - year.modelA_totalRevenue) / year.modelA_totalRevenue) * 100;
+                <div style="display: grid; grid-template-columns: 180px repeat(3, 1fr); gap: 12px; align-items: start;">
+                    <!-- Header Row -->
+                    <div></div>
+                    <div style="text-align: center; font-weight: 600; font-size: 14px; color: #495057; padding: 8px;">Year 1</div>
+                    <div style="text-align: center; font-weight: 600; font-size: 14px; color: #495057; padding: 8px;">Year 2</div>
+                    <div style="text-align: center; font-weight: 600; font-size: 14px; color: #495057; padding: 8px;">Year 3</div>
 
-                    return `
-                        <div style="margin-bottom: ${index < 2 ? '32px' : '0'};">
-                            <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #495057;">Year ${yearNum}</h4>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                                <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9;">
-                                    <div style="font-size: 11px; color: #495057; margin-bottom: 6px; font-weight: 600;">Model A: Transaction Fee</div>
-                                    <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year.modelA_totalRevenue)}</div>
-                                </div>
-                                <div style="padding: 16px; background: #e8f5e9; border-radius: 6px; border: 1px solid #81c784;">
-                                    <div style="font-size: 11px; color: #495057; margin-bottom: 6px; font-weight: 600;">Model B: Maintenance Fee</div>
-                                    <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year.modelB_totalRevenue)}</div>
-                                </div>
-                                <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8;">
-                                    <div style="font-size: 11px; color: #495057; margin-bottom: 6px; font-weight: 600;">Difference (B - A)</div>
-                                    <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(diffAmount)}</div>
-                                    <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(diffPercent)} higher</div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
+                    <!-- Model A Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #e7f3ff; border-radius: 6px; font-weight: 600; font-size: 12px; color: #0d47a1;">
+                        Model A:<br/>Transaction Fee
+                    </div>
+                    <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year1.modelA_totalRevenue)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year2.modelA_totalRevenue)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year3.modelA_totalRevenue)}</div>
+                    </div>
+
+                    <!-- Model B Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #e8f5e9; border-radius: 6px; font-weight: 600; font-size: 12px; color: #1b5e20;">
+                        Model B:<br/>Maintenance Fee
+                    </div>
+                    <div style="padding: 16px; background: #e8f5e9; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year1.modelB_totalRevenue)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #e8f5e9; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year2.modelB_totalRevenue)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #e8f5e9; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year3.modelB_totalRevenue)}</div>
+                    </div>
+
+                    <!-- Difference Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #f3e5f5; border-radius: 6px; font-weight: 600; font-size: 12px; color: #6a1b9a;">
+                        Difference<br/>(B - A)
+                    </div>
+                    <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year1.modelB_totalRevenue - year1.modelA_totalRevenue)}</div>
+                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year1.modelB_totalRevenue - year1.modelA_totalRevenue) / year1.modelA_totalRevenue) * 100)} higher</div>
+                    </div>
+                    <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year2.modelB_totalRevenue - year2.modelA_totalRevenue)}</div>
+                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year2.modelB_totalRevenue - year2.modelA_totalRevenue) / year2.modelA_totalRevenue) * 100)} higher</div>
+                    </div>
+                    <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year3.modelB_totalRevenue - year3.modelA_totalRevenue)}</div>
+                        <div style="font-size: 10px; color: #6c757d; margin-top: 4px;">${this.formatPercent(((year3.modelB_totalRevenue - year3.modelA_totalRevenue) / year3.modelA_totalRevenue) * 100)} higher</div>
+                    </div>
+                </div>
 
                 <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #dee2e6;">
                     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
