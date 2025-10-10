@@ -175,13 +175,13 @@ class BusinessModelAnalysis {
             const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month);
 
             const modelA_trades = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
-            const modelA_rebalances = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
+            const modelA_rebalances = this.assumptions.avgMonthlyRebalances * rebalanceMultiplier; // Use input value directly with growth
             const modelA_portfoliosCreated = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
             const modelA_totalTradingEvents = modelA_trades + modelA_rebalances + modelA_portfoliosCreated;
 
             // Trading activity - MODEL B - based on Model B cumulative funded accounts
             const modelB_trades = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
-            const modelB_rebalances = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
+            const modelB_rebalances = this.assumptions.avgMonthlyRebalances * rebalanceMultiplier; // Use input value directly with growth
             const modelB_portfoliosCreated = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
             const modelB_totalTradingEvents = modelB_trades + modelB_rebalances + modelB_portfoliosCreated;
 
