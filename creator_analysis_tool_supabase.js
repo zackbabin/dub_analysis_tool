@@ -298,12 +298,53 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('Loaded CSV length:', contents[0].length);
-            this.updateProgress(85, 'Analyzing data...');
+            this.updateProgress(100, 'Upload complete!');
 
-            // Process and analyze
-            await this.processAndAnalyze(contents[0]);
+            // Show success message with prompt to sync live data
+            this.outputContainer.innerHTML = '';
+            const successDiv = document.createElement('div');
+            successDiv.className = 'qda-analysis-results';
+            successDiv.innerHTML = `
+                <div style="padding: 30px; text-align: center; background: #e3f2fd; border-radius: 8px; border: 2px solid #2196f3;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">📊</div>
+                    <h3 style="color: #1565c0; margin: 0 0 10px 0;">Creator Data Uploaded Successfully</h3>
+                    <p style="color: #555; margin: 0 0 20px 0;">
+                        ${result.stats.inserted || 0} creators uploaded and stored
+                    </p>
+                    <div style="font-size: 14px; color: #666; background: white; padding: 15px; border-radius: 5px; margin-top: 20px;">
+                        <strong>Upload Stats:</strong><br>
+                        Creator List: ${result.stats.creatorListRows || 0} rows<br>
+                        Deals: ${result.stats.dealsRows || 0} rows<br>
+                        Public Creators: ${result.stats.publicCreatorsRows || 0} rows<br>
+                        Final Merged: ${result.stats.finalCreatorsCount || 0} creators
+                    </div>
+                    <div style="font-size: 14px; color: #666; margin-top: 25px; padding: 20px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
+                        <strong>⚡ Next Step:</strong> Enrich this data with Mixpanel user profiles<br>
+                        <button id="syncAfterUploadBtn" class="qda-btn" style="margin-top: 15px; padding: 12px 30px; font-size: 15px;">
+                            Sync Live Data from Mixpanel
+                        </button>
+                    </div>
+                </div>
+            `;
+            this.outputContainer.appendChild(successDiv);
 
-            this.updateProgress(100, 'Complete!');
+            // Attach click handler to sync button
+            const syncBtn = document.getElementById('syncAfterUploadBtn');
+            if (syncBtn) {
+                syncBtn.onclick = async () => {
+                    // Clear the success message and run sync + analyze workflow
+                    this.outputContainer.innerHTML = '';
+                    await this.runSyncAndAnalyzeWorkflow();
+                };
+            }
+
+            // Hide progress bar after completion
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
         } catch (error) {
             console.error('Upload workflow error:', error);
             throw error;
@@ -460,6 +501,61 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * New workflow: Sync Mixpanel data + Run analysis + Display results
+     * This is called after manual upload to complete the enrichment and analysis
+     */
+    async runSyncAndAnalyzeWorkflow() {
+        if (!this.supabaseIntegration) {
+            throw new Error('Supabase not configured. Please check your configuration.');
+        }
+
+        this.clearStatus();
+        this.showStatus();
+
+        try {
+            // Step 1: Sync Mixpanel data
+            this.updateProgress(20, 'Syncing Mixpanel user profiles...');
+
+            console.log('Triggering Supabase creator enrichment sync...');
+            const syncResult = await this.supabaseIntegration.triggerCreatorSync();
+
+            if (!syncResult || !syncResult.success) {
+                throw new Error('Failed to sync creator data');
+            }
+
+            console.log('✅ Creator enrichment sync completed:', syncResult.stats);
+            this.updateProgress(50, 'Loading enriched data...');
+
+            // Step 2: Load merged data from creator_analysis view
+            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+
+            if (!contents || !contents[0]) {
+                throw new Error('No data returned from database');
+            }
+
+            console.log('Loaded enriched CSV length:', contents[0].length);
+            this.updateProgress(70, 'Analyzing data...');
+
+            // Step 3: Process and analyze
+            await this.processAndAnalyze(contents[0]);
+
+            this.updateProgress(100, 'Complete!');
+
+            // Hide progress bar after completion
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Sync and analyze workflow error:', error);
+            this.addStatusMessage(`❌ Error: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    /**
      * Override: Run the sync workflow using Supabase
      * Only syncs Mixpanel data to creators_insights table - does NOT run analysis
      */
@@ -501,8 +597,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         Matched creators: ${result.stats.matchedCreators || 0}<br>
                         Enriched: ${result.stats.enrichedCreators || 0}
                     </div>
-                    <div style="font-size: 12px; color: #666; margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
-                        <strong>📝 Note:</strong> To run correlation analysis, upload 3 CSV files using "Manually Upload Data"
+                    <div style="font-size: 12px; color: #666; margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 5px; border: 1px solid #2196f3;">
+                        <strong>ℹ️ Note:</strong> This synced Mixpanel user profile data to the creators_insights table. To run correlation analysis, use "Manually Upload Data" to upload 3 CSV files with creator attributes, then sync again to merge the data.
                     </div>
                 </div>
             `;

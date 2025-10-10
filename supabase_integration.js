@@ -526,41 +526,25 @@ class SupabaseIntegration {
      * Queries the creators_insights table
      */
     async loadCreatorDataFromSupabase() {
-        console.log('Loading creator data from uploaded_creators...');
+        console.log('Loading creator data from creator_analysis view...');
 
         try {
-            // Get the most recent upload batch
-            const { data: latestUpload, error: timestampError } = await this.supabase
-                .from('uploaded_creators')
-                .select('uploaded_at')
-                .order('uploaded_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (timestampError) {
-                console.error('Error getting latest upload timestamp:', timestampError);
-                throw timestampError;
-            }
-
-            if (!latestUpload) {
-                throw new Error('No uploaded creator data found');
-            }
-
-            const latestTimestamp = latestUpload.uploaded_at;
-            console.log(`Loading creators from upload: ${latestTimestamp}`);
-
-            // Load all creators from the latest upload
+            // Load all creators from the creator_analysis view
+            // This view automatically joins uploaded_creators with creators_insights
             const { data, error } = await this.supabase
-                .from('uploaded_creators')
-                .select('*')
-                .eq('uploaded_at', latestTimestamp);
+                .from('creator_analysis')
+                .select('*');
 
             if (error) {
                 console.error('Supabase query error:', error);
                 throw error;
             }
 
-            console.log(`✅ Loaded ${data.length} creator records from latest upload`);
+            if (!data || data.length === 0) {
+                throw new Error('No creator data found in creator_analysis view. Please upload creator files first.');
+            }
+
+            console.log(`✅ Loaded ${data.length} creator records from creator_analysis view`);
 
             // Convert to CSV format for compatibility with existing analysis code
             return this.convertCreatorDataToCSVFormat(data);
@@ -1141,24 +1125,58 @@ class SupabaseIntegration {
             return '';
         }
 
-        // Get all unique keys from raw_data across all rows
+        // Collect all unique keys from raw_data and Mixpanel enrichment fields
         const allKeys = new Set();
+        const mixpanelFields = [
+            'total_deposits',
+            'active_created_portfolios',
+            'lifetime_created_portfolios',
+            'total_trades',
+            'investing_activity',
+            'investing_experience_years',
+            'investing_objective',
+            'investment_type'
+        ];
+
         data.forEach(row => {
+            // Add keys from raw_data JSONB
             if (row.raw_data) {
                 Object.keys(row.raw_data).forEach(key => allKeys.add(key));
             }
+
+            // Add Mixpanel enrichment fields if they exist
+            mixpanelFields.forEach(field => {
+                if (row[field] !== null && row[field] !== undefined) {
+                    allKeys.add(field);
+                }
+            });
         });
 
-        // Build headers: all raw_data keys + total_copies + total_subscriptions
-        const rawDataKeys = Array.from(allKeys).sort();
-        const headers = [...rawDataKeys, 'total_copies', 'total_subscriptions'];
+        // Build headers: all fields + total_copies + total_subscriptions (target variables)
+        const allFieldKeys = Array.from(allKeys).sort();
+        const headers = [...allFieldKeys, 'total_copies', 'total_subscriptions'];
 
         // Build rows
         const rows = data.map(row => {
             const rawData = row.raw_data || {};
-            const rowData = rawDataKeys.map(key => rawData[key] ?? '');
+
+            // Combine raw_data fields with Mixpanel enrichment fields
+            const rowData = allFieldKeys.map(key => {
+                // First check if it's in raw_data
+                if (rawData[key] !== undefined && rawData[key] !== null) {
+                    return rawData[key];
+                }
+                // Then check if it's a Mixpanel enrichment field at the row level
+                if (row[key] !== undefined && row[key] !== null) {
+                    return row[key];
+                }
+                return '';
+            });
+
+            // Add target variables (these come from creators_insights, not raw_data)
             rowData.push(row.total_copies || 0);
             rowData.push(row.total_subscriptions || 0);
+
             return rowData;
         });
 
