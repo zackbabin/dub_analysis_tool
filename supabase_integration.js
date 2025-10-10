@@ -1172,7 +1172,46 @@ class SupabaseIntegration {
      * @param {Array} creatorData - Array of cleaned creator objects with creator_id, creator_username, raw_data
      * @returns {Promise} - { success: true, stats: { uploaded: N, enriched: N } }
      */
+    /**
+     * Upload and merge 3 creator CSV files
+     * Calls upload-and-merge-creator-files Edge Function
+     */
+    async uploadAndMergeCreatorFiles(creatorListCsv, dealsCsv, publicCreatorsCsv) {
+        try {
+            console.log('Uploading and merging 3 creator files via Edge Function...');
+
+            const { data, error } = await this.supabase.functions.invoke('upload-and-merge-creator-files', {
+                body: {
+                    creatorListCsv,
+                    dealsCsv,
+                    publicCreatorsCsv
+                }
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Failed to merge creator files: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during file merge');
+            }
+
+            console.log('✅ Creator files merged successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling upload-and-merge Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * DEPRECATED: Old single-file upload method
+     * Kept for backward compatibility
+     */
     async uploadAndEnrichCreatorData(creatorData) {
+        console.warn('uploadAndEnrichCreatorData is deprecated. Use uploadAndMergeCreatorFiles instead.');
+
         if (!creatorData || creatorData.length === 0) {
             throw new Error('No creator data to upload');
         }

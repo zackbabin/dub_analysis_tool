@@ -73,21 +73,45 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         section.appendChild(buttonContainer);
 
-        // File upload section (hidden by default)
+        // File upload section (hidden by default) - Now supports 3 files
         const uploadSection = document.createElement('div');
         uploadSection.id = 'creatorUploadSection';
         uploadSection.style.cssText = 'display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;';
         uploadSection.innerHTML = `
-            <div style="text-align: center;">
-                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 10px;">
-                    Select Creator CSV File
-                </label>
-                <div style="font-size: 12px; color: #6c757d; margin-bottom: 10px;">
-                    Upload a single CSV file containing creator data
+            <div style="text-align: left;">
+                <div style="font-weight: bold; color: #333; margin-bottom: 15px; text-align: center;">
+                    Upload 3 CSV Files for Merging
                 </div>
-                <input type="file" id="creatorFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
-                <button id="creatorProcessButton" class="qda-btn" style="display: none;">
-                    Process File
+                <div style="font-size: 12px; color: #6c757d; margin-bottom: 20px; text-align: center;">
+                    Files will be merged using two-stage matching: Deals→Creator List (by name), then merge with Public Creators (by email)
+                </div>
+
+                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">
+                    1. Creator List CSV
+                </label>
+                <div style="font-size: 11px; color: #6c757d; margin-bottom: 5px;">
+                    Contains: Name, Registered dub Account Email, Premium: Name of Fund
+                </div>
+                <input type="file" id="creatorListFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+
+                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">
+                    2. Deals CSV
+                </label>
+                <div style="font-size: 11px; color: #6c757d; margin-bottom: 5px;">
+                    Contains: Deal-Title, Deal-Organization, Deal-Contact Person
+                </div>
+                <input type="file" id="dealsFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+
+                <label style="font-weight: bold; color: #333; display: block; margin-bottom: 5px;">
+                    3. Public Creators CSV
+                </label>
+                <div style="font-size: 11px; color: #6c757d; margin-bottom: 5px;">
+                    Contains: email, firstname, lastname, displayname, handle, description
+                </div>
+                <input type="file" id="publicCreatorsFileInput" accept=".csv" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin-bottom: 15px;">
+
+                <button id="creatorProcessButton" class="qda-btn" style="display: block; width: 100%; margin-top: 10px;">
+                    Process Files
                 </button>
             </div>
         `;
@@ -204,33 +228,47 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Run the upload workflow using Supabase
+     * Override: Run the upload workflow using Supabase with 3 files
      */
-    async runUploadWorkflow(csvContent) {
+    async runUploadWorkflow() {
         if (!this.supabaseIntegration) {
             throw new Error('Supabase not configured. Please check your configuration.');
         }
 
         try {
-            this.updateProgress(40, 'Cleaning and processing data...');
+            // Get the 3 file inputs
+            const creatorListInput = document.getElementById('creatorListFileInput');
+            const dealsInput = document.getElementById('dealsFileInput');
+            const publicCreatorsInput = document.getElementById('publicCreatorsFileInput');
 
-            // Parse and clean the CSV
-            const cleanedData = this.parseAndCleanCreatorCSV(csvContent);
-            console.log(`Parsed ${cleanedData.length} creator records`);
-
-            this.updateProgress(60, 'Uploading to database...');
-
-            // Upload and enrich data through Supabase
-            const result = await this.supabaseIntegration.uploadAndEnrichCreatorData(cleanedData);
-
-            if (!result || !result.success) {
-                throw new Error(result?.error || 'Failed to upload creator data');
+            if (!creatorListInput.files[0] || !dealsInput.files[0] || !publicCreatorsInput.files[0]) {
+                throw new Error('Please select all 3 CSV files before processing');
             }
 
-            console.log('✅ Creator data uploaded:', result.stats);
-            this.updateProgress(80, 'Loading updated data...');
+            this.updateProgress(20, 'Reading files...');
 
-            // Load and display the updated data
+            // Read all 3 files
+            const creatorListCsv = await this.readFileAsText(creatorListInput.files[0]);
+            const dealsCsv = await this.readFileAsText(dealsInput.files[0]);
+            const publicCreatorsCsv = await this.readFileAsText(publicCreatorsInput.files[0]);
+
+            this.updateProgress(40, 'Merging and processing files...');
+
+            // Upload and merge through Supabase Edge Function
+            const result = await this.supabaseIntegration.uploadAndMergeCreatorFiles(
+                creatorListCsv,
+                dealsCsv,
+                publicCreatorsCsv
+            );
+
+            if (!result || !result.success) {
+                throw new Error(result?.error || 'Failed to upload and merge creator files');
+            }
+
+            console.log('✅ Creator files merged:', result.stats);
+            this.updateProgress(70, 'Loading merged data...');
+
+            // Load and display the merged data
             const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
 
             if (!contents || !contents[0]) {
@@ -238,7 +276,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('Loaded CSV length:', contents[0].length);
-            this.updateProgress(90, 'Analyzing data...');
+            this.updateProgress(85, 'Analyzing data...');
 
             // Process and analyze
             await this.processAndAnalyze(contents[0]);

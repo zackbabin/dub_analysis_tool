@@ -57,8 +57,8 @@ serve(async (req) => {
     console.log('Available series keys:', Object.keys(data.series || {}))
 
     // Calculate averages with fallback
-    const totalRebalances = data.series['Total Rebalances']
-      ? calculateAverage(data.series['Total Rebalances'])
+    const totalRebalances = data.series['A. Total Rebalances']
+      ? calculateAverage(data.series['A. Total Rebalances'])
       : data.series['Rebalances per user']
         ? calculateAverage(data.series['Rebalances per user'])
         : 0

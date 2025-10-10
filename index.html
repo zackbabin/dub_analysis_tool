@@ -569,7 +569,7 @@
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
 
-            // Sync Live Data button is always enabled and triggers BOTH user and creator syncs
+            // Sync Live Data button is always enabled but triggers different syncs based on active tab
             syncBtn.disabled = false;
             syncBtn.style.background = 'white';
             syncBtn.style.borderColor = '#28a745';
@@ -579,11 +579,19 @@
             syncBtn.querySelector('div:last-child').style.color = '#6c757d';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
-            // Sync triggers both user and creator data fetching
-            syncBtn.onclick = () => {
-                userTool.runWorkflow('github');
-                creatorTool.runWorkflow('sync');
-            };
+
+            // Context-aware sync: only sync the tool for the current tab
+            if (activeTab === 'creator') {
+                // On Creator tab: only sync creator data
+                syncBtn.onclick = () => {
+                    creatorTool.runWorkflow('sync');
+                };
+            } else {
+                // On User tabs (summary, portfolio, subscription): only sync user data
+                syncBtn.onclick = () => {
+                    userTool.runWorkflow('github');
+                };
+            }
 
             if (activeTab === 'creator') {
                 // On Creator tab: enable Upload
@@ -705,27 +713,42 @@
             creatorTool.outputContainer = document.getElementById('creatorResultsContainer');
             creatorTool.supabaseIntegration = window.supabaseIntegration;
 
-            // Setup file upload handler
-            const fileInput = document.getElementById('creatorFileInput');
+            // Setup 3-file upload handler with Process Files button
+            const processButton = document.getElementById('creatorProcessButton');
+            if (processButton) {
+                processButton.onclick = async () => {
+                    const creatorListInput = document.getElementById('creatorListFileInput');
+                    const dealsInput = document.getElementById('dealsFileInput');
+                    const publicCreatorsInput = document.getElementById('publicCreatorsFileInput');
 
-            fileInput.onchange = async () => {
-                if (fileInput.files.length > 0) {
-                    const file = fileInput.files[0];
+                    if (!creatorListInput || !dealsInput || !publicCreatorsInput) {
+                        console.error('File input elements not found');
+                        return;
+                    }
+
+                    if (!creatorListInput.files[0] || !dealsInput.files[0] || !publicCreatorsInput.files[0]) {
+                        creatorTool.clearStatus();
+                        creatorTool.showStatus();
+                        creatorTool.addStatusMessage('⚠️ Please select all 3 CSV files', 'error');
+                        return;
+                    }
+
                     creatorTool.clearStatus();
                     creatorTool.showStatus();
-                    creatorTool.addStatusMessage(`✓ Selected: ${file.name}`, 'success');
-                    creatorTool.addStatusMessage('📤 Processing uploaded file...', 'info');
+                    creatorTool.addStatusMessage(`✓ Selected: ${creatorListInput.files[0].name}`, 'success');
+                    creatorTool.addStatusMessage(`✓ Selected: ${dealsInput.files[0].name}`, 'success');
+                    creatorTool.addStatusMessage(`✓ Selected: ${publicCreatorsInput.files[0].name}`, 'success');
+                    creatorTool.addStatusMessage('📤 Processing and merging files...', 'info');
 
                     try {
                         creatorTool.showProgress(10);
-                        const csvContent = await creatorTool.readFileAsText(file);
-                        await creatorTool.runUploadWorkflow(csvContent);
+                        await creatorTool.runUploadWorkflow();
                     } catch (error) {
                         console.error('Upload error:', error);
                         creatorTool.addStatusMessage(`❌ Upload error: ${error.message}`, 'error');
                     }
-                }
-            };
+                };
+            }
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
 
