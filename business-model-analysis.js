@@ -4,6 +4,7 @@
 class BusinessModelAnalysis {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
+        this.currentValues = null; // Will hold synced values from Supabase
 
         // Base assumptions from data
         this.assumptions = {
@@ -49,6 +50,58 @@ class BusinessModelAnalysis {
         };
 
         this.render();
+        this.loadCurrentValues(); // Load synced values from Supabase
+    }
+
+    async loadCurrentValues() {
+        try {
+            if (!window.supabaseIntegration) {
+                console.warn('Supabase integration not available');
+                return;
+            }
+
+            const { data, error } = await window.supabaseIntegration.supabase
+                .from('business_assumptions')
+                .select('*')
+                .eq('id', 1)
+                .single();
+
+            if (error) {
+                console.error('Error loading current values:', error);
+                return;
+            }
+
+            if (data) {
+                this.currentValues = {
+                    rebalancesPerUser: data.rebalances_per_user,
+                    tradesPerUser: data.trades_per_user,
+                    portfoliosCreatedPerUser: data.portfolios_created_per_user,
+                    syncedAt: data.synced_at
+                };
+                this.updateCurrentValueDisplays();
+            }
+        } catch (error) {
+            console.error('Error loading current values:', error);
+        }
+    }
+
+    updateCurrentValueDisplays() {
+        if (!this.currentValues) return;
+
+        // Update the "Current:" text below the relevant input fields
+        const tradesEl = document.getElementById('current-avgMonthlyTrades');
+        const rebalancesEl = document.getElementById('current-avgMonthlyRebalances');
+        const portfoliosEl = document.getElementById('current-avgMonthlyPortfolioCreations');
+
+        if (tradesEl) {
+            tradesEl.textContent = `Current: ${this.currentValues.tradesPerUser.toFixed(3)}`;
+        }
+        if (rebalancesEl) {
+            rebalancesEl.textContent = `Current: ${this.currentValues.rebalancesPerUser.toFixed(3)}`;
+        }
+        if (portfoliosEl) {
+            portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(6)}`;
+        }
     }
 
     updateAssumption(key, value) {
@@ -294,6 +347,9 @@ class BusinessModelAnalysis {
     }
 
     renderInput(label, key) {
+        // Check if this field should show current value
+        const showCurrent = ['avgMonthlyTrades', 'avgMonthlyRebalances', 'avgMonthlyPortfolioCreations'].includes(key);
+
         return `
             <div>
                 <label style="display: block; font-size: 11px; color: #6c757d; margin-bottom: 4px;">${label}</label>
@@ -304,6 +360,7 @@ class BusinessModelAnalysis {
                     data-key="${key}"
                     style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
                 />
+                ${showCurrent ? `<div id="current-${key}" style="font-size: 10px; color: #17a2b8; margin-top: 4px;">Current: Loading...</div>` : ''}
             </div>
         `;
     }
