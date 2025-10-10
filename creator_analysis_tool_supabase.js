@@ -33,6 +33,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Call parent to create base UI
         super.createUI(container, outputContainer);
+
+        // Hide the wrapper since data source buttons are now in separate component
+        const wrapper = container.querySelector('.qda-inline-widget');
+        if (wrapper) {
+            wrapper.style.display = 'none';
+        }
     }
 
     /**

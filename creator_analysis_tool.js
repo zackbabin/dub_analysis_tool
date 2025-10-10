@@ -406,7 +406,10 @@ class CreatorAnalysisTool {
      */
     calculateCorrelations(data) {
         if (!data || data.length === 0) {
-            return {};
+            return {
+                totalCopies: {},
+                totalSubscriptions: {}
+            };
         }
 
         // Dynamically detect all numeric variables from the first row
@@ -475,6 +478,12 @@ class CreatorAnalysisTool {
      * Perform regression analysis
      */
     performRegression(data, outcome, correlations) {
+        // Safety check: ensure correlations and correlations[outcome] exist
+        if (!correlations || !correlations[outcome]) {
+            console.warn(`No correlation data found for outcome: ${outcome}`);
+            return [];
+        }
+
         const variables = Object.keys(correlations[outcome]);
         const n = data.length;
 

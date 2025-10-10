@@ -94,12 +94,9 @@ serve(async (req) => {
 
       try {
         console.log('Fetching event properties for enrichment...')
-        const results = await Promise.all([
-          fetchInsightsData(credentials, '85312972', 'PDP Properties'),
-          fetchInsightsData(credentials, '85312975', 'Profile Properties')
-        ])
-        pdpPropertiesData = results[0]
-        profilePropertiesData = results[1]
+        // Fetch sequentially to avoid exceeding Mixpanel rate limit (max 5 concurrent)
+        pdpPropertiesData = await fetchInsightsData(credentials, '85312972', 'PDP Properties')
+        profilePropertiesData = await fetchInsightsData(credentials, '85312975', 'Profile Properties')
         console.log('✓ Event properties fetched successfully')
       } catch (error) {
         console.warn('⚠️ Failed to fetch event properties - will proceed with non-enriched events:', error.message)
