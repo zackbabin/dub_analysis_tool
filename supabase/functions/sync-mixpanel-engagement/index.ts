@@ -186,7 +186,7 @@ serve(async (req) => {
       // Fire and forget - don't wait for completion to avoid timeout
       console.log('Triggering pattern analysis (using stored data)...')
 
-      // Trigger all three analyses and keep promises alive but don't await
+      // Trigger all analyses and keep promises alive but don't await
       const analysisPromises = [
         fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
           method: 'POST',
@@ -196,8 +196,14 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({})
-        }).then(() => console.log('✓ Subscription analysis invoked'))
-          .catch((err) => console.warn('⚠️ Subscription analysis failed:', err)),
+        }).then(async (response) => {
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('⚠️ Subscription analysis returned error:', response.status, errorText)
+          } else {
+            console.log('✓ Subscription analysis invoked successfully')
+          }
+        }).catch((err) => console.error('⚠️ Subscription analysis failed to invoke:', err.message)),
 
         fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
           method: 'POST',
@@ -207,14 +213,22 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({})
-        }).then(() => console.log('✓ Copy analysis invoked'))
-          .catch((err) => console.warn('⚠️ Copy analysis failed:', err))
+        }).then(async (response) => {
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('⚠️ Copy analysis returned error:', response.status, errorText)
+          } else {
+            console.log('✓ Copy analysis invoked successfully')
+          }
+        }).catch((err) => console.error('⚠️ Copy analysis failed to invoke:', err.message))
 
         // Portfolio sequence analysis removed - not used in UI
       ]
 
       // Keep promises referenced but don't await (fire-and-forget that survives function return)
-      Promise.allSettled(analysisPromises)
+      Promise.allSettled(analysisPromises).then(() => {
+        console.log('✓ All pattern analysis functions triggered')
+      })
 
       console.log('✓ Pattern analysis functions triggered (running in background)')
 
