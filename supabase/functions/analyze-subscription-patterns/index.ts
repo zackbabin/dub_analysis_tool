@@ -480,7 +480,7 @@ serve(async (_req) => {
     console.log(`✓ Updated ranks for ${sortedResults.length} combinations`)
 
     // Prepare top 10 results for response
-    const top10 = results.map(r => ({
+    const top10 = sortedResults.slice(0, 10).map(r => ({
       creators: [r.value_1, r.value_2],
       aic: Math.round(r.aic * 100) / 100,
       odds_ratio: Math.round(r.odds_ratio * 100) / 100,
