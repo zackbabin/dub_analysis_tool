@@ -272,8 +272,18 @@ class BusinessModelAnalysis {
 
     renderAssumptions() {
         return `
-            <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
+            <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
+                    <button
+                        id="syncBusinessAssumptions"
+                        style="padding: 6px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; transition: background 0.2s;"
+                        onmouseover="this.style.background='#138496'"
+                        onmouseout="this.style.background='#17a2b8'"
+                    >
+                        Sync Data
+                    </button>
+                </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderUserBehavior()}
@@ -457,6 +467,62 @@ class BusinessModelAnalysis {
         `;
     }
 
+    async syncBusinessAssumptions() {
+        const button = document.getElementById('syncBusinessAssumptions');
+        if (!button) return;
+
+        try {
+            // Disable button and show loading state
+            button.disabled = true;
+            button.textContent = 'Syncing...';
+            button.style.background = '#6c757d';
+
+            if (!window.supabaseIntegration) {
+                throw new Error('Supabase integration not available');
+            }
+
+            // Call the Edge Function
+            const { data, error } = await window.supabaseIntegration.supabase.functions.invoke('sync-business-assumptions', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Sync failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during sync');
+            }
+
+            console.log('✅ Business assumptions synced:', data.data);
+
+            // Reload the current values and update displays
+            await this.loadCurrentValues();
+
+            // Show success state
+            button.textContent = 'Synced!';
+            button.style.background = '#28a745';
+
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = 'Sync Data';
+                button.style.background = '#17a2b8';
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error syncing business assumptions:', error);
+            button.textContent = 'Sync Failed';
+            button.style.background = '#dc3545';
+
+            setTimeout(() => {
+                button.disabled = false;
+                button.textContent = 'Sync Data';
+                button.style.background = '#17a2b8';
+            }, 3000);
+        }
+    }
+
     attachEventListeners() {
         const inputs = this.container.querySelectorAll('input[data-key]');
         inputs.forEach(input => {
@@ -465,6 +531,12 @@ class BusinessModelAnalysis {
                 this.updateAssumption(key, e.target.value);
             });
         });
+
+        // Attach sync button listener
+        const syncButton = document.getElementById('syncBusinessAssumptions');
+        if (syncButton) {
+            syncButton.addEventListener('click', () => this.syncBusinessAssumptions());
+        }
     }
 }
 
