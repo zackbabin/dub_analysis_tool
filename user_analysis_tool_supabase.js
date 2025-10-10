@@ -146,19 +146,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         console.log('✅ Supabase sync completed:', result.stats);
 
-        // Also trigger subscription price analysis
-        console.log('Triggering subscription price analysis...');
-        try {
-            const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
-            if (priceResult && priceResult.success) {
-                console.log('✅ Subscription price analysis completed:', priceResult.stats);
-            }
-        } catch (error) {
-            console.warn('⚠️ Subscription price analysis failed:', error.message);
-            // Continue even if price analysis fails - it's supplementary data
-        }
-
         // Trigger event sequence sync (fetch raw data from Mixpanel)
+        // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)
         console.log('🔄 Starting event sequence workflow...');
         console.log('Step 1/4: Triggering event sequence sync (fetching raw data from Mixpanel)...');
         try {
@@ -217,6 +206,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.error('❌ Event sequence workflow failed at Step 1:', error);
             console.error('Error details:', error.message, error.stack);
             // Continue even if sequence analysis fails - it's supplementary data
+        }
+
+        // Trigger subscription price analysis after event sequence to avoid rate limiting
+        console.log('Triggering subscription price analysis...');
+        try {
+            const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
+            if (priceResult && priceResult.success) {
+                console.log('✅ Subscription price analysis completed:', priceResult.stats);
+            }
+        } catch (error) {
+            console.warn('⚠️ Subscription price analysis failed:', error.message);
+            // Continue even if price analysis fails - it's supplementary data
         }
 
         return true;

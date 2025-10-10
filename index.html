@@ -472,6 +472,10 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-container">
+            <!-- Creator-specific data source component -->
+            <div id="creatorDataSource">
+                <!-- This will be populated by JavaScript -->
+            </div>
             <div id="creatorContent"></div>
             <div id="creatorProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
                 <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
@@ -590,11 +594,66 @@
             return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
-        // Update button states based on active tab
+        // Create creator-specific data source component (identical styling, independent instance)
+        function createCreatorDataSource(creatorTool) {
+            const container = document.getElementById('creatorDataSource');
+            container.innerHTML = `
+                <div style="max-width: 800px; margin: 0 auto; background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1);">
+                    <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <div id="creatorSyncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
+                            <div style="font-size: 12px; color: #6c757d;">Fetch latest creator data from Mixpanel</div>
+                        </div>
+                        <div id="creatorManualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
+                            <div style="font-size: 12px; color: #6c757d;">Upload 3 CSV files for merging</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const syncBtn = document.getElementById('creatorSyncLiveDataBtn');
+            const uploadBtn = document.getElementById('creatorManualUploadBtn');
+
+            // Hover effects
+            const syncHoverIn = () => {
+                syncBtn.style.background = '#28a745';
+                syncBtn.querySelector('div:first-child').style.color = 'white';
+                syncBtn.querySelector('div:last-child').style.color = 'white';
+            };
+            const syncHoverOut = () => {
+                syncBtn.style.background = 'white';
+                syncBtn.querySelector('div:first-child').style.color = '#28a745';
+                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+            };
+            const uploadHoverIn = () => {
+                uploadBtn.style.background = '#28a745';
+                uploadBtn.querySelector('div:first-child').style.color = 'white';
+                uploadBtn.querySelector('div:last-child').style.color = 'white';
+            };
+            const uploadHoverOut = () => {
+                uploadBtn.style.background = 'white';
+                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
+            };
+
+            syncBtn.onmouseover = syncHoverIn;
+            syncBtn.onmouseout = syncHoverOut;
+            uploadBtn.onmouseover = uploadHoverIn;
+            uploadBtn.onmouseout = uploadHoverOut;
+
+            // Click handlers
+            syncBtn.onclick = () => creatorTool.runWorkflow('sync');
+            uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
+        }
+
+        // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
 
-            // Sync Live Data button is always enabled but triggers different syncs based on active tab
+            // Unified component is only shown on user tabs (summary, portfolio, subscription)
+            // Sync Live Data button is always enabled on these tabs
             syncBtn.disabled = false;
             syncBtn.style.background = 'white';
             syncBtn.style.borderColor = '#28a745';
@@ -604,44 +663,18 @@
             syncBtn.querySelector('div:last-child').style.color = '#6c757d';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
+            syncBtn.onclick = () => userTool.runWorkflow('github');
 
-            // Context-aware sync: only sync the tool for the current tab
-            if (activeTab === 'creator') {
-                // On Creator tab: only sync creator data
-                syncBtn.onclick = () => {
-                    creatorTool.runWorkflow('sync');
-                };
-            } else {
-                // On User tabs (summary, portfolio, subscription): only sync user data
-                syncBtn.onclick = () => {
-                    userTool.runWorkflow('github');
-                };
-            }
-
-            if (activeTab === 'creator') {
-                // On Creator tab: enable Upload
-                uploadBtn.disabled = false;
-                uploadBtn.style.background = 'white';
-                uploadBtn.style.borderColor = '#28a745';
-                uploadBtn.style.cursor = 'pointer';
-                uploadBtn.style.pointerEvents = 'auto';
-                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
-                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
-                uploadBtn.onmouseover = uploadHoverIn;
-                uploadBtn.onmouseout = uploadHoverOut;
-                uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
-            } else {
-                // On User tabs: disable Upload
-                uploadBtn.disabled = true;
-                uploadBtn.style.background = '#f8f9fa';
-                uploadBtn.style.borderColor = '#e9ecef';
-                uploadBtn.style.cursor = 'not-allowed';
-                uploadBtn.style.pointerEvents = 'none';
-                uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
-                uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
-                uploadBtn.onmouseover = null;
-                uploadBtn.onmouseout = null;
-            }
+            // Manually Upload Data button is always DISABLED on user tabs
+            uploadBtn.disabled = true;
+            uploadBtn.style.background = '#f8f9fa';
+            uploadBtn.style.borderColor = '#e9ecef';
+            uploadBtn.style.cursor = 'not-allowed';
+            uploadBtn.style.pointerEvents = 'none';
+            uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
+            uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
+            uploadBtn.onmouseover = null;
+            uploadBtn.onmouseout = null;
         }
 
         // Switch to a specific tab
@@ -665,12 +698,22 @@
                 targetPane.classList.add('active');
             }
 
-            // Hide/show data source component based on tab
-            const dataSourceElement = document.getElementById('unifiedDataSource');
-            if (tabName === 'business-model') {
-                dataSourceElement.style.display = 'none';
+            // Hide/show data source components based on tab
+            const unifiedDataSource = document.getElementById('unifiedDataSource');
+            const creatorDataSource = document.getElementById('creatorDataSource');
+
+            if (tabName === 'creator') {
+                // On Creator tab: show creator-specific component, hide unified
+                unifiedDataSource.style.display = 'none';
+                creatorDataSource.style.display = 'block';
+            } else if (tabName === 'business-model') {
+                // On Business Model tab: hide both
+                unifiedDataSource.style.display = 'none';
+                creatorDataSource.style.display = 'none';
             } else {
-                dataSourceElement.style.display = 'block';
+                // On User tabs (summary, portfolio, subscription): show unified, hide creator
+                unifiedDataSource.style.display = 'block';
+                creatorDataSource.style.display = 'none';
             }
 
             // Update button states based on active tab
@@ -880,13 +923,16 @@
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
 
-            // Create unified data source component
+            // Create unified data source component (for first 3 tabs)
             const buttons = createUnifiedDataSource(userTool, creatorTool);
+
+            // Create creator-specific data source component (for creator tab only)
+            createCreatorDataSource(creatorTool);
 
             // Initialize tab switching with button state management
             initializeTabs(buttons, userTool, creatorTool);
 
-            console.log('✅ Unified data source component created');
+            console.log('✅ Data source components created (unified + creator-specific)');
 
             // Initialize Business Model Analysis Tool
             const businessModelAnalysis = new BusinessModelAnalysis('businessModelContent');
