@@ -452,8 +452,9 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Rebalances', 'modelA_rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'modelA_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelA_totalTradingEvents', projections)}
-                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true, false, 'Total Trading Events × Transaction Fee per trade')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true, false, 'Active Subscribers × Subscription Price × Dub Revenue Share')}
                             ${this.renderMetricRow('Total Revenue', 'modelA_totalRevenue', projections, false, '#cfe2ff', true, true)}
 
                             ${this.renderMetricRow('MODEL B: MAINTENANCE FEE', null, projections, true, '#e8f5e9')}
@@ -466,8 +467,9 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Rebalances', 'modelB_rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'modelB_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'modelB_totalTradingEvents', projections)}
-                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true, false, 'Cumulative Funded Accounts × (1 - Waived Fees %) × Monthly Maintenance Fee')}
+                            ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true, false, 'Active Subscribers × Subscription Price × Dub Revenue Share')}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
                         </tbody>
                     </table>
@@ -476,7 +478,15 @@ class BusinessModelAnalysis {
         `;
     }
 
-    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false) {
+    renderSeparatorRow(projections) {
+        return `
+            <tr>
+                <td colspan="${projections.length + 1}" style="padding: 0; border-top: 1px solid #dee2e6;"></td>
+            </tr>
+        `;
+    }
+
+    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, tooltip = null) {
         if (isHeader) {
             return `
                 <tr style="background: ${bgColor || '#f8f9fa'};">
@@ -486,9 +496,14 @@ class BusinessModelAnalysis {
             `;
         }
 
+        // Render label with optional tooltip
+        const labelHtml = tooltip
+            ? `<span style="text-decoration: underline; text-decoration-style: dotted; cursor: help;" title="${tooltip}">${label}</span>`
+            : label;
+
         return `
             <tr>
-                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
+                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">${labelHtml}</td>
                 ${projections.map(p => {
                     const value = p[key];
                     const formatted = isCurrency ? this.formatCurrency(value) : this.formatNumber(value);
