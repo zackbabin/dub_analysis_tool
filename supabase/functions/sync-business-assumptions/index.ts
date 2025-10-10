@@ -14,6 +14,7 @@ const corsHeaders = {
 const PROJECT_ID = '2599235'
 const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 const CHART_ID = '85270536' // Business Assumptions Chart
+const FUNNEL_ID = '85315048' // Conversion Funnel Chart
 
 interface MixpanelCredentials {
   username: string
@@ -71,6 +72,14 @@ serve(async (req) => {
       portfoliosCreatedPerUser,
     })
 
+    // Fetch conversion funnel data
+    const funnelData = await fetchConversionFunnelData(credentials)
+
+    // Extract conversion rates from funnel
+    const conversionRates = extractConversionRates(funnelData)
+
+    console.log('Extracted conversion rates:', conversionRates)
+
     // Store in database
     const { error: upsertError } = await supabase
       .from('business_assumptions')
@@ -79,6 +88,9 @@ serve(async (req) => {
         total_rebalances: totalRebalances,
         trades_per_user: tradesPerUser,
         portfolios_created_per_user: portfoliosCreatedPerUser,
+        kyc_to_linked_bank: conversionRates.kycToLinkedBank,
+        linked_bank_to_ach: conversionRates.linkedBankToAch,
+        ach_to_copy: conversionRates.achToCopy,
         synced_at: new Date().toISOString(),
       })
 
@@ -97,6 +109,9 @@ serve(async (req) => {
           totalRebalances,
           tradesPerUser,
           portfoliosCreatedPerUser,
+          kycToLinkedBank: conversionRates.kycToLinkedBank,
+          linkedBankToAch: conversionRates.linkedBankToAch,
+          achToCopy: conversionRates.achToCopy,
         },
       }),
       {
@@ -161,4 +176,113 @@ function calculateAverage(seriesData: Record<string, number> | undefined | null)
 
   const sum = values.reduce((acc, val) => acc + val, 0)
   return sum / values.length
+}
+
+async function fetchConversionFunnelData(credentials: MixpanelCredentials) {
+  console.log(`Fetching Conversion Funnel data (Funnel ID: ${FUNNEL_ID})...`)
+
+  // Calculate date range: Aug 27, 2025 to today
+  const fromDate = '2025-08-27'
+  const toDate = new Date().toISOString().split('T')[0] // YYYY-MM-DD format
+
+  const params = new URLSearchParams({
+    project_id: PROJECT_ID,
+    bookmark_id: FUNNEL_ID,
+    from_date: fromDate,
+    to_date: toDate,
+  })
+
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  const response = await fetch(`${MIXPANEL_API_BASE}/query/funnels?${params}`, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel Funnel API error (${response.status}): ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('✓ Conversion Funnel fetch successful')
+  return data
+}
+
+function extractConversionRates(funnelData: any): {
+  kycToLinkedBank: number
+  linkedBankToAch: number
+  achToCopy: number
+} {
+  // Initialize with defaults
+  const conversionRates = {
+    kycToLinkedBank: 0,
+    linkedBankToAch: 0,
+    achToCopy: 0,
+  }
+
+  if (!funnelData?.data) {
+    console.warn('No funnel data available')
+    return conversionRates
+  }
+
+  // Collect all step conversion ratios across all dates
+  const kycToLinkedBankRates: number[] = []
+  const linkedBankToAchRates: number[] = []
+  const achToCopyRates: number[] = []
+
+  // Iterate through all date entries
+  for (const [date, dateData] of Object.entries(funnelData.data)) {
+    const steps = (dateData as any)?.steps
+    if (!steps || !Array.isArray(steps)) continue
+
+    // Find the steps by their step_label
+    // Step 1 -> Step 2: Approved KYC -> Linked Bank Account
+    const linkedBankStep = steps.find((s: any) => s.step_label === 'Linked Bank Account')
+    if (linkedBankStep?.step_conv_ratio !== undefined) {
+      kycToLinkedBankRates.push(linkedBankStep.step_conv_ratio * 100) // Convert to percentage
+    }
+
+    // Step 2 -> Step 3: Linked Bank Account -> Initiated ACH Transfer
+    const achStep = steps.find((s: any) => s.step_label === 'Initiated ACH Transfer')
+    if (achStep?.step_conv_ratio !== undefined) {
+      linkedBankToAchRates.push(achStep.step_conv_ratio * 100) // Convert to percentage
+    }
+
+    // Step 3 -> Step 4: Initiated ACH Transfer -> Copied Portfolio
+    const copyStep = steps.find((s: any) => s.step_label === 'Copied Portfolio')
+    if (copyStep?.step_conv_ratio !== undefined) {
+      achToCopyRates.push(copyStep.step_conv_ratio * 100) // Convert to percentage
+    }
+  }
+
+  // Calculate averages
+  if (kycToLinkedBankRates.length > 0) {
+    conversionRates.kycToLinkedBank = kycToLinkedBankRates.reduce((a, b) => a + b, 0) / kycToLinkedBankRates.length
+  }
+
+  if (linkedBankToAchRates.length > 0) {
+    conversionRates.linkedBankToAch = linkedBankToAchRates.reduce((a, b) => a + b, 0) / linkedBankToAchRates.length
+  }
+
+  if (achToCopyRates.length > 0) {
+    conversionRates.achToCopy = achToCopyRates.reduce((a, b) => a + b, 0) / achToCopyRates.length
+  }
+
+  console.log('Conversion rates extracted:', {
+    kycToLinkedBank: `${conversionRates.kycToLinkedBank.toFixed(2)}%`,
+    linkedBankToAch: `${conversionRates.linkedBankToAch.toFixed(2)}%`,
+    achToCopy: `${conversionRates.achToCopy.toFixed(2)}%`,
+    samplesCount: {
+      kycToLinkedBank: kycToLinkedBankRates.length,
+      linkedBankToAch: linkedBankToAchRates.length,
+      achToCopy: achToCopyRates.length,
+    }
+  })
+
+  return conversionRates
 }

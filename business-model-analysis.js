@@ -84,6 +84,9 @@ class BusinessModelAnalysis {
                     totalRebalances: data.total_rebalances,
                     tradesPerUser: data.trades_per_user,
                     portfoliosCreatedPerUser: data.portfolios_created_per_user,
+                    kycToLinkedBank: data.kyc_to_linked_bank,
+                    linkedBankToAch: data.linked_bank_to_ach,
+                    achToCopy: data.ach_to_copy,
                     syncedAt: data.synced_at
                 };
 
@@ -91,6 +94,14 @@ class BusinessModelAnalysis {
                 this.assumptions.avgMonthlyTrades = data.trades_per_user;
                 this.assumptions.avgMonthlyRebalances = data.total_rebalances;
                 this.assumptions.avgMonthlyPortfolioCreations = data.portfolios_created_per_user;
+
+                // Update conversion rates if available
+                if (data.kyc_to_linked_bank !== null && data.kyc_to_linked_bank !== undefined) {
+                    this.assumptions.kycToLinkedBank = data.kyc_to_linked_bank;
+                }
+                if (data.linked_bank_to_ach !== null && data.linked_bank_to_ach !== undefined) {
+                    this.assumptions.linkedBankToACH = data.linked_bank_to_ach;
+                }
             }
         } catch (error) {
             console.error('Error loading current values:', error);
@@ -104,6 +115,8 @@ class BusinessModelAnalysis {
         const tradesEl = document.getElementById('current-avgMonthlyTrades');
         const rebalancesEl = document.getElementById('current-avgMonthlyRebalances');
         const portfoliosEl = document.getElementById('current-avgMonthlyPortfolioCreations');
+        const kycToLinkedBankEl = document.getElementById('current-kycToLinkedBank');
+        const linkedBankToACHEl = document.getElementById('current-linkedBankToACH');
 
         if (tradesEl) {
             tradesEl.textContent = `Current: ${this.currentValues.tradesPerUser.toFixed(2)}`;
@@ -113,6 +126,12 @@ class BusinessModelAnalysis {
         }
         if (portfoliosEl) {
             portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(2)}`;
+        }
+        if (kycToLinkedBankEl && this.currentValues.kycToLinkedBank !== null && this.currentValues.kycToLinkedBank !== undefined) {
+            kycToLinkedBankEl.textContent = `Current: ${this.currentValues.kycToLinkedBank.toFixed(2)}%`;
+        }
+        if (linkedBankToACHEl && this.currentValues.linkedBankToAch !== null && this.currentValues.linkedBankToAch !== undefined) {
+            linkedBankToACHEl.textContent = `Current: ${this.currentValues.linkedBankToAch.toFixed(2)}%`;
         }
     }
 
@@ -456,7 +475,7 @@ class BusinessModelAnalysis {
 
     renderInput(label, key) {
         // Check if this field should show current value
-        const showCurrent = ['avgMonthlyTrades', 'avgMonthlyRebalances', 'avgMonthlyPortfolioCreations'].includes(key);
+        const showCurrent = ['avgMonthlyTrades', 'avgMonthlyRebalances', 'avgMonthlyPortfolioCreations', 'kycToLinkedBank', 'linkedBankToACH'].includes(key);
 
         return `
             <div>
