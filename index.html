@@ -751,11 +751,19 @@
                 // Skip if already has anchor-link class
                 if (header.classList.contains('anchor-link')) return;
 
-                // Get the text content (strip out any existing HTML)
-                const textContent = header.textContent.trim();
+                // Get only the direct text content of the header (exclude tooltips)
+                // This gets text nodes only, skipping any element nodes (like tooltips)
+                let headerText = '';
+                for (let node of header.childNodes) {
+                    // Only process text nodes that are direct children of the header
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        headerText += node.textContent;
+                    }
+                }
+                headerText = headerText.trim();
 
-                // Create slug from text
-                const slug = createSlug(textContent);
+                // Create slug from just the header title
+                const slug = createSlug(headerText);
 
                 // Add anchor-link class and id
                 header.classList.add('anchor-link');
@@ -765,7 +773,7 @@
                 const anchorIcon = document.createElement('a');
                 anchorIcon.href = `#${slug}`;
                 anchorIcon.className = 'anchor-icon';
-                anchorIcon.innerHTML = '#';
+                anchorIcon.innerHTML = '🔗';
                 anchorIcon.title = 'Link to this section';
 
                 // Prevent default and update URL without scrolling
