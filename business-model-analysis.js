@@ -39,6 +39,7 @@ class BusinessModelAnalysis {
             modelA_dubRevenueShare: 50,
             modelA_subscriptionConversion: 3,
             modelA_subscriptionChurnRate: 25,
+            modelA_accountClosureRate: 0,
 
             // MODEL B: Monthly Maintenance Fee Model
             modelB_maintenanceFee: 5.00,
@@ -47,6 +48,7 @@ class BusinessModelAnalysis {
             modelB_dubRevenueShare: 50,
             modelB_subscriptionConversion: 3,
             modelB_subscriptionChurnRate: 25,
+            modelB_accountClosureRate: 0,
         };
 
         this.render();
@@ -164,6 +166,10 @@ class BusinessModelAnalysis {
             cumulativeSubscribersA = (cumulativeSubscribersA * (1 - this.assumptions.modelA_subscriptionChurnRate / 100)) + newSubscribersA;
             cumulativeSubscribersB = (cumulativeSubscribersB * (1 - this.assumptions.modelB_subscriptionChurnRate / 100)) + newSubscribersB;
 
+            // Calculate active accounts for each model (KYC Approved * (1 - account closure rate))
+            const modelA_activeAccounts = kycApproved * (1 - this.assumptions.modelA_accountClosureRate / 100);
+            const modelB_activeAccounts = kycApproved * (1 - this.assumptions.modelB_accountClosureRate / 100);
+
             // MODEL A: Transaction Fee Model
             const modelA_transactionRevenue = totalTradingEvents * this.assumptions.modelA_transactionFee;
             const modelA_subscriptionRevenue = cumulativeSubscribersA * this.assumptions.modelA_subscriptionPrice * (this.assumptions.modelA_dubRevenueShare / 100);
@@ -188,6 +194,8 @@ class BusinessModelAnalysis {
                 totalTradingEvents,
                 cumulativeSubscribersA,
                 cumulativeSubscribersB,
+                modelA_activeAccounts,
+                modelB_activeAccounts,
                 modelA_transactionRevenue,
                 modelA_subscriptionRevenue,
                 modelA_totalRevenue,
@@ -348,6 +356,7 @@ class BusinessModelAnalysis {
                     ${this.renderInput('Dub Revenue Share (%)', 'modelA_dubRevenueShare')}
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'modelA_subscriptionConversion')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'modelA_subscriptionChurnRate')}
+                    ${this.renderInput('Account Closure Rate (% monthly)', 'modelA_accountClosureRate')}
                 </div>
             </div>
         `;
@@ -364,6 +373,7 @@ class BusinessModelAnalysis {
                     ${this.renderInput('Dub Revenue Share (%)', 'modelB_dubRevenueShare')}
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'modelB_subscriptionConversion')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'modelB_subscriptionChurnRate')}
+                    ${this.renderInput('Account Closure Rate (% monthly)', 'modelB_accountClosureRate')}
                 </div>
             </div>
         `;
@@ -414,11 +424,13 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
 
                             ${this.renderMetricRow('MODEL A: TRANSACTION FEE', null, projections, true, '#e7f3ff')}
+                            ${this.renderMetricRow('Active Accounts', 'modelA_activeAccounts', projections)}
                             ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'modelA_totalRevenue', projections, false, '#cfe2ff', true, true)}
 
                             ${this.renderMetricRow('MODEL B: MAINTENANCE FEE', null, projections, true, '#e8f5e9')}
+                            ${this.renderMetricRow('Active Accounts', 'modelB_activeAccounts', projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
