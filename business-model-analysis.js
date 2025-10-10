@@ -289,6 +289,47 @@ class BusinessModelAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
+            <style>
+                .metric-tooltip {
+                    position: relative;
+                    text-decoration: underline;
+                    text-decoration-style: dotted;
+                    cursor: help;
+                }
+                .metric-tooltip .tooltip-text {
+                    visibility: hidden;
+                    width: 300px;
+                    background-color: #2d3748;
+                    color: #fff;
+                    text-align: left;
+                    border-radius: 6px;
+                    padding: 10px;
+                    position: absolute;
+                    z-index: 1000;
+                    bottom: 125%;
+                    left: 50%;
+                    margin-left: -150px;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    font-size: 12px;
+                    line-height: 1.5;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                }
+                .metric-tooltip .tooltip-text::after {
+                    content: "";
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    margin-left: -5px;
+                    border-width: 5px;
+                    border-style: solid;
+                    border-color: #2d3748 transparent transparent transparent;
+                }
+                .metric-tooltip:hover .tooltip-text {
+                    visibility: visible;
+                    opacity: 1;
+                }
+            </style>
             <div style="width: 100%; max-width: 1400px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Business Model Analysis</h1>
@@ -498,7 +539,7 @@ class BusinessModelAnalysis {
 
         // Render label with optional tooltip
         const labelHtml = tooltip
-            ? `<span style="text-decoration: underline; text-decoration-style: dotted; cursor: help;" title="${tooltip}">${label}</span>`
+            ? `<span class="metric-tooltip">${label}<span class="tooltip-text">${tooltip}</span></span>`
             : label;
 
         return `
