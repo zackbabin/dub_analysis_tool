@@ -36,42 +36,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Create mode section - Disable "Sync Live Data" button, enable "Manually Upload Data"
+     * Override: Create mode section - Only create upload section (buttons are in unified component)
      */
     createModeSection() {
         const section = document.createElement('div');
         section.style.cssText = 'margin-bottom: 20px;';
-
-        const title = document.createElement('h4');
-        title.textContent = 'Select Data Source';
-        title.style.cssText = 'margin: 0 0 15px 0; color: #333;';
-        section.appendChild(title);
-
-        // Mode buttons
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = 'display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;';
-
-        // Sync Live Data button (enabled)
-        const syncBtn = this.createModeButton(
-            'Sync Live Data',
-            'Fetch latest creator data from Mixpanel',
-            '#007bff',
-            '#007bff',
-            () => this.runWorkflow('sync')
-        );
-        buttonContainer.appendChild(syncBtn);
-
-        // Manually Upload Data button
-        const uploadBtn = this.createModeButton(
-            'Manually Upload Data',
-            'Upload creator CSV file for analysis',
-            '#28a745',
-            '#28a745',
-            () => this.runWorkflow('upload')
-        );
-        buttonContainer.appendChild(uploadBtn);
-
-        section.appendChild(buttonContainer);
 
         // File upload section (hidden by default) - Now supports 3 files
         const uploadSection = document.createElement('div');
