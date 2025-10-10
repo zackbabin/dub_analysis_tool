@@ -818,6 +818,11 @@
             const userTool = new UserAnalysisToolSupabase();
             userTool.supabaseIntegration = window.supabaseIntegration;
 
+            // Assign UI elements for progress and status
+            userTool.progressBar = document.getElementById('unifiedProgressBar');
+            userTool.progressSection = document.getElementById('unifiedProgressSection');
+            userTool.statusSection = document.getElementById('unifiedStatusSection');
+
             // Initialize with output containers (this will restore cached results)
             userTool.outputContainers = {
                 summary: document.getElementById('summaryResultsContainer'),
