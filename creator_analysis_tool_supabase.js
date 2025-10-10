@@ -228,12 +228,35 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: runWorkflow to handle progress bar properly for upload mode
+     */
+    async runWorkflow(mode) {
+        if (mode === 'upload') {
+            // For upload mode, don't show progress bar or clear status yet
+            this.showUploadSection();
+        } else {
+            // For sync mode, use default behavior
+            await super.runWorkflow(mode);
+        }
+    }
+
+    /**
      * Override: Show the upload section with 3 file inputs
      */
     showUploadSection() {
+        // Hide progress bar (shouldn't be visible yet)
+        const progressSection = document.getElementById('creatorProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'none';
+        }
+
+        // Show upload section
         const uploadSection = document.getElementById('creatorUploadSection');
         if (uploadSection) {
             uploadSection.style.display = 'block';
+            console.log('✅ Upload section displayed');
+        } else {
+            console.error('❌ Upload section not found! Element ID: creatorUploadSection');
         }
     }
 
