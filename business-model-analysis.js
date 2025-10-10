@@ -80,7 +80,16 @@ class BusinessModelAnalysis {
                     portfoliosCreatedPerUser: data.portfolios_created_per_user,
                     syncedAt: data.synced_at
                 };
+
+                // Update assumptions with current values from Mixpanel
+                this.assumptions.avgMonthlyTrades = data.trades_per_user;
+                this.assumptions.avgMonthlyRebalances = data.rebalances_per_user;
+                this.assumptions.avgMonthlyPortfolioCreations = data.portfolios_created_per_user;
+
                 this.updateCurrentValueDisplays();
+
+                // Re-render to update input fields and calculations
+                this.updateCalculations();
             }
         } catch (error) {
             console.error('Error loading current values:', error);
@@ -103,6 +112,21 @@ class BusinessModelAnalysis {
         }
         if (portfoliosEl) {
             portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(2)}`;
+        }
+
+        // Update the input field values to match current synced data
+        const tradesInput = document.querySelector('input[data-key="avgMonthlyTrades"]');
+        const rebalancesInput = document.querySelector('input[data-key="avgMonthlyRebalances"]');
+        const portfoliosInput = document.querySelector('input[data-key="avgMonthlyPortfolioCreations"]');
+
+        if (tradesInput) {
+            tradesInput.value = this.currentValues.tradesPerUser.toFixed(2);
+        }
+        if (rebalancesInput) {
+            rebalancesInput.value = this.currentValues.rebalancesPerUser.toFixed(2);
+        }
+        if (portfoliosInput) {
+            portfoliosInput.value = this.currentValues.portfoliosCreatedPerUser.toFixed(2);
         }
     }
 
