@@ -43,7 +43,7 @@ class BusinessModelAnalysis {
 
             // MODEL B: Monthly Maintenance Fee Model
             modelB_maintenanceFee: 2.00,
-            modelB_waivedFeesPercent: 10.00,
+            modelB_waivedFeesPercent: 30.00,
             modelB_subscriptionPrice: 10.00,
             modelB_dubRevenueShare: 50.00,
             modelB_subscriptionConversion: 3.00,
