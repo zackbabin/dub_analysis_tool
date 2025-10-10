@@ -1004,6 +1004,89 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 }
             });
 
+            // Add top portfolios/creators section if available
+            if (seq.top_portfolios && seq.top_portfolios.length > 0) {
+                const topPortfolio = seq.top_portfolios[0];
+                const otherPortfolios = seq.top_portfolios.slice(1);
+
+                parts.push(
+                    `<div style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #e7f3ff; border-radius: 4px; font-size: 0.85rem;">`,
+                        '<strong>Top Portfolio:</strong> ',
+                        `<span class="portfolio-tooltip" style="cursor: help; text-decoration: underline; text-decoration-style: dotted;">`,
+                            topPortfolio
+                );
+
+                if (otherPortfolios.length > 0) {
+                    parts.push(
+                        `<span class="portfolio-tooltip-text" style="
+                            visibility: hidden;
+                            opacity: 0;
+                            position: absolute;
+                            background: #2d3748;
+                            color: white;
+                            padding: 0.5rem 0.75rem;
+                            border-radius: 4px;
+                            font-size: 0.8rem;
+                            white-space: nowrap;
+                            z-index: 1000;
+                            bottom: 100%;
+                            left: 50%;
+                            transform: translateX(-50%) translateY(-8px);
+                            transition: opacity 0.2s;
+                            pointer-events: none;
+                        ">`,
+                            `Other top portfolios: ${otherPortfolios.join(', ')}`,
+                        '</span>'
+                    );
+                }
+
+                parts.push(
+                        '</span>',
+                    '</div>'
+                );
+            }
+
+            if (seq.top_creators && seq.top_creators.length > 0) {
+                const topCreator = seq.top_creators[0];
+                const otherCreators = seq.top_creators.slice(1);
+
+                parts.push(
+                    `<div style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #f0f9ff; border-radius: 4px; font-size: 0.85rem;">`,
+                        '<strong>Top Creator:</strong> ',
+                        `<span class="creator-tooltip" style="cursor: help; text-decoration: underline; text-decoration-style: dotted;">`,
+                            topCreator
+                );
+
+                if (otherCreators.length > 0) {
+                    parts.push(
+                        `<span class="creator-tooltip-text" style="
+                            visibility: hidden;
+                            opacity: 0;
+                            position: absolute;
+                            background: #2d3748;
+                            color: white;
+                            padding: 0.5rem 0.75rem;
+                            border-radius: 4px;
+                            font-size: 0.8rem;
+                            white-space: nowrap;
+                            z-index: 1000;
+                            bottom: 100%;
+                            left: 50%;
+                            transform: translateX(-50%) translateY(-8px);
+                            transition: opacity 0.2s;
+                            pointer-events: none;
+                        ">`,
+                            `Other top creators: ${otherCreators.join(', ')}`,
+                        '</span>'
+                    );
+                }
+
+                parts.push(
+                        '</span>',
+                    '</div>'
+                );
+            }
+
             parts.push(
                             '</div>',
                         '</div>',
