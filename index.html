@@ -438,17 +438,19 @@
         <!-- This will be populated by JavaScript -->
     </div>
 
+    <!-- Unified Progress Bar (visible across first 3 tabs) -->
+    <div id="unifiedProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
+        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+            <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                0%
+            </div>
+        </div>
+    </div>
+    <div id="unifiedStatusSection" style="max-width: 800px; margin: 20px auto; display: none;"></div>
+
     <!-- Summary Stats Tab -->
     <div id="summary-tab" class="tab-pane active">
         <div class="tab-container">
-            <div id="unifiedProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
-                <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-                    <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                        0%
-                    </div>
-                </div>
-            </div>
-            <div id="unifiedStatusSection" style="display: none;"></div>
         </div>
         <div class="tab-results-container">
             <div id="summaryResultsContainer"></div>
@@ -698,22 +700,31 @@
                 targetPane.classList.add('active');
             }
 
-            // Hide/show data source components based on tab
+            // Hide/show data source components and progress bars based on tab
             const unifiedDataSource = document.getElementById('unifiedDataSource');
             const creatorDataSource = document.getElementById('creatorDataSource');
+            const unifiedProgressSection = document.getElementById('unifiedProgressSection');
+            const unifiedStatusSection = document.getElementById('unifiedStatusSection');
 
             if (tabName === 'creator') {
                 // On Creator tab: show creator-specific component, hide unified
                 unifiedDataSource.style.display = 'none';
                 creatorDataSource.style.display = 'block';
+                // Hide unified progress/status (creator has its own)
+                unifiedProgressSection.style.display = 'none';
+                unifiedStatusSection.style.display = 'none';
             } else if (tabName === 'business-model') {
                 // On Business Model tab: hide both
                 unifiedDataSource.style.display = 'none';
                 creatorDataSource.style.display = 'none';
+                unifiedProgressSection.style.display = 'none';
+                unifiedStatusSection.style.display = 'none';
             } else {
                 // On User tabs (summary, portfolio, subscription): show unified, hide creator
                 unifiedDataSource.style.display = 'block';
                 creatorDataSource.style.display = 'none';
+                // Unified progress/status are controlled by the tool, just ensure they're not force-hidden
+                // (they will show/hide via tool.showProgress() and tool.showStatus())
             }
 
             // Update button states based on active tab

@@ -48,12 +48,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      */
     createModeSection() {
         const section = document.createElement('div');
-        // No margin on wrapper since upload section is hidden by default
+        section.id = 'creatorModeSection';
+        section.style.display = 'none'; // Hide entire section by default
 
         // File upload section (hidden by default) - Now supports 3 files
         const uploadSection = document.createElement('div');
         uploadSection.id = 'creatorUploadSection';
-        uploadSection.style.cssText = 'display: none; border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;';
+        uploadSection.style.cssText = 'border: 2px dashed #17a2b8; border-radius: 8px; padding: 20px; background: #f8f9fa; margin-top: 15px;';
         uploadSection.innerHTML = `
             <div style="text-align: left;">
                 <div style="font-weight: bold; color: #333; margin-bottom: 15px; text-align: center;">
@@ -227,10 +228,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             progressSection.style.display = 'none';
         }
 
-        // Show upload section
+        // Show the entire mode section first
+        const modeSection = document.getElementById('creatorModeSection');
+        if (modeSection) {
+            modeSection.style.display = 'block';
+        }
+
+        // Upload section should already be visible as child of mode section
         const uploadSection = document.getElementById('creatorUploadSection');
         if (uploadSection) {
-            uploadSection.style.display = 'block';
             console.log('✅ Upload section displayed');
         } else {
             console.error('❌ Upload section not found! Element ID: creatorUploadSection');
