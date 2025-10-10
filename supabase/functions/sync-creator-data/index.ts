@@ -109,14 +109,6 @@ serve(async (req) => {
               existing[key] = (existing[key] || 0) + row[key]
             }
           })
-          // Also merge raw_data
-          if (row.raw_data && existing.raw_data) {
-            Object.keys(row.raw_data).forEach(key => {
-              if (typeof row.raw_data[key] === 'number') {
-                existing.raw_data[key] = (existing.raw_data[key] || 0) + row.raw_data[key]
-              }
-            })
-          }
         } else {
           deduped.set(row.creator_username, row)
         }
@@ -425,7 +417,6 @@ function processCreatorInsightsData(data: any): any[] {
       creator_id: String(creatorData.creator_id),
       creator_username: creatorData.creator_username,
       creator_type: finalType,
-      raw_data: metrics, // Store all metrics in raw_data JSONB column
       total_profile_views: metrics.total_profile_views,
       total_pdp_views: metrics.total_pdp_views,
       total_paywall_views: metrics.total_paywall_views,
