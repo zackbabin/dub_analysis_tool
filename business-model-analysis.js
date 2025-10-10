@@ -284,9 +284,11 @@ class BusinessModelAnalysis {
                         Sync Data
                     </button>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">
-                    ${this.renderConversionRates()}
-                    ${this.renderOtherAssumptions()}
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;">
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        ${this.renderConversionRates()}
+                        ${this.renderOtherAssumptions()}
+                    </div>
                     ${this.renderUserBehavior()}
                     ${this.renderModelA()}
                     ${this.renderModelB()}
