@@ -258,11 +258,11 @@ class BusinessModelAnalysis {
                 </div>
 
                 ${this.renderAssumptions()}
-                <div id="monthlyComparisonContainer">
-                    ${this.renderMonthlyComparison(projections)}
-                </div>
                 <div id="yearComparisonContainer">
                     ${this.renderYearComparisonContent(yearlyProjections)}
+                </div>
+                <div id="monthlyComparisonContainer">
+                    ${this.renderMonthlyComparison(projections)}
                 </div>
             </div>
         `;
