@@ -387,12 +387,12 @@
 
         .anchor-link .anchor-icon {
             position: absolute;
-            left: -24px;
+            left: -20px;
             opacity: 0;
             transition: opacity 0.2s;
             text-decoration: none;
             color: #17a2b8;
-            font-size: 0.8em;
+            font-size: 0.65em;
         }
 
         .anchor-link:hover .anchor-icon {
@@ -644,7 +644,7 @@
         }
 
         // Switch to a specific tab
-        function switchToTab(tabName, buttons, userTool, creatorTool) {
+        function switchToTab(tabName, buttons, userTool, creatorTool, sectionAnchor) {
             const tabButtons = document.querySelectorAll('.tab-btn');
             const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -674,6 +674,16 @@
 
             // Update button states based on active tab
             updateButtonStates(tabName, buttons, userTool, creatorTool);
+
+            // Scroll to section anchor if provided
+            if (sectionAnchor) {
+                setTimeout(() => {
+                    const targetElement = document.getElementById(sectionAnchor);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+            }
         }
 
         // Tab switching functionality
@@ -684,7 +694,7 @@
                 button.addEventListener('click', () => {
                     const targetTab = button.getAttribute('data-tab');
 
-                    // Update URL hash
+                    // Update URL hash (without section anchor)
                     window.location.hash = targetTab;
 
                     // Switch to the tab
@@ -696,21 +706,30 @@
             window.addEventListener('hashchange', () => {
                 const hash = window.location.hash.slice(1); // Remove the '#'
                 const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
-                const targetTab = validTabs.includes(hash) ? hash : 'summary';
-                switchToTab(targetTab, buttons, userTool, creatorTool);
+
+                // Parse tab and section anchor (format: "portfolio#hidden-gems")
+                const hashParts = hash.split('#');
+                const targetTab = validTabs.includes(hashParts[0]) ? hashParts[0] : 'summary';
+                const sectionAnchor = hashParts[1] || null;
+
+                switchToTab(targetTab, buttons, userTool, creatorTool, sectionAnchor);
             });
 
             // Initialize tab from URL hash on page load
             const initialHash = window.location.hash.slice(1);
             const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
-            const initialTab = validTabs.includes(initialHash) ? initialHash : 'summary';
+
+            // Parse tab and section anchor
+            const hashParts = initialHash.split('#');
+            const initialTab = validTabs.includes(hashParts[0]) ? hashParts[0] : 'summary';
+            const initialSectionAnchor = hashParts[1] || null;
 
             // Set initial hash if not present
             if (!window.location.hash) {
                 window.location.hash = 'summary';
             }
 
-            switchToTab(initialTab, buttons, userTool, creatorTool);
+            switchToTab(initialTab, buttons, userTool, creatorTool, initialSectionAnchor);
         }
 
         // Utility function to create anchor-friendly slug from text
@@ -746,15 +765,23 @@
                 const anchorIcon = document.createElement('a');
                 anchorIcon.href = `#${slug}`;
                 anchorIcon.className = 'anchor-icon';
-                anchorIcon.innerHTML = '🔗';
+                anchorIcon.innerHTML = '#';
                 anchorIcon.title = 'Link to this section';
 
                 // Prevent default and update URL without scrolling
                 anchorIcon.addEventListener('click', (e) => {
                     e.preventDefault();
-                    history.pushState(null, null, `#${slug}`);
 
-                    // Copy link to clipboard
+                    // Get current hash (tab) from URL
+                    const currentHash = window.location.hash.slice(1); // e.g., "portfolio" or "summary"
+                    const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
+                    const currentTab = validTabs.includes(currentHash.split('#')[0]) ? currentHash.split('#')[0] : 'summary';
+
+                    // Update URL with tab + section anchor
+                    const newHash = `#${currentTab}#${slug}`;
+                    history.pushState(null, null, newHash);
+
+                    // Copy full URL to clipboard
                     const fullUrl = window.location.href;
                     navigator.clipboard.writeText(fullUrl).then(() => {
                         // Show brief feedback
