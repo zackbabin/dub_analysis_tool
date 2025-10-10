@@ -18,7 +18,7 @@ class BusinessModelAnalysis {
             avgMonthlyTrades: 0.92,
             avgMonthlyRebalances: 3.65,
             tradeVolumeGrowth: 3.00,
-            rebalanceGrowth: 3.00,
+            rebalanceGrowth: 10.00,
             avgMonthlyPortfolioCreations: 0.02,
             portfolioCreationGrowth: 3.00,
 
