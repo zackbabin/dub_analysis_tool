@@ -54,12 +54,12 @@ serve(async (req) => {
     const data = await fetchBusinessAssumptionsData(credentials)
 
     // Calculate averages
-    const rebalancesPerUser = calculateAverage(data.series['Rebalances per user'])
+    const totalRebalances = calculateAverage(data.series['A. Total Rebalances'])
     const tradesPerUser = calculateAverage(data.series['Trades per user'])
     const portfoliosCreatedPerUser = calculateAverage(data.series['Portfolios Created per user'])
 
     console.log('Calculated averages:', {
-      rebalancesPerUser,
+      totalRebalances,
       tradesPerUser,
       portfoliosCreatedPerUser,
     })
@@ -69,7 +69,7 @@ serve(async (req) => {
       .from('business_assumptions')
       .upsert({
         id: 1, // Single row for current values
-        rebalances_per_user: rebalancesPerUser,
+        total_rebalances: totalRebalances,
         trades_per_user: tradesPerUser,
         portfolios_created_per_user: portfoliosCreatedPerUser,
         synced_at: new Date().toISOString(),
@@ -87,7 +87,7 @@ serve(async (req) => {
         success: true,
         message: 'Business assumptions synced successfully',
         data: {
-          rebalancesPerUser,
+          totalRebalances,
           tradesPerUser,
           portfoliosCreatedPerUser,
         },

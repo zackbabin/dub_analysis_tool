@@ -81,7 +81,7 @@ class BusinessModelAnalysis {
 
             if (data) {
                 this.currentValues = {
-                    rebalancesPerUser: data.rebalances_per_user,
+                    totalRebalances: data.total_rebalances,
                     tradesPerUser: data.trades_per_user,
                     portfoliosCreatedPerUser: data.portfolios_created_per_user,
                     syncedAt: data.synced_at
@@ -89,7 +89,7 @@ class BusinessModelAnalysis {
 
                 // Update assumptions with current values from Mixpanel
                 this.assumptions.avgMonthlyTrades = data.trades_per_user;
-                this.assumptions.avgMonthlyRebalances = data.rebalances_per_user;
+                this.assumptions.avgMonthlyRebalances = data.total_rebalances;
                 this.assumptions.avgMonthlyPortfolioCreations = data.portfolios_created_per_user;
             }
         } catch (error) {
@@ -109,7 +109,7 @@ class BusinessModelAnalysis {
             tradesEl.textContent = `Current: ${this.currentValues.tradesPerUser.toFixed(2)}`;
         }
         if (rebalancesEl) {
-            rebalancesEl.textContent = `Current: ${this.currentValues.rebalancesPerUser.toFixed(2)}`;
+            rebalancesEl.textContent = `Current: ${this.currentValues.totalRebalances.toFixed(2)}`;
         }
         if (portfoliosEl) {
             portfoliosEl.textContent = `Current: ${this.currentValues.portfoliosCreatedPerUser.toFixed(2)}`;
