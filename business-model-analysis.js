@@ -15,40 +15,40 @@ class BusinessModelAnalysis {
             achToCopy: 54.49,
 
             // User behavior metrics (per user)
-            avgMonthlyTrades: 2.773859,
-            avgMonthlyRebalances: 12,
-            tradeVolumeGrowth: 0,
-            rebalanceGrowth: 0,
-            avgMonthlyPortfolioCreations: 0.048831,
-            portfolioCreationGrowth: 0,
+            avgMonthlyTrades: 0.92,
+            avgMonthlyRebalances: 3.65,
+            tradeVolumeGrowth: 3.00,
+            rebalanceGrowth: 3.00,
+            avgMonthlyPortfolioCreations: 0.02,
+            portfolioCreationGrowth: 3.00,
 
             // Monthly baseline (3-month average)
-            monthlyInstalls: 157444,
+            monthlyInstalls: 157443.98,
             monthlyFundedAccounts: 9339,
 
             // Growth assumptions (monthly)
-            userGrowthRate: 0.797,
+            userGrowthRate: 10.00,
 
             // Subscription assumptions
             subscriptionConversion: 3,
             subscriptionChurnRate: 25,
 
             // MODEL A: Transaction Fee Model
-            modelA_transactionFee: 0.10,
-            modelA_subscriptionPrice: 5,
-            modelA_dubRevenueShare: 50,
-            modelA_subscriptionConversion: 3,
-            modelA_subscriptionChurnRate: 25,
-            modelA_accountClosureRate: 0,
+            modelA_transactionFee: 0.25,
+            modelA_subscriptionPrice: 5.00,
+            modelA_dubRevenueShare: 50.00,
+            modelA_subscriptionConversion: 5.00,
+            modelA_subscriptionChurnRate: 25.00,
+            modelA_accountClosureRate: 1.00,
 
             // MODEL B: Monthly Maintenance Fee Model
-            modelB_maintenanceFee: 5.00,
-            modelB_waivedFeesPercent: 0,
-            modelB_subscriptionPrice: 10,
-            modelB_dubRevenueShare: 50,
-            modelB_subscriptionConversion: 3,
-            modelB_subscriptionChurnRate: 25,
-            modelB_accountClosureRate: 0,
+            modelB_maintenanceFee: 2.00,
+            modelB_waivedFeesPercent: 10.00,
+            modelB_subscriptionPrice: 10.00,
+            modelB_dubRevenueShare: 50.00,
+            modelB_subscriptionConversion: 3.00,
+            modelB_subscriptionChurnRate: 25.00,
+            modelB_accountClosureRate: 5.00,
         };
 
         // Load synced values first, then render
@@ -505,7 +505,7 @@ class BusinessModelAnalysis {
         const year3 = yearlyProjections[2];
 
         return `
-            <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 24px 0; font-size: 18px; font-weight: bold;">3-Year Revenue Comparison</h3>
 
                 <div style="display: grid; grid-template-columns: 180px repeat(3, 1fr); gap: 12px; align-items: start;">
@@ -555,23 +555,6 @@ class BusinessModelAnalysis {
                     </div>
                     <div style="padding: 16px; background: #f3e5f5; border-radius: 6px; border: 1px solid #ce93d8; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #6a1b9a;">${this.formatCurrency(year3.modelB_totalRevenue - year3.modelA_totalRevenue)}</div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #dee2e6;">
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;">
-                        <div style="padding: 16px; background: #f8f9fa; border-radius: 6px;">
-                            <div style="font-size: 11px; color: #6c757d; margin-bottom: 4px;">Model Assumptions</div>
-                            <div style="font-size: 12px; color: #495057; line-height: 1.6;">
-                                <strong>Model A:</strong> $${this.assumptions.modelA_transactionFee.toFixed(2)} per trade + $${this.assumptions.modelA_subscriptionPrice.toFixed(2)}/mo subscription
-                            </div>
-                        </div>
-                        <div style="padding: 16px; background: #f8f9fa; border-radius: 6px;">
-                            <div style="font-size: 11px; color: #6c757d; margin-bottom: 4px;">&nbsp;</div>
-                            <div style="font-size: 12px; color: #495057; line-height: 1.6;">
-                                <strong>Model B:</strong> $${this.assumptions.modelB_maintenanceFee.toFixed(2)}/mo per account + $${this.assumptions.modelB_subscriptionPrice.toFixed(2)}/mo subscription
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
