@@ -155,28 +155,37 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue even if price analysis fails - it's supplementary data
         }
 
-        // Trigger event sequence sync
-        console.log('Triggering event sequence sync...');
+        // Trigger event sequence sync (fetch raw data from Mixpanel)
+        console.log('Triggering event sequence sync (fetching raw data)...');
         try {
             const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSync();
             if (seqSyncResult && seqSyncResult.success) {
                 console.log('✅ Event sequence sync completed:', seqSyncResult.stats);
 
-                // After sync, trigger Claude AI analysis for both copies and subscriptions
-                console.log('Triggering event sequence analysis for copies...');
-                const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
-                if (copyAnalysisResult && copyAnalysisResult.success) {
-                    console.log('✅ Copy sequence analysis completed:', copyAnalysisResult.stats);
-                }
+                // Process raw event sequences
+                console.log('Processing event sequences...');
+                const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
+                if (processResult && processResult.success) {
+                    console.log('✅ Event sequence processing completed:', processResult.stats);
 
-                console.log('Triggering event sequence analysis for subscriptions...');
-                const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
-                if (subAnalysisResult && subAnalysisResult.success) {
-                    console.log('✅ Subscription sequence analysis completed:', subAnalysisResult.stats);
+                    // After processing, trigger Claude AI analysis for both copies and subscriptions
+                    console.log('Triggering event sequence analysis for copies...');
+                    const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
+                    if (copyAnalysisResult && copyAnalysisResult.success) {
+                        console.log('✅ Copy sequence analysis completed:', copyAnalysisResult.stats);
+                    }
+
+                    console.log('Triggering event sequence analysis for subscriptions...');
+                    const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
+                    if (subAnalysisResult && subAnalysisResult.success) {
+                        console.log('✅ Subscription sequence analysis completed:', subAnalysisResult.stats);
+                    }
+                } else {
+                    console.warn('⚠️ Event sequence processing failed - skipping analysis');
                 }
             }
         } catch (error) {
-            console.warn('⚠️ Event sequence analysis failed:', error.message);
+            console.warn('⚠️ Event sequence sync/processing failed:', error.message);
             // Continue even if sequence analysis fails - it's supplementary data
         }
 
