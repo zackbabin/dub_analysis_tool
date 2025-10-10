@@ -120,13 +120,13 @@ serve(async (req) => {
 
     // Prepare data for Claude with prompt caching
     // Balance converters and non-converters to equal counts for fair analysis
-    // With caching, we can analyze 60 users per batch (30 converters + 30 non-converters)
-    // Smaller batches stay well under 200k token limit per API call
-    // Process up to 100 events per user for richer sequence data
-    // More batches = same total coverage but safer token usage
-    const BATCH_SIZE = 30 // Per group (converters and non-converters) - reduced from 60
-    const EVENTS_PER_USER = 100
-    const MAX_BATCHES = 30 // Process up to 900 converters + 900 non-converters total - increased from 15
+    // With separate Edge Functions, we can analyze 200 users per batch (100 converters + 100 non-converters)
+    // Each Edge Function invocation has independent 200k token limit
+    // Process up to 150 events per user for richer sequence data
+    // Event deduplication reduces ~40-60% of tokens
+    const BATCH_SIZE = 100 // Per group (converters and non-converters) - increased for separate Edge Functions
+    const EVENTS_PER_USER = 150
+    const MAX_BATCHES = 15 // Process up to 1500 converters + 1500 non-converters total
 
     // Balance to equal sizes
     const minSize = Math.min(converters.length, nonConverters.length)

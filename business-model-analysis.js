@@ -144,7 +144,6 @@ class BusinessModelAnalysis {
         const results = [];
         let cumulativeSubscribersA = 0;
         let cumulativeSubscribersB = 0;
-        let cumulativeFundedAccounts = 0;
         let modelA_cumulativeFundedAccounts = 0;
         let modelB_cumulativeFundedAccounts = 0;
 
@@ -158,38 +157,43 @@ class BusinessModelAnalysis {
             const linkedBankAccounts = kycApproved * (this.assumptions.kycToLinkedBank / 100);
             const fundedAccounts = linkedBankAccounts * (this.assumptions.linkedBankToACH / 100);
 
-            // Track cumulative funded accounts
-            cumulativeFundedAccounts += fundedAccounts;
+            // MODEL A metrics with account closure rates applied
+            const modelA_kycApproved = kycApproved * (1 - this.assumptions.modelA_accountClosureRate / 100);
+            const modelA_linkedBankAccounts = linkedBankAccounts * (1 - this.assumptions.modelA_accountClosureRate / 100);
+            const modelA_fundedAccounts = fundedAccounts * (1 - this.assumptions.modelA_accountClosureRate / 100);
+            modelA_cumulativeFundedAccounts += modelA_fundedAccounts;
 
-            // Track cumulative funded accounts for each model with account closure rates applied
-            const fundedAccountsA = fundedAccounts * (1 - this.assumptions.modelA_accountClosureRate / 100);
-            const fundedAccountsB = fundedAccounts * (1 - this.assumptions.modelB_accountClosureRate / 100);
-            modelA_cumulativeFundedAccounts += fundedAccountsA;
-            modelB_cumulativeFundedAccounts += fundedAccountsB;
+            // MODEL B metrics with account closure rates applied
+            const modelB_kycApproved = kycApproved * (1 - this.assumptions.modelB_accountClosureRate / 100);
+            const modelB_linkedBankAccounts = linkedBankAccounts * (1 - this.assumptions.modelB_accountClosureRate / 100);
+            const modelB_fundedAccounts = fundedAccounts * (1 - this.assumptions.modelB_accountClosureRate / 100);
+            modelB_cumulativeFundedAccounts += modelB_fundedAccounts;
 
-            // Trading activity - based on funded accounts with growth multipliers
+            // Trading activity - MODEL A - based on Model A cumulative funded accounts
             const tradeVolumeMultiplier = Math.pow(1 + this.assumptions.tradeVolumeGrowth / 100, month);
             const rebalanceMultiplier = Math.pow(1 + this.assumptions.rebalanceGrowth / 100, month);
             const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month);
 
-            const trades = cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
-            const rebalances = cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
-            const portfoliosCreated = cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
-            const totalTradingEvents = trades + rebalances + portfoliosCreated;
+            const modelA_trades = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
+            const modelA_rebalances = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
+            const modelA_portfoliosCreated = modelA_cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
+            const modelA_totalTradingEvents = modelA_trades + modelA_rebalances + modelA_portfoliosCreated;
 
-            // Calculate active accounts for each model (KYC Approved * (1 - account closure rate))
-            const modelA_activeAccounts = kycApproved * (1 - this.assumptions.modelA_accountClosureRate / 100);
-            const modelB_activeAccounts = kycApproved * (1 - this.assumptions.modelB_accountClosureRate / 100);
+            // Trading activity - MODEL B - based on Model B cumulative funded accounts
+            const modelB_trades = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
+            const modelB_rebalances = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
+            const modelB_portfoliosCreated = modelB_cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
+            const modelB_totalTradingEvents = modelB_trades + modelB_rebalances + modelB_portfoliosCreated;
 
-            // Subscription calculations with churn - separate for each model based on Active Accounts
-            const newSubscribersA = modelA_activeAccounts * (this.assumptions.modelA_subscriptionConversion / 100);
-            const newSubscribersB = modelB_activeAccounts * (this.assumptions.modelB_subscriptionConversion / 100);
+            // Subscription calculations with churn - separate for each model based on KYC Approved (with closure rates)
+            const newSubscribersA = modelA_kycApproved * (this.assumptions.modelA_subscriptionConversion / 100);
+            const newSubscribersB = modelB_kycApproved * (this.assumptions.modelB_subscriptionConversion / 100);
 
             cumulativeSubscribersA = (cumulativeSubscribersA * (1 - this.assumptions.modelA_subscriptionChurnRate / 100)) + newSubscribersA;
             cumulativeSubscribersB = (cumulativeSubscribersB * (1 - this.assumptions.modelB_subscriptionChurnRate / 100)) + newSubscribersB;
 
             // MODEL A: Transaction Fee Model
-            const modelA_transactionRevenue = totalTradingEvents * this.assumptions.modelA_transactionFee;
+            const modelA_transactionRevenue = modelA_totalTradingEvents * this.assumptions.modelA_transactionFee;
             const modelA_subscriptionRevenue = cumulativeSubscribersA * this.assumptions.modelA_subscriptionPrice * (this.assumptions.modelA_dubRevenueShare / 100);
             const modelA_totalRevenue = modelA_transactionRevenue + modelA_subscriptionRevenue;
 
@@ -202,23 +206,29 @@ class BusinessModelAnalysis {
             results.push({
                 month,
                 installs,
-                kycApproved,
-                linkedBankAccounts,
-                fundedAccounts,
-                cumulativeFundedAccounts,
-                trades,
-                rebalances,
-                portfoliosCreated,
-                totalTradingEvents,
                 cumulativeSubscribersA,
                 cumulativeSubscribersB,
-                modelA_activeAccounts,
-                modelB_activeAccounts,
+                // Model A specific metrics
+                modelA_kycApproved,
+                modelA_linkedBankAccounts,
+                modelA_fundedAccounts,
                 modelA_cumulativeFundedAccounts,
-                modelB_cumulativeFundedAccounts,
+                modelA_trades,
+                modelA_rebalances,
+                modelA_portfoliosCreated,
+                modelA_totalTradingEvents,
                 modelA_transactionRevenue,
                 modelA_subscriptionRevenue,
                 modelA_totalRevenue,
+                // Model B specific metrics
+                modelB_kycApproved,
+                modelB_linkedBankAccounts,
+                modelB_fundedAccounts,
+                modelB_cumulativeFundedAccounts,
+                modelB_trades,
+                modelB_rebalances,
+                modelB_portfoliosCreated,
+                modelB_totalTradingEvents,
                 modelB_maintenanceRevenue,
                 modelB_subscriptionRevenue,
                 modelB_totalRevenue
@@ -432,29 +442,30 @@ class BusinessModelAnalysis {
                             </tr>
                         </thead>
                         <tbody>
-                            ${this.renderMetricRow('USER METRICS', null, projections, true)}
-                            ${this.renderMetricRow('KYC Approved', 'kycApproved', projections)}
-                            ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
-                            ${this.renderMetricRow('Cumulative Funded Accounts', 'cumulativeFundedAccounts', projections)}
-                            ${this.renderMetricRow('Total Trades', 'trades', projections)}
-                            ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
-                            ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
-
                             ${this.renderMetricRow('MODEL A: TRANSACTION FEE', null, projections, true, '#e7f3ff')}
                             ${this.renderMetricRow('Installs', 'installs', projections)}
-                            ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
-                            ${this.renderMetricRow('Active Accounts', 'modelA_activeAccounts', projections)}
+                            ${this.renderMetricRow('KYC Approved', 'modelA_kycApproved', projections)}
+                            ${this.renderMetricRow('Linked Bank Accounts', 'modelA_linkedBankAccounts', projections)}
+                            ${this.renderMetricRow('New Funded Accounts', 'modelA_fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'modelA_cumulativeFundedAccounts', projections)}
+                            ${this.renderMetricRow('Total Trades', 'modelA_trades', projections)}
+                            ${this.renderMetricRow('Total Rebalances', 'modelA_rebalances', projections)}
+                            ${this.renderMetricRow('Total Portfolios Created', 'modelA_portfoliosCreated', projections)}
+                            ${this.renderMetricRow('Total Trading Events', 'modelA_totalTradingEvents', projections)}
                             ${this.renderMetricRow('Transaction Revenue', 'modelA_transactionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'modelA_subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'modelA_totalRevenue', projections, false, '#cfe2ff', true, true)}
 
                             ${this.renderMetricRow('MODEL B: MAINTENANCE FEE', null, projections, true, '#e8f5e9')}
                             ${this.renderMetricRow('Installs', 'installs', projections)}
-                            ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
-                            ${this.renderMetricRow('Active Accounts', 'modelB_activeAccounts', projections)}
+                            ${this.renderMetricRow('KYC Approved', 'modelB_kycApproved', projections)}
+                            ${this.renderMetricRow('Linked Bank Accounts', 'modelB_linkedBankAccounts', projections)}
+                            ${this.renderMetricRow('New Funded Accounts', 'modelB_fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'modelB_cumulativeFundedAccounts', projections)}
+                            ${this.renderMetricRow('Total Trades', 'modelB_trades', projections)}
+                            ${this.renderMetricRow('Total Rebalances', 'modelB_rebalances', projections)}
+                            ${this.renderMetricRow('Total Portfolios Created', 'modelB_portfoliosCreated', projections)}
+                            ${this.renderMetricRow('Total Trading Events', 'modelB_totalTradingEvents', projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'modelB_maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'modelB_subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'modelB_totalRevenue', projections, false, '#c8e6c9', true, true)}
