@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 }
 
 interface MergedCreator {
-  email?: string
+  email: string
   creatorUsername?: string
   fullName?: string
   description?: string
@@ -199,9 +199,9 @@ serve(async (req) => {
 
     // Transform data
     const transformedCreators: MergedCreator[] = finalMerged.map(row => {
-      const cleaned: MergedCreator = {
+      const cleaned = {
         descriptionCharacterCount: 0
-      }
+      } as MergedCreator
 
       // Email (first column)
       const email = normEmail(row['Registered dub Account Email']) || normEmail(row['email'])
