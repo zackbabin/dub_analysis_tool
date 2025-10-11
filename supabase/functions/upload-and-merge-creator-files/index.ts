@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 }
 
 interface MergedCreator {
-  email: string
+  email?: string
   creatorUsername?: string
   fullName?: string
   description?: string
