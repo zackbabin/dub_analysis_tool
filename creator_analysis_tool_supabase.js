@@ -646,6 +646,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             throw new Error('Supabase not configured. Please check your configuration.');
         }
 
+        // Make sure container stays hidden and progress is visible
+        if (this.container) {
+            this.container.style.display = 'none';
+        }
+        const dataSourceDiv = document.getElementById('creatorDataSource');
+        if (dataSourceDiv) {
+            dataSourceDiv.style.display = 'none';
+        }
+
         this.clearStatus();
         this.showProgress(0);
 
