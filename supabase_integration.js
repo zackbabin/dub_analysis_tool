@@ -1196,19 +1196,23 @@ class SupabaseIntegration {
         console.log(`  - Total unique fields in raw_data: ${allKeys.size}`);
         console.log(`  - Fields:`, Array.from(allKeys).sort());
 
-        // Build headers: all fields + total_copies + total_subscriptions (target variables)
+        // Build headers: type + all raw_data fields + total_copies + total_subscriptions
+        // Note: 'type' is a top-level column in the view, not inside raw_data
         const allFieldKeys = Array.from(allKeys).sort();
-        const headers = [...allFieldKeys, 'total_copies', 'total_subscriptions'];
+        const headers = ['type', ...allFieldKeys, 'total_copies', 'total_subscriptions'];
 
         // Build rows
         const rows = data.map(row => {
             const rawData = row.raw_data || {};
 
+            // Start with type column (top-level from view)
+            const rowData = [row.type || 'Regular'];
+
             // Extract all fields from raw_data (which includes both uploaded and Mixpanel-enriched fields)
-            const rowData = allFieldKeys.map(key => {
+            allFieldKeys.forEach(key => {
                 const value = rawData[key];
                 // Return the value if it exists, otherwise empty string
-                return (value !== undefined && value !== null) ? value : '';
+                rowData.push((value !== undefined && value !== null) ? value : '');
             });
 
             // Add target variables (these are top-level columns from the view, NOT in raw_data)

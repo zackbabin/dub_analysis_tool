@@ -324,20 +324,22 @@ class CreatorAnalysisTool {
                 totalSubscriptions: this.cleanNumeric(row['total_subscriptions'])
             };
 
-            // Add all fields from raw_data
+            // Add ALL fields from raw_data (for correlation analysis)
             Object.keys(rawData).forEach(key => {
                 // Skip fields we've already handled at the top level
                 if (key === 'type' || key === 'email') return;
 
                 const value = rawData[key];
 
-                // Include numeric fields
+                // Try to parse as numeric first
                 const numericValue = this.cleanNumeric(value);
-                if (numericValue !== 0 || (typeof value === 'number' || !isNaN(parseFloat(value)))) {
+
+                // Include all numeric fields (even if 0 or null - important for correlation analysis)
+                if (typeof value === 'number' || !isNaN(parseFloat(value)) || value === null || value === undefined || value === '') {
                     cleanRow[key] = numericValue;
                 }
-                // Also include important string fields for analysis
-                else if (typeof value === 'string' && value && ['revenueShare', 'isRIA', 'employer', 'investingActivity', 'investingExperienceYears', 'investingObjective', 'investmentType'].includes(key)) {
+                // Include string fields
+                else if (typeof value === 'string') {
                     cleanRow[key] = value;
                 }
             });
