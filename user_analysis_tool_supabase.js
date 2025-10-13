@@ -1061,29 +1061,57 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
             );
 
-            // Build tooltip content for portfolios and creators
-            const hasPortfolios = seq.top_portfolios && seq.top_portfolios.length > 0;
-            const hasCreators = seq.top_creators && seq.top_creators.length > 0;
+            // Helper function to check if event should have tooltip
+            const shouldHaveTooltip = (eventName) => {
+                const enrichableEvents = [
+                    'Viewed Regular Creator Profile',
+                    'Viewed Premium Creator Profile',
+                    'Viewed Premium PDP',
+                    'Viewed Regular PDP'
+                ];
+                return enrichableEvents.some(e => eventName.includes(e));
+            };
 
-            let tooltipContent = '';
-            if (hasPortfolios || hasCreators) {
-                const tooltipParts = [];
-
-                if (hasPortfolios) {
-                    tooltipParts.push(`<strong>Top Portfolios:</strong><br/>${seq.top_portfolios.join('<br/>')}`);
+            // Helper function to extract portfolio and creator from enriched event name
+            const extractEnrichmentData = (eventName) => {
+                // Format: "Viewed Premium PDP ($PELOSI by @dubAdvisors)"
+                const match = eventName.match(/\(([^)]+)\)/);
+                if (match) {
+                    const enrichment = match[1];
+                    const byMatch = enrichment.match(/^(.+?)\s+by\s+(.+)$/);
+                    if (byMatch) {
+                        return {
+                            portfolio: byMatch[1].trim(),
+                            creator: byMatch[2].trim(),
+                            hasEnrichment: true
+                        };
+                    }
+                    // Profile views only have creator
+                    return {
+                        creator: enrichment.trim(),
+                        hasEnrichment: true
+                    };
                 }
+                return { hasEnrichment: false };
+            };
 
-                if (hasCreators) {
-                    tooltipParts.push(`<strong>Top Creators:</strong><br/>${seq.top_creators.join('<br/>')}`);
-                }
-
-                tooltipContent = tooltipParts.join('<br/><br/>');
-            }
-
-            // Add event nodes with arrows, tooltip on first event if we have data
+            // Add event nodes with arrows, tooltip on enrichable events
             seq.sequence.forEach((event, eventIdx) => {
-                if (eventIdx === 0 && tooltipContent) {
-                    // Use standard tooltip pattern for first event
+                const needsTooltip = shouldHaveTooltip(event);
+                const enrichmentData = extractEnrichmentData(event);
+
+                if (needsTooltip && enrichmentData.hasEnrichment) {
+                    // Build tooltip content from enrichment data
+                    let tooltipContent = '';
+                    if (enrichmentData.portfolio) {
+                        tooltipContent += `<strong>Portfolio:</strong> ${enrichmentData.portfolio}`;
+                    }
+                    if (enrichmentData.creator) {
+                        if (tooltipContent) tooltipContent += '<br/><br/>';
+                        tooltipContent += `<strong>Creator:</strong> ${enrichmentData.creator}`;
+                    }
+
+                    // Render event with tooltip
                     parts.push(
                         `<span style="
                             position: relative;
@@ -1102,6 +1130,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         '</span>'
                     );
                 } else {
+                    // Regular event without tooltip
                     parts.push(
                         `<span style="
                             background: #007bff;
