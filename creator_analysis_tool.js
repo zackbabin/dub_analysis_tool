@@ -295,7 +295,10 @@ class CreatorAnalysisTool {
      * Clean and transform creator data
      */
     cleanCreatorData(parsedData) {
-        return parsedData.data.map(row => {
+        console.log(`=== Cleaning Creator Data ===`);
+        console.log(`Raw parsed rows: ${parsedData.data.length}`);
+
+        const cleanedRows = parsedData.data.map(row => {
             // Parse raw_data if it exists
             let rawData = {};
             if (row['raw_data']) {
@@ -334,13 +337,19 @@ class CreatorAnalysisTool {
                     cleanRow[key] = numericValue;
                 }
                 // Also include important string fields for analysis
-                else if (typeof value === 'string' && value && ['revenueShare', 'isRIA', 'employer'].includes(key)) {
+                else if (typeof value === 'string' && value && ['revenueShare', 'isRIA', 'employer', 'investingActivity', 'investingExperienceYears', 'investingObjective', 'investmentType'].includes(key)) {
                     cleanRow[key] = value;
                 }
             });
 
             return cleanRow;
-        }).filter(row => row.email || row.creatorUsername); // Keep rows with email or username
+        });
+
+        const filteredRows = cleanedRows.filter(row => row.email || row.creatorUsername);
+        console.log(`Cleaned rows: ${cleanedRows.length}`);
+        console.log(`After filtering (must have email or username): ${filteredRows.length}`);
+
+        return filteredRows;
     }
 
     /**
@@ -377,12 +386,12 @@ class CreatorAnalysisTool {
         const totalCreators = data.length;
 
         console.log('=== Creator Summary Stats Calculation ===');
-        console.log(`Total creators: ${totalCreators}`);
+        console.log(`Total creators (after cleaning): ${totalCreators}`);
 
-        // Sample first 3 creators to verify data structure
+        // Sample first 5 creators to verify data structure
         if (data.length > 0) {
-            console.log('Sample creator data (first 3):');
-            data.slice(0, 3).forEach((creator, idx) => {
+            console.log('Sample creator data (first 5):');
+            data.slice(0, 5).forEach((creator, idx) => {
                 console.log(`Creator ${idx + 1}:`, {
                     email: creator.email,
                     username: creator.creatorUsername,
@@ -402,6 +411,9 @@ class CreatorAnalysisTool {
         });
 
         console.log('Creator type breakdown:', creatorTypes);
+        console.log(`  - Regular: ${creatorTypes['Regular'] || 0}`);
+        console.log(`  - Premium: ${creatorTypes['Premium'] || 0}`);
+        console.log(`  - Other types:`, Object.keys(creatorTypes).filter(k => k !== 'Regular' && k !== 'Premium'));
 
         // Subscription price distribution
         const subscriptionPrices = {};

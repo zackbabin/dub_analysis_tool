@@ -1173,31 +1173,15 @@ class SupabaseIntegration {
             return '';
         }
 
-        // Collect all unique keys from raw_data and Mixpanel enrichment fields
+        // Collect all unique keys from raw_data JSONB
+        // Note: Mixpanel fields are already merged into raw_data by the creator_analysis view
         const allKeys = new Set();
-        const mixpanelFields = [
-            'total_deposits',
-            'active_created_portfolios',
-            'lifetime_created_portfolios',
-            'total_trades',
-            'investing_activity',
-            'investing_experience_years',
-            'investing_objective',
-            'investment_type'
-        ];
 
         data.forEach(row => {
-            // Add keys from raw_data JSONB
+            // Add all keys from raw_data JSONB (includes both uploaded fields and Mixpanel enrichment)
             if (row.raw_data) {
                 Object.keys(row.raw_data).forEach(key => allKeys.add(key));
             }
-
-            // Add Mixpanel enrichment fields if they exist
-            mixpanelFields.forEach(field => {
-                if (row[field] !== null && row[field] !== undefined) {
-                    allKeys.add(field);
-                }
-            });
         });
 
         // Build headers: all fields + total_copies + total_subscriptions (target variables)
@@ -1208,20 +1192,14 @@ class SupabaseIntegration {
         const rows = data.map(row => {
             const rawData = row.raw_data || {};
 
-            // Combine raw_data fields with Mixpanel enrichment fields
+            // Extract all fields from raw_data (which includes both uploaded and Mixpanel-enriched fields)
             const rowData = allFieldKeys.map(key => {
-                // First check if it's in raw_data
-                if (rawData[key] !== undefined && rawData[key] !== null) {
-                    return rawData[key];
-                }
-                // Then check if it's a Mixpanel enrichment field at the row level
-                if (row[key] !== undefined && row[key] !== null) {
-                    return row[key];
-                }
-                return '';
+                const value = rawData[key];
+                // Return the value if it exists, otherwise empty string
+                return (value !== undefined && value !== null) ? value : '';
             });
 
-            // Add target variables (these come from creators_insights, not raw_data)
+            // Add target variables (these are top-level columns from the view, NOT in raw_data)
             rowData.push(row.total_copies || 0);
             rowData.push(row.total_subscriptions || 0);
 

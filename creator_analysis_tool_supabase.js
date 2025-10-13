@@ -258,10 +258,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         try {
-            // Hide upload section
-            const uploadSection = document.getElementById('creatorUploadSection');
-            if (uploadSection) {
-                uploadSection.style.display = 'none';
+            // Hide entire mode section (including upload section)
+            const modeSection = document.getElementById('creatorModeSection');
+            if (modeSection) {
+                modeSection.style.display = 'none';
             }
 
             // Show progress bar
