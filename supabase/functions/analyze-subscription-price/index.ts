@@ -4,26 +4,15 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 
 // Configuration
-const PROJECT_ID = '2599235'
-const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
 const SUBSCRIPTION_PRICING_CHART_ID = '85154450'
-
-interface MixpanelCredentials {
-  username: string
-  secret: string
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
@@ -145,7 +134,7 @@ serve(async (req) => {
           },
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           status: 200,
         }
       )
@@ -174,50 +163,12 @@ serve(async (req) => {
         details: error.stack || 'No stack trace available',
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
       }
     )
   }
 })
-
-// ============================================================================
-// Helper Functions - Data Fetching
-// ============================================================================
-
-async function fetchInsightsData(
-  credentials: MixpanelCredentials,
-  chartId: string,
-  name: string
-) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    bookmark_id: chartId,
-    limit: '50000',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  return data
-}
 
 // ============================================================================
 // Helper Functions - Data Processing

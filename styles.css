@@ -1,0 +1,711 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f5f5f5;
+}
+
+/* Main wrapper to constrain all content - responsive approach */
+.main-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Force all direct children to respect parent width */
+.main-wrapper > *,
+.tab-pane > *,
+.tab-container > *,
+.tab-results-container > * {
+    max-width: 100% !important;
+    width: auto !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.page-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+    color: white;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 32px;
+}
+
+.page-header p {
+    margin: 10px 0 0 0;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+/* Container for the unified tool */
+.unified-container {
+    width: 100%;
+    margin: 0;
+}
+
+.results-container {
+    width: 100%;
+    margin: 40px 0 0 0;
+}
+
+/* Reuse styles from analysis_tool.js */
+.qda-inline-widget {
+    background: white;
+    border: 2px solid #6c757d;
+    border-radius: 10px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    box-shadow: 0 4px 4px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.qda-header {
+    background: #17a2b8;
+    color: white;
+    padding: 15px;
+    border-radius: 8px 8px 0 0;
+    text-align: center;
+}
+
+.qda-content {
+    padding: 20px;
+    background: white;
+}
+
+.qda-btn {
+    background: #17a2b8;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.qda-btn:hover {
+    background: #138496;
+}
+
+.qda-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+/* Analysis results styling */
+.qda-analysis-results {
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
+    box-sizing: border-box;
+}
+
+.qda-timestamp {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    color: #6c757d;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.qda-data-scope {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: #6c757d;
+    font-size: 12px;
+    font-style: italic;
+}
+
+.qda-result-section {
+    margin: 30px 0;
+    position: relative;
+}
+
+.qda-result-section h1 {
+    margin: 0 0 20px 0;
+    padding: 10px 0;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+/* Spacing handled by individual sections */
+#qdaDemographicBreakdownInline,
+#qdaPersonaBreakdownInline,
+#qdaCombinedResultsInline {
+    /* Removed border-top - spacing handled by qda-result-section margin */
+}
+
+/* Add extra spacing above Portfolio Copies and Subscriptions sections in Behavioral Analysis */
+#qdaCombinedResultsInline h2:nth-of-type(2),
+#qdaCombinedResultsInline h2:nth-of-type(3) {
+    margin-top: 4rem;
+    padding-top: 2rem;
+}
+
+.qda-result-section h4 {
+    font-size: 18px;
+    font-weight: bold;
+    margin: 20px 0 15px 0;
+    color: #333;
+}
+
+.qda-metric-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
+    width: 100%;
+}
+
+.qda-metric-card {
+    background: #f8f9fa;
+    border: none;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: left;
+    font-size: 14px;
+    min-width: 0; /* Prevent grid blowout */
+}
+
+/* Table wrapper for horizontal scrolling */
+.table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1rem 0;
+}
+
+.table-wrapper::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.qda-regression-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 0.85rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.qda-regression-table th,
+.qda-regression-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    text-align: left;
+}
+
+.qda-regression-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.qda-regression-table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.qda-regression-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Strength indicators */
+.qda-strength-very-weak { background-color: #D9D9D9; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-weak { background-color: #E8E5A3; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-weak-moderate { background-color: #F6F16E; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-moderate { background-color: #FFE787; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-moderate-strong { background-color: #B3E4A1; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-strong { background-color: #66E1BB; color: #333; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+.qda-strength-very-strong { background-color: #00CF84; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+
+/* Info message */
+.info-message {
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #0c5460;
+}
+
+.info-message strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+/* Tab Navigation Styles */
+.tab-navigation {
+    width: 100%;
+    margin: 0 0 20px 0;
+    display: flex;
+    gap: 10px;
+    border-bottom: 2px solid #dee2e6;
+    justify-content: center;
+}
+
+.tab-btn {
+    background: white;
+    color: #6c757d;
+    padding: 12px 24px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s;
+    outline: none;
+}
+
+.tab-btn:hover {
+    color: #17a2b8;
+    background: #f8f9fa;
+}
+
+.tab-btn.active {
+    color: #17a2b8;
+    border-bottom-color: #17a2b8;
+    background: white;
+}
+
+/* Tab Content Styles */
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+.tab-container {
+    width: 100%;
+    margin: 0;
+}
+
+.tab-results-container {
+    width: 100%;
+    margin: 40px 0 0 0;
+}
+
+/* Coming Soon Badge */
+.coming-soon-badge {
+    display: inline-block;
+    background: #ffc107;
+    color: #856404;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+/* Placeholder Message */
+.placeholder-message {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6c757d;
+}
+
+.placeholder-message h2 {
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.placeholder-message p {
+    font-size: 14px;
+}
+
+/* Tooltip Styles */
+.info-tooltip {
+    position: relative;
+    display: inline-block;
+    margin-left: 6px;
+    cursor: help;
+    vertical-align: middle;
+}
+
+.info-tooltip .info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: #6c757d;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    font-family: Arial, sans-serif;
+    vertical-align: middle;
+}
+
+.info-tooltip .tooltip-text {
+    visibility: hidden;
+    width: 350px;
+    background-color: #2d3748;
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -175px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 13px;
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.info-tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #2d3748 transparent transparent transparent;
+}
+
+.info-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.info-tooltip .tooltip-text strong {
+    color: #63b3ed;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.info-tooltip .tooltip-text ul {
+    margin: 6px 0;
+    padding-left: 18px;
+}
+
+.info-tooltip .tooltip-text li {
+    margin-bottom: 4px;
+}
+
+/* Anchor Link Styles */
+.anchor-link {
+    position: relative;
+    scroll-margin-top: 20px;
+}
+
+.anchor-link .anchor-icon {
+    position: absolute;
+    left: -20px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    text-decoration: none;
+    color: #17a2b8;
+    font-size: 0.65em;
+}
+
+.anchor-link:hover .anchor-icon {
+    opacity: 1;
+}
+
+.anchor-icon:hover {
+    color: #138496;
+}
+
+/* Portfolio and Creator Tooltip Styles */
+.portfolio-tooltip,
+.creator-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.portfolio-tooltip:hover .portfolio-tooltip-text,
+.creator-tooltip:hover .creator-tooltip-text {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        padding: 15px;
+    }
+
+    .qda-metric-summary {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+    }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 768px) {
+    .main-wrapper {
+        padding: 10px;
+    }
+
+    /* Ensure all nested content respects mobile padding */
+    .main-wrapper > * {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    .page-header {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+    }
+
+    .page-header h1 {
+        font-size: 24px;
+    }
+
+    .page-header p {
+        font-size: 14px;
+    }
+
+    .qda-metric-summary {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .qda-metric-card {
+        padding: 1rem;
+        font-size: 13px;
+    }
+
+    /* Ensure buttons and widgets don't overflow */
+    .qda-inline-widget,
+    .qda-content,
+    [style*="max-width"] {
+        max-width: 100% !important;
+    }
+
+    /* Horizontally scrollable tabs */
+    .tab-navigation {
+        max-width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        justify-content: flex-start;
+        padding-bottom: 2px;
+        margin-bottom: 18px;
+        margin-left: -10px;
+        margin-right: -10px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .tab-navigation::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .tab-navigation::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    .tab-navigation::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 2px;
+    }
+
+    .tab-btn {
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding: 10px 16px;
+        font-size: 14px;
+    }
+
+    /* Stack data source buttons vertically on mobile */
+    .data-source-buttons {
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    /* Override inline styles for data source buttons */
+    #syncLiveDataBtn,
+    #manualUploadBtn,
+    #creatorSyncLiveDataBtn,
+    #creatorManualUploadBtn {
+        min-width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .unified-container,
+    .tab-container,
+    .results-container,
+    .tab-results-container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    /* Make content responsive */
+    .qda-inline-widget {
+        margin-bottom: 20px;
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: 8px;
+    }
+
+    .qda-content {
+        padding: 15px;
+    }
+
+    .qda-analysis-results {
+        padding: 15px;
+        max-width: 100%;
+    }
+
+    /* Make all inner containers fit properly */
+    .qda-content > div[style*="max-width"] {
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    /* Reduce table/metric text size on mobile */
+    .qda-metric-name {
+        font-size: 13px;
+    }
+
+    .qda-metric-value {
+        font-size: 16px;
+    }
+
+    /* Make metric grids responsive */
+    .qda-metrics-grid,
+    div[style*="display: grid"] {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+        gap: 10px !important;
+    }
+
+    /* Responsive buttons and inputs */
+    .qda-btn {
+        width: 100%;
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+
+    input[type="file"] {
+        font-size: 14px;
+    }
+
+    /* Adjust info tooltip for mobile */
+    .info-tooltip .tooltip-text {
+        width: 280px;
+        margin-left: -140px;
+        font-size: 12px;
+    }
+
+    /* Responsive tables - ensure proper sizing on mobile */
+    .table-wrapper table {
+        min-width: 600px; /* Ensure tables don't get crushed */
+    }
+
+    .qda-regression-table {
+        font-size: 12px;
+    }
+
+    .qda-regression-table th,
+    .qda-regression-table td {
+        padding: 8px 6px !important;
+        white-space: nowrap;
+        font-size: 12px;
+    }
+
+    .qda-regression-table th {
+        font-size: 11px;
+    }
+
+    /* Better spacing for cards/widgets */
+    .placeholder-message {
+        padding: 40px 15px;
+    }
+
+    /* Fix button containers on mobile */
+    .qda-content > div[style*="display: flex"] {
+        flex-wrap: wrap !important;
+    }
+
+    /* Ensure data source container doesn't overflow */
+    .data-source-buttons {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+    .page-header {
+        padding: 15px;
+    }
+
+    .page-header h1 {
+        font-size: 20px;
+    }
+
+    .page-header p {
+        font-size: 13px;
+    }
+
+    .tab-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .qda-content {
+        padding: 12px;
+    }
+
+    .qda-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+    .info-tooltip .tooltip-text {
+        width: 240px;
+        margin-left: -120px;
+        font-size: 11px;
+        padding: 10px;
+    }
+
+    table {
+        font-size: 12px;
+    }
+
+    th, td {
+        padding: 6px 4px !important;
+    }
+}

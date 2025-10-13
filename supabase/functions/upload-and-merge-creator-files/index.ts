@@ -6,6 +6,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { parseCSV, toCamelCase } from '../_shared/csv-utils.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -433,109 +434,3 @@ serve(async (req) => {
   }
 })
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-function parseCSV(csvContent: string): any[] {
-  const lines = splitCSVIntoLines(csvContent.trim())
-  if (lines.length === 0) return []
-
-  const headers = parseCSVLine(lines[0])
-  const data: any[] = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i])
-    if (values.length === 0) continue
-
-    // Skip rows where the number of values doesn't match headers
-    // This prevents misaligned data from being inserted
-    if (values.length !== headers.length) {
-      console.warn(`Skipping row ${i}: expected ${headers.length} columns, got ${values.length}`)
-      continue
-    }
-
-    const row: any = {}
-    headers.forEach((header, index) => {
-      row[header] = values[index] || ''
-    })
-    data.push(row)
-  }
-
-  return data
-}
-
-function splitCSVIntoLines(csvContent: string): string[] {
-  const lines: string[] = []
-  let currentLine = ''
-  let inQuotes = false
-
-  for (let i = 0; i < csvContent.length; i++) {
-    const char = csvContent[i]
-
-    if (char === '"') {
-      currentLine += char
-      // Check for escaped quotes
-      if (inQuotes && csvContent[i + 1] === '"') {
-        currentLine += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === '\n' && !inQuotes) {
-      if (currentLine.trim()) {
-        lines.push(currentLine)
-      }
-      currentLine = ''
-    } else if (char === '\r' && csvContent[i + 1] === '\n' && !inQuotes) {
-      // Handle Windows line endings (\r\n)
-      if (currentLine.trim()) {
-        lines.push(currentLine)
-      }
-      currentLine = ''
-      i++ // Skip the \n
-    } else {
-      currentLine += char
-    }
-  }
-
-  // Add the last line if it exists
-  if (currentLine.trim()) {
-    lines.push(currentLine)
-  }
-
-  return lines
-}
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim())
-      current = ''
-    } else {
-      current += char
-    }
-  }
-
-  result.push(current.trim())
-  return result
-}
-
-function toCamelCase(str: string): string {
-  return str
-    .replace(/[:\s-]+(.)?/g, (_, char) => char ? char.toUpperCase() : '')
-    .replace(/^(.)/, (char) => char.toLowerCase())
-}

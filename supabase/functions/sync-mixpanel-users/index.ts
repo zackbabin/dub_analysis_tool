@@ -5,23 +5,10 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Configuration
-const PROJECT_ID = '2599235'
-const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
+import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 
 const CHART_IDS = {
   subscribersInsights: '84933160',
-}
-
-interface MixpanelCredentials {
-  username: string
-  secret: string
 }
 
 interface SyncStats {
@@ -32,7 +19,7 @@ interface SyncStats {
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
@@ -153,7 +140,7 @@ serve(async (req) => {
           stats,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           status: 200,
         }
       )
@@ -181,70 +168,12 @@ serve(async (req) => {
         details: error?.stack || String(error)
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
       }
     )
   }
 })
-
-// ============================================================================
-// Helper Functions - Mixpanel API
-// ============================================================================
-
-async function fetchInsightsData(
-  credentials: MixpanelCredentials,
-  chartId: string,
-  name: string,
-  retries = 2
-) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    bookmark_id: chartId,
-    limit: '50000',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: authHeader,
-          Accept: 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-
-        // Retry on 502/503/504 errors (server issues)
-        if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
-          console.warn(`⚠️ ${name} returned ${response.status}, retrying (attempt ${attempt + 1}/${retries})...`)
-          await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2s before retry
-          continue
-        }
-
-        throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-      }
-
-      const data = await response.json()
-      console.log(`✓ ${name} fetch successful`)
-      return data
-    } catch (error) {
-      if (attempt < retries) {
-        console.warn(`⚠️ ${name} fetch failed, retrying (attempt ${attempt + 1}/${retries})...`)
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        continue
-      }
-      throw error
-    }
-  }
-}
 
 // ============================================================================
 // Helper Functions - Data Processing

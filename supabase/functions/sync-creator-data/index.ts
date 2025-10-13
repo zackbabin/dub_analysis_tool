@@ -5,23 +5,10 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-// Configuration
-const PROJECT_ID = '2599235'
-const MIXPANEL_API_BASE = 'https://mixpanel.com/api'
+import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 
 // Mixpanel Chart ID for user profile data
-const USER_PROFILE_CHART_ID = '85130412' // Update this with the actual chart ID from your Mixpanel
-
-interface MixpanelCredentials {
-  username: string
-  secret: string
-}
+const USER_PROFILE_CHART_ID = '85130412'
 
 interface SyncStats {
   totalMixpanelUsers: number
@@ -31,7 +18,7 @@ interface SyncStats {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: CORS_HEADERS })
   }
 
   try {
@@ -182,44 +169,6 @@ serve(async (req) => {
     )
   }
 })
-
-// ============================================================================
-// Helper Functions - Mixpanel API
-// ============================================================================
-
-async function fetchInsightsData(
-  credentials: MixpanelCredentials,
-  chartId: string,
-  name: string
-) {
-  console.log(`Fetching ${name} insights data (ID: ${chartId})...`)
-
-  const params = new URLSearchParams({
-    project_id: PROJECT_ID,
-    bookmark_id: chartId,
-    limit: '50000',
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_API_BASE}/query/insights?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  return data
-}
 
 // ============================================================================
 // Helper Functions - Data Processing

@@ -325,14 +325,19 @@ class CreatorAnalysisTool {
 
             // Add all fields from raw_data
             Object.keys(rawData).forEach(key => {
-                // Skip fields we've already handled
+                // Skip fields we've already handled at the top level
                 if (key === 'type' || key === 'email') return;
 
                 const value = rawData[key];
+
                 // Include numeric fields
                 const numericValue = this.cleanNumeric(value);
                 if (numericValue !== 0 || (typeof value === 'number' || !isNaN(parseFloat(value)))) {
                     cleanRow[key] = numericValue;
+                }
+                // Also include important string fields for analysis
+                else if (typeof value === 'string' && value && ['revenueShare', 'isRIA', 'employer'].includes(key)) {
+                    cleanRow[key] = value;
                 }
             });
 
@@ -373,6 +378,23 @@ class CreatorAnalysisTool {
     calculateCreatorSummaryStats(data) {
         const totalCreators = data.length;
 
+        console.log('=== Creator Summary Stats Calculation ===');
+        console.log(`Total creators: ${totalCreators}`);
+
+        // Sample first 3 creators to verify data structure
+        if (data.length > 0) {
+            console.log('Sample creator data (first 3):');
+            data.slice(0, 3).forEach((creator, idx) => {
+                console.log(`Creator ${idx + 1}:`, {
+                    email: creator.email,
+                    username: creator.creatorUsername,
+                    type: creator.type,
+                    totalCopies: creator.totalCopies,
+                    totalSubscriptions: creator.totalSubscriptions
+                });
+            });
+        }
+
         // Creator type breakdown
         const creatorTypes = {};
         data.forEach(creator => {
@@ -380,6 +402,8 @@ class CreatorAnalysisTool {
             const type = creator.type || creator.creatorType || 'Regular';
             creatorTypes[type] = (creatorTypes[type] || 0) + 1;
         });
+
+        console.log('Creator type breakdown:', creatorTypes);
 
         // Subscription price distribution
         const subscriptionPrices = {};
@@ -393,6 +417,9 @@ class CreatorAnalysisTool {
         // Copy distribution
         const creatorsWithCopies = data.filter(c => c.totalCopies > 0).length;
         const creatorsWithSubscriptions = data.filter(c => c.totalSubscriptions > 0).length;
+
+        console.log(`Creators with copies: ${creatorsWithCopies}`);
+        console.log(`Creators with subscriptions: ${creatorsWithSubscriptions}`);
 
         return {
             totalCreators,
@@ -409,7 +436,11 @@ class CreatorAnalysisTool {
      * Calculate correlations for creator variables (dynamic from raw_data)
      */
     calculateCorrelations(data) {
+        console.log('=== Correlation Calculation ===');
+        console.log(`Input data length: ${data ? data.length : 0}`);
+
         if (!data || data.length === 0) {
+            console.log('No data for correlation analysis');
             return {
                 totalCopies: {},
                 totalSubscriptions: {}
@@ -419,6 +450,8 @@ class CreatorAnalysisTool {
         // Dynamically detect all numeric variables from the first row
         const firstRow = data[0];
         const allKeys = Object.keys(firstRow);
+
+        console.log(`All keys in first row (${allKeys.length}):`, allKeys);
 
         // Exclude non-numeric and identifier fields
         const excludedKeys = ['email', 'creatorUsername', 'type', 'totalCopies', 'totalSubscriptions'];
@@ -436,6 +469,9 @@ class CreatorAnalysisTool {
         });
 
         console.log(`Found ${variables.length} numeric variables for correlation analysis:`, variables.slice(0, 10));
+        if (variables.length === 0) {
+            console.warn('⚠️ No numeric variables found for correlation analysis!');
+        }
 
         const correlations = {};
 
@@ -622,7 +658,14 @@ class CreatorAnalysisTool {
      * Display creator summary statistics
      */
     displayCreatorSummaryStats(stats) {
+        console.log('=== Displaying Summary Stats ===');
+        console.log('Stats object:', stats);
+
         const container = document.getElementById('creatorSummaryStatsInline');
+        if (!container) {
+            console.error('❌ Container creatorSummaryStatsInline not found!');
+            return;
+        }
         container.innerHTML = '';
 
         const section = document.createElement('div');
@@ -642,6 +685,8 @@ class CreatorAnalysisTool {
             ['Core Creators', (stats.creatorTypes['Regular'] || 0).toLocaleString()],
             ['Premium Creators', (stats.creatorTypes['Premium'] || 0).toLocaleString()]
         ];
+
+        console.log('Metric cards to display:', metrics);
 
         metrics.forEach(([title, content]) => {
             const card = document.createElement('div');
@@ -720,7 +765,16 @@ class CreatorAnalysisTool {
      * Display creator behavioral analysis
      */
     displayCreatorBehavioralAnalysis(correlationResults, regressionResults, tippingPoints) {
+        console.log('=== Displaying Behavioral Analysis ===');
+        console.log('Correlation results:', correlationResults);
+        console.log('Regression results:', regressionResults);
+        console.log('Tipping points:', tippingPoints);
+
         const container = document.getElementById('creatorBehavioralAnalysisInline');
+        if (!container) {
+            console.error('❌ Container creatorBehavioralAnalysisInline not found!');
+            return;
+        }
         container.innerHTML = '';
 
         const outcomes = [
@@ -729,6 +783,15 @@ class CreatorAnalysisTool {
         ];
 
         outcomes.forEach((config, index) => {
+            console.log(`Processing outcome: ${config.outcome}`);
+
+            if (!correlationResults[config.outcome]) {
+                console.warn(`⚠️ No correlation results for ${config.outcome}`);
+                return;
+            }
+
+            const correlationKeys = Object.keys(correlationResults[config.outcome]);
+            console.log(`  - Found ${correlationKeys.length} variables with correlations`);
             // Create a separate section for each outcome
             const outcomeSection = document.createElement('div');
             outcomeSection.className = 'qda-result-section';
