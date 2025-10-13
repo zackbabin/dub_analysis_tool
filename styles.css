@@ -168,8 +168,8 @@ body {
 
 .qda-metric-summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
     margin-top: 1.5rem;
     margin-bottom: 2rem;
     width: 100%;
@@ -179,7 +179,7 @@ body {
     background: #f8f9fa;
     border: none;
     border-radius: 8px;
-    padding: 1.5rem;
+    padding: 1rem 1.25rem;
     text-align: left;
     font-size: 14px;
     min-width: 0; /* Prevent grid blowout */
@@ -451,8 +451,13 @@ body {
     }
 
     .qda-metric-summary {
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+    }
+
+    .qda-metric-card {
+        padding: 0.875rem 1rem;
+        font-size: 13px;
     }
 }
 
