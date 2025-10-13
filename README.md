@@ -206,36 +206,42 @@ sync-mixpanel-engagement → creator_subscriptions_by_price table
 - Enables price elasticity analysis
 
 #### 2.3 Uploaded Creator Enrichment
-**Purpose**: Merge uploaded CSV data with Mixpanel metrics
+**Purpose**: Merge uploaded CSV data with Mixpanel metrics for correlation analysis
 
 **Data Flow**:
 ```
-upload-and-merge-creator-files → uploaded_creators table
+upload-and-merge-creator-files → creator_uploads table
+                                     ↓
+sync-creator-data → creators_insights table (Mixpanel metrics)
                                      ↓
                            creator_analysis view
-                           (merges uploaded + Mixpanel data)
+                           (merges both datasets into raw_data JSONB)
 ```
 
 **Process**:
-1. User uploads multiple CSV files via drag-and-drop
-2. Function merges files, deduplicates by email
-3. Stores raw data as JSONB (flexible schema)
-4. View joins with `creators_insights` for enrichment
+1. User uploads 3 CSV files (Creator List, Deals, Public Creators)
+2. Function merges files using two-stage matching (name → email)
+3. Stores merged data in `creator_uploads` table with all fields in `raw_data` JSONB
+4. User triggers "Sync Live Data" to enrich with Mixpanel user profiles
+5. `creator_analysis` view joins both tables and merges Mixpanel metrics into `raw_data`
+6. Analysis extracts all numeric fields from `raw_data` for correlation
 
-**Use Case**: Import creator contact lists, demographics, or custom attributes
+**Mixpanel Metrics Merged**:
+- total_deposits, active_created_portfolios, lifetime_created_portfolios
+- total_trades, investing_activity, investing_experience_years
+- investing_objective, investment_type
+
+**Use Case**: Identify which creator attributes (demographics, behavior) predict copies/subscriptions
 
 ### Creator Analysis Sync Workflow
 
-**Manual Sync**:
+**Complete Workflow**:
 ```
-sync-creator-data → Refreshes creators_insights from Mixpanel
-```
-
-**Upload Workflow**:
-```
-1. User uploads CSV file(s)
-2. upload-and-merge-creator-files processes and stores
-3. creator_analysis view auto-updates with latest upload
+1. User uploads 3 CSV files → stored in creator_uploads
+2. User clicks "Sync Live Data" → enriches creators_insights from Mixpanel
+3. creator_analysis view merges both datasets
+4. Analysis runs correlation on all fields in raw_data
+5. Display shows: Total Creators, Core Creators (Regular), Premium Creators
 ```
 
 ---
@@ -319,9 +325,10 @@ analyze-copy-patterns         → sync-business-assumptions
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `creators_insights` | Creator metrics | creator_id, creator_username, metrics (JSONB) |
-| `creator_subscriptions_by_price` | Price point breakdown | creator_id, price, interval, total_subscriptions |
-| `uploaded_creators` | Uploaded creator data | email, creator_username, raw_data (JSONB) |
+| `creators_insights` | Mixpanel user profiles | email, total_deposits, active_created_portfolios, investing_activity |
+| `creator_subscriptions_by_price` | Price point breakdown | creator_id, subscription_price, subscription_interval, total_subscriptions |
+| `creator_uploads` | Uploaded creator data | email, creator_username, raw_data (JSONB), uploaded_at |
+| `creator_analysis` (view) | Merged analysis data | Joins creator_uploads + creators_insights, merges into raw_data |
 
 ### Business Model Tables
 
