@@ -2090,7 +2090,12 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         tbody.appendChild(fragment);
         table.appendChild(tbody);
 
-        resultSection.appendChild(table);
+        // Wrap table in scrollable container for mobile
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+        tableWrapper.appendChild(table);
+
+        resultSection.appendChild(tableWrapper);
     });
 
     container.appendChild(resultSection);

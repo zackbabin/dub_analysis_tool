@@ -683,7 +683,13 @@ class CreatorAnalysisTool {
 
         if (Object.keys(stats.subscriptionPrices).length > 0) {
             const priceTable = this.createSubscriptionPriceTable(stats.subscriptionPrices);
-            section.appendChild(priceTable);
+
+            // Wrap table in scrollable container for mobile
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper';
+            tableWrapper.appendChild(priceTable);
+
+            section.appendChild(tableWrapper);
         } else {
             const placeholder = document.createElement('p');
             placeholder.textContent = 'No subscription price data available yet. This will be populated when subscription price data is added.';
@@ -779,7 +785,13 @@ class CreatorAnalysisTool {
             });
 
             const table = this.createBehavioralTable(combinedData);
-            outcomeSection.appendChild(table);
+
+            // Wrap table in scrollable container for mobile
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper';
+            tableWrapper.appendChild(table);
+
+            outcomeSection.appendChild(tableWrapper);
 
             container.appendChild(outcomeSection);
         });
