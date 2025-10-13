@@ -258,6 +258,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         try {
+            // Hide upload section
+            const uploadSection = document.getElementById('creatorUploadSection');
+            if (uploadSection) {
+                uploadSection.style.display = 'none';
+            }
+
+            // Show progress bar
+            this.clearStatus();
+            this.showProgress(0);
+
             // Get the 3 file inputs
             const creatorListInput = document.getElementById('creatorListFileInput');
             const dealsInput = document.getElementById('dealsFileInput');
@@ -288,42 +298,30 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('✅ Creator files merged:', result.stats);
-            this.updateProgress(70, 'Loading merged data...');
-
-            // Load and display the merged data
-            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-
-            if (!contents || !contents[0]) {
-                throw new Error('No data returned from database');
-            }
-
-            console.log('Loaded CSV length:', contents[0].length);
             this.updateProgress(100, 'Upload complete!');
 
-            // Show success message with prompt to sync live data
+            // Hide progress bar
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 1000);
+
+            // Show simple success message with sync button
             this.outputContainer.innerHTML = '';
             const successDiv = document.createElement('div');
             successDiv.className = 'qda-analysis-results';
             successDiv.innerHTML = `
-                <div style="padding: 30px; text-align: center; background: #e3f2fd; border-radius: 8px; border: 2px solid #2196f3;">
-                    <div style="font-size: 48px; margin-bottom: 15px;">📊</div>
-                    <h3 style="color: #1565c0; margin: 0 0 10px 0;">Creator Data Uploaded Successfully</h3>
-                    <p style="color: #555; margin: 0 0 20px 0;">
-                        ${result.stats.inserted || 0} creators uploaded and stored
+                <div style="padding: 40px; text-align: center;">
+                    <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
+                    <h3 style="color: #28a745; margin: 0 0 15px 0; font-size: 24px;">Files Uploaded Successfully</h3>
+                    <p style="color: #666; margin: 0 0 30px 0; font-size: 16px;">
+                        ${result.stats.inserted || 0} creators uploaded and ready for enrichment
                     </p>
-                    <div style="font-size: 14px; color: #666; background: white; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                        <strong>Upload Stats:</strong><br>
-                        Creator List: ${result.stats.creatorListRows || 0} rows<br>
-                        Deals: ${result.stats.dealsRows || 0} rows<br>
-                        Public Creators: ${result.stats.publicCreatorsRows || 0} rows<br>
-                        Final Merged: ${result.stats.finalCreatorsCount || 0} creators
-                    </div>
-                    <div style="font-size: 14px; color: #666; margin-top: 25px; padding: 20px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffc107;">
-                        <strong>⚡ Next Step:</strong> Enrich this data with Mixpanel user profiles<br>
-                        <button id="syncAfterUploadBtn" class="qda-btn" style="margin-top: 15px; padding: 12px 30px; font-size: 15px;">
-                            Sync Live Data from Mixpanel
-                        </button>
-                    </div>
+                    <button id="syncAfterUploadBtn" class="qda-btn" style="padding: 14px 40px; font-size: 16px; background: #28a745;">
+                        Sync Live Data
+                    </button>
                 </div>
             `;
             this.outputContainer.appendChild(successDiv);
@@ -337,16 +335,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     await this.runSyncAndAnalyzeWorkflow();
                 };
             }
-
-            // Hide progress bar after completion
-            setTimeout(() => {
-                const progressSection = document.getElementById('creatorProgressSection');
-                if (progressSection) {
-                    progressSection.style.display = 'none';
-                }
-            }, 2000);
         } catch (error) {
             console.error('Upload workflow error:', error);
+            // Show progress section for error display
+            const progressSection = document.getElementById('creatorProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
             throw error;
         }
     }
@@ -510,7 +505,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         this.clearStatus();
-        this.showStatus();
+        this.showProgress(0);
 
         try {
             // Step 1: Sync Mixpanel data
@@ -565,7 +560,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         this.clearStatus();
-        this.showStatus();
+        this.showProgress(0);
 
         try {
             this.updateProgress(20, 'Syncing Mixpanel data...');
@@ -594,7 +589,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             await this.processAndAnalyze(contents[0]);
 
             this.updateProgress(100, 'Complete!');
-            this.addStatusMessage('✅ Analysis complete!', 'success');
 
             // Hide progress bar after completion
             setTimeout(() => {
