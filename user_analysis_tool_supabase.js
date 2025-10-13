@@ -1058,104 +1058,62 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
             );
 
-            // Add event nodes with arrows
+            // Build tooltip content for portfolios and creators
+            const hasPortfolios = seq.top_portfolios && seq.top_portfolios.length > 0;
+            const hasCreators = seq.top_creators && seq.top_creators.length > 0;
+
+            let tooltipContent = '';
+            if (hasPortfolios || hasCreators) {
+                const tooltipParts = [];
+
+                if (hasPortfolios) {
+                    tooltipParts.push(`<strong>Top Portfolios:</strong><br/>${seq.top_portfolios.join('<br/>')}`);
+                }
+
+                if (hasCreators) {
+                    tooltipParts.push(`<strong>Top Creators:</strong><br/>${seq.top_creators.join('<br/>')}`);
+                }
+
+                tooltipContent = tooltipParts.join('<br/><br/>');
+            }
+
+            // Add event nodes with arrows, tooltip on first event if we have data
             seq.sequence.forEach((event, eventIdx) => {
-                parts.push(
-                    `<span style="
-                        background: #007bff;
-                        color: white;
-                        padding: 0.25rem 0.75rem;
-                        border-radius: 4px;
-                        font-size: 0.85rem;
-                    ">${event}</span>`
-                );
+                if (eventIdx === 0 && tooltipContent) {
+                    // Use standard tooltip pattern for first event
+                    parts.push(
+                        `<span style="
+                            position: relative;
+                            display: inline-block;
+                            background: #007bff;
+                            color: white;
+                            padding: 0.25rem 0.75rem;
+                            border-radius: 4px;
+                            font-size: 0.85rem;
+                            cursor: help;
+                        " class="info-tooltip">`,
+                            event,
+                            `<span class="tooltip-text" style="width: 250px; margin-left: -125px;">`,
+                                tooltipContent,
+                            '</span>',
+                        '</span>'
+                    );
+                } else {
+                    parts.push(
+                        `<span style="
+                            background: #007bff;
+                            color: white;
+                            padding: 0.25rem 0.75rem;
+                            border-radius: 4px;
+                            font-size: 0.85rem;
+                        ">${event}</span>`
+                    );
+                }
+
                 if (eventIdx < seq.sequence.length - 1) {
                     parts.push('<span style="color: #6c757d; font-weight: bold;">→</span>');
                 }
             });
-
-            // Add top portfolios/creators section if available
-            if (seq.top_portfolios && seq.top_portfolios.length > 0) {
-                const topPortfolio = seq.top_portfolios[0];
-                const otherPortfolios = seq.top_portfolios.slice(1);
-
-                parts.push(
-                    `<div style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #e7f3ff; border-radius: 4px; font-size: 0.85rem;">`,
-                        '<strong>Top Portfolio:</strong> ',
-                        `<span class="portfolio-tooltip" style="cursor: help; text-decoration: underline; text-decoration-style: dotted;">`,
-                            topPortfolio
-                );
-
-                if (otherPortfolios.length > 0) {
-                    parts.push(
-                        `<span class="portfolio-tooltip-text" style="
-                            visibility: hidden;
-                            opacity: 0;
-                            position: absolute;
-                            background: #2d3748;
-                            color: white;
-                            padding: 0.5rem 0.75rem;
-                            border-radius: 4px;
-                            font-size: 0.8rem;
-                            white-space: nowrap;
-                            z-index: 1000;
-                            bottom: 100%;
-                            left: 50%;
-                            transform: translateX(-50%) translateY(-8px);
-                            transition: opacity 0.2s;
-                            pointer-events: none;
-                        ">`,
-                            `Other top portfolios: ${otherPortfolios.join(', ')}`,
-                        '</span>'
-                    );
-                }
-
-                parts.push(
-                        '</span>',
-                    '</div>'
-                );
-            }
-
-            if (seq.top_creators && seq.top_creators.length > 0) {
-                const topCreator = seq.top_creators[0];
-                const otherCreators = seq.top_creators.slice(1);
-
-                parts.push(
-                    `<div style="width: 100%; margin-top: 0.5rem; padding: 0.5rem; background: #f0f9ff; border-radius: 4px; font-size: 0.85rem;">`,
-                        '<strong>Top Creator:</strong> ',
-                        `<span class="creator-tooltip" style="cursor: help; text-decoration: underline; text-decoration-style: dotted;">`,
-                            topCreator
-                );
-
-                if (otherCreators.length > 0) {
-                    parts.push(
-                        `<span class="creator-tooltip-text" style="
-                            visibility: hidden;
-                            opacity: 0;
-                            position: absolute;
-                            background: #2d3748;
-                            color: white;
-                            padding: 0.5rem 0.75rem;
-                            border-radius: 4px;
-                            font-size: 0.8rem;
-                            white-space: nowrap;
-                            z-index: 1000;
-                            bottom: 100%;
-                            left: 50%;
-                            transform: translateX(-50%) translateY(-8px);
-                            transition: opacity 0.2s;
-                            pointer-events: none;
-                        ">`,
-                            `Other top creators: ${otherCreators.join(', ')}`,
-                        '</span>'
-                    );
-                }
-
-                parts.push(
-                        '</span>',
-                    '</div>'
-                );
-            }
 
             parts.push(
                             '</div>',

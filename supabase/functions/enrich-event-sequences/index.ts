@@ -219,17 +219,17 @@ serve(async (req) => {
         })
       }
 
-      // Update batch
-      for (const update of updates) {
-        const { error: updateError } = await supabase
-          .from('event_sequences_raw')
-          .update({ event_data: update.event_data })
-          .eq('distinct_id', update.distinct_id)
+      // Update batch using upsert for better performance
+      const { error: updateError } = await supabase
+        .from('event_sequences_raw')
+        .upsert(updates, {
+          onConflict: 'distinct_id',
+          ignoreDuplicates: false
+        })
 
-        if (updateError) {
-          console.error('Error updating enriched events:', updateError)
-          throw updateError
-        }
+      if (updateError) {
+        console.error('Error updating enriched events:', updateError)
+        throw updateError
       }
 
       console.log(`Enriched batch: ${i + batch.length}/${rawSequences.length} sequences`)
