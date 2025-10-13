@@ -119,6 +119,66 @@ class SupabaseIntegration {
     }
 
     /**
+     * Invoke Supabase Edge Function with retry logic for cold starts
+     * @param {string} functionName - Name of the edge function to invoke
+     * @param {object} body - Request body
+     * @param {string} label - Label for logging
+     * @param {number} maxRetries - Maximum retry attempts (default 2)
+     * @param {number} retryDelay - Delay between retries in ms (default 3000)
+     */
+    async invokeFunctionWithRetry(functionName, body = {}, label = 'Function', maxRetries = 2, retryDelay = 3000) {
+        let lastError = null;
+
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    console.log(`🔄 Retrying ${label} (attempt ${attempt + 1}/${maxRetries + 1})...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                }
+
+                const { data, error } = await this.supabase.functions.invoke(functionName, { body });
+
+                if (error) {
+                    // Check if it's a cold start / network error worth retrying
+                    const isRetryableError = error.message?.includes('Failed to send') ||
+                                            error.message?.includes('Failed to fetch') ||
+                                            error.name === 'FunctionsFetchError';
+
+                    if (isRetryableError && attempt < maxRetries) {
+                        console.warn(`⚠️ ${label} failed (likely cold start), will retry...`);
+                        lastError = error;
+                        continue;
+                    }
+
+                    // Not retryable or max retries reached
+                    console.error(`❌ ${label} error:`, error);
+                    if (error.message?.includes('Failed to send')) {
+                        throw new Error(`${label} failed: Edge Function '${functionName}' is not reachable. Please ensure it's deployed: supabase functions deploy ${functionName}`);
+                    }
+                    throw new Error(`${label} failed: ${error.message || JSON.stringify(error)}`);
+                }
+
+                if (!data || !data.success) {
+                    throw new Error(`${label} failed: ${data?.error || 'Unknown error'}`);
+                }
+
+                if (attempt > 0) {
+                    console.log(`✅ ${label} succeeded on retry attempt ${attempt + 1}`);
+                }
+
+                return data;
+            } catch (error) {
+                lastError = error;
+                if (attempt >= maxRetries) {
+                    throw error;
+                }
+            }
+        }
+
+        throw lastError;
+    }
+
+    /**
      * Trigger Mixpanel sync via Supabase Edge Functions (four-part process)
      * Part 1: sync-mixpanel-users (subscribers data - large dataset)
      * Part 2: sync-mixpanel-funnels (time funnels only)
@@ -131,31 +191,9 @@ class SupabaseIntegration {
         console.log('🔄 Starting Mixpanel sync (4-part process)...');
 
         try {
-            // Part 1: Sync users/subscribers data
+            // Part 1: Sync users/subscribers data (with retry for cold starts)
             console.log('📊 Step 1/4: Syncing user/subscriber data...');
-            const { data: usersData, error: usersError } = await this.supabase.functions.invoke('sync-mixpanel-users', {
-                body: {}
-            });
-
-            if (usersError) {
-                console.error('❌ Users sync error:', usersError);
-                console.error('Error details:', {
-                    message: usersError.message,
-                    context: usersError.context,
-                    name: usersError.name
-                });
-
-                // Provide more specific error messages
-                if (usersError.message?.includes('Failed to send')) {
-                    throw new Error(`Users sync failed: Edge Function 'sync-mixpanel-users' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-users`);
-                }
-
-                throw new Error(`Users sync failed: ${usersError.message || JSON.stringify(usersError)}`);
-            }
-
-            if (!usersData || !usersData.success) {
-                throw new Error(`Users sync failed: ${usersData?.error || 'Unknown error'}`);
-            }
+            const usersData = await this.invokeFunctionWithRetry('sync-mixpanel-users', {}, 'Users sync');
 
             console.log('✅ Step 1/4 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
@@ -183,43 +221,24 @@ class SupabaseIntegration {
             console.log('⏭️ Step 2/4: Funnels sync temporarily disabled');
             const funnelsData = { stats: { skipped: true } };
 
-            // Part 3: Sync engagement
+            // Part 3: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
             console.log('📊 Step 3/4: Syncing engagement...');
-            const { data: engagementData, error: engagementError } = await this.supabase.functions.invoke('sync-mixpanel-engagement', {
-                body: {}
-            });
+            const engagementData = await this.invokeFunctionWithRetry('sync-mixpanel-engagement', {}, 'Engagement sync');
 
-            // Check engagement result
-            if (engagementError) {
-                console.error('❌ Engagement sync error:', engagementError);
-                if (engagementError.message?.includes('Failed to send')) {
-                    throw new Error(`Engagement sync failed: Edge Function 'sync-mixpanel-engagement' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-engagement`);
-                }
-                throw new Error(`Engagement sync failed: ${engagementError.message || JSON.stringify(engagementError)}`);
-            }
-            if (!engagementData || !engagementData.success) {
-                throw new Error(`Engagement sync failed: ${engagementData?.error || 'Unknown error'}`);
-            }
             console.log('✅ Step 3/4 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementData.stats);
 
-            // Part 4: Portfolio events (separate - uses different Insights chart)
+            // Part 4: Portfolio events (with retry for cold starts, non-blocking)
             console.log('📊 Step 4/4: Syncing portfolio events...');
-            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('sync-mixpanel-portfolio-events', {
-                body: {}
-            });
-
-            // Check portfolio result (non-blocking - will use existing data if fails)
-            if (portfolioError) {
-                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioError);
-                portfolioData = { stats: { skipped: true, reason: portfolioError.message || 'Unknown error' } };
-            } else if (!portfolioData || !portfolioData.success) {
-                console.warn('⚠️ Portfolio events sync failed (continuing with existing data):', portfolioData?.error || 'Unknown error');
-                portfolioData = { stats: { skipped: true, reason: portfolioData?.error || 'Unknown error' } };
-            } else {
+            let portfolioData;
+            try {
+                portfolioData = await this.invokeFunctionWithRetry('sync-mixpanel-portfolio-events', {}, 'Portfolio events sync');
                 console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
                 console.log('   Stats:', portfolioData.stats);
+            } catch (portfolioError) {
+                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioError);
+                portfolioData = { stats: { skipped: true, reason: portfolioError.message || 'Unknown error' } };
             }
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
