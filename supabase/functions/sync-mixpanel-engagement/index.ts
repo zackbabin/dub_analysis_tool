@@ -220,7 +220,24 @@ serve(async (req) => {
           } else {
             console.log('✓ Copy analysis invoked successfully')
           }
-        }).catch((err) => console.error('⚠️ Copy analysis failed to invoke:', err.message))
+        }).catch((err) => console.error('⚠️ Copy analysis failed to invoke:', err.message)),
+
+        fetch(`${supabaseUrl}/functions/v1/analyze-creator-copy-patterns`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({})
+        }).then(async (response) => {
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('⚠️ Creator copy analysis returned error:', response.status, errorText)
+          } else {
+            console.log('✓ Creator copy analysis invoked successfully')
+          }
+        }).catch((err) => console.error('⚠️ Creator copy analysis failed to invoke:', err.message))
 
         // Portfolio sequence analysis removed - not used in UI
       ]
