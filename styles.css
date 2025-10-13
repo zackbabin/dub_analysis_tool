@@ -209,7 +209,6 @@ body {
 /* Global: Auto-wrap ALL tables in result sections for responsive scrolling */
 .qda-result-section table,
 .qda-analysis-results table {
-    display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
@@ -655,13 +654,11 @@ body {
         font-size: 12px;
     }
 
-    /* Responsive tables - let them scroll within viewport */
+    /* Responsive tables - no min-width constraint on mobile */
     .table-wrapper table,
     .qda-result-section table,
     .qda-analysis-results table {
-        width: 100%;
-        display: block;
-        overflow-x: auto;
+        min-width: auto !important;
     }
 
     .qda-regression-table {
