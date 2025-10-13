@@ -25,19 +25,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Call parent to create base UI (which restores cached results)
         super.createUI(container, outputContainer);
 
-        // If cached results were restored, hide the upload UI components
-        const hasCachedResults = localStorage.getItem('creatorAnalysisResultsHTML');
-        if (hasCachedResults) {
-            console.log('Found cached creator analysis results, hiding upload UI');
-            // Hide the container with upload form
-            if (container) {
-                container.style.display = 'none';
-            }
-            // Hide data source buttons
-            const dataSourceDiv = document.getElementById('creatorDataSource');
-            if (dataSourceDiv) {
-                dataSourceDiv.style.display = 'none';
-            }
+        // Always hide the upload form container (it's inside creatorContent)
+        // The data source buttons should always be visible
+        if (container) {
+            container.style.display = 'none';
         }
 
         // Remove borders and padding from wrapper since data source buttons are in separate component
@@ -390,19 +381,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         try {
-            // Hide entire mode section (including upload section)
+            // Hide the upload form (mode section)
             const modeSection = document.getElementById('creatorModeSection');
             if (modeSection) {
                 modeSection.style.display = 'none';
             }
 
-            // Also hide the data source buttons during upload/processing
-            const dataSourceDiv = document.getElementById('creatorDataSource');
-            if (dataSourceDiv) {
-                dataSourceDiv.style.display = 'none';
-            }
-
-            // Show progress bar
+            // Keep data source visible, show progress bar
             this.clearStatus();
             this.showProgress(0);
 
@@ -436,53 +421,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('✅ Creator files merged:', result.stats);
-            this.updateProgress(100, 'Upload complete!');
+            this.updateProgress(50, 'Upload complete! Starting sync...');
 
-            // Hide progress bar
-            setTimeout(() => {
-                const progressSection = document.getElementById('creatorProgressSection');
-                if (progressSection) {
-                    progressSection.style.display = 'none';
-                }
-            }, 1000);
-
-            // Ensure data source buttons stay hidden after upload
-            if (dataSourceDiv) {
-                dataSourceDiv.style.display = 'none';
-            }
-
-            // Also hide the creatorContent container (which holds the upload form wrapper)
-            if (this.container) {
-                this.container.style.display = 'none';
-            }
-
-            // Show simple success message with sync button
-            this.outputContainer.innerHTML = '';
-            const successDiv = document.createElement('div');
-            successDiv.className = 'qda-analysis-results';
-            successDiv.innerHTML = `
-                <div style="padding: 40px; text-align: center;">
-                    <div style="font-size: 64px; margin-bottom: 20px;">✅</div>
-                    <h3 style="color: #28a745; margin: 0 0 15px 0; font-size: 24px;">Files Uploaded Successfully</h3>
-                    <p style="color: #666; margin: 0 0 30px 0; font-size: 16px;">
-                        ${result.stats.inserted || 0} creators uploaded and ready for enrichment
-                    </p>
-                    <button id="syncAfterUploadBtn" class="qda-btn" style="padding: 14px 40px; font-size: 16px; background: #28a745;">
-                        Sync Live Data
-                    </button>
-                </div>
-            `;
-            this.outputContainer.appendChild(successDiv);
-
-            // Attach click handler to sync button
-            const syncBtn = document.getElementById('syncAfterUploadBtn');
-            if (syncBtn) {
-                syncBtn.onclick = async () => {
-                    // Clear the success message and run sync + analyze workflow
-                    this.outputContainer.innerHTML = '';
-                    await this.runSyncAndAnalyzeWorkflow();
-                };
-            }
+            // Proceed immediately to sync (no delay)
+            await this.runSyncAndAnalyzeWorkflow();
         } catch (error) {
             console.error('Upload workflow error:', error);
             // Show progress section for error display
@@ -652,21 +594,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             throw new Error('Supabase not configured. Please check your configuration.');
         }
 
-        // Make sure container stays hidden and progress is visible
+        // Keep container hidden, progress bar should already be showing
         if (this.container) {
             this.container.style.display = 'none';
         }
-        const dataSourceDiv = document.getElementById('creatorDataSource');
-        if (dataSourceDiv) {
-            dataSourceDiv.style.display = 'none';
-        }
-
-        this.clearStatus();
-        this.showProgress(0);
 
         try {
-            // Step 1: Sync Mixpanel data
-            this.updateProgress(20, 'Syncing Mixpanel user profiles...');
+            // Step 1: Sync Mixpanel data (continue from 50% if coming from upload)
+            this.updateProgress(60, 'Syncing Mixpanel data...');
 
             console.log('Triggering Supabase creator enrichment sync...');
             const syncResult = await this.supabaseIntegration.triggerCreatorSync();
@@ -676,7 +611,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('✅ Creator enrichment sync completed:', syncResult.stats);
-            this.updateProgress(50, 'Loading enriched data...');
+            this.updateProgress(75, 'Loading enriched data...');
 
             // Step 2: Load merged data from creator_analysis view (as objects, not CSV)
             const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
@@ -686,7 +621,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log(`✅ Loaded ${creatorData.length} creators from creator_analysis view`);
-            this.updateProgress(70, 'Analyzing data...');
+            this.updateProgress(85, 'Analyzing data...');
 
             // Step 3: Process and analyze (directly, no CSV conversion)
             await this.processAndAnalyzeDirect(creatorData);
