@@ -147,7 +147,123 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Process and analyze creator data directly from database (no CSV conversion)
+     */
+    async processAndAnalyzeDirect(creatorData) {
+        try {
+            console.log('=== Processing Creator Data Directly ===');
+            console.log(`Raw data from database: ${creatorData.length} rows`);
+
+            // Clean and transform data
+            this.updateProgress(60, 'Cleaning data...');
+            const cleanData = this.cleanCreatorDataDirect(creatorData);
+            console.log(`Cleaned data: ${cleanData.length} rows`);
+
+            // Run analysis
+            this.updateProgress(75, 'Analyzing data...');
+            const results = this.performCreatorAnalysis(cleanData);
+
+            this.updateProgress(90, 'Generating insights...');
+
+            // Calculate tipping points
+            const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
+
+            // Clear cleanData reference to free memory
+            results.cleanData = null;
+
+            // Save results to localStorage
+            const now = new Date();
+            const timestamp = now.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            localStorage.setItem('creatorAnalysisResults', JSON.stringify({
+                summaryStats: results.summaryStats,
+                correlationResults: results.correlationResults,
+                regressionResults: results.regressionResults,
+                tippingPoints: tippingPoints,
+                lastUpdated: timestamp
+            }));
+
+            // Display results
+            this.displayResults(results);
+
+            this.updateProgress(100, 'Complete!');
+
+            // Hide progress bar after completion
+            setTimeout(() => {
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Error in processAndAnalyzeDirect:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Clean creator data directly from database objects (no CSV parsing needed)
+     */
+    cleanCreatorDataDirect(data) {
+        console.log(`=== Cleaning Creator Data (Direct) ===`);
+        console.log(`Input rows: ${data.length}`);
+
+        const cleanedRows = data.map(row => {
+            // Parse raw_data JSONB
+            const rawData = row.raw_data || {};
+
+            const cleanRow = {
+                // Identifiers
+                email: row.email || '',
+                creatorUsername: row.creator_username || '',
+
+                // Type from top-level column in view
+                type: row.type || 'Regular',
+
+                // Target variables from top-level columns
+                totalCopies: this.cleanNumeric(row.total_copies),
+                totalSubscriptions: this.cleanNumeric(row.total_subscriptions)
+            };
+
+            // Add ALL fields from raw_data JSONB (includes uploaded fields + Mixpanel enrichment)
+            Object.keys(rawData).forEach(key => {
+                // Skip fields we've already handled
+                if (key === 'type' || key === 'email') return;
+
+                const value = rawData[key];
+
+                // Try to parse as numeric
+                const numericValue = this.cleanNumeric(value);
+
+                // Include numeric fields (even if 0/null for correlation analysis)
+                if (typeof value === 'number' || !isNaN(parseFloat(value)) || value === null || value === undefined || value === '') {
+                    cleanRow[key] = numericValue;
+                }
+                // Include string fields
+                else if (typeof value === 'string') {
+                    cleanRow[key] = value;
+                }
+            });
+
+            return cleanRow;
+        });
+
+        const filteredRows = cleanedRows.filter(row => row.email || row.creatorUsername);
+        console.log(`After filtering (must have email or username): ${filteredRows.length}`);
+
+        return filteredRows;
+    }
+
+    /**
      * Override: Process and analyze data (skip parent's progress hiding)
+     * LEGACY: Still used if CSV path is taken
      */
     async processAndAnalyze(csvContent) {
         try {
@@ -529,18 +645,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('✅ Creator enrichment sync completed:', syncResult.stats);
             this.updateProgress(50, 'Loading enriched data...');
 
-            // Step 2: Load merged data from creator_analysis view
-            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+            // Step 2: Load merged data from creator_analysis view (as objects, not CSV)
+            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
 
-            if (!contents || !contents[0]) {
+            if (!creatorData || creatorData.length === 0) {
                 throw new Error('No data returned from database');
             }
 
-            console.log('Loaded enriched CSV length:', contents[0].length);
+            console.log(`✅ Loaded ${creatorData.length} creators from creator_analysis view`);
             this.updateProgress(70, 'Analyzing data...');
 
-            // Step 3: Process and analyze
-            await this.processAndAnalyze(contents[0]);
+            // Step 3: Process and analyze (directly, no CSV conversion)
+            await this.processAndAnalyzeDirect(creatorData);
 
             this.updateProgress(100, 'Complete!');
 
@@ -583,18 +699,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('✅ Creator enrichment sync completed:', result.stats);
             this.updateProgress(60, 'Loading creator data...');
 
-            // Load and analyze the creator data from creator_analysis view
-            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+            // Load and analyze the creator data from creator_analysis view (as objects, not CSV)
+            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
 
-            if (!contents || !contents[0]) {
+            if (!creatorData || creatorData.length === 0) {
                 throw new Error('No data returned from database');
             }
 
-            console.log('Loaded creator CSV length:', contents[0].length);
+            console.log(`✅ Loaded ${creatorData.length} creators from creator_analysis view`);
             this.updateProgress(80, 'Analyzing data...');
 
-            // Process and analyze the data
-            await this.processAndAnalyze(contents[0]);
+            // Process and analyze the data (directly, no CSV conversion)
+            await this.processAndAnalyzeDirect(creatorData);
 
             this.updateProgress(100, 'Complete!');
 

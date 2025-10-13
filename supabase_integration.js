@@ -564,9 +564,17 @@ class SupabaseIntegration {
             }
 
             console.log(`✅ Loaded ${data.length} creator records from creator_analysis view`);
+            console.log(`Sample row structure:`, data[0] ? {
+                id: data[0].id,
+                email: data[0].email,
+                type: data[0].type,
+                total_copies: data[0].total_copies,
+                total_subscriptions: data[0].total_subscriptions,
+                raw_data_keys: data[0].raw_data ? Object.keys(data[0].raw_data) : []
+            } : 'No data');
 
-            // Convert to CSV format for compatibility with existing analysis code
-            return this.convertCreatorDataToCSVFormat(data);
+            // Return data directly (no CSV conversion needed)
+            return data;
         } catch (error) {
             console.error('Error loading creator data from Supabase:', error);
             throw error;

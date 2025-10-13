@@ -785,6 +785,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         if (topHiddenGems.length > 0) {
             parts.push(
+                '<div class="table-wrapper">',
                 '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
                 `<thead>
                     <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
@@ -813,7 +814,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 );
             });
 
-            parts.push('</tbody></table>');
+            parts.push('</tbody></table></div>');
         }
 
         parts.push('</div>');
@@ -955,6 +956,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<div class="qda-result-section" style="margin-top: 3rem;">',
             `<h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
+            '<div class="table-wrapper">',
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
@@ -989,6 +991,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         parts.push(
             '</tbody></table>',
+            '</div>',
             '</div>'
         );
 
