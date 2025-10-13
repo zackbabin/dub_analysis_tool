@@ -385,15 +385,18 @@ serve(async (req) => {
 
       const { error: insertError } = await supabase
         .from('creator_uploads')
-        .insert(batch)
+        .upsert(batch, {
+          onConflict: 'email',
+          ignoreDuplicates: false
+        })
 
       if (insertError) {
-        console.error('Insert error:', insertError)
-        throw new Error(`Failed to insert creators: ${insertError.message}`)
+        console.error('Upsert error:', insertError)
+        throw new Error(`Failed to upsert creators: ${insertError.message}`)
       }
 
       totalInserted += batch.length
-      console.log(`Inserted batch: ${totalInserted}/${dbRows.length}`)
+      console.log(`Upserted batch: ${totalInserted}/${dbRows.length}`)
     }
 
     return new Response(
