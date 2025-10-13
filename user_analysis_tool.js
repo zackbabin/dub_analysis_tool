@@ -28,8 +28,6 @@ class UserAnalysisTool {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'qda-inline-widget';
-        wrapper.style.maxWidth = '800px';
-        wrapper.style.margin = '0 auto';
 
         // Content (no header)
         const content = document.createElement('div');
