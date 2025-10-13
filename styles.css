@@ -188,13 +188,15 @@ body {
 /* Table wrapper - no scrolling on desktop, tables fit container */
 .table-wrapper {
     margin: 1rem 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Tables fit container width on desktop */
 .qda-result-section table,
 .qda-analysis-results table,
 .table-wrapper table {
-    width: 100%;
+    width: auto;
     max-width: 100%;
 }
 
@@ -626,11 +628,7 @@ body {
         font-size: 12px;
     }
 
-    /* Responsive tables - enable horizontal scrolling on mobile */
-    .table-wrapper {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
+    /* Responsive tables - already have overflow-x in base styles */
 
     .table-wrapper::-webkit-scrollbar {
         height: 6px;
