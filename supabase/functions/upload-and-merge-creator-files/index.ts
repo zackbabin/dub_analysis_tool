@@ -375,7 +375,7 @@ serve(async (req) => {
       const batch = dbRows.slice(i, i + batchSize)
 
       const { error: insertError } = await supabase
-        .from('uploaded_creators')
+        .from('creator_uploads')
         .insert(batch)
 
       if (insertError) {
