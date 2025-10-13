@@ -217,17 +217,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.error('❌ Step 4/5 failed - Copy analysis error:', copyError);
         }
 
-        console.log('Step 5/5: Triggering event sequence analysis for subscriptions...');
-        try {
-            const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
-            if (subAnalysisResult && subAnalysisResult.success) {
-                console.log('✅ Step 5/5 complete - Subscription sequence analysis:', subAnalysisResult.stats);
-            } else {
-                console.warn('⚠️ Subscription sequence analysis returned unsuccessful:', subAnalysisResult);
-            }
-        } catch (subError) {
-            console.error('❌ Step 5/5 failed - Subscription analysis error:', subError);
-        }
+        // COMMENTED OUT: Subscription event sequence analysis disabled
+        // console.log('Step 5/5: Triggering event sequence analysis for subscriptions...');
+        // try {
+        //     const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
+        //     if (subAnalysisResult && subAnalysisResult.success) {
+        //         console.log('✅ Step 5/5 complete - Subscription sequence analysis:', subAnalysisResult.stats);
+        //     } else {
+        //         console.warn('⚠️ Subscription sequence analysis returned unsuccessful:', subAnalysisResult);
+        //     }
+        // } catch (subError) {
+        //     console.error('❌ Step 5/5 failed - Subscription analysis error:', subError);
+        // }
 
         console.log('✅ Event sequence workflow completed (some steps may have failed - check logs above)');
 
