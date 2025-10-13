@@ -1087,6 +1087,14 @@ class SupabaseIntegration {
         return this.loadTopCombinations('copy', metric, limit, false, minExposure);
     }
 
+    /**
+     * Load top creator copy combinations
+     * Analyzes which creator profile view combinations drive copies
+     */
+    async loadTopCreatorCopyCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+        return this.loadTopCombinations('creator_copy', metric, limit, true, minExposure);
+    }
+
 
     /**
      * Load hidden gems portfolios

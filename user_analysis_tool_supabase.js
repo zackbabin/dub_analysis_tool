@@ -369,6 +369,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             hiddenGemsSummary,
             copyEngagementSummary,
             topCopyCombos,
+            topCreatorCopyCombos,
             subscriptionDistribution,
             copySequenceAnalysis
             // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
@@ -380,6 +381,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
             this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; })
             // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
@@ -432,6 +434,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+            const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
 
             const copySequenceHTML = copySequenceAnalysis ?
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
@@ -481,7 +484,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 copyDriversWrapper.style.marginTop = '3rem';
                 copyDriversWrapper.innerHTML = correlationHeaderHTML;
                 copyDriversWrapper.appendChild(copiesTable);
-                copyDriversWrapper.insertAdjacentHTML('beforeend', combinationsHTML + copySequenceHTML);
+                copyDriversWrapper.insertAdjacentHTML('beforeend', combinationsHTML + creatorCombinationsHTML + copySequenceHTML);
 
                 portfolioHTML += copyDriversWrapper.outerHTML;
             } catch (e) {
@@ -546,7 +549,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
 
             const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
-            const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
+            // const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos); // Moved to Portfolio Analysis tab as creator copy combinations
+            const subCombinationsHTML = ''; // Commented out - moved to Portfolio Analysis tab
             // const subSequenceHTML = subscriptionSequenceAnalysis ?
             //     this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions') : '';
             const subSequenceHTML = ''; // Comment out subscription conversion path analysis
@@ -714,6 +718,50 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 },
                 'Creators Viewed',
                 'Total Subs'
+            ),
+            '</div>'
+        ];
+
+        return parts.join('');
+    }
+
+    /**
+     * Generate Creator Copy Combinations HTML (inserted after portfolio combinations)
+     * Uses array.join() for optimal string building performance
+     */
+    generateCreatorCopyCombinationsHTML(topCombinations) {
+        if (!topCombinations || topCombinations.length === 0) {
+            return '';
+        }
+
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>High-Impact Creator Combinations</strong>
+                Identifies 2-creator pairs that drive copies:
+                <ul>
+                    <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
+                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 creators analyzed</li>
+                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
+                    <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
+                </ul>
+                Shows top 10 combinations sorted by Expected Value. Users must view BOTH creators to be counted as "exposed."
+            </span>
+        </span>`;
+
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            this.generateCombinationsTableHTML(
+                `High-Impact Creator Combinations${tooltipHTML}`,
+                'Users who viewed both of these creators were significantly more likely to copy',
+                topCombinations,
+                (combo) => {
+                    const creator1 = combo.username_1 || combo.value_1;
+                    const creator2 = combo.username_2 || combo.value_2;
+                    return `${creator1}, ${creator2}`;
+                },
+                'Creators Viewed',
+                'Total Copies'
             ),
             '</div>'
         ];
