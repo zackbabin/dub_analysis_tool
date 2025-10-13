@@ -786,30 +786,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (topHiddenGems.length > 0) {
             parts.push(
                 '<div class="table-wrapper">',
-                '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+                '<table class="qda-regression-table">',
                 `<thead>
-                    <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                        <th style="padding: 0.75rem; text-align: left;">Portfolio</th>
-                        <th style="padding: 0.75rem; text-align: left;">Creator</th>
-                        <th style="padding: 0.75rem; text-align: right;">Total PDP Views</th>
-                        <th style="padding: 0.75rem; text-align: right;">Unique Views</th>
-                        <th style="padding: 0.75rem; text-align: right;">Copies</th>
-                        <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                    <tr>
+                        <th>Portfolio</th>
+                        <th>Creator</th>
+                        <th style="text-align: right;">Total PDP Views</th>
+                        <th style="text-align: right;">Unique Views</th>
+                        <th style="text-align: right;">Copies</th>
+                        <th style="text-align: right;">Conv Rate</th>
                     </tr>
                 </thead>
                 <tbody>`
             );
 
             topHiddenGems.forEach((gem, index) => {
-                const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
                 parts.push(
-                    `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
-                        <td style="padding: 0.75rem;">${gem.portfolio_ticker || 'N/A'}</td>
-                        <td style="padding: 0.75rem;">${gem.creator_username || 'N/A'}</td>
-                        <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
-                        <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
-                        <td style="padding: 0.75rem; text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
-                        <td style="padding: 0.75rem; text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
+                    `<tr>
+                        <td>${gem.portfolio_ticker || 'N/A'}</td>
+                        <td>${gem.creator_username || 'N/A'}</td>
+                        <td style="text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
+                        <td style="text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
+                        <td style="text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
+                        <td style="text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
                     </tr>`
                 );
             });
@@ -957,15 +956,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `<h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
             '<div class="table-wrapper">',
-            '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+            '<table class="qda-regression-table">',
             `<thead>
-                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                    <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                    <th style="padding: 0.75rem; text-align: left;">Portfolio Sequence</th>
-                    <th style="padding: 0.75rem; text-align: right;">Impact${impactTooltipHTML}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Users</th>
-                    <th style="padding: 0.75rem; text-align: right;">Total Copies</th>
-                    <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                <tr>
+                    <th>Rank</th>
+                    <th>Portfolio Sequence</th>
+                    <th style="text-align: right;">Impact${impactTooltipHTML}</th>
+                    <th style="text-align: right;">Users</th>
+                    <th style="text-align: right;">Total Copies</th>
+                    <th style="text-align: right;">Conv Rate</th>
                 </tr>
             </thead>
             <tbody>`
@@ -976,15 +975,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const displayValue = seq.value_3
                 ? `${seq.value_1} → ${seq.value_2} → ${seq.value_3}`
                 : `${seq.value_1} → ${seq.value_2}`;
-            const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
             parts.push(
-                `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
-                    <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                    <td style="padding: 0.75rem;">${displayValue}</td>
-                    <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(seq.lift).toFixed(2)}x lift</td>
-                    <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.users_with_exposure).toLocaleString()}</td>
-                    <td style="padding: 0.75rem; text-align: right;">${parseInt(seq.total_conversions || 0).toLocaleString()}</td>
-                    <td style="padding: 0.75rem; text-align: right;">${(parseFloat(seq.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                `<tr>
+                    <td style="font-weight: 600;">${index + 1}</td>
+                    <td>${displayValue}</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(seq.lift).toFixed(2)}x lift</td>
+                    <td style="text-align: right;">${parseInt(seq.users_with_exposure).toLocaleString()}</td>
+                    <td style="text-align: right;">${parseInt(seq.total_conversions || 0).toLocaleString()}</td>
+                    <td style="text-align: right;">${(parseFloat(seq.conversion_rate_in_group) * 100).toFixed(1)}%</td>
                 </tr>`
             );
         });
@@ -1279,15 +1277,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
             '<div class="table-wrapper">',
-            '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
+            '<table class="qda-regression-table">',
             `<thead>
-                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                    <th style="padding: 0.75rem; text-align: left;">Rank</th>
-                    <th style="padding: 0.75rem; text-align: left;">${columnLabel}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Impact${impactTooltipHTML}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Users</th>
-                    <th style="padding: 0.75rem; text-align: right;">${conversionLabel}</th>
-                    <th style="padding: 0.75rem; text-align: right;">Conv Rate</th>
+                <tr>
+                    <th>Rank</th>
+                    <th>${columnLabel}</th>
+                    <th style="text-align: right;">Impact${impactTooltipHTML}</th>
+                    <th style="text-align: right;">Users</th>
+                    <th style="text-align: right;">${conversionLabel}</th>
+                    <th style="text-align: right;">Conv Rate</th>
                 </tr>
             </thead>
             <tbody>`
@@ -1296,15 +1294,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Build rows as separate array items
         data.forEach((combo, index) => {
             const displayValue = valueFormatter(combo);
-            const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
             parts.push(
-                `<tr style="border-bottom: 1px solid #dee2e6; background-color: ${rowBg};">
-                    <td style="padding: 0.75rem; font-weight: 600;">${index + 1}</td>
-                    <td style="padding: 0.75rem;">${displayValue}</td>
-                    <td style="padding: 0.75rem; text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
-                    <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
-                    <td style="padding: 0.75rem; text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
-                    <td style="padding: 0.75rem; text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
+                `<tr>
+                    <td style="font-weight: 600;">${index + 1}</td>
+                    <td>${displayValue}</td>
+                    <td style="text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
+                    <td style="text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
+                    <td style="text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
+                    <td style="text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
                 </tr>`
             );
         });
