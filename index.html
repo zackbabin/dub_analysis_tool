@@ -62,10 +62,13 @@
                 <!-- This will be populated by JavaScript -->
             </div>
             <div id="creatorContent"></div>
-            <div id="creatorProgressSection" style="display: none; margin: 20px 0;">
-                <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-                    <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                        0%
+            <!-- Progress bar - same width as data source component -->
+            <div style="display: flex; justify-content: center;">
+                <div id="creatorProgressSection" style="display: none; margin-bottom: 10px; max-width: 650px; width: 100%;">
+                    <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                        <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                            0%
+                        </div>
                     </div>
                 </div>
             </div>
@@ -136,11 +139,13 @@
                         </div>
                     </div>
                 </div>
-                <!-- Progress bar -->
-                <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px;">
-                    <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-                        <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                            0%
+                <!-- Progress bar - same width as data source component -->
+                <div style="display: flex; justify-content: center;">
+                    <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px; max-width: 650px; width: 100%;">
+                        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                            <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                                0%
+                            </div>
                         </div>
                     </div>
                 </div>
