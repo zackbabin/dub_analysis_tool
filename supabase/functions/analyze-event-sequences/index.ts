@@ -285,35 +285,66 @@ ${JSON.stringify(nonConvertersBatch, null, 2)}
 
 Analyze this batch and return the top predictive patterns found.`
 
-      // Call Claude API with prompt caching
-      const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-beta': 'prompt-caching-2024-07-31'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 8000,
-          system: [
-            {
-              type: 'text',
-              text: systemPrompt,
-              cache_control: { type: 'ephemeral' }
-            }
-          ],
-          messages: [{
-            role: 'user',
-            content: dataPrompt
-          }]
-        })
-      })
+      // Call Claude API with retry logic for 502/500 errors
+      let claudeResponse
+      let retryCount = 0
+      const maxRetries = 3
 
-      if (!claudeResponse.ok) {
-        const errorText = await claudeResponse.text()
-        throw new Error(`Claude API error (batch ${batchIndex + 1}): ${claudeResponse.status} - ${errorText}`)
+      while (retryCount <= maxRetries) {
+        try {
+          claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': claudeApiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-beta': 'prompt-caching-2024-07-31'
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 8000,
+              system: [
+                {
+                  type: 'text',
+                  text: systemPrompt,
+                  cache_control: { type: 'ephemeral' }
+                }
+              ],
+              messages: [{
+                role: 'user',
+                content: dataPrompt
+              }]
+            })
+          })
+
+          // Check if response is OK or if it's a retryable error
+          if (claudeResponse.ok) {
+            break // Success - exit retry loop
+          }
+
+          // Check if error is retryable (502, 500, 503, 529)
+          if ([500, 502, 503, 529].includes(claudeResponse.status) && retryCount < maxRetries) {
+            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000) // Exponential backoff, max 10s
+            console.warn(`⚠️ Claude API error ${claudeResponse.status} (batch ${batchIndex + 1}), retrying in ${waitTime}ms (attempt ${retryCount + 1}/${maxRetries})...`)
+            await new Promise(resolve => setTimeout(resolve, waitTime))
+            retryCount++
+            continue
+          }
+
+          // Non-retryable error or max retries reached
+          const errorText = await claudeResponse.text()
+          throw new Error(`Claude API error (batch ${batchIndex + 1}): ${claudeResponse.status} - ${errorText}`)
+        } catch (error) {
+          // Network error or other fetch error
+          if (retryCount < maxRetries) {
+            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000)
+            console.warn(`⚠️ Network error calling Claude API (batch ${batchIndex + 1}), retrying in ${waitTime}ms (attempt ${retryCount + 1}/${maxRetries})...`)
+            await new Promise(resolve => setTimeout(resolve, waitTime))
+            retryCount++
+            continue
+          }
+          throw error
+        }
       }
 
       const claudeData = await claudeResponse.json()

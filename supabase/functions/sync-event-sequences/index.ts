@@ -168,10 +168,9 @@ serve(async (req) => {
       const profilePropertyMap = new Map<string, EventProperties>()
 
       try {
-        // Parse PDP properties (Chart 85312972)
+        // Parse PDP properties (Chart 85312972) - OPTIMIZED
       // Structure: series -> metric -> distinct_id -> time -> portfolioTicker -> creatorId -> creatorUsername -> all
       if (pdpPropertiesData?.series) {
-        let pdpEventsProcessed = 0
         const startTime = Date.now()
 
         for (const [metricKey, metricData] of Object.entries(pdpPropertiesData.series)) {
@@ -185,47 +184,46 @@ serve(async (req) => {
             for (const [timestamp, timeData] of Object.entries(distinctData)) {
               if (timestamp === '$overall') continue
 
+              const key = `${distinctId}|${eventName}|${timestamp}`
+
+              // Skip if we already have this key (deduplication)
+              if (pdpPropertyMap.has(key)) continue
+
               // Navigate through nested structure: portfolioTicker -> creatorId -> creatorUsername
+              // Only take first valid entry (optimization: break after finding first)
+              let found = false
               for (const [ticker, tickerData] of Object.entries(timeData as Record<string, any>)) {
-                if (ticker === '$overall') continue
+                if (ticker === '$overall' || found) continue
 
                 for (const [creatorId, creatorData] of Object.entries(tickerData as Record<string, any>)) {
-                  if (creatorId === '$overall') continue
+                  if (creatorId === '$overall' || found) continue
 
                   for (const [username, countData] of Object.entries(creatorData as Record<string, any>)) {
-                    if (username === 'all') continue
+                    if (username === 'all' || found) continue
 
-                    const key = `${distinctId}|${eventName}|${timestamp}`
-
-                    // Store first occurrence (deduplicate if multiple at same timestamp)
-                    if (!pdpPropertyMap.has(key)) {
-                      pdpPropertyMap.set(key, {
-                        portfolioTicker: ticker,
-                        creatorUsername: username
-                      })
-                      stats.pdpPropertiesFetched++
-                    }
-
-                    pdpEventsProcessed++
-                    // Progress logging every 10k events
-                    if (pdpEventsProcessed % 10000 === 0) {
-                      console.log(`PDP properties: processed ${pdpEventsProcessed} events, ${pdpPropertyMap.size} unique...`)
-                    }
+                    pdpPropertyMap.set(key, {
+                      portfolioTicker: ticker,
+                      creatorUsername: username
+                    })
+                    stats.pdpPropertiesFetched++
+                    found = true
+                    break
                   }
+                  if (found) break
                 }
+                if (found) break
               }
             }
           }
         }
 
         const pdpParseTime = ((Date.now() - startTime) / 1000).toFixed(1)
-        console.log(`✓ Parsed PDP properties in ${pdpParseTime}s (${pdpEventsProcessed} events, ${pdpPropertyMap.size} unique)`)
+        console.log(`✓ Parsed PDP properties in ${pdpParseTime}s (${pdpPropertyMap.size} unique)`)
       }
 
-      // Parse Profile properties (Chart 85312975)
+      // Parse Profile properties (Chart 85312975) - OPTIMIZED
       // Structure: series -> metric -> distinct_id -> time -> creatorId -> creatorUsername -> all
       if (profilePropertiesData?.series) {
-        let profileEventsProcessed = 0
         const startTime = Date.now()
 
         for (const [metricKey, metricData] of Object.entries(profilePropertiesData.series)) {
@@ -239,36 +237,35 @@ serve(async (req) => {
             for (const [timestamp, timeData] of Object.entries(distinctData)) {
               if (timestamp === '$overall') continue
 
+              const key = `${distinctId}|${eventName}|${timestamp}`
+
+              // Skip if we already have this key (deduplication)
+              if (profilePropertyMap.has(key)) continue
+
               // Navigate through nested structure: creatorId -> creatorUsername
+              // Only take first valid entry (optimization: break after finding first)
+              let found = false
               for (const [creatorId, creatorData] of Object.entries(timeData as Record<string, any>)) {
-                if (creatorId === '$overall') continue
+                if (creatorId === '$overall' || found) continue
 
                 for (const [username, countData] of Object.entries(creatorData as Record<string, any>)) {
-                  if (username === 'all') continue
+                  if (username === 'all' || found) continue
 
-                  const key = `${distinctId}|${eventName}|${timestamp}`
-
-                  // Store first occurrence (deduplicate if multiple at same timestamp)
-                  if (!profilePropertyMap.has(key)) {
-                    profilePropertyMap.set(key, {
-                      creatorUsername: username
-                    })
-                    stats.profilePropertiesFetched++
-                  }
-
-                  profileEventsProcessed++
-                  // Progress logging every 10k events
-                  if (profileEventsProcessed % 10000 === 0) {
-                    console.log(`Profile properties: processed ${profileEventsProcessed} events, ${profilePropertyMap.size} unique...`)
-                  }
+                  profilePropertyMap.set(key, {
+                    creatorUsername: username
+                  })
+                  stats.profilePropertiesFetched++
+                  found = true
+                  break
                 }
+                if (found) break
               }
             }
           }
         }
 
         const profileParseTime = ((Date.now() - startTime) / 1000).toFixed(1)
-        console.log(`✓ Parsed Profile properties in ${profileParseTime}s (${profileEventsProcessed} events, ${profilePropertyMap.size} unique)`)
+        console.log(`✓ Parsed Profile properties in ${profileParseTime}s (${profilePropertyMap.size} unique)`)
       }
 
         console.log(`✓ Built property maps: ${pdpPropertyMap.size} PDP properties, ${profilePropertyMap.size} profile properties`)
@@ -344,7 +341,7 @@ serve(async (req) => {
       stats.eventSequencesFetched = rawEventRows.length
 
       // Upsert raw data in batches to event_sequences_raw table
-      const batchSize = 250 // Further reduced to avoid statement timeout (was 500)
+      const batchSize = 500 // Optimized nested loops allow larger batches
       let totalInserted = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
