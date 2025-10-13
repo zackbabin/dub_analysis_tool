@@ -1176,13 +1176,25 @@ class SupabaseIntegration {
         // Collect all unique keys from raw_data JSONB
         // Note: Mixpanel fields are already merged into raw_data by the creator_analysis view
         const allKeys = new Set();
+        let mixpanelEnrichedCount = 0;
 
         data.forEach(row => {
             // Add all keys from raw_data JSONB (includes both uploaded fields and Mixpanel enrichment)
             if (row.raw_data) {
                 Object.keys(row.raw_data).forEach(key => allKeys.add(key));
+
+                // Check if this row has Mixpanel enrichment
+                if (row.raw_data.totalDeposits !== undefined || row.raw_data.totalTrades !== undefined) {
+                    mixpanelEnrichedCount++;
+                }
             }
         });
+
+        console.log(`📊 Creator Analysis CSV Generation:`);
+        console.log(`  - Total creators: ${data.length}`);
+        console.log(`  - Creators with Mixpanel enrichment: ${mixpanelEnrichedCount}`);
+        console.log(`  - Total unique fields in raw_data: ${allKeys.size}`);
+        console.log(`  - Fields:`, Array.from(allKeys).sort());
 
         // Build headers: all fields + total_copies + total_subscriptions (target variables)
         const allFieldKeys = Array.from(allKeys).sort();

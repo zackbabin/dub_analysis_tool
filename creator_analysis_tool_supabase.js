@@ -156,6 +156,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Parsing CSV content, length:', csvContent?.length);
             const parsedData = this.parseCSV(csvContent);
             console.log('Parsed data rows:', parsedData?.data?.length);
+            console.log('CSV headers:', parsedData?.headers);
+            console.log('First 2 rows:', parsedData?.data?.slice(0, 2));
 
             // Clean and transform data
             this.updateProgress(60, 'Cleaning data...');
@@ -262,6 +264,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const modeSection = document.getElementById('creatorModeSection');
             if (modeSection) {
                 modeSection.style.display = 'none';
+            }
+
+            // Also hide the data source buttons during upload/processing
+            const dataSourceDiv = document.getElementById('creatorDataSource');
+            if (dataSourceDiv) {
+                dataSourceDiv.style.display = 'none';
             }
 
             // Show progress bar
