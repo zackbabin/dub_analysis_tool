@@ -231,10 +231,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
                 // Target variables from top-level columns
                 totalCopies: this.cleanNumeric(row.total_copies),
-                totalSubscriptions: this.cleanNumeric(row.total_subscriptions)
+                totalSubscriptions: this.cleanNumeric(row.total_subscriptions),
+
+                // Creator insights metrics from top-level columns
+                totalDeposits: this.cleanNumeric(row.total_deposits),
+                activeCreatedPortfolios: this.cleanNumeric(row.active_created_portfolios),
+                lifetimeCreatedPortfolios: this.cleanNumeric(row.lifetime_created_portfolios),
+                totalTrades: this.cleanNumeric(row.total_trades)
             };
 
-            // Add ALL fields from raw_data JSONB (includes uploaded fields + Mixpanel enrichment)
+            // Add ALL fields from raw_data JSONB (includes uploaded fields)
             Object.keys(rawData).forEach(key => {
                 // Skip fields we've already handled
                 if (key === 'type' || key === 'email') return;
@@ -437,6 +443,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Ensure data source buttons stay hidden after upload
             if (dataSourceDiv) {
                 dataSourceDiv.style.display = 'none';
+            }
+
+            // Also hide the creatorContent container (which holds the upload form wrapper)
+            if (this.container) {
+                this.container.style.display = 'none';
             }
 
             // Show simple success message with sync button
