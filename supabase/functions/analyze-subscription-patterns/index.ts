@@ -302,7 +302,9 @@ serve(async (_req) => {
 
     // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
+    console.log(`Converting ${pairRows.length} pairs to user-level data...`)
     const users = pairsToUserData(pairRows)
+    console.log(`✓ Converted to ${users.length} unique users`)
 
     if (users.length < 50) {
       return new Response(

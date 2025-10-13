@@ -246,14 +246,38 @@ serve(async (_req) => {
 
     // Step 1: Load stored copy engagement data from Supabase
     console.log('Loading stored copy engagement data from Supabase...')
-    const { data: pairRows, error: loadError } = await supabaseClient
-      .from('user_portfolio_creator_copies')
-      .select('*')
 
-    if (loadError) {
-      console.error('Error loading copy engagement data:', loadError)
-      throw loadError
+    // Fetch ALL rows (Supabase defaults to 1000 limit, we need to override)
+    let allPairRows: any[] = []
+    let page = 0
+    const pageSize = 10000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data: pageData, error: loadError } = await supabaseClient
+        .from('user_portfolio_creator_copies')
+        .select('*')
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+
+      if (loadError) {
+        console.error('Error loading copy engagement data:', loadError)
+        throw loadError
+      }
+
+      if (!pageData || pageData.length === 0) {
+        hasMore = false
+      } else {
+        allPairRows = allPairRows.concat(pageData)
+        page++
+        console.log(`Loaded page ${page}: ${pageData.length} rows (total: ${allPairRows.length})`)
+
+        if (pageData.length < pageSize) {
+          hasMore = false
+        }
+      }
     }
+
+    const pairRows = allPairRows
 
     if (!pairRows || pairRows.length === 0) {
       return new Response(
@@ -281,7 +305,9 @@ serve(async (_req) => {
 
     // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
+    console.log(`Converting ${pairRows.length} pairs to user-level data...`)
     const users = pairsToUserData(pairRows)
+    console.log(`✓ Converted to ${users.length} unique users`)
 
     if (users.length < 50) {
       return new Response(
