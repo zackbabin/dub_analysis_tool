@@ -1246,6 +1246,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<div style="margin-top: 3rem;">',
             `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
+            '<div class="table-wrapper">',
             '<table style="width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.85rem; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">',
             `<thead>
                 <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
@@ -1278,6 +1279,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         parts.push(
             '</tbody></table>',
+            '</div>',
             '</div>'
         );
 

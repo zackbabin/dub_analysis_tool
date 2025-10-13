@@ -206,6 +206,32 @@ body {
     border-radius: 3px;
 }
 
+/* Global: Auto-wrap ALL tables in result sections for responsive scrolling */
+.qda-result-section table,
+.qda-analysis-results table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
+
+.qda-result-section table::-webkit-scrollbar,
+.qda-analysis-results table::-webkit-scrollbar {
+    height: 6px;
+}
+
+.qda-result-section table::-webkit-scrollbar-track,
+.qda-analysis-results table::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.qda-result-section table::-webkit-scrollbar-thumb,
+.qda-analysis-results table::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
 .qda-regression-table {
     width: 100%;
     border-collapse: collapse;
