@@ -121,31 +121,31 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div>
-                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
+                <div style="display: flex; justify-content: center;">
+                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 500px; width: 100%;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
                         <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                            <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div id="syncLiveDataBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
                                 <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
                             </div>
-                            <div id="manualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div id="manualUploadBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
                                 <div style="font-size: 12px; color: #6c757d;">Upload creator CSV file for analysis</div>
                             </div>
                         </div>
                     </div>
-                    <!-- Progress bar -->
-                    <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px;">
-                        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-                            <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                                0%
-                            </div>
+                </div>
+                <!-- Progress bar -->
+                <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px;">
+                    <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                        <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                            0%
                         </div>
                     </div>
-                    <!-- Status section -->
-                    <div id="unifiedStatusSection" style="display: none;"></div>
                 </div>
+                <!-- Status section -->
+                <div id="unifiedStatusSection" style="display: none;"></div>
             `;
 
             const syncBtn = document.getElementById('syncLiveDataBtn');
@@ -191,59 +191,38 @@
             return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
-        // Create creator-specific data source component (identical styling, independent instance)
+        // Create creator-specific data source component (only upload button, narrower width)
         function createCreatorDataSource(creatorTool) {
             const container = document.getElementById('creatorDataSource');
             container.innerHTML = `
-                <div>
-                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
-                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                            <div id="creatorSyncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
-                                <div style="font-size: 12px; color: #6c757d;">Fetch latest creator data from Mixpanel</div>
-                            </div>
-                            <div id="creatorManualUploadBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
-                                <div style="font-size: 12px; color: #6c757d;">Upload 3 CSV files for merging</div>
+                <div style="display: flex; justify-content: center;">
+                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 400px;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Upload Creator Data</h4>
+                        <div class="data-source-buttons" style="display: flex; justify-content: center;">
+                            <div id="creatorManualUploadBtn" style="width: 100%; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Upload 3 CSV Files</div>
+                                <div style="font-size: 12px; color: #6c757d;">Upload and merge creator data files</div>
                             </div>
                         </div>
                     </div>
                 </div>
             `;
 
-            const syncBtn = document.getElementById('creatorSyncLiveDataBtn');
             const uploadBtn = document.getElementById('creatorManualUploadBtn');
 
-            // Hover effects
-            const syncHoverIn = () => {
-                syncBtn.style.background = '#28a745';
-                syncBtn.querySelector('div:first-child').style.color = 'white';
-                syncBtn.querySelector('div:last-child').style.color = 'white';
-            };
-            const syncHoverOut = () => {
-                syncBtn.style.background = 'white';
-                syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
-            };
-            const uploadHoverIn = () => {
+            // Hover effects for upload button only
+            uploadBtn.onmouseover = () => {
                 uploadBtn.style.background = '#28a745';
                 uploadBtn.querySelector('div:first-child').style.color = 'white';
                 uploadBtn.querySelector('div:last-child').style.color = 'white';
             };
-            const uploadHoverOut = () => {
+            uploadBtn.onmouseout = () => {
                 uploadBtn.style.background = 'white';
                 uploadBtn.querySelector('div:first-child').style.color = '#28a745';
                 uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
             };
 
-            syncBtn.onmouseover = syncHoverIn;
-            syncBtn.onmouseout = syncHoverOut;
-            uploadBtn.onmouseover = uploadHoverIn;
-            uploadBtn.onmouseout = uploadHoverOut;
-
-            // Click handlers
-            syncBtn.onclick = () => creatorTool.runWorkflow('sync');
+            // Click handler - show upload form
             uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
         }
 

@@ -22,17 +22,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.supabaseIntegration = window.supabaseIntegration;
         }
 
-        // Clear old cached results (cache version bump to force refresh)
-        const CACHE_VERSION = 'v3'; // Increment this to invalidate old cache
-        const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
-        if (cachedVersion !== CACHE_VERSION) {
-            localStorage.removeItem('creatorAnalysisResults');
-            localStorage.setItem('creatorAnalysisCacheVersion', CACHE_VERSION);
-            console.log('Cleared old creator analysis cache');
-        }
-
-        // Call parent to create base UI
+        // Call parent to create base UI (which restores cached results)
         super.createUI(container, outputContainer);
+
+        // If cached results were restored, hide the upload UI components
+        const hasCachedResults = localStorage.getItem('creatorAnalysisResultsHTML');
+        if (hasCachedResults) {
+            console.log('Found cached creator analysis results, hiding upload UI');
+            // Hide the container with upload form
+            if (container) {
+                container.style.display = 'none';
+            }
+            // Hide data source buttons
+            const dataSourceDiv = document.getElementById('creatorDataSource');
+            if (dataSourceDiv) {
+                dataSourceDiv.style.display = 'none';
+            }
+        }
 
         // Remove borders and padding from wrapper since data source buttons are in separate component
         const wrapper = container.querySelector('.qda-inline-widget');
