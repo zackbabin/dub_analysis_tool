@@ -1059,23 +1059,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
             );
 
-            // Helper function to check if event should have tooltip
-            const shouldHaveTooltip = (eventName) => {
-                const enrichableEvents = [
-                    'Viewed Regular Creator Profile',
-                    'Viewed Premium Creator Profile',
-                    'Viewed Premium PDP',
-                    'Viewed Regular PDP'
-                ];
-                return enrichableEvents.some(e => eventName.includes(e));
+            // Helper function to check if event should have tooltip/enrichment
+            const isEnrichableEvent = (eventName) => {
+                return eventName.includes('Creator Profile') || eventName.includes('PDP');
             };
 
             // Helper function to extract portfolio and creator from enriched event name
             const extractEnrichmentData = (eventName) => {
                 // Format: "Viewed Premium PDP ($PELOSI by @dubAdvisors)"
+                // Or: "Viewed Regular Creator Profile (@username)"
                 const match = eventName.match(/\(([^)]+)\)/);
                 if (match) {
                     const enrichment = match[1];
+                    // Check for "X by Y" format (PDP views)
                     const byMatch = enrichment.match(/^(.+?)\s+by\s+(.+)$/);
                     if (byMatch) {
                         return {
@@ -1084,7 +1080,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             hasEnrichment: true
                         };
                     }
-                    // Profile views only have creator
+                    // Profile views only have creator: "(@ username)"
                     return {
                         creator: enrichment.trim(),
                         hasEnrichment: true
@@ -1093,12 +1089,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 return { hasEnrichment: false };
             };
 
-            // Add event nodes with arrows, tooltip on enrichable events
+            // Add event nodes with arrows
             seq.sequence.forEach((event, eventIdx) => {
-                const needsTooltip = shouldHaveTooltip(event);
+                const isEnrichable = isEnrichableEvent(event);
                 const enrichmentData = extractEnrichmentData(event);
 
-                if (needsTooltip && enrichmentData.hasEnrichment) {
+                // Show tooltip for enrichable events that have enrichment data
+                if (isEnrichable && enrichmentData.hasEnrichment) {
                     // Build tooltip content from enrichment data
                     let tooltipContent = '';
                     if (enrichmentData.portfolio) {
