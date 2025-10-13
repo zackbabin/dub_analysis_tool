@@ -416,6 +416,157 @@
             opacity: 1 !important;
         }
 
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+
+            .page-header h1 {
+                font-size: 24px;
+            }
+
+            .page-header p {
+                font-size: 14px;
+            }
+
+            /* Horizontally scrollable tabs */
+            .tab-navigation {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: thin;
+                justify-content: flex-start;
+                padding-bottom: 2px;
+                margin-bottom: 18px;
+            }
+
+            .tab-navigation::-webkit-scrollbar {
+                height: 4px;
+            }
+
+            .tab-navigation::-webkit-scrollbar-track {
+                background: #f1f1f1;
+            }
+
+            .tab-navigation::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 2px;
+            }
+
+            .tab-btn {
+                white-space: nowrap;
+                flex-shrink: 0;
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+
+            /* Stack data source buttons vertically on mobile */
+            .data-source-buttons {
+                flex-direction: column !important;
+            }
+
+            .data-source-buttons > div {
+                min-width: 100% !important;
+            }
+
+            .unified-container,
+            .tab-container,
+            .results-container,
+            .tab-results-container {
+                max-width: 100%;
+            }
+
+            /* Make content responsive */
+            .qda-inline-widget {
+                margin-bottom: 20px;
+            }
+
+            .qda-content {
+                padding: 15px;
+            }
+
+            .qda-analysis-results {
+                padding: 15px;
+                max-width: 100%;
+            }
+
+            /* Reduce table/metric text size on mobile */
+            .qda-metric-name {
+                font-size: 13px;
+            }
+
+            .qda-metric-value {
+                font-size: 16px;
+            }
+
+            /* Adjust info tooltip for mobile */
+            .info-tooltip .tooltip-text {
+                width: 280px;
+                margin-left: -140px;
+                font-size: 12px;
+            }
+
+            /* Responsive tables */
+            table {
+                font-size: 13px;
+            }
+
+            th, td {
+                padding: 8px 6px !important;
+            }
+
+            /* Better spacing for cards/widgets */
+            .placeholder-message {
+                padding: 40px 15px;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 480px) {
+            .page-header {
+                padding: 15px;
+            }
+
+            .page-header h1 {
+                font-size: 20px;
+            }
+
+            .page-header p {
+                font-size: 13px;
+            }
+
+            .tab-btn {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+
+            .qda-content {
+                padding: 12px;
+            }
+
+            .qda-btn {
+                padding: 8px 16px;
+                font-size: 13px;
+            }
+
+            .info-tooltip .tooltip-text {
+                width: 240px;
+                margin-left: -120px;
+                font-size: 11px;
+                padding: 10px;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 6px 4px !important;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -531,7 +682,7 @@
                 <div style="max-width: 800px; margin: 0 auto;">
                     <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                             <div id="syncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
                                 <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
@@ -605,7 +756,7 @@
                 <div style="max-width: 800px; margin: 0 auto;">
                     <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                        <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
                             <div id="creatorSyncLiveDataBtn" style="flex: 1; min-width: 200px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
                                 <div style="font-size: 12px; color: #6c757d;">Fetch latest creator data from Mixpanel</div>
