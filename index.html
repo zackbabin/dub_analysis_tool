@@ -557,11 +557,11 @@
                 font-size: 12px;
             }
 
-            /* Responsive tables - wrap in scrollable container */
-            .qda-analysis-results,
-            .qda-content {
+            /* Responsive tables - wrap each table in scrollable container */
+            .table-wrapper {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
+                margin: 1rem 0;
             }
 
             .qda-analysis-results table,
@@ -581,20 +581,17 @@
                 font-size: 11px;
             }
 
-            /* Add scroll hint for tables */
-            .qda-analysis-results::-webkit-scrollbar,
-            .qda-content::-webkit-scrollbar {
+            /* Add scroll hint for table wrappers */
+            .table-wrapper::-webkit-scrollbar {
                 height: 6px;
             }
 
-            .qda-analysis-results::-webkit-scrollbar-track,
-            .qda-content::-webkit-scrollbar-track {
+            .table-wrapper::-webkit-scrollbar-track {
                 background: #f1f1f1;
                 border-radius: 3px;
             }
 
-            .qda-analysis-results::-webkit-scrollbar-thumb,
-            .qda-content::-webkit-scrollbar-thumb {
+            .table-wrapper::-webkit-scrollbar-thumb {
                 background: #888;
                 border-radius: 3px;
             }

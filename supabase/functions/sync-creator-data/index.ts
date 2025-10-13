@@ -161,7 +161,7 @@ serve(async (req) => {
         .update({
           sync_completed_at: new Date().toISOString(),
           sync_status: 'failed',
-          error_message: error.message,
+          error_message: error instanceof Error ? error.message : String(error),
         })
         .eq('id', syncLog.id)
 
@@ -173,7 +173,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

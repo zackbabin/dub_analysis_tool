@@ -1863,7 +1863,13 @@ function displayDemographicBreakdownInline(stats) {
         tbody.appendChild(fragment);
 
         table.appendChild(tbody);
-        tableContainer.appendChild(table);
+
+        // Wrap table in scrollable container for mobile
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+        tableWrapper.appendChild(table);
+
+        tableContainer.appendChild(tableWrapper);
         grid.appendChild(tableContainer);
     };
 

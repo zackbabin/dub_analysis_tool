@@ -1461,7 +1461,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         tbody.appendChild(fragment);
         table.appendChild(tbody);
 
-        return table;
+        // Wrap table in a scrollable container for mobile
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper';
+        wrapper.appendChild(table);
+
+        return wrapper;
     }
 
     /**
@@ -1590,7 +1595,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         tbody.appendChild(fragment);
         table.appendChild(tbody);
 
-        return table;
+        // Wrap table in a scrollable container for mobile
+        const wrapper = document.createElement('div');
+        wrapper.className = 'table-wrapper';
+        wrapper.appendChild(table);
+
+        return wrapper;
     }
 
     /**
