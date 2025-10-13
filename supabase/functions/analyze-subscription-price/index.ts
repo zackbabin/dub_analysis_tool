@@ -93,7 +93,7 @@ serve(async (req) => {
             const { error: insertError } = await supabase
               .from('creator_subscriptions_by_price')
               .upsert(batch, {
-                onConflict: 'creator_id,subscription_price,subscription_interval,synced_at',
+                onConflict: 'creator_id,subscription_price,subscription_interval',
                 ignoreDuplicates: false,
               })
 
@@ -251,7 +251,7 @@ function processSubscriptionPricingData(data: any): any[] {
               creatorDataMap.set(key, {
                 creator_id: creatorId,
                 creator_username: normalizedUsername,
-                subscription_price: parseFloat(price),
+                subscription_price: Math.round(parseFloat(price) * 100) / 100, // Round to 2 decimals
                 subscription_interval: normalizedInterval,
                 total_subscriptions: 0,
                 total_paywall_views: 0,
