@@ -432,6 +432,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 }
             }, 1000);
 
+            // Ensure data source buttons stay hidden after upload
+            const dataSourceDiv = document.getElementById('creatorDataSource');
+            if (dataSourceDiv) {
+                dataSourceDiv.style.display = 'none';
+            }
+
             // Show simple success message with sync button
             this.outputContainer.innerHTML = '';
             const successDiv = document.createElement('div');
