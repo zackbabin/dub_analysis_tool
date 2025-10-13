@@ -246,14 +246,38 @@ serve(async (_req) => {
 
     // Step 1: Load stored engagement data from Supabase
     console.log('Loading stored engagement data from Supabase...')
-    const { data: pairRows, error: loadError } = await supabaseClient
-      .from('user_portfolio_creator_views')
-      .select('*')
 
-    if (loadError) {
-      console.error('Error loading engagement data:', loadError)
-      throw loadError
+    // Fetch ALL rows (Supabase defaults to 1000 limit, we need to override)
+    let allPairRows: any[] = []
+    let page = 0
+    const pageSize = 10000
+    let hasMore = true
+
+    while (hasMore) {
+      const { data: pageData, error: loadError } = await supabaseClient
+        .from('user_portfolio_creator_views')
+        .select('*')
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+
+      if (loadError) {
+        console.error('Error loading engagement data:', loadError)
+        throw loadError
+      }
+
+      if (!pageData || pageData.length === 0) {
+        hasMore = false
+      } else {
+        allPairRows = allPairRows.concat(pageData)
+        page++
+        console.log(`Loaded page ${page}: ${pageData.length} rows (total: ${allPairRows.length})`)
+
+        if (pageData.length < pageSize) {
+          hasMore = false
+        }
+      }
     }
+
+    const pairRows = allPairRows
 
     if (!pairRows || pairRows.length === 0) {
       return new Response(

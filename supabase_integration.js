@@ -709,6 +709,35 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger event sequence enrichment via Supabase Edge Function
+     * Enriches raw event sequences with portfolio/creator context
+     */
+    async triggerEventSequenceEnrichment() {
+        console.log('Triggering event sequence enrichment...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('enrich-event-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Event sequence enrichment failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during event sequence enrichment');
+            }
+
+            console.log('✅ Event sequence enrichment completed:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling event sequence enrichment Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Trigger event sequence processing via Supabase Edge Function
      * Processes raw event sequences and joins with conversion outcomes
      */

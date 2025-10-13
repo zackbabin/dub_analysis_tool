@@ -127,7 +127,7 @@ serve(async (req) => {
     // Process up to 200 events per user for richer sequence data
     // Event deduplication reduces ~40-60% of tokens
     // Enriched events (~60 chars) × 500 users × 200 events = 6M chars ≈ 150k tokens (75% of limit)
-    const BATCH_SIZE = 250 // Per group (converters and non-converters) - aggressive setting for maximum coverage
+    const BATCH_SIZE = 150 // Per group (converters and non-converters) - reduced to stay under 200k token limit
     const EVENTS_PER_USER = 200
     const MAX_BATCHES = 10 // Process up to 2500 converters + 2500 non-converters total (5000 users)
 

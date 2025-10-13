@@ -149,7 +149,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Trigger event sequence sync (fetch raw data from Mixpanel)
         // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)
         console.log('🔄 Starting event sequence workflow...');
-        console.log('Step 1/4: Triggering event sequence sync (fetching raw data from Mixpanel)...');
+        console.log('Step 1/5: Triggering event sequence sync (fetching raw data from Mixpanel)...');
 
         let syncSuccess = false;
         try {
@@ -157,10 +157,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('Event sequence sync result:', seqSyncResult);
 
             if (seqSyncResult && seqSyncResult.success) {
-                console.log('✅ Step 1/4 complete - Event sequence sync:', seqSyncResult.stats);
+                console.log('✅ Step 1/5 complete - Event sequence sync:', seqSyncResult.stats);
                 syncSuccess = true;
             } else {
-                console.error('❌ Step 1/4 failed - Event sequence sync returned unsuccessful:', seqSyncResult);
+                console.error('❌ Step 1/5 failed - Event sequence sync returned unsuccessful:', seqSyncResult);
             }
         } catch (error) {
             console.error('❌ Event sequence workflow failed at Step 1:', error);
@@ -168,47 +168,65 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue to next steps even if sync fails - processing/analysis may work with existing data
         }
 
-        // Process raw event sequences (proceed even if sync failed - may have existing data)
-        console.log('Step 2/4: Processing event sequences (joining with conversion data)...');
+        // Enrich event sequences with portfolio/creator context (proceed even if sync failed)
+        console.log('Step 2/5: Enriching event sequences with properties...');
+        let enrichSuccess = false;
+        try {
+            const enrichResult = await this.supabaseIntegration.triggerEventSequenceEnrichment();
+            console.log('Event sequence enrichment result:', enrichResult);
+
+            if (enrichResult && enrichResult.success) {
+                console.log('✅ Step 2/5 complete - Event sequence enrichment:', enrichResult.stats);
+                enrichSuccess = true;
+            } else {
+                console.error('❌ Step 2/5 failed - Event sequence enrichment returned unsuccessful:', enrichResult);
+            }
+        } catch (enrichError) {
+            console.error('❌ Step 2/5 failed - Event sequence enrichment error:', enrichError);
+            console.error('Error details:', enrichError.message, enrichError.stack);
+        }
+
+        // Process raw event sequences (proceed even if sync/enrichment failed - may have existing data)
+        console.log('Step 3/5: Processing event sequences (joining with conversion data)...');
         let processSuccess = false;
         try {
             const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
             console.log('Event sequence processing result:', processResult);
 
             if (processResult && processResult.success) {
-                console.log('✅ Step 2/4 complete - Event sequence processing:', processResult.stats);
+                console.log('✅ Step 3/5 complete - Event sequence processing:', processResult.stats);
                 processSuccess = true;
             } else {
-                console.error('❌ Step 2/4 failed - Event sequence processing returned unsuccessful:', processResult);
+                console.error('❌ Step 3/5 failed - Event sequence processing returned unsuccessful:', processResult);
             }
         } catch (processError) {
-            console.error('❌ Step 2/4 failed - Event sequence processing error:', processError);
+            console.error('❌ Step 3/5 failed - Event sequence processing error:', processError);
             console.error('Error details:', processError.message, processError.stack);
         }
 
         // Trigger Claude AI analysis (proceed even if processing failed - may have existing processed data)
-        console.log('Step 3/4: Triggering event sequence analysis for copies...');
+        console.log('Step 4/5: Triggering event sequence analysis for copies...');
         try {
             const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
             if (copyAnalysisResult && copyAnalysisResult.success) {
-                console.log('✅ Step 3/4 complete - Copy sequence analysis:', copyAnalysisResult.stats);
+                console.log('✅ Step 4/5 complete - Copy sequence analysis:', copyAnalysisResult.stats);
             } else {
                 console.warn('⚠️ Copy sequence analysis returned unsuccessful:', copyAnalysisResult);
             }
         } catch (copyError) {
-            console.error('❌ Step 3/4 failed - Copy analysis error:', copyError);
+            console.error('❌ Step 4/5 failed - Copy analysis error:', copyError);
         }
 
-        console.log('Step 4/4: Triggering event sequence analysis for subscriptions...');
+        console.log('Step 5/5: Triggering event sequence analysis for subscriptions...');
         try {
             const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
             if (subAnalysisResult && subAnalysisResult.success) {
-                console.log('✅ Step 4/4 complete - Subscription sequence analysis:', subAnalysisResult.stats);
+                console.log('✅ Step 5/5 complete - Subscription sequence analysis:', subAnalysisResult.stats);
             } else {
                 console.warn('⚠️ Subscription sequence analysis returned unsuccessful:', subAnalysisResult);
             }
         } catch (subError) {
-            console.error('❌ Step 4/4 failed - Subscription analysis error:', subError);
+            console.error('❌ Step 5/5 failed - Subscription analysis error:', subError);
         }
 
         console.log('✅ Event sequence workflow completed (some steps may have failed - check logs above)');
