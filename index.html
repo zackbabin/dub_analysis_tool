@@ -420,6 +420,12 @@
         @media (max-width: 768px) {
             body {
                 margin: 10px;
+                overflow-x: hidden;
+            }
+
+            .page-header {
+                padding: 15px 10px;
+                margin: 0 -10px 20px -10px;
             }
 
             .page-header h1 {
@@ -440,6 +446,10 @@
                 justify-content: flex-start;
                 padding-bottom: 2px;
                 margin-bottom: 18px;
+                margin-left: -10px;
+                margin-right: -10px;
+                padding-left: 10px;
+                padding-right: 10px;
             }
 
             .tab-navigation::-webkit-scrollbar {
@@ -466,12 +476,19 @@
             .data-source-buttons {
                 flex-direction: column !important;
                 gap: 10px !important;
+                width: 100% !important;
             }
 
-            .data-source-buttons > div {
+            /* Override inline styles for data source buttons */
+            #syncLiveDataBtn,
+            #manualUploadBtn,
+            #creatorSyncLiveDataBtn,
+            #creatorManualUploadBtn {
                 min-width: 100% !important;
                 max-width: 100% !important;
-                flex: 1 1 100% !important;
+                flex: none !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
             }
 
             .unified-container,
@@ -479,11 +496,15 @@
             .results-container,
             .tab-results-container {
                 max-width: 100%;
+                padding: 0;
             }
 
             /* Make content responsive */
             .qda-inline-widget {
                 margin-bottom: 20px;
+                margin-left: 0;
+                margin-right: 0;
+                border-radius: 8px;
             }
 
             .qda-content {
@@ -495,6 +516,13 @@
                 max-width: 100%;
             }
 
+            /* Make all inner containers fit properly */
+            .qda-content > div[style*="max-width"] {
+                max-width: 100% !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+
             /* Reduce table/metric text size on mobile */
             .qda-metric-name {
                 font-size: 13px;
@@ -502,6 +530,24 @@
 
             .qda-metric-value {
                 font-size: 16px;
+            }
+
+            /* Make metric grids responsive */
+            .qda-metrics-grid,
+            div[style*="display: grid"] {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+                gap: 10px !important;
+            }
+
+            /* Responsive buttons and inputs */
+            .qda-btn {
+                width: 100%;
+                padding: 12px 20px;
+                font-size: 14px;
+            }
+
+            input[type="file"] {
+                font-size: 14px;
             }
 
             /* Adjust info tooltip for mobile */
@@ -512,29 +558,45 @@
             }
 
             /* Responsive tables - wrap in scrollable container */
-            .qda-analysis-results table,
-            .qda-content table {
-                display: block;
-                width: 100%;
+            .qda-analysis-results,
+            .qda-content {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
-                font-size: 13px;
             }
 
-            .qda-analysis-results table thead,
-            .qda-analysis-results table tbody,
-            .qda-analysis-results table tr,
-            .qda-content table thead,
-            .qda-content table tbody,
-            .qda-content table tr {
-                display: table;
+            .qda-analysis-results table,
+            .qda-content table {
                 width: 100%;
-                table-layout: auto;
+                min-width: 600px; /* Ensure tables don't get crushed */
+                font-size: 12px;
             }
 
             th, td {
                 padding: 8px 6px !important;
                 white-space: nowrap;
+                font-size: 12px;
+            }
+
+            th {
+                font-size: 11px;
+            }
+
+            /* Add scroll hint for tables */
+            .qda-analysis-results::-webkit-scrollbar,
+            .qda-content::-webkit-scrollbar {
+                height: 6px;
+            }
+
+            .qda-analysis-results::-webkit-scrollbar-track,
+            .qda-content::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 3px;
+            }
+
+            .qda-analysis-results::-webkit-scrollbar-thumb,
+            .qda-content::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 3px;
             }
 
             /* Better spacing for cards/widgets */

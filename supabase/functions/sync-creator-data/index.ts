@@ -1,7 +1,7 @@
 // Supabase Edge Function: sync-creator-data
 // Fetches user profile data from Mixpanel Insights API
 // Enriches uploaded creators with Mixpanel user attributes
-// Only updates creators that exist in uploaded_creators table
+// Stores data in creators_insights table
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
