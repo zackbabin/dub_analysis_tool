@@ -790,8 +790,8 @@ class CreatorAnalysisTool {
         container.innerHTML = '';
 
         const outcomes = [
-            { outcome: 'totalCopies', label: 'Top Portfolio Copy Drivers', key: 'copies' },
-            { outcome: 'totalSubscriptions', label: 'Top Subscription Drivers', key: 'subscriptions' }
+            { outcome: 'totalCopies', label: 'Top Portfolio Copy Drivers', key: 'copies' }
+            // { outcome: 'totalSubscriptions', label: 'Top Subscription Drivers', key: 'subscriptions' }
         ];
 
         outcomes.forEach((config, index) => {

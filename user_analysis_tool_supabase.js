@@ -370,8 +370,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             copyEngagementSummary,
             topCopyCombos,
             subscriptionDistribution,
-            copySequenceAnalysis,
-            subscriptionSequenceAnalysis
+            copySequenceAnalysis
+            // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
@@ -381,10 +381,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
-            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; }),
-            this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; })
+            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; })
+            // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
+        const subscriptionSequenceAnalysis = null; // Set to null since we're not loading it
         const topSequences = []; // Empty array for now
 
         // Store subscription distribution for caching
@@ -546,8 +547,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
             const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos);
-            const subSequenceHTML = subscriptionSequenceAnalysis ?
-                this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions') : '';
+            // const subSequenceHTML = subscriptionSequenceAnalysis ?
+            //     this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions') : '';
+            const subSequenceHTML = ''; // Comment out subscription conversion path analysis
 
             try {
                 const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
