@@ -655,7 +655,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
+            '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
         ];
 
         metrics.forEach(metric => {
@@ -751,7 +751,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Summary Stats
         if (summaryData) {
-            parts.push('<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">');
+            parts.push('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">');
 
             const metrics = [
                 { label: 'Total Hidden Gems', value: summaryData.total_hidden_gems || 0, format: 'number' },
@@ -840,7 +840,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
+            '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
         ];
 
         metrics.forEach(metric => {
