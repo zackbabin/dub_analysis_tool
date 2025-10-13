@@ -118,21 +118,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         this.outputContainer.appendChild(resultsDiv);
 
         // Add timestamp
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-
         const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
         const lastUpdated = analysisData.lastUpdated;
         if (lastUpdated) {
+            const timestamp = document.createElement('div');
+            timestamp.className = 'qda-timestamp';
             timestamp.textContent = `Last updated: ${lastUpdated}`;
             resultsDiv.appendChild(timestamp);
         }
 
         // Create containers - SKIP creatorBreakdownInline
-        resultsDiv.innerHTML += `
-            <div id="creatorSummaryStatsInline"></div>
-            <div id="creatorBehavioralAnalysisInline"></div>
-        `;
+        const summaryContainer = document.createElement('div');
+        summaryContainer.id = 'creatorSummaryStatsInline';
+        resultsDiv.appendChild(summaryContainer);
+
+        const behavioralContainer = document.createElement('div');
+        behavioralContainer.id = 'creatorBehavioralAnalysisInline';
+        resultsDiv.appendChild(behavioralContainer);
 
         // Display results - SKIP displayCreatorBreakdown
         this.displayCreatorSummaryStats(results.summaryStats);
@@ -433,7 +435,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }, 1000);
 
             // Ensure data source buttons stay hidden after upload
-            const dataSourceDiv = document.getElementById('creatorDataSource');
             if (dataSourceDiv) {
                 dataSourceDiv.style.display = 'none';
             }
