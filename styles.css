@@ -655,9 +655,13 @@ body {
         font-size: 12px;
     }
 
-    /* Responsive tables - ensure proper sizing on mobile */
-    .table-wrapper table {
-        min-width: 600px; /* Ensure tables don't get crushed */
+    /* Responsive tables - let them scroll within viewport */
+    .table-wrapper table,
+    .qda-result-section table,
+    .qda-analysis-results table {
+        width: 100%;
+        display: block;
+        overflow-x: auto;
     }
 
     .qda-regression-table {
