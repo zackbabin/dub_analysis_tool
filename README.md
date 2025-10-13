@@ -99,17 +99,18 @@ sync-event-sequences → event_sequences_raw (enriched events)
 
 4. **AI Analysis** (`analyze-event-sequences`):
    - Loads converters vs non-converters
-   - Sends balanced datasets to Claude (150 converters + 150 non-converters per batch)
+   - Sends balanced datasets to Claude (100 converters + 100 non-converters per batch)
    - Claude identifies:
      - **Predictive Sequences**: Ordered events that predict conversion (e.g., Profile → PDP → Paywall)
      - **Critical Triggers**: Last events before conversion
      - **Anti-Patterns**: Sequences common in non-converters
      - **Time Windows**: Average time between key events
      - **Top Portfolios/Creators**: Which specific ones drive conversions
-   - Uses prompt caching to reduce costs (40k tokens cached across batches)
-   - Processes up to 3,000 users (10 batches max)
+   - Uses prompt caching to reduce costs (2k tokens cached across batches)
+   - Processes up to 600 users (3 batches max)
+   - Cost optimized: 50 events per user, ~77k tokens per batch (38% of 200k limit)
 
-**Trigger**: Manual only (costs Claude API tokens ~$1.50-$3.00 per run)
+**Trigger**: Manual only (costs Claude API tokens ~$1.71 per run)
 
 **Output**: Natural language insights with actionable recommendations
 
@@ -212,10 +213,13 @@ sync-mixpanel-engagement → creator_subscriptions_by_price table
 ```
 upload-and-merge-creator-files → creator_uploads table
                                      ↓
-sync-creator-data → creators_insights table (Mixpanel metrics)
+sync-creator-data → creators_insights table (Mixpanel user profiles)
                                      ↓
                            creator_analysis view
-                           (merges both datasets into raw_data JSONB)
+                           (joins creator_uploads + creators_insights + event tables)
+                                     ↓
+                           Extracts: type, total_copies, total_subscriptions
+                           Merges: Mixpanel enrichment into raw_data JSONB
 ```
 
 **Process**:
@@ -223,7 +227,12 @@ sync-creator-data → creators_insights table (Mixpanel metrics)
 2. Function merges files using two-stage matching (name → email)
 3. Stores merged data in `creator_uploads` table with all fields in `raw_data` JSONB
 4. User triggers "Sync Live Data" to enrich with Mixpanel user profiles
-5. `creator_analysis` view joins both tables and merges Mixpanel metrics into `raw_data`
+5. `creator_analysis` view:
+   - Deduplicates by creator_username
+   - Joins `creator_subscriptions_by_price` for total_subscriptions
+   - Joins `user_portfolio_creator_copies` for total_copies
+   - Joins `creators_insights` to merge Mixpanel enrichment into raw_data
+   - Extracts `type` field from raw_data
 6. Analysis extracts all numeric fields from `raw_data` for correlation
 
 **Mixpanel Metrics Merged**:
@@ -326,9 +335,10 @@ analyze-copy-patterns         → sync-business-assumptions
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
 | `creators_insights` | Mixpanel user profiles | email, total_deposits, active_created_portfolios, investing_activity |
-| `creator_subscriptions_by_price` | Price point breakdown | creator_id, subscription_price, subscription_interval, total_subscriptions |
+| `creator_subscriptions_by_price` | Price point breakdown | creator_username, subscription_price, total_subscriptions |
+| `user_portfolio_creator_copies` | Creator copy counts | creator_username, copy_count |
 | `creator_uploads` | Uploaded creator data | email, creator_username, raw_data (JSONB), uploaded_at |
-| `creator_analysis` (view) | Merged analysis data | Joins creator_uploads + creators_insights, merges into raw_data |
+| `creator_analysis` (view) | Merged analysis data | Joins creator_uploads + creators_insights + event tables; outputs: type, total_copies, total_subscriptions, raw_data |
 
 ### Business Model Tables
 
@@ -356,10 +366,11 @@ analyze-copy-patterns         → sync-business-assumptions
 | `sync-mixpanel-portfolio-events` | Manual | 30-60s | Fetch raw portfolio events |
 | `analyze-subscription-patterns` | Auto | 30-60s | Statistical creator pair analysis |
 | `analyze-copy-patterns` | Auto | 30-60s | Statistical creator pair analysis |
+| `analyze-subscription-price` | Manual | 30-60s | Break down subscriptions by price/interval |
 | `sync-event-sequences` | Manual | 60-120s | Fetch raw event sequences |
 | `enrich-event-sequences` | Manual | 30-60s | Add portfolio/creator context |
 | `process-event-sequences` | Manual | 10-20s | Join conversion outcomes |
-| `analyze-event-sequences` | Manual | 60-120s | Claude AI pattern analysis |
+| `analyze-event-sequences` | Manual | 60-120s | Claude AI pattern analysis (600 users, $1.71/run) |
 
 ### Creator Analysis Functions
 
@@ -386,6 +397,7 @@ analyze-copy-patterns         → sync-business-assumptions
 
 ### Anthropic Claude API
 - **Model**: `claude-sonnet-4-20250514`
-- **Features**: Prompt caching (40k tokens cached)
-- **Cost**: ~$1.50-$3.00 per event sequence analysis
+- **Features**: Prompt caching (2k tokens cached)
+- **Cost**: ~$1.71 per event sequence analysis (600 users, 50 events each)
+- **Token Limits**: 200k per request (functions use ~77k tokens = 38% of limit)
 - **Rate Limits**: Handled with exponential backoff
