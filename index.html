@@ -465,10 +465,13 @@
             /* Stack data source buttons vertically on mobile */
             .data-source-buttons {
                 flex-direction: column !important;
+                gap: 10px !important;
             }
 
             .data-source-buttons > div {
                 min-width: 100% !important;
+                max-width: 100% !important;
+                flex: 1 1 100% !important;
             }
 
             .unified-container,
@@ -508,18 +511,46 @@
                 font-size: 12px;
             }
 
-            /* Responsive tables */
-            table {
+            /* Responsive tables - wrap in scrollable container */
+            .qda-analysis-results table,
+            .qda-content table {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
                 font-size: 13px;
+            }
+
+            .qda-analysis-results table thead,
+            .qda-analysis-results table tbody,
+            .qda-analysis-results table tr,
+            .qda-content table thead,
+            .qda-content table tbody,
+            .qda-content table tr {
+                display: table;
+                width: 100%;
+                table-layout: auto;
             }
 
             th, td {
                 padding: 8px 6px !important;
+                white-space: nowrap;
             }
 
             /* Better spacing for cards/widgets */
             .placeholder-message {
                 padding: 40px 15px;
+            }
+
+            /* Fix button containers on mobile */
+            .qda-content > div[style*="display: flex"] {
+                flex-wrap: wrap !important;
+            }
+
+            /* Ensure data source container doesn't overflow */
+            .data-source-buttons {
+                margin: 0 !important;
+                padding: 0 !important;
             }
         }
 
