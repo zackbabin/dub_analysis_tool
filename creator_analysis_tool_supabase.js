@@ -578,33 +578,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log('✅ Creator enrichment sync completed:', result.stats);
-            this.updateProgress(100, 'Sync complete!');
+            this.updateProgress(60, 'Loading creator data...');
 
-            // Display success message
-            this.outputContainer.innerHTML = '';
-            const successDiv = document.createElement('div');
-            successDiv.className = 'qda-analysis-results';
-            successDiv.innerHTML = `
-                <div style="padding: 30px; text-align: center; background: #e8f5e9; border-radius: 8px; border: 2px solid #4caf50;">
-                    <div style="font-size: 48px; margin-bottom: 15px;">✅</div>
-                    <h3 style="color: #2e7d32; margin: 0 0 10px 0;">Mixpanel Data Synced Successfully</h3>
-                    <p style="color: #555; margin: 0 0 20px 0;">
-                        Enriched ${result.stats.enrichedCreators || 0} creators with Mixpanel user profile data
-                    </p>
-                    <div style="font-size: 14px; color: #666; background: white; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                        <strong>Stats:</strong><br>
-                        Total Mixpanel users: ${result.stats.totalMixpanelUsers || 0}<br>
-                        Matched creators: ${result.stats.matchedCreators || 0}<br>
-                        Enriched: ${result.stats.enrichedCreators || 0}
-                    </div>
-                    <div style="font-size: 12px; color: #666; margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 5px; border: 1px solid #2196f3;">
-                        <strong>ℹ️ Note:</strong> This synced Mixpanel user profile data to the creators_insights table. To run correlation analysis, use "Manually Upload Data" to upload 3 CSV files with creator attributes, then sync again to merge the data.
-                    </div>
-                </div>
-            `;
-            this.outputContainer.appendChild(successDiv);
+            // Load and analyze the creator data from creator_analysis view
+            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
 
-            this.addStatusMessage('✅ Sync complete!', 'success');
+            if (!contents || !contents[0]) {
+                throw new Error('No data returned from database');
+            }
+
+            console.log('Loaded creator CSV length:', contents[0].length);
+            this.updateProgress(80, 'Analyzing data...');
+
+            // Process and analyze the data
+            await this.processAndAnalyze(contents[0]);
+
+            this.updateProgress(100, 'Complete!');
+            this.addStatusMessage('✅ Analysis complete!', 'success');
 
             // Hide progress bar after completion
             setTimeout(() => {

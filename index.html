@@ -11,15 +11,17 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background: #f5f5f5;
         }
 
-        /* Main wrapper to constrain all content */
+        /* Main wrapper to constrain all content - responsive approach */
         .main-wrapper {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 20px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .page-header {
@@ -29,7 +31,6 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 10px;
             color: white;
-            max-width: 100%;
         }
 
         .page-header h1 {
@@ -45,13 +46,13 @@
 
         /* Container for the unified tool */
         .unified-container {
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100%;
+            margin: 0;
         }
 
         .results-container {
-            max-width: 1200px;
-            margin: 40px auto 0 auto;
+            width: 100%;
+            margin: 40px 0 0 0;
         }
 
         /* Reuse styles from analysis_tool.js */
@@ -164,19 +165,21 @@
 
         .qda-metric-summary {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
             margin-top: 1.5rem;
             margin-bottom: 2rem;
+            width: 100%;
         }
 
         .qda-metric-card {
             background: #f8f9fa;
             border: none;
             border-radius: 8px;
-            padding: 1rem;
+            padding: 1.5rem;
             text-align: left;
-            font-size: 12px;
+            font-size: 14px;
+            min-width: 0; /* Prevent grid blowout */
         }
 
         /* Table wrapper for horizontal scrolling */
@@ -446,20 +449,27 @@
             opacity: 1 !important;
         }
 
-        /* Mobile Responsive Styles */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-                overflow-x: hidden;
+        /* Tablet breakpoint */
+        @media (max-width: 1024px) {
+            .main-wrapper {
+                padding: 15px;
             }
 
+            .qda-metric-summary {
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 12px;
+            }
+        }
+
+        /* Mobile breakpoint */
+        @media (max-width: 768px) {
             .main-wrapper {
-                padding: 0;
+                padding: 10px;
             }
 
             .page-header {
                 padding: 15px;
-                margin: 0 0 20px 0;
+                margin-bottom: 20px;
                 border-radius: 8px;
             }
 
@@ -469,6 +479,16 @@
 
             .page-header p {
                 font-size: 14px;
+            }
+
+            .qda-metric-summary {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .qda-metric-card {
+                padding: 1rem;
+                font-size: 13px;
             }
 
             /* Horizontally scrollable tabs */
