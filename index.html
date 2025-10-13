@@ -62,7 +62,7 @@
                 <!-- This will be populated by JavaScript -->
             </div>
             <div id="creatorContent"></div>
-            <div id="creatorProgressSection" style="max-width: 800px; margin: 20px auto; display: none;">
+            <div id="creatorProgressSection" style="display: none; margin: 20px 0;">
                 <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
                     <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
                         0%
@@ -121,7 +121,7 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div style="max-width: 800px; margin: 0 auto;">
+                <div>
                     <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
                         <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
@@ -195,7 +195,7 @@
         function createCreatorDataSource(creatorTool) {
             const container = document.getElementById('creatorDataSource');
             container.innerHTML = `
-                <div style="max-width: 800px; margin: 0 auto;">
+                <div>
                     <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
                         <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
