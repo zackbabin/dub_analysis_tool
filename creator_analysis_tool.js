@@ -298,43 +298,46 @@ class CreatorAnalysisTool {
      */
     cleanCreatorData(parsedData) {
         return parsedData.data.map(row => {
-            const cleanRow = {
-                // Identifiers
-                creatorId: row['creator_id'] || '',
-                creatorUsername: row['creator_username'] || '',
-                creatorType: row['creator_type'] || 'Regular',
-
-                // Enriched metrics (always present)
-                totalCopies: this.cleanNumeric(row['total_copies']),
-                totalSubscriptions: this.cleanNumeric(row['total_subscriptions'])
-            };
-
-            // Extract all numeric fields from raw_data JSONB
+            // Parse raw_data if it exists
+            let rawData = {};
             if (row['raw_data']) {
-                let rawData;
                 try {
-                    // Parse raw_data if it's a string
                     rawData = typeof row['raw_data'] === 'string'
                         ? JSON.parse(row['raw_data'])
                         : row['raw_data'];
                 } catch (e) {
                     console.warn('Failed to parse raw_data for', row['creator_username'], e);
-                    rawData = {};
                 }
-
-                // Add all numeric fields from raw_data
-                Object.keys(rawData).forEach(key => {
-                    const value = rawData[key];
-                    // Only include numeric fields (skip strings, nulls, etc.)
-                    const numericValue = this.cleanNumeric(value);
-                    if (numericValue !== 0 || (typeof value === 'number' || !isNaN(parseFloat(value)))) {
-                        cleanRow[key] = numericValue;
-                    }
-                });
             }
 
+            const cleanRow = {
+                // Identifiers
+                email: row['email'] || '',
+                creatorUsername: row['creator_username'] || '',
+
+                // Type from raw_data with fallback to row-level field
+                type: rawData['type'] || row['type'] || 'Regular',
+
+                // Enriched metrics (from Mixpanel or default to 0)
+                totalCopies: this.cleanNumeric(row['total_copies']),
+                totalSubscriptions: this.cleanNumeric(row['total_subscriptions'])
+            };
+
+            // Add all fields from raw_data
+            Object.keys(rawData).forEach(key => {
+                // Skip fields we've already handled
+                if (key === 'type' || key === 'email') return;
+
+                const value = rawData[key];
+                // Include numeric fields
+                const numericValue = this.cleanNumeric(value);
+                if (numericValue !== 0 || (typeof value === 'number' || !isNaN(parseFloat(value)))) {
+                    cleanRow[key] = numericValue;
+                }
+            });
+
             return cleanRow;
-        }).filter(row => row.creatorId);
+        }).filter(row => row.email || row.creatorUsername); // Keep rows with email or username
     }
 
     /**
@@ -418,7 +421,7 @@ class CreatorAnalysisTool {
         const allKeys = Object.keys(firstRow);
 
         // Exclude non-numeric and identifier fields
-        const excludedKeys = ['creatorId', 'creatorUsername', 'creatorType', 'totalCopies', 'totalSubscriptions'];
+        const excludedKeys = ['email', 'creatorUsername', 'type', 'totalCopies', 'totalSubscriptions'];
 
         // Get all numeric variables that have at least some variation
         const variables = allKeys.filter(key => {
