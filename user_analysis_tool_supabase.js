@@ -761,7 +761,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     return `${creator1}, ${creator2}`;
                 },
                 'Creators Viewed',
-                'Total Copies'
+                'Total Copies',
+                'Total Profile Views',
+                (combo) => {
+                    const views1 = combo.total_views_1 || 0;
+                    const views2 = combo.total_views_2 || 0;
+                    const total = views1 + views2;
+                    return total > 0 ? total.toLocaleString() : 'N/A';
+                }
             ),
             '</div>'
         ];
@@ -954,7 +961,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 topCombinations,
                 (combo) => `${combo.value_1}, ${combo.value_2}`,
                 'Portfolios Viewed',
-                'Total Copies'
+                'Total Copies',
+                'Total PDP Views',
+                (combo) => {
+                    const views1 = combo.total_views_1 || 0;
+                    const views2 = combo.total_views_2 || 0;
+                    const total = views1 + views2;
+                    return total > 0 ? total.toLocaleString() : 'N/A';
+                }
             ),
             '</div>'
         ];
@@ -1304,8 +1318,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     /**
      * Generate Combinations Table HTML (DRY helper)
      * Uses array.join() for optimal string building performance
+     * @param {string} extraColumnLabel - Optional extra column label (e.g., "Total PDP Views")
+     * @param {function} extraColumnValueFn - Optional function to extract extra column value from combo
      */
-    generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel) {
+    generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel, extraColumnLabel = null, extraColumnValueFn = null) {
         const impactTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
@@ -1325,31 +1341,46 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">${subtitle}</p>`,
             '<div class="table-wrapper">',
             '<table class="qda-regression-table">',
-            `<thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>${columnLabel}</th>
-                    <th style="text-align: right;">Impact${impactTooltipHTML}</th>
-                    <th style="text-align: right;">Users</th>
-                    <th style="text-align: right;">${conversionLabel}</th>
-                    <th style="text-align: right;">Conv Rate</th>
-                </tr>
-            </thead>
-            <tbody>`
+            '<thead><tr>',
+            '<th>Rank</th>',
+            `<th>${columnLabel}</th>`,
+            `<th style="text-align: right;">Impact${impactTooltipHTML}</th>`,
+            '<th style="text-align: right;">Users</th>'
         ];
+
+        // Add extra column header if provided
+        if (extraColumnLabel) {
+            parts.push(`<th style="text-align: right;">${extraColumnLabel}</th>`);
+        }
+
+        parts.push(
+            `<th style="text-align: right;">${conversionLabel}</th>`,
+            '<th style="text-align: right;">Conv Rate</th>',
+            '</tr></thead>',
+            '<tbody>'
+        );
 
         // Build rows as separate array items
         data.forEach((combo, index) => {
             const displayValue = valueFormatter(combo);
             parts.push(
-                `<tr>
-                    <td style="font-weight: 600;">${index + 1}</td>
-                    <td>${displayValue}</td>
-                    <td style="text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>
-                    <td style="text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>
-                    <td style="text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>
-                    <td style="text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>
-                </tr>`
+                '<tr>',
+                `<td style="font-weight: 600;">${index + 1}</td>`,
+                `<td>${displayValue}</td>`,
+                `<td style="text-align: right; font-weight: 600; color: #2563eb;">${parseFloat(combo.lift).toFixed(2)}x lift</td>`,
+                `<td style="text-align: right;">${parseInt(combo.users_with_exposure).toLocaleString()}</td>`
+            );
+
+            // Add extra column value if function provided
+            if (extraColumnValueFn) {
+                const extraValue = extraColumnValueFn(combo);
+                parts.push(`<td style="text-align: right;">${extraValue}</td>`);
+            }
+
+            parts.push(
+                `<td style="text-align: right;">${parseInt(combo.total_conversions || 0).toLocaleString()}</td>`,
+                `<td style="text-align: right;">${(parseFloat(combo.conversion_rate_in_group) * 100).toFixed(1)}%</td>`,
+                '</tr>'
             );
         });
 
