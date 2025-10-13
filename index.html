@@ -24,6 +24,18 @@
             box-sizing: border-box;
         }
 
+        /* Force all direct children to respect parent width */
+        .main-wrapper > *,
+        .tab-pane > *,
+        .tab-container > *,
+        .tab-results-container > * {
+            max-width: 100% !important;
+            width: auto !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+
         .page-header {
             text-align: center;
             margin-bottom: 30px;
@@ -468,6 +480,12 @@
                 padding: 10px;
             }
 
+            /* Ensure all nested content respects mobile padding */
+            .main-wrapper > * {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+
             .page-header {
                 padding: 15px;
                 margin-bottom: 20px;
@@ -490,6 +508,13 @@
             .qda-metric-card {
                 padding: 1rem;
                 font-size: 13px;
+            }
+
+            /* Ensure buttons and widgets don't overflow */
+            .qda-inline-widget,
+            .qda-content,
+            [style*="max-width"] {
+                max-width: 100% !important;
             }
 
             /* Horizontally scrollable tabs */
