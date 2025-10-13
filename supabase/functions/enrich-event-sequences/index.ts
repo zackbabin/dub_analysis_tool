@@ -77,20 +77,25 @@ serve(async (req) => {
             // Only take first valid entry
             let found = false
             for (const [ticker, tickerData] of Object.entries(timeData as Record<string, any>)) {
-              if (ticker === '$overall' || found) continue
+              if (ticker === '$overall' || ticker === 'all' || found) continue
 
-              for (const [creatorId, creatorData] of Object.entries(tickerData as Record<string, any>)) {
-                if (creatorId === '$overall' || found) continue
+              // tickerData may contain aggregation keys ($overall) alongside actual creatorId keys
+              for (const [creatorIdOrAgg, creatorDataOrAgg] of Object.entries(tickerData as Record<string, any>)) {
+                if (creatorIdOrAgg === '$overall' || creatorIdOrAgg === 'all' || found) continue
 
-                for (const [username] of Object.entries(creatorData as Record<string, any>)) {
-                  if (username === 'all' || found) continue
+                // creatorDataOrAgg may contain aggregation keys ($overall) alongside actual username keys
+                for (const [usernameOrAgg, usernameData] of Object.entries(creatorDataOrAgg as Record<string, any>)) {
+                  if (usernameOrAgg === '$overall' || usernameOrAgg === 'all' || found) continue
 
-                  pdpPropertyMap.set(key, {
-                    portfolioTicker: ticker,
-                    creatorUsername: username
-                  })
-                  found = true
-                  break
+                  // If we reach here with a username starting with @, we found valid data
+                  if (usernameOrAgg.startsWith('@')) {
+                    pdpPropertyMap.set(key, {
+                      portfolioTicker: ticker,
+                      creatorUsername: usernameOrAgg
+                    })
+                    found = true
+                    break
+                  }
                 }
                 if (found) break
               }
@@ -124,17 +129,21 @@ serve(async (req) => {
 
             // Only take first valid entry
             let found = false
-            for (const [creatorId, creatorData] of Object.entries(timeData as Record<string, any>)) {
-              if (creatorId === '$overall' || found) continue
+            for (const [creatorIdOrAgg, creatorDataOrAgg] of Object.entries(timeData as Record<string, any>)) {
+              if (creatorIdOrAgg === '$overall' || creatorIdOrAgg === 'all' || found) continue
 
-              for (const [username] of Object.entries(creatorData as Record<string, any>)) {
-                if (username === 'all' || found) continue
+              // creatorDataOrAgg may contain aggregation keys ($overall) alongside actual username keys
+              for (const [usernameOrAgg, usernameData] of Object.entries(creatorDataOrAgg as Record<string, any>)) {
+                if (usernameOrAgg === '$overall' || usernameOrAgg === 'all' || found) continue
 
-                profilePropertyMap.set(key, {
-                  creatorUsername: username
-                })
-                found = true
-                break
+                // If we reach here with a username starting with @, we found valid data
+                if (usernameOrAgg.startsWith('@')) {
+                  profilePropertyMap.set(key, {
+                    creatorUsername: usernameOrAgg
+                  })
+                  found = true
+                  break
+                }
               }
               if (found) break
             }
