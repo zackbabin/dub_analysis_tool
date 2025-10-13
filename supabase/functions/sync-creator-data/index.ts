@@ -135,7 +135,7 @@ serve(async (req) => {
           stats,
         }),
         {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
           status: 200,
         }
       )
@@ -163,7 +163,7 @@ serve(async (req) => {
         error: error instanceof Error ? error.message : String(error),
       }),
       {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
       }
     )
