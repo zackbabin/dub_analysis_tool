@@ -170,10 +170,31 @@
             font-size: 12px;
         }
 
+        /* Table wrapper for horizontal scrolling */
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 1rem 0;
+        }
+
+        .table-wrapper::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
         .qda-regression-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 1rem 0;
+            margin: 0;
             font-size: 0.85rem;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
@@ -559,43 +580,24 @@
                 font-size: 12px;
             }
 
-            /* Responsive tables - wrap each table in scrollable container */
-            .table-wrapper {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                margin: 1rem 0;
+            /* Responsive tables - ensure proper sizing on mobile */
+            .table-wrapper table {
+                min-width: 600px; /* Ensure tables don't get crushed */
             }
 
-            .qda-analysis-results table,
-            .qda-content table {
-                width: 100%;
-                min-width: 600px; /* Ensure tables don't get crushed */
+            .qda-regression-table {
                 font-size: 12px;
             }
 
-            th, td {
+            .qda-regression-table th,
+            .qda-regression-table td {
                 padding: 8px 6px !important;
                 white-space: nowrap;
                 font-size: 12px;
             }
 
-            th {
+            .qda-regression-table th {
                 font-size: 11px;
-            }
-
-            /* Add scroll hint for table wrappers */
-            .table-wrapper::-webkit-scrollbar {
-                height: 6px;
-            }
-
-            .table-wrapper::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 3px;
-            }
-
-            .table-wrapper::-webkit-scrollbar-thumb {
-                background: #888;
-                border-radius: 3px;
             }
 
             /* Better spacing for cards/widgets */

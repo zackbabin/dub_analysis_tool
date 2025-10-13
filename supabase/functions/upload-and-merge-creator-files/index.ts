@@ -200,7 +200,9 @@ serve(async (req) => {
     // Transform data
     const transformedCreators: MergedCreator[] = finalMerged.map(row => {
       const cleaned = {
-        descriptionCharacterCount: 0
+        descriptionCharacterCount: 0,
+        type: 'Regular',  // Default type for all creators
+        revenueShare: '0%'  // Default revenue share
       } as MergedCreator
 
       // Email (first column)
@@ -302,9 +304,15 @@ serve(async (req) => {
           if (col === 'RIA?' || col === 'Person - RIA?') {
             cleaned.isRIA = row[col]
           } else if (col === 'Type') {
-            cleaned.type = row[col] || 'Regular'
+            // Override default if Type column exists and has a value
+            if (row[col] && row[col] !== '' && row[col] !== 'N/A') {
+              cleaned.type = row[col]
+            }
           } else if (col === 'Revenue Share') {
-            cleaned.revenueShare = row[col] || '0%'
+            // Override default if Revenue Share column exists and has a value
+            if (row[col] && row[col] !== '' && row[col] !== 'N/A') {
+              cleaned.revenueShare = row[col]
+            }
           } else {
             cleaned[camelKey] = row[col]
           }
@@ -430,7 +438,7 @@ serve(async (req) => {
 // ============================================================================
 
 function parseCSV(csvContent: string): any[] {
-  const lines = csvContent.trim().split('\n')
+  const lines = splitCSVIntoLines(csvContent.trim())
   if (lines.length === 0) return []
 
   const headers = parseCSVLine(lines[0])
@@ -440,6 +448,13 @@ function parseCSV(csvContent: string): any[] {
     const values = parseCSVLine(lines[i])
     if (values.length === 0) continue
 
+    // Skip rows where the number of values doesn't match headers
+    // This prevents misaligned data from being inserted
+    if (values.length !== headers.length) {
+      console.warn(`Skipping row ${i}: expected ${headers.length} columns, got ${values.length}`)
+      continue
+    }
+
     const row: any = {}
     headers.forEach((header, index) => {
       row[header] = values[index] || ''
@@ -448,6 +463,48 @@ function parseCSV(csvContent: string): any[] {
   }
 
   return data
+}
+
+function splitCSVIntoLines(csvContent: string): string[] {
+  const lines: string[] = []
+  let currentLine = ''
+  let inQuotes = false
+
+  for (let i = 0; i < csvContent.length; i++) {
+    const char = csvContent[i]
+
+    if (char === '"') {
+      currentLine += char
+      // Check for escaped quotes
+      if (inQuotes && csvContent[i + 1] === '"') {
+        currentLine += '"'
+        i++
+      } else {
+        inQuotes = !inQuotes
+      }
+    } else if (char === '\n' && !inQuotes) {
+      if (currentLine.trim()) {
+        lines.push(currentLine)
+      }
+      currentLine = ''
+    } else if (char === '\r' && csvContent[i + 1] === '\n' && !inQuotes) {
+      // Handle Windows line endings (\r\n)
+      if (currentLine.trim()) {
+        lines.push(currentLine)
+      }
+      currentLine = ''
+      i++ // Skip the \n
+    } else {
+      currentLine += char
+    }
+  }
+
+  // Add the last line if it exists
+  if (currentLine.trim()) {
+    lines.push(currentLine)
+  }
+
+  return lines
 }
 
 function parseCSVLine(line: string): string[] {

@@ -373,7 +373,8 @@ class CreatorAnalysisTool {
         // Creator type breakdown
         const creatorTypes = {};
         data.forEach(creator => {
-            const type = creator.creatorType || 'Regular';
+            // Check both 'type' (from raw_data) and 'creatorType' (legacy) fields
+            const type = creator.type || creator.creatorType || 'Regular';
             creatorTypes[type] = (creatorTypes[type] || 0) + 1;
         });
 
