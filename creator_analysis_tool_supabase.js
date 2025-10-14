@@ -133,16 +133,128 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         behavioralContainer.id = 'creatorBehavioralAnalysisInline';
         resultsDiv.appendChild(behavioralContainer);
 
+        const affinityContainer = document.createElement('div');
+        affinityContainer.id = 'premiumCreatorAffinityInline';
+        resultsDiv.appendChild(affinityContainer);
+
         // Display results - SKIP displayCreatorBreakdown
         this.displayCreatorSummaryStats(results.summaryStats);
 
         const tippingPoints = analysisData.tippingPoints;
         this.displayCreatorBehavioralAnalysis(results.correlationResults, results.regressionResults, tippingPoints);
 
+        // Load and display premium creator copy affinity
+        this.loadAndDisplayPremiumCreatorAffinity();
+
         resultsDiv.style.display = 'block';
 
         // Save HTML for restoration
         this.saveAnalysisResults(this.outputContainer.innerHTML);
+    }
+
+    /**
+     * Load and display premium creator copy affinity section
+     */
+    async loadAndDisplayPremiumCreatorAffinity() {
+        try {
+            const affinityData = await this.supabaseIntegration.loadPremiumCreatorCopyAffinity();
+            this.displayPremiumCreatorAffinity(affinityData);
+        } catch (error) {
+            console.error('Error loading premium creator affinity:', error);
+            const container = document.getElementById('premiumCreatorAffinityInline');
+            if (container) {
+                container.innerHTML = '<p style="color: #dc3545;">Failed to load premium creator copy affinity data.</p>';
+            }
+        }
+    }
+
+    /**
+     * Display premium creator copy affinity table
+     */
+    displayPremiumCreatorAffinity(affinityData) {
+        const container = document.getElementById('premiumCreatorAffinityInline');
+        if (!container) {
+            console.error('❌ Container premiumCreatorAffinityInline not found!');
+            return;
+        }
+
+        if (!affinityData || affinityData.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '3rem';
+
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+        title.textContent = 'Premium Creator Copy Affinity';
+        section.appendChild(title);
+
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Premium Creator Copy Affinity</strong>
+                Shows which other creators are most frequently copied by users who copied each Premium creator.
+                <ul>
+                    <li><strong>Analysis:</strong> Identifies co-copying patterns among Premium creator audiences</li>
+                    <li><strong>Format:</strong> Copy count - Creator username</li>
+                    <li><strong>Use Case:</strong> Understand creator affinity networks and cross-promotion opportunities</li>
+                </ul>
+            </span>
+        </span>`;
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.innerHTML = tooltipHTML;
+        section.appendChild(tooltipSpan);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
+        description.textContent = 'For each Premium creator, view the top 5 creators most frequently copied by their audience';
+        section.appendChild(description);
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Premium Creator</th>
+                <th style="text-align: left;">Top 1</th>
+                <th style="text-align: left;">Top 2</th>
+                <th style="text-align: left;">Top 3</th>
+                <th style="text-align: left;">Top 4</th>
+                <th style="text-align: left;">Top 5</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        // Table body
+        const tbody = document.createElement('tbody');
+        affinityData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>
+                <td>${row.top_1 || '-'}</td>
+                <td>${row.top_2 || '-'}</td>
+                <td>${row.top_3 || '-'}</td>
+                <td>${row.top_4 || '-'}</td>
+                <td>${row.top_5 || '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        section.appendChild(tableWrapper);
+        container.appendChild(section);
     }
 
     /**
@@ -375,6 +487,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('✅ Upload section displayed');
         } else {
             console.error('❌ Upload section not found! Element ID: creatorUploadSection');
+        }
+
+        // Re-initialize Process Files button handler (in case it wasn't available during initial load)
+        if (typeof window.initializeProcessFilesButton === 'function') {
+            window.initializeProcessFilesButton(this);
         }
     }
 

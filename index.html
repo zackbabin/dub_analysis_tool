@@ -253,16 +253,82 @@
             };
 
             // Sync button click handler
-            syncBtn.onclick = () => {
-                console.log('Creator sync button clicked');
-                creatorTool.runSyncWorkflow();
+            syncBtn.onclick = async () => {
+                console.log('🔵 Creator sync button clicked');
+
+                // Show progress bar immediately
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'block';
+                }
+
+                // Call the sync workflow
+                try {
+                    await creatorTool.runSyncWorkflow();
+                } catch (error) {
+                    console.error('❌ Sync workflow failed:', error);
+                    // Show error in progress bar
+                    const progressBar = document.getElementById('creatorProgressBar');
+                    if (progressBar) {
+                        const textDiv = progressBar.querySelector('div');
+                        if (textDiv) {
+                            textDiv.textContent = `❌ Error: ${error.message}`;
+                        }
+                        progressBar.style.background = '#dc3545';
+                    }
+                }
             };
 
             // Upload button click handler
             uploadBtn.onclick = () => {
-                console.log('Creator upload button clicked');
+                console.log('🔵 Creator upload button clicked');
                 creatorTool.runWorkflow('upload');
             };
+
+            // Initialize Process Files button handler (if button exists)
+            initializeProcessFilesButton(creatorTool);
+        }
+
+        // Initialize Process Files button handler
+        function initializeProcessFilesButton(creatorTool) {
+            const processButton = document.getElementById('creatorProcessButton');
+            if (processButton) {
+                console.log('✅ Process Files button found, attaching handler');
+                processButton.onclick = async () => {
+                    console.log('🔵 Process Files button clicked');
+
+                    const creatorListInput = document.getElementById('creatorListFileInput');
+                    const dealsInput = document.getElementById('dealsFileInput');
+                    const publicCreatorsInput = document.getElementById('publicCreatorsFileInput');
+
+                    if (!creatorListInput || !dealsInput || !publicCreatorsInput) {
+                        console.error('❌ File input elements not found');
+                        return;
+                    }
+
+                    if (!creatorListInput.files[0] || !dealsInput.files[0] || !publicCreatorsInput.files[0]) {
+                        alert('⚠️ Please select all 3 CSV files');
+                        return;
+                    }
+
+                    console.log('✅ All 3 files selected, starting upload workflow');
+
+                    // Show progress bar
+                    const progressSection = document.getElementById('creatorProgressSection');
+                    if (progressSection) {
+                        progressSection.style.display = 'block';
+                    }
+
+                    try {
+                        await creatorTool.runUploadWorkflow();
+                    } catch (error) {
+                        console.error('❌ Upload workflow error:', error);
+                        // Error already shown in runUploadWorkflow
+                    }
+                };
+            } else {
+                console.log('⚠️ Process Files button not found (will be initialized when upload section is shown)');
+            }
         }
 
         // Update button states for unified component (only used on first 3 tabs)
@@ -502,43 +568,6 @@
                 document.getElementById('creatorResultsContainer')
             );
             creatorTool.supabaseIntegration = window.supabaseIntegration;
-
-            // Setup 3-file upload handler with Process Files button
-            const processButton = document.getElementById('creatorProcessButton');
-            if (processButton) {
-                processButton.onclick = async () => {
-                    const creatorListInput = document.getElementById('creatorListFileInput');
-                    const dealsInput = document.getElementById('dealsFileInput');
-                    const publicCreatorsInput = document.getElementById('publicCreatorsFileInput');
-
-                    if (!creatorListInput || !dealsInput || !publicCreatorsInput) {
-                        console.error('File input elements not found');
-                        return;
-                    }
-
-                    if (!creatorListInput.files[0] || !dealsInput.files[0] || !publicCreatorsInput.files[0]) {
-                        creatorTool.clearStatus();
-                        creatorTool.showStatus();
-                        creatorTool.addStatusMessage('⚠️ Please select all 3 CSV files', 'error');
-                        return;
-                    }
-
-                    creatorTool.clearStatus();
-                    creatorTool.showStatus();
-                    creatorTool.addStatusMessage(`✓ Selected: ${creatorListInput.files[0].name}`, 'success');
-                    creatorTool.addStatusMessage(`✓ Selected: ${dealsInput.files[0].name}`, 'success');
-                    creatorTool.addStatusMessage(`✓ Selected: ${publicCreatorsInput.files[0].name}`, 'success');
-                    creatorTool.addStatusMessage('📤 Processing and merging files...', 'info');
-
-                    try {
-                        creatorTool.showProgress(10);
-                        await creatorTool.runUploadWorkflow();
-                    } catch (error) {
-                        console.error('Upload error:', error);
-                        creatorTool.addStatusMessage(`❌ Upload error: ${error.message}`, 'error');
-                    }
-                };
-            }
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
 
