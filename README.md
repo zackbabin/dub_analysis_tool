@@ -66,9 +66,7 @@ sync-mixpanel-engagement → user_portfolio_creator_views
 
 **Data Flow**:
 ```
-sync-event-sequences → event_sequences_raw (enriched events)
-                           ↓
-                   enrich-event-sequences (add portfolio/creator context)
+sync-event-sequences → event_sequences_raw (raw events)
                            ↓
                    process-event-sequences (join conversion outcomes)
                            ↓
@@ -85,19 +83,12 @@ sync-event-sequences → event_sequences_raw (enriched events)
    - Stores raw event data with timestamps
    - Up to 50,000 user sequences
 
-2. **Enrich Events** (`enrich-event-sequences`):
-   - Adds contextual properties to events:
-     - PDP views: `"Viewed Premium PDP ($PELOSI by @dubAdvisors)"`
-     - Profile views: `"Viewed Creator Profile (@brettsimba)"`
-   - Fetches from 2 additional Mixpanel charts for enrichment
-   - ~60% enrichment coverage
-
-3. **Join Outcomes** (`process-event-sequences`):
+2. **Join Outcomes** (`process-event-sequences`):
    - Joins event sequences with `subscribers_insights`
    - Adds conversion outcomes: `total_copies`, `total_subscriptions`
    - Fast database-only operation
 
-4. **AI Analysis** (`analyze-event-sequences`):
+3. **AI Analysis** (`analyze-event-sequences`):
    - Loads converters vs non-converters
    - Sends balanced datasets to Claude (100 converters + 100 non-converters per batch)
    - Claude identifies:
@@ -105,7 +96,6 @@ sync-event-sequences → event_sequences_raw (enriched events)
      - **Critical Triggers**: Last events before conversion
      - **Anti-Patterns**: Sequences common in non-converters
      - **Time Windows**: Average time between key events
-     - **Top Portfolios/Creators**: Which specific ones drive conversions
    - Uses prompt caching to reduce costs (2k tokens cached across batches)
    - Processes up to 600 users (3 batches max)
    - Cost optimized: 50 events per user, ~77k tokens per batch (38% of 200k limit)
@@ -161,12 +151,11 @@ Total: ~2-3 minutes
 **Event Sequences Workflow** (manual, separate):
 ```
 1. sync-event-sequences (fetch from Mixpanel - 60-120s)
-2. enrich-event-sequences (add context - 30-60s)
-3. process-event-sequences (join outcomes - 10-20s)
-4. analyze-event-sequences (Claude AI - 60-120s)
+2. process-event-sequences (join outcomes - 10-20s)
+3. analyze-event-sequences (Claude AI - 60-120s)
    Input: { outcome_type: 'copies' | 'subscriptions' }
 
-Total: ~3-5 minutes
+Total: ~2-4 minutes
 ```
 
 ---
@@ -368,7 +357,6 @@ analyze-copy-patterns         → sync-business-assumptions
 | `analyze-copy-patterns` | Auto | 30-60s | Statistical creator pair analysis |
 | `analyze-subscription-price` | Manual | 30-60s | Break down subscriptions by price/interval |
 | `sync-event-sequences` | Manual | 60-120s | Fetch raw event sequences |
-| `enrich-event-sequences` | Manual | 30-60s | Add portfolio/creator context |
 | `process-event-sequences` | Manual | 10-20s | Join conversion outcomes |
 | `analyze-event-sequences` | Manual | 60-120s | Claude AI pattern analysis (600 users, $1.71/run) |
 

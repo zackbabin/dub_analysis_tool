@@ -149,7 +149,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Trigger event sequence sync (fetch raw data from Mixpanel)
         // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)
         console.log('🔄 Starting event sequence workflow...');
-        console.log('Step 1/5: Triggering event sequence sync (fetching raw data from Mixpanel)...');
+        console.log('Step 1/4: Triggering event sequence sync (fetching raw data from Mixpanel)...');
 
         let syncSuccess = false;
         try {
@@ -157,10 +157,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('Event sequence sync result:', seqSyncResult);
 
             if (seqSyncResult && seqSyncResult.success) {
-                console.log('✅ Step 1/5 complete - Event sequence sync:', seqSyncResult.stats);
+                console.log('✅ Step 1/4 complete - Event sequence sync:', seqSyncResult.stats);
                 syncSuccess = true;
             } else {
-                console.error('❌ Step 1/5 failed - Event sequence sync returned unsuccessful:', seqSyncResult);
+                console.error('❌ Step 1/4 failed - Event sequence sync returned unsuccessful:', seqSyncResult);
             }
         } catch (error) {
             console.error('❌ Event sequence workflow failed at Step 1:', error);
@@ -168,66 +168,52 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue to next steps even if sync fails - processing/analysis may work with existing data
         }
 
-        // Enrich event sequences with portfolio/creator context (proceed even if sync failed)
-        console.log('Step 2/5: Enriching event sequences with properties...');
-        let enrichSuccess = false;
-        try {
-            const enrichResult = await this.supabaseIntegration.triggerEventSequenceEnrichment();
-            console.log('Event sequence enrichment result:', enrichResult);
+        // REMOVED: Event enrichment step (Step 2) - no longer enriching with portfolio/creator context
+        // This step fetched additional Mixpanel data to add context like portfolio tickers and creator usernames
+        // Keeping workflow simpler and faster by analyzing raw event names directly
 
-            if (enrichResult && enrichResult.success) {
-                console.log('✅ Step 2/5 complete - Event sequence enrichment:', enrichResult.stats);
-                enrichSuccess = true;
-            } else {
-                console.error('❌ Step 2/5 failed - Event sequence enrichment returned unsuccessful:', enrichResult);
-            }
-        } catch (enrichError) {
-            console.error('❌ Step 2/5 failed - Event sequence enrichment error:', enrichError);
-            console.error('Error details:', enrichError.message, enrichError.stack);
-        }
-
-        // Process raw event sequences (proceed even if sync/enrichment failed - may have existing data)
-        console.log('Step 3/5: Processing event sequences (joining with conversion data)...');
+        // Process raw event sequences (proceed even if sync failed - may have existing data)
+        console.log('Step 2/4: Processing event sequences (joining with conversion data)...');
         let processSuccess = false;
         try {
             const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
             console.log('Event sequence processing result:', processResult);
 
             if (processResult && processResult.success) {
-                console.log('✅ Step 3/5 complete - Event sequence processing:', processResult.stats);
+                console.log('✅ Step 2/4 complete - Event sequence processing:', processResult.stats);
                 processSuccess = true;
             } else {
-                console.error('❌ Step 3/5 failed - Event sequence processing returned unsuccessful:', processResult);
+                console.error('❌ Step 2/4 failed - Event sequence processing returned unsuccessful:', processResult);
             }
         } catch (processError) {
-            console.error('❌ Step 3/5 failed - Event sequence processing error:', processError);
+            console.error('❌ Step 2/4 failed - Event sequence processing error:', processError);
             console.error('Error details:', processError.message, processError.stack);
         }
 
         // Trigger Claude AI analysis (proceed even if processing failed - may have existing processed data)
-        console.log('Step 4/5: Triggering event sequence analysis for copies...');
+        console.log('Step 3/4: Triggering event sequence analysis for copies...');
         try {
             const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
             if (copyAnalysisResult && copyAnalysisResult.success) {
-                console.log('✅ Step 4/5 complete - Copy sequence analysis:', copyAnalysisResult.stats);
+                console.log('✅ Step 3/4 complete - Copy sequence analysis:', copyAnalysisResult.stats);
             } else {
                 console.warn('⚠️ Copy sequence analysis returned unsuccessful:', copyAnalysisResult);
             }
         } catch (copyError) {
-            console.error('❌ Step 4/5 failed - Copy analysis error:', copyError);
+            console.error('❌ Step 3/4 failed - Copy analysis error:', copyError);
         }
 
         // COMMENTED OUT: Subscription event sequence analysis disabled
-        // console.log('Step 5/5: Triggering event sequence analysis for subscriptions...');
+        // console.log('Step 4/4: Triggering event sequence analysis for subscriptions...');
         // try {
         //     const subAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('subscriptions');
         //     if (subAnalysisResult && subAnalysisResult.success) {
-        //         console.log('✅ Step 5/5 complete - Subscription sequence analysis:', subAnalysisResult.stats);
+        //         console.log('✅ Step 4/4 complete - Subscription sequence analysis:', subAnalysisResult.stats);
         //     } else {
         //         console.warn('⚠️ Subscription sequence analysis returned unsuccessful:', subAnalysisResult);
         //     }
         // } catch (subError) {
-        //     console.error('❌ Step 5/5 failed - Subscription analysis error:', subError);
+        //     console.error('❌ Step 4/4 failed - Subscription analysis error:', subError);
         // }
 
         console.log('✅ Event sequence workflow completed (some steps may have failed - check logs above)');
@@ -449,57 +435,86 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </div>
             `;
 
-            // Add Deposit Funds Section
-            if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
-                try {
-                    const depositHeaderHTML = this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits');
-                    const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+            // Add Top Behavioral Drivers Section with nested tabs
+            portfolioHTML += `
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2 style="margin-bottom: 0.25rem;">Top Behavioral Drivers</h2>
+                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits and copies</p>
 
-                    // Create wrapper for deposit section
-                    const depositWrapper = document.createElement('div');
-                    depositWrapper.className = 'qda-result-section';
-                    depositWrapper.style.marginTop = '3rem';
-                    depositWrapper.innerHTML = depositHeaderHTML;
-                    depositWrapper.appendChild(depositsTable);
-
-                    portfolioHTML += depositWrapper.outerHTML;
-                } catch (e) {
-                    console.error('Error building deposits table:', e);
-                    portfolioHTML += `
-                        <div class="qda-result-section" style="margin-top: 3rem;">
-                            ${this.generateCorrelationHeaderHTML('Top Deposit Funds Drivers', 'The top events that are the strongest predictors of deposits')}
-                            <p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>
+                    <div class="behavioral-tabs-container">
+                        <div class="behavioral-tab-navigation">
+                            <button class="behavioral-tab-btn active" data-behavioral-tab="deposits">Deposit Funds</button>
+                            <button class="behavioral-tab-btn" data-behavioral-tab="copies">Copy Portfolios</button>
                         </div>
-                    `;
-                }
-            }
 
-            // Add Top Portfolio Copy Drivers Section
-            try {
-                const correlationHeaderHTML = this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies');
-                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-
-                // Create wrapper for copy drivers section
-                const copyDriversWrapper = document.createElement('div');
-                copyDriversWrapper.className = 'qda-result-section';
-                copyDriversWrapper.style.marginTop = '3rem';
-                copyDriversWrapper.innerHTML = correlationHeaderHTML;
-                copyDriversWrapper.appendChild(copiesTable);
-                copyDriversWrapper.insertAdjacentHTML('beforeend', combinationsHTML + creatorCombinationsHTML + copySequenceHTML);
-
-                portfolioHTML += copyDriversWrapper.outerHTML;
-            } catch (e) {
-                console.error('Error building portfolio copies table:', e);
-                portfolioHTML += `
-                    <div class="qda-result-section" style="margin-top: 3rem;">
-                        ${this.generateCorrelationHeaderHTML('Top Portfolio Copy Drivers', 'The top events that are the strongest predictors of copies')}
-                        <p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>
+                        <div class="behavioral-tab-content">
+                            <div id="deposits-behavioral-tab" class="behavioral-tab-pane active">
+                                <!-- Deposit Funds content will be inserted here -->
+                            </div>
+                            <div id="copies-behavioral-tab" class="behavioral-tab-pane">
+                                <!-- Copy Portfolios content will be inserted here -->
+                            </div>
+                        </div>
                     </div>
-                `;
-            }
+                </div>
+            `;
 
             // Insert complete HTML once
             portfolioContentSection.innerHTML = portfolioHTML;
+
+            // Now populate the behavioral tabs
+            const depositsTabPane = document.getElementById('deposits-behavioral-tab');
+            const copiesTabPane = document.getElementById('copies-behavioral-tab');
+
+            // Add Deposit Funds Table
+            if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
+                try {
+                    const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
+                    depositsTabPane.appendChild(depositsTable);
+                } catch (e) {
+                    console.error('Error building deposits table:', e);
+                    depositsTabPane.innerHTML = `
+                        <p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>
+                    `;
+                }
+            } else {
+                depositsTabPane.innerHTML = `
+                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data not available.</p>
+                `;
+            }
+
+            // Add Top Portfolio Copy Drivers Table
+            try {
+                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
+                copiesTabPane.appendChild(copiesTable);
+                copiesTabPane.insertAdjacentHTML('beforeend', combinationsHTML + creatorCombinationsHTML + copySequenceHTML);
+            } catch (e) {
+                console.error('Error building portfolio copies table:', e);
+                copiesTabPane.innerHTML = `
+                    <p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>
+                `;
+            }
+
+            // Initialize behavioral tab switching
+            const behavioralTabButtons = portfolioContentSection.querySelectorAll('.behavioral-tab-btn');
+            const behavioralTabPanes = portfolioContentSection.querySelectorAll('.behavioral-tab-pane');
+
+            behavioralTabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-behavioral-tab');
+
+                    // Remove active class from all buttons and panes
+                    behavioralTabButtons.forEach(btn => btn.classList.remove('active'));
+                    behavioralTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                    // Add active class to clicked button and corresponding pane
+                    button.classList.add('active');
+                    const targetPane = portfolioContentSection.querySelector(`#${targetTab}-behavioral-tab`);
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                    }
+                });
+            });
         } else {
             portfolioContentSection.innerHTML = `
                 <div class="qda-result-section">
