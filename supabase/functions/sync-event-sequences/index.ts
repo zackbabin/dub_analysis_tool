@@ -101,27 +101,41 @@ serve(async (req) => {
       // Parse Mixpanel Insights response structure:
       // series: { "metric_key": { "distinct_id": { "timestamp": { "all": count }, "$overall": {...} } } }
 
-      // Build user event sequences from nested structure
+      // Build user event sequences from nested structure (optimized for CPU efficiency)
       const userEventsMap = new Map<string, Array<{event: string, time: string, count: number}>>()
+      const seriesEntries = Object.entries(eventSequencesData.series)
 
-      for (const [metricKey, metricData] of Object.entries(eventSequencesData.series)) {
+      // Pre-calculate total iterations to log progress
+      const totalMetrics = seriesEntries.length
+      console.log(`Processing ${totalMetrics} metrics...`)
+
+      for (let metricIdx = 0; metricIdx < totalMetrics; metricIdx++) {
+        const [metricKey, metricData] = seriesEntries[metricIdx]
+
         if (typeof metricData !== 'object' || metricData === null) continue
 
         // Clean up metric name (remove prefix like "A. ", "B. ", etc.)
         const eventName = metricKey.replace(/^[A-Z]\.\s*/, '').replace(/^Total\s+/, '')
+        const userEntries = Object.entries(metricData as Record<string, any>)
 
-        for (const [distinctId, userData] of Object.entries(metricData as Record<string, any>)) {
+        for (let userIdx = 0; userIdx < userEntries.length; userIdx++) {
+          const [distinctId, userData] = userEntries[userIdx]
+
           // Skip $overall aggregates and focus on actual distinct_ids
           if (distinctId === '$overall') continue
 
           // Get or create event array for this user
-          if (!userEventsMap.has(distinctId)) {
-            userEventsMap.set(distinctId, [])
+          let userEvents = userEventsMap.get(distinctId)
+          if (!userEvents) {
+            userEvents = []
+            userEventsMap.set(distinctId, userEvents)
           }
-          const userEvents = userEventsMap.get(distinctId)!
 
           // Extract individual event occurrences with timestamps
-          for (const [timestamp, data] of Object.entries(userData)) {
+          const timeEntries = Object.entries(userData)
+          for (let timeIdx = 0; timeIdx < timeEntries.length; timeIdx++) {
+            const [timestamp, data] = timeEntries[timeIdx]
+
             // Skip $overall for this user
             if (timestamp === '$overall') continue
 
@@ -135,6 +149,11 @@ serve(async (req) => {
             }
           }
         }
+
+        // Log progress every 5 metrics to avoid excessive logging
+        if (metricIdx % 5 === 0 || metricIdx === totalMetrics - 1) {
+          console.log(`Processed ${metricIdx + 1}/${totalMetrics} metrics...`)
+        }
       }
 
       console.log(`Found ${userEventsMap.size} users with event sequences`)
@@ -142,16 +161,31 @@ serve(async (req) => {
       // Convert to raw rows for database insertion (no enrichment - done separately)
       console.log('Preparing event sequences for storage...')
       const rawEventRows: any[] = []
+      const userEntries = Array.from(userEventsMap.entries())
+      const totalUsers = userEntries.length
 
-      for (const [distinctId, events] of userEventsMap.entries()) {
-        // Sort events by timestamp
-        events.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+      console.log(`Sorting events for ${totalUsers} users...`)
+
+      for (let i = 0; i < totalUsers; i++) {
+        const [distinctId, events] = userEntries[i]
+
+        // Sort events by timestamp (optimized: use getTime() once)
+        events.sort((a, b) => {
+          const timeA = new Date(a.time).getTime()
+          const timeB = new Date(b.time).getTime()
+          return timeA - timeB
+        })
 
         rawEventRows.push({
           distinct_id: distinctId,
           event_data: events, // Store raw events as JSONB (enrichment done separately)
           synced_at: syncStartTime.toISOString()
         })
+
+        // Log progress every 2000 users
+        if (i % 2000 === 0 && i > 0) {
+          console.log(`Prepared ${i}/${totalUsers} users...`)
+        }
       }
 
       console.log(`Prepared ${rawEventRows.length} raw event sequences`)
