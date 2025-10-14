@@ -50,6 +50,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     if (data.portfolio && this.outputContainers.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
                         if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.portfolio);
+                        // Re-initialize nested tab event listeners for portfolio
+                        this.initializePortfolioNestedTabs();
                     }
                     if (data.subscription && this.outputContainers.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
@@ -72,6 +74,65 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         } catch (e) {
             console.warn('Failed to restore analysis results from localStorage:', e);
         }
+    }
+
+    /**
+     * Initialize nested tab event listeners for Portfolio Analysis tab
+     * Called after restoring cached content or after fresh render
+     */
+    initializePortfolioNestedTabs() {
+        const portfolioContentSection = this.outputContainers.portfolio;
+        if (!portfolioContentSection) return;
+
+        // Initialize behavioral tab switching
+        const behavioralTabButtons = portfolioContentSection.querySelectorAll('.behavioral-tab-btn');
+        const behavioralTabPanes = portfolioContentSection.querySelectorAll('.behavioral-tab-pane');
+
+        console.log('Initializing behavioral tabs:', behavioralTabButtons.length);
+
+        behavioralTabButtons.forEach((button) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = button.getAttribute('data-behavioral-tab');
+                console.log('Behavioral tab clicked:', targetTab);
+
+                // Remove active class from all buttons and panes
+                behavioralTabButtons.forEach(btn => btn.classList.remove('active'));
+                behavioralTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to clicked button and corresponding pane
+                button.classList.add('active');
+                const targetPane = portfolioContentSection.querySelector(`#${targetTab}-behavioral-tab`);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
+
+        // Initialize combinations tab switching
+        const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
+        const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
+
+        console.log('Initializing combinations tabs:', combinationsTabButtons.length);
+
+        combinationsTabButtons.forEach((button) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = button.getAttribute('data-combinations-tab');
+                console.log('Combinations tab clicked:', targetTab);
+
+                // Remove active class from all buttons and panes
+                combinationsTabButtons.forEach(btn => btn.classList.remove('active'));
+                combinationsTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to clicked button and corresponding pane
+                button.classList.add('active');
+                const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
     }
 
     /**
@@ -525,36 +586,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 `;
             }
 
-            // Initialize behavioral tab switching
-            const behavioralTabButtons = portfolioContentSection.querySelectorAll('.behavioral-tab-btn');
-            const behavioralTabPanes = portfolioContentSection.querySelectorAll('.behavioral-tab-pane');
-
-            console.log('Behavioral tab buttons found:', behavioralTabButtons.length);
-            console.log('Behavioral tab panes found:', behavioralTabPanes.length);
-
-            behavioralTabButtons.forEach((button, index) => {
-                console.log(`Setting up listener for behavioral button ${index}:`, button.getAttribute('data-behavioral-tab'));
-                button.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const targetTab = button.getAttribute('data-behavioral-tab');
-                    console.log('Behavioral tab clicked:', targetTab);
-
-                    // Remove active class from all buttons and panes
-                    behavioralTabButtons.forEach(btn => btn.classList.remove('active'));
-                    behavioralTabPanes.forEach(pane => pane.classList.remove('active'));
-
-                    // Add active class to clicked button and corresponding pane
-                    button.classList.add('active');
-                    const targetPane = portfolioContentSection.querySelector(`#${targetTab}-behavioral-tab`);
-                    if (targetPane) {
-                        targetPane.classList.add('active');
-                        console.log('Activated pane:', targetTab);
-                    } else {
-                        console.error('Target pane not found:', `#${targetTab}-behavioral-tab`);
-                    }
-                });
-            });
-
             // Populate the combinations tabs (already in HTML)
             const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
             const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
@@ -566,26 +597,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
             }
 
-            // Initialize combinations tab switching
-            const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
-            const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
-
-            combinationsTabButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    const targetTab = button.getAttribute('data-combinations-tab');
-
-                    // Remove active class from all buttons and panes
-                    combinationsTabButtons.forEach(btn => btn.classList.remove('active'));
-                    combinationsTabPanes.forEach(pane => pane.classList.remove('active'));
-
-                    // Add active class to clicked button and corresponding pane
-                    button.classList.add('active');
-                    const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
-                    if (targetPane) {
-                        targetPane.classList.add('active');
-                    }
-                });
-            });
+            // Initialize nested tab event listeners using shared function
+            this.initializePortfolioNestedTabs();
         } else {
             portfolioContentSection.innerHTML = `
                 <div class="qda-result-section">
