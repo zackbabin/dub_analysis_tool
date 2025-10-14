@@ -357,6 +357,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             progressSection.style.display = 'none';
         }
 
+        // Show the creator content container (which was hidden in createUI)
+        const creatorContent = document.getElementById('creatorContent');
+        if (creatorContent) {
+            creatorContent.style.display = 'block';
+        }
+
         // Show the entire mode section first
         const modeSection = document.getElementById('creatorModeSection');
         if (modeSection) {
@@ -381,10 +387,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         try {
-            // Hide the upload form (mode section)
+            // Hide the upload form (mode section and creator content container)
             const modeSection = document.getElementById('creatorModeSection');
             if (modeSection) {
                 modeSection.style.display = 'none';
+            }
+
+            const creatorContent = document.getElementById('creatorContent');
+            if (creatorContent) {
+                creatorContent.style.display = 'none';
             }
 
             // Keep data source visible, show progress bar
