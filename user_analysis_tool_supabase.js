@@ -487,7 +487,64 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             try {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
                 copiesTabPane.appendChild(copiesTable);
-                copiesTabPane.insertAdjacentHTML('beforeend', combinationsHTML + creatorCombinationsHTML + copySequenceHTML);
+                copiesTabPane.insertAdjacentHTML('beforeend', copySequenceHTML);
+
+                // Add High-Impact Combinations Section with nested tabs
+                const combinationsSection = `
+                    <div class="qda-result-section" style="margin-top: 2rem;">
+                        <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
+                        <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
+
+                        <div class="combinations-tabs-container">
+                            <div class="combinations-tab-navigation">
+                                <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
+                                <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
+                            </div>
+
+                            <div class="combinations-tab-content">
+                                <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
+                                    <!-- Portfolio combinations content will be inserted here -->
+                                </div>
+                                <div id="creators-combinations-tab" class="combinations-tab-pane">
+                                    <!-- Creator combinations content will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                copiesTabPane.insertAdjacentHTML('beforeend', combinationsSection);
+
+                // Populate the combinations tabs
+                const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
+                const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
+
+                if (portfoliosCombinationsTabPane && combinationsHTML) {
+                    portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
+                }
+                if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
+                    creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
+                }
+
+                // Initialize combinations tab switching
+                const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
+                const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
+
+                combinationsTabButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const targetTab = button.getAttribute('data-combinations-tab');
+
+                        // Remove active class from all buttons and panes
+                        combinationsTabButtons.forEach(btn => btn.classList.remove('active'));
+                        combinationsTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                        // Add active class to clicked button and corresponding pane
+                        button.classList.add('active');
+                        const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
+                        if (targetPane) {
+                            targetPane.classList.add('active');
+                        }
+                    });
+                });
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 copiesTabPane.innerHTML = `
@@ -750,25 +807,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>High-Impact Creator Combinations</strong>
-                Identifies 2-creator pairs that drive copies:
-                <ul>
-                    <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 creators analyzed</li>
-                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
-                    <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
-                </ul>
-                Shows top 10 combinations sorted by Expected Value. Users must view BOTH creators to be counted as "exposed."
-            </span>
-        </span>`;
-
         const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
-                `High-Impact Creator Combinations${tooltipHTML}`,
+                '',  // No title needed - will be in tab
                 'Users who viewed both of these creators were significantly more likely to copy',
                 topCombinations,
                 (combo) => {
@@ -785,8 +826,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     const total = views1 + views2;
                     return total > 0 ? total.toLocaleString() : 'N/A';
                 }
-            ),
-            '</div>'
+            )
         ];
 
         return parts.join('');
@@ -954,25 +994,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>High-Impact Portfolio Combinations</strong>
-                Identifies 2-portfolio pairs that drive copies:
-                <ul>
-                    <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 portfolios analyzed</li>
-                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
-                    <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
-                </ul>
-                Shows top 10 combinations sorted by Expected Value. Users must view BOTH portfolios to be counted as "exposed."
-            </span>
-        </span>`;
-
         const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
             this.generateCombinationsTableHTML(
-                `High-Impact Portfolio Combinations${tooltipHTML}`,
+                '',  // No title needed - will be in tab
                 'Users who viewed both of these portfolios were significantly more likely to copy',
                 topCombinations,
                 (combo) => `${combo.value_1}, ${combo.value_2}`,
@@ -985,8 +1009,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     const total = views1 + views2;
                     return total > 0 ? total.toLocaleString() : 'N/A';
                 }
-            ),
-            '</div>'
+            )
         ];
 
         return parts.join('');

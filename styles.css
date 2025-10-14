@@ -346,6 +346,54 @@ body {
     display: block;
 }
 
+/* Combinations Tabs (Nested tabs for High-Impact Combinations) */
+.combinations-tabs-container {
+    margin-top: 1rem;
+}
+
+.combinations-tab-navigation {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 1.5rem;
+}
+
+.combinations-tab-btn {
+    background: white;
+    color: #6c757d;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    outline: none;
+}
+
+.combinations-tab-btn:hover {
+    color: #17a2b8;
+    background: #f8f9fa;
+}
+
+.combinations-tab-btn.active {
+    color: #17a2b8;
+    border-bottom-color: #17a2b8;
+    background: white;
+}
+
+.combinations-tab-content {
+    width: 100%;
+}
+
+.combinations-tab-pane {
+    display: none;
+}
+
+.combinations-tab-pane.active {
+    display: block;
+}
+
 .tab-results-container {
     width: 100%;
     margin: 40px 0 0 0;
