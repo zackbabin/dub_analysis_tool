@@ -1126,7 +1126,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         const parts = [
             '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Conversion Path Analysis: ${outcomeType}${tooltipHTML}</h2>`,
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <img src="https://rnpfeblxapdafrbmomix.supabase.co/storage/v1/object/public/Images/Claude_AI_symbol.svg.png"
+                     alt="Claude AI"
+                     style="width: 24px; height: 24px; vertical-align: middle;" />
+                Conversion Path Analysis: ${outcomeType}${tooltipHTML}
+            </h2>`,
             `<div style="
                 background: #f8f9fa;
                 border-radius: 8px;
