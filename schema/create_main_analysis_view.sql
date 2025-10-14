@@ -14,7 +14,8 @@ WITH copy_engagement AS (
     COUNT(DISTINCT portfolio_ticker) as unique_portfolios_viewed,
     SUM(CASE WHEN did_copy THEN 1 ELSE 0 END) as total_copies_calc,
     MAX(CASE WHEN did_copy THEN 1 ELSE 0 END) as did_copy
-  FROM user_portfolio_creator_copies
+  FROM user_portfolio_creator_engagement
+  WHERE did_copy = true
   GROUP BY distinct_id
 ),
 subscription_engagement AS (
@@ -22,7 +23,8 @@ subscription_engagement AS (
     distinct_id,
     SUM(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as total_subscriptions_calc,
     MAX(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as did_subscribe
-  FROM user_portfolio_creator_views
+  FROM user_portfolio_creator_engagement
+  WHERE did_subscribe = true
   GROUP BY distinct_id
 ),
 time_metrics AS (

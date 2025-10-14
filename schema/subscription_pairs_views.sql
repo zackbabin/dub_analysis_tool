@@ -21,7 +21,7 @@ FROM (
     COUNT(DISTINCT creator_id) as unique_creators,
     COUNT(DISTINCT portfolio_ticker) as unique_portfolios,
     SUM(profile_view_count) as profile_views
-  FROM user_portfolio_creator_views
+  FROM user_portfolio_creator_engagement
   GROUP BY distinct_id, did_subscribe
 ) user_engagement
 GROUP BY did_subscribe;

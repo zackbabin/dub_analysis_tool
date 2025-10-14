@@ -19,7 +19,7 @@ SELECT
     (SUM(CASE WHEN did_copy THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(DISTINCT distinct_id), 0)) * 100,
     2
   ) as conversion_rate_pct
-FROM user_portfolio_creator_copies
+FROM user_portfolio_creator_engagement
 GROUP BY portfolio_ticker, creator_id, creator_username;
 
 -- Recreate creator_profile_view_metrics
@@ -27,7 +27,7 @@ CREATE OR REPLACE VIEW creator_profile_view_metrics AS
 SELECT
   creator_id,
   COUNT(DISTINCT distinct_id) as total_profile_views
-FROM user_portfolio_creator_copies
+FROM user_portfolio_creator_engagement
 GROUP BY creator_id;
 
 -- Recreate hidden_gems_portfolios
