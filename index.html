@@ -323,8 +323,8 @@
                 // On Creator tab: show creator-specific component, hide unified
                 unifiedDataSource.style.display = 'none';
                 creatorDataSource.style.display = 'block';
-                // Re-initialize creator upload button listener
-                initializeCreatorUploadButton(creatorTool);
+                // Re-initialize creator data source buttons
+                initializeCreatorDataSourceButtons(creatorTool);
             } else if (tabName === 'business-model') {
                 // On Business Model tab: hide both
                 unifiedDataSource.style.display = 'none';
