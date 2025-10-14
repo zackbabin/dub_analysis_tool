@@ -179,23 +179,22 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Functions (four-part process)
+     * Trigger Mixpanel sync via Supabase Edge Functions (three-part process)
      * Part 1: sync-mixpanel-users (subscribers data - large dataset)
-     * Part 2: sync-mixpanel-funnels (time funnels only)
+     * Part 2: sync-mixpanel-funnels (time funnels only) - CURRENTLY DISABLED
      * Part 3: sync-mixpanel-engagement (views, subscriptions, copies + trigger analyses)
-     * Part 4: sync-mixpanel-portfolio-events (raw portfolio view events - high volume)
      * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel sync (4-part process)...');
+        console.log('🔄 Starting Mixpanel sync (3-part process)...');
 
         try {
             // Part 1: Sync users/subscribers data (with retry for cold starts)
-            console.log('📊 Step 1/4: Syncing user/subscriber data...');
+            console.log('📊 Step 1/3: Syncing user/subscriber data...');
             const usersData = await this.invokeFunctionWithRetry('sync-mixpanel-users', {}, 'Users sync');
 
-            console.log('✅ Step 1/4 complete: User data synced successfully');
+            console.log('✅ Step 1/3 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
 
             // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
@@ -223,23 +222,15 @@ class SupabaseIntegration {
 
             // Part 3: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
-            console.log('📊 Step 3/4: Syncing engagement...');
+            console.log('📊 Step 3/3: Syncing engagement...');
             const engagementData = await this.invokeFunctionWithRetry('sync-mixpanel-engagement', {}, 'Engagement sync');
 
-            console.log('✅ Step 3/4 complete: Engagement data synced successfully');
+            console.log('✅ Step 3/3 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementData.stats);
 
-            // Part 4: Portfolio events (with retry for cold starts, non-blocking)
-            console.log('📊 Step 4/4: Syncing portfolio events...');
-            let portfolioData;
-            try {
-                portfolioData = await this.invokeFunctionWithRetry('sync-mixpanel-portfolio-events', {}, 'Portfolio events sync');
-                console.log('✅ Step 4/4 complete: Portfolio events synced successfully');
-                console.log('   Stats:', portfolioData.stats);
-            } catch (portfolioError) {
-                console.warn('⚠️ Portfolio events sync error (continuing with existing data):', portfolioError);
-                portfolioData = { stats: { skipped: true, reason: portfolioError.message || 'Unknown error' } };
-            }
+            // REMOVED: Portfolio events sync (Step 4) - portfolio_view_events table was never read from
+            // This step wrote to an unused table and made additional Mixpanel API calls
+            // Removed as part of performance optimization to save 30-60s per sync
 
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
 
@@ -254,8 +245,7 @@ class SupabaseIntegration {
                 message: 'Full Mixpanel sync completed successfully',
                 users: usersData.stats,
                 funnels: funnelsData.stats,
-                engagement: engagementData.stats,
-                portfolioEvents: portfolioData.stats || { skipped: true }
+                engagement: engagementData.stats
             };
         } catch (error) {
             console.error('❌ Error during Mixpanel sync:', error);
@@ -716,34 +706,9 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Trigger event sequence enrichment via Supabase Edge Function
-     * Enriches raw event sequences with portfolio/creator context
-     */
-    async triggerEventSequenceEnrichment() {
-        console.log('Triggering event sequence enrichment...');
-
-        try {
-            const { data, error } = await this.supabase.functions.invoke('enrich-event-sequences', {
-                body: {}
-            });
-
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Event sequence enrichment failed: ${error.message}`);
-            }
-
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during event sequence enrichment');
-            }
-
-            console.log('✅ Event sequence enrichment completed:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling event sequence enrichment Edge Function:', error);
-            throw error;
-        }
-    }
+    // REMOVED: triggerEventSequenceEnrichment() - enrichment step removed from workflow
+    // The enrich-event-sequences edge function is no longer called
+    // Removed as part of performance optimization (saves 30-60s + 2 Mixpanel API calls)
 
     /**
      * Trigger event sequence processing via Supabase Edge Function
