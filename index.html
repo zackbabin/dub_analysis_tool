@@ -196,15 +196,19 @@
             return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
-        // Create creator-specific data source component (only upload button, narrower width)
+        // Create creator-specific data source component (upload and sync buttons)
         function createCreatorDataSource(creatorTool) {
             const container = document.getElementById('creatorDataSource');
             container.innerHTML = `
                 <div style="display: flex; justify-content: center;">
-                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 650px; width: 100%;">
-                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Upload Creator Data</h4>
-                        <div class="data-source-buttons" style="display: flex; justify-content: center;">
-                            <div id="creatorManualUploadBtn" style="width: 100%; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 800px; width: 100%;">
+                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
+                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center;">
+                            <div id="creatorSyncBtn" style="flex: 1; padding: 20px; background: white; border: 2px solid #17a2b8; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                                <div style="font-weight: bold; color: #17a2b8; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
+                                <div style="font-size: 12px; color: #6c757d;">Fetch latest data from Mixpanel</div>
+                            </div>
+                            <div id="creatorManualUploadBtn" style="flex: 1; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Upload 3 CSV Files</div>
                                 <div style="font-size: 12px; color: #6c757d;">Upload and merge creator data files</div>
                             </div>
@@ -213,16 +217,30 @@
                 </div>
             `;
 
-            initializeCreatorUploadButton(creatorTool);
+            initializeCreatorDataSourceButtons(creatorTool);
         }
 
-        // Initialize creator upload button event listeners
+        // Initialize creator data source buttons (sync and upload)
         // Can be called multiple times to re-attach listeners after DOM changes
-        function initializeCreatorUploadButton(creatorTool) {
+        function initializeCreatorDataSourceButtons(creatorTool) {
+            const syncBtn = document.getElementById('creatorSyncBtn');
             const uploadBtn = document.getElementById('creatorManualUploadBtn');
-            if (!uploadBtn) return;
 
-            // Hover effects for upload button only
+            if (!syncBtn || !uploadBtn) return;
+
+            // Sync button hover effects
+            syncBtn.onmouseover = () => {
+                syncBtn.style.background = '#17a2b8';
+                syncBtn.querySelector('div:first-child').style.color = 'white';
+                syncBtn.querySelector('div:last-child').style.color = 'white';
+            };
+            syncBtn.onmouseout = () => {
+                syncBtn.style.background = 'white';
+                syncBtn.querySelector('div:first-child').style.color = '#17a2b8';
+                syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+            };
+
+            // Upload button hover effects
             uploadBtn.onmouseover = () => {
                 uploadBtn.style.background = '#28a745';
                 uploadBtn.querySelector('div:first-child').style.color = 'white';
@@ -234,7 +252,13 @@
                 uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
             };
 
-            // Click handler - show upload form
+            // Sync button click handler
+            syncBtn.onclick = () => {
+                console.log('Creator sync button clicked');
+                creatorTool.runSyncWorkflow();
+            };
+
+            // Upload button click handler
             uploadBtn.onclick = () => {
                 console.log('Creator upload button clicked');
                 creatorTool.runWorkflow('upload');
