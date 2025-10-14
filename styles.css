@@ -185,18 +185,16 @@ body {
     min-width: 0; /* Prevent grid blowout */
 }
 
-/* Table wrapper - no scrolling on desktop, tables fit container */
+/* Table wrapper - scrollable when needed */
 .table-wrapper {
     margin: 1rem 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
 }
 
-/* Tables fit container width on desktop */
+/* Tables full width on desktop */
 .qda-result-section table,
 .qda-analysis-results table,
 .table-wrapper table {
-    width: auto;
+    width: 100%;
     max-width: 100%;
 }
 
@@ -628,7 +626,18 @@ body {
         font-size: 12px;
     }
 
-    /* Responsive tables - already have overflow-x in base styles */
+    /* Responsive tables - enable horizontal scrolling on mobile */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Tables auto-width on mobile to match content (not full width) */
+    .qda-result-section table,
+    .qda-analysis-results table,
+    .table-wrapper table {
+        width: auto;
+    }
 
     .table-wrapper::-webkit-scrollbar {
         height: 6px;
