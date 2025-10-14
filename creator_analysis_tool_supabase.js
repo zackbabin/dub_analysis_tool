@@ -438,11 +438,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             await this.runSyncAndAnalyzeWorkflow();
         } catch (error) {
             console.error('Upload workflow error:', error);
-            // Show progress section for error display
-            const progressSection = document.getElementById('creatorProgressSection');
-            if (progressSection) {
-                progressSection.style.display = 'none';
+            // Keep progress bar visible to show error
+            const progressBar = document.getElementById('creatorProgressBar');
+            if (progressBar) {
+                const textDiv = progressBar.querySelector('div');
+                if (textDiv) {
+                    textDiv.textContent = `❌ Error: ${error.message}`;
+                }
+                progressBar.style.background = '#dc3545'; // Red for error
             }
+
+            // Also show error in status section
+            this.addStatusMessage(`❌ Error during upload: ${error.message}`, 'error');
+
             throw error;
         }
     }
@@ -648,6 +656,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }, 2000);
         } catch (error) {
             console.error('Sync and analyze workflow error:', error);
+
+            // Keep progress bar visible to show error
+            const progressBar = document.getElementById('creatorProgressBar');
+            if (progressBar) {
+                const textDiv = progressBar.querySelector('div');
+                if (textDiv) {
+                    textDiv.textContent = `❌ Error: ${error.message}`;
+                }
+                progressBar.style.background = '#dc3545'; // Red for error
+            }
+
             this.addStatusMessage(`❌ Error: ${error.message}`, 'error');
             throw error;
         }
