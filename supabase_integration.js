@@ -1072,7 +1072,9 @@ class SupabaseIntegration {
             try {
                 const { data, error } = await this.supabase
                     .from('hidden_gems_portfolios')
-                    .select('*');
+                    .select('*')
+                    .order('total_pdp_views', { ascending: false })
+                    .limit(10);
 
                 if (error) {
                     console.error('Error loading hidden gems:', error);
