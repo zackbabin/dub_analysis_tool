@@ -235,6 +235,18 @@ function getTopPortfolios(users: UserData[], minUsers = 5): string[] {
 }
 
 /**
+ * Calculate total PDP views per portfolio
+ */
+function calculateTotalViewsByPortfolio(pairs: PortfolioCreatorCopyPair[]): Map<string, number> {
+  const viewsMap = new Map<string, number>()
+  for (const pair of pairs) {
+    const currentViews = viewsMap.get(pair.portfolio_ticker) || 0
+    viewsMap.set(pair.portfolio_ticker, currentViews + pair.pdp_view_count)
+  }
+  return viewsMap
+}
+
+/**
  * Main handler
  */
 serve(async (_req) => {
@@ -291,6 +303,10 @@ serve(async (_req) => {
     }
 
     console.log(`✓ Loaded ${pairRows.length} portfolio-creator copy pairs from database`)
+
+    // Calculate total PDP views per portfolio
+    const portfolioViewsMap = calculateTotalViewsByPortfolio(pairRows)
+    console.log(`✓ Calculated total views for ${portfolioViewsMap.size} portfolios`)
 
     // Refresh materialized views
     try {
@@ -379,6 +395,9 @@ serve(async (_req) => {
       value_1: result.combination[0],
       value_2: result.combination[1],
       value_3: null, // No longer using 3-way combinations
+      total_views_1: portfolioViewsMap.get(result.combination[0]) || 0,
+      total_views_2: portfolioViewsMap.get(result.combination[1]) || 0,
+      total_views_3: null,
       log_likelihood: result.log_likelihood,
       aic: result.aic,
       odds_ratio: result.odds_ratio,

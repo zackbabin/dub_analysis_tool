@@ -238,6 +238,18 @@ function buildCreatorUsernameMap(pairs: CreatorCopyPair[]): Map<string, string> 
 }
 
 /**
+ * Calculate total profile views per creator
+ */
+function calculateTotalViewsByCreator(pairs: CreatorCopyPair[]): Map<string, number> {
+  const viewsMap = new Map<string, number>()
+  for (const pair of pairs) {
+    const currentViews = viewsMap.get(pair.creator_id) || 0
+    viewsMap.set(pair.creator_id, currentViews + pair.profile_view_count)
+  }
+  return viewsMap
+}
+
+/**
  * Main handler
  */
 serve(async (_req) => {
@@ -298,6 +310,10 @@ serve(async (_req) => {
     // Build creator username mapping
     const creatorUsernameMap = buildCreatorUsernameMap(pairRows)
     console.log(`✓ Built username mapping for ${creatorUsernameMap.size} creators`)
+
+    // Calculate total profile views per creator
+    const creatorViewsMap = calculateTotalViewsByCreator(pairRows)
+    console.log(`✓ Calculated total views for ${creatorViewsMap.size} creators`)
 
     // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
@@ -377,6 +393,9 @@ serve(async (_req) => {
       username_1: creatorUsernameMap.get(result.combination[0]) || null,
       username_2: creatorUsernameMap.get(result.combination[1]) || null,
       username_3: null,
+      total_views_1: creatorViewsMap.get(result.combination[0]) || 0,
+      total_views_2: creatorViewsMap.get(result.combination[1]) || 0,
+      total_views_3: null,
       log_likelihood: result.log_likelihood,
       aic: result.aic,
       odds_ratio: result.odds_ratio,
