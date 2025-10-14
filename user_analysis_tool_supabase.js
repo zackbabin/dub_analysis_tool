@@ -1336,6 +1336,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </span>
         </span>`;
 
+        const totalCopiesTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                The total portfolio copies by users who viewed all portfolios/creators
+            </span>
+        </span>`;
+
         const parts = [
             '<div style="margin-top: 3rem;">',
             `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
@@ -1346,7 +1353,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<th>Rank</th>',
             `<th>${columnLabel}</th>`,
             `<th style="text-align: right;">Impact${impactTooltipHTML}</th>`,
-            '<th style="text-align: right;">Users</th>'
+            '<th style="text-align: right;">Unique Views</th>'
         ];
 
         // Add extra column header if provided
@@ -1355,7 +1362,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         parts.push(
-            `<th style="text-align: right;">${conversionLabel}</th>`,
+            `<th style="text-align: right;">${conversionLabel}${totalCopiesTooltipHTML}</th>`,
             '<th style="text-align: right;">Conv Rate</th>',
             '</tr></thead>',
             '<tbody>'
