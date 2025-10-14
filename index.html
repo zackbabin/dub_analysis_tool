@@ -213,7 +213,14 @@
                 </div>
             `;
 
+            initializeCreatorUploadButton(creatorTool);
+        }
+
+        // Initialize creator upload button event listeners
+        // Can be called multiple times to re-attach listeners after DOM changes
+        function initializeCreatorUploadButton(creatorTool) {
             const uploadBtn = document.getElementById('creatorManualUploadBtn');
+            if (!uploadBtn) return;
 
             // Hover effects for upload button only
             uploadBtn.onmouseover = () => {
@@ -228,7 +235,10 @@
             };
 
             // Click handler - show upload form
-            uploadBtn.onclick = () => creatorTool.runWorkflow('upload');
+            uploadBtn.onclick = () => {
+                console.log('Creator upload button clicked');
+                creatorTool.runWorkflow('upload');
+            };
         }
 
         // Update button states for unified component (only used on first 3 tabs)
@@ -289,6 +299,8 @@
                 // On Creator tab: show creator-specific component, hide unified
                 unifiedDataSource.style.display = 'none';
                 creatorDataSource.style.display = 'block';
+                // Re-initialize creator upload button listener
+                initializeCreatorUploadButton(creatorTool);
             } else if (tabName === 'business-model') {
                 // On Business Model tab: hide both
                 unifiedDataSource.style.display = 'none';
