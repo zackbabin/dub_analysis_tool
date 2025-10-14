@@ -505,27 +505,45 @@ class SupabaseIntegration {
      * Fetches creator insights, portfolio copies, and profile subscriptions
      */
     async triggerCreatorSync() {
-        console.log('Triggering Creator sync via Supabase Edge Function...');
+        console.log('Triggering Creator sync via Supabase Edge Functions...');
 
         try {
-            // Call the Edge Function (no credentials needed - they're in Supabase secrets)
-            const { data, error } = await this.supabase.functions.invoke('sync-creator-data', {
-                body: {}
-            });
+            // Call both sync functions in parallel
+            console.log('Syncing creator data and user-creator copies...');
+            const [creatorDataResult, userCreatorCopiesResult] = await Promise.all([
+                this.supabase.functions.invoke('sync-creator-data', { body: {} }),
+                this.supabase.functions.invoke('sync-user-creator-copies', { body: {} })
+            ]);
 
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Creator sync failed: ${error.message}`);
+            // Check creator data sync
+            if (creatorDataResult.error) {
+                console.error('Creator data sync error:', creatorDataResult.error);
+                throw new Error(`Creator sync failed: ${creatorDataResult.error.message}`);
             }
 
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during creator sync');
+            if (!creatorDataResult.data.success) {
+                throw new Error(creatorDataResult.data.error || 'Unknown error during creator sync');
             }
 
-            console.log('✅ Creator sync completed successfully:', data.stats);
-            return data;
+            // Check user-creator copies sync
+            if (userCreatorCopiesResult.error) {
+                console.error('User-creator copies sync error:', userCreatorCopiesResult.error);
+                throw new Error(`User-creator copies sync failed: ${userCreatorCopiesResult.error.message}`);
+            }
+
+            if (!userCreatorCopiesResult.data.success) {
+                throw new Error(userCreatorCopiesResult.data.error || 'Unknown error during user-creator copies sync');
+            }
+
+            console.log('✅ Creator data sync completed:', creatorDataResult.data.stats);
+            console.log('✅ User-creator copies sync completed:', userCreatorCopiesResult.data.stats);
+
+            return {
+                creatorData: creatorDataResult.data,
+                userCreatorCopies: userCreatorCopiesResult.data
+            };
         } catch (error) {
-            console.error('Error calling Creator sync Edge Function:', error);
+            console.error('Error calling Creator sync Edge Functions:', error);
             throw error;
         }
     }
@@ -1246,6 +1264,34 @@ class SupabaseIntegration {
             console.error('Error calling upload-and-merge Edge Function:', error);
             throw error;
         }
+    }
+
+    /**
+     * Load premium creator copy affinity data
+     * Returns which creators are most frequently copied by users who copied each Premium creator
+     */
+    async loadPremiumCreatorCopyAffinity() {
+        return this.cachedQuery('premium_creator_copy_affinity_pivoted', async () => {
+            console.log('Loading premium creator copy affinity...');
+
+            try {
+                const { data, error } = await this.supabase
+                    .from('premium_creator_copy_affinity_pivoted')
+                    .select('*')
+                    .order('premium_creator', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading premium creator copy affinity:', error);
+                    throw error;
+                }
+
+                console.log(`✅ Loaded ${data.length} premium creator affinity records`);
+                return data;
+            } catch (error) {
+                console.error('Error loading premium creator copy affinity:', error);
+                throw error;
+            }
+        });
     }
 
     /**
