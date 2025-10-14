@@ -636,6 +636,13 @@ body {
     .qda-analysis-results table,
     .table-wrapper table {
         width: auto;
+        display: table;
+    }
+
+    /* Table wrapper should fit content width on mobile */
+    .table-wrapper {
+        width: fit-content;
+        max-width: 100%;
     }
 
     .table-wrapper::-webkit-scrollbar {
