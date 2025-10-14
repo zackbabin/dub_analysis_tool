@@ -126,9 +126,9 @@ serve(async (req) => {
 
       const batchSize = 500
 
-      // Process and store portfolio-creator engagement pairs
+      // Process and store portfolio-creator engagement pairs (consolidated table)
       console.log('Processing portfolio-creator engagement pairs...')
-      const [subscriptionPairs, copyPairs] = processPortfolioCreatorPairs(
+      const engagementPairs = processPortfolioCreatorPairs(
         profileViewsData,
         pdpViewsData,
         subscriptionsData,
@@ -136,51 +136,28 @@ serve(async (req) => {
         syncStartTime.toISOString()
       )
 
-      // Upsert subscription pairs in batches
-      if (subscriptionPairs.length > 0) {
-        console.log(`Upserting ${subscriptionPairs.length} subscription pairs...`)
-        for (let i = 0; i < subscriptionPairs.length; i += batchSize) {
-          const batch = subscriptionPairs.slice(i, i + batchSize)
+      // Upsert engagement pairs to consolidated table in batches
+      if (engagementPairs.length > 0) {
+        console.log(`Upserting ${engagementPairs.length} engagement pairs to consolidated table...`)
+        for (let i = 0; i < engagementPairs.length; i += batchSize) {
+          const batch = engagementPairs.slice(i, i + batchSize)
           const { error: insertError } = await supabase
-            .from('user_portfolio_creator_views')
+            .from('user_portfolio_creator_engagement')
             .upsert(batch, {
               onConflict: 'distinct_id,portfolio_ticker,creator_id',
               ignoreDuplicates: false
             })
 
           if (insertError) {
-            console.error('Error upserting subscription pairs batch:', insertError)
+            console.error('Error upserting engagement pairs batch:', insertError)
             throw insertError
           }
-          console.log(`Upserted batch: ${i + batch.length}/${subscriptionPairs.length} subscription pairs`)
+          console.log(`Upserted batch: ${i + batch.length}/${engagementPairs.length} engagement pairs`)
         }
-        console.log('✓ Subscription pairs upserted successfully')
-        stats.engagementRecordsFetched += subscriptionPairs.length
-        stats.totalRecordsInserted += subscriptionPairs.length
+        console.log('✓ Engagement pairs upserted successfully to consolidated table')
+        stats.engagementRecordsFetched += engagementPairs.length
+        stats.totalRecordsInserted += engagementPairs.length
       }
-
-      // Upsert copy pairs in batches
-      if (copyPairs.length > 0) {
-        console.log(`Upserting ${copyPairs.length} copy pairs...`)
-        for (let i = 0; i < copyPairs.length; i += batchSize) {
-          const batch = copyPairs.slice(i, i + batchSize)
-          const { error: insertError } = await supabase
-            .from('user_portfolio_creator_copies')
-            .upsert(batch, {
-              onConflict: 'distinct_id,portfolio_ticker,creator_id',
-              ignoreDuplicates: false
-            })
-
-          if (insertError) {
-            console.error('Error upserting copy pairs batch:', insertError)
-            throw insertError
-          }
-          console.log(`Upserted batch: ${i + batch.length}/${copyPairs.length} copy pairs`)
-        }
-        console.log('✓ Copy pairs upserted successfully')
-      }
-
-      // Portfolio events are now handled by separate sync-mixpanel-portfolio-events function
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
       // Fire and forget - don't wait for completion to avoid timeout

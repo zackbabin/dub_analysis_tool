@@ -80,7 +80,7 @@ export function processFunnelData(data: any, funnelType: string): any[] {
  * @param subscriptionsData - Subscription events by user
  * @param copiesData - Copy events by user
  * @param syncedAt - Timestamp for sync tracking
- * @returns Tuple of [subscriptionPairs, copyPairs]
+ * @returns Array of consolidated engagement pairs
  */
 export function processPortfolioCreatorPairs(
   profileViewsData: any,
@@ -88,9 +88,8 @@ export function processPortfolioCreatorPairs(
   subscriptionsData: any,
   copiesData: any,
   syncedAt: string
-): [any[], any[]] {
-  const subscriptionPairs: any[] = []
-  const copyPairs: any[] = []
+): any[] {
+  const engagementPairs: any[] = []
 
   // Build creator username map
   const creatorIdToUsername = new Map<string, string>()
@@ -197,8 +196,8 @@ export function processPortfolioCreatorPairs(
           const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
 
           if (pdpCount > 0) {
-            // Add to subscription pairs
-            subscriptionPairs.push({
+            // Add consolidated engagement pair with both subscription and copy data
+            engagementPairs.push({
               distinct_id: distinctId,
               portfolio_ticker: portfolioTicker,
               creator_id: creatorId,
@@ -207,17 +206,6 @@ export function processPortfolioCreatorPairs(
               profile_view_count: profileViewCount,
               did_subscribe: didSubscribe,
               subscription_count: subCount,
-              synced_at: syncedAt,
-            })
-
-            // Add to copy pairs
-            copyPairs.push({
-              distinct_id: distinctId,
-              portfolio_ticker: portfolioTicker,
-              creator_id: creatorId,
-              creator_username: creatorUsername,
-              pdp_view_count: pdpCount,
-              profile_view_count: profileViewCount,
               did_copy: didCopy,
               copy_count: copyCount,
               synced_at: syncedAt,
@@ -228,6 +216,6 @@ export function processPortfolioCreatorPairs(
     })
   }
 
-  console.log(`Processed ${subscriptionPairs.length} subscription pairs and ${copyPairs.length} copy pairs`)
-  return [subscriptionPairs, copyPairs]
+  console.log(`Processed ${engagementPairs.length} consolidated engagement pairs`)
+  return engagementPairs
 }
