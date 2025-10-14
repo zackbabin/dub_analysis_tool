@@ -459,6 +459,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </div>
             `;
 
+            // Add High-Impact Combinations Section structure to portfolioHTML
+            portfolioHTML += `
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
+                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
+
+                    <div class="combinations-tabs-container">
+                        <div class="combinations-tab-navigation">
+                            <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
+                            <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
+                        </div>
+
+                        <div class="combinations-tab-content">
+                            <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
+                                <!-- Portfolio combinations content will be inserted here -->
+                            </div>
+                            <div id="creators-combinations-tab" class="combinations-tab-pane">
+                                <!-- Creator combinations content will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
             // Insert complete HTML once
             portfolioContentSection.innerHTML = portfolioHTML;
 
@@ -525,32 +549,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 });
             });
 
-            // Add High-Impact Combinations Section after behavioral drivers
-            const combinationsSection = `
-                <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
-                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
-
-                    <div class="combinations-tabs-container">
-                        <div class="combinations-tab-navigation">
-                            <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
-                            <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
-                        </div>
-
-                        <div class="combinations-tab-content">
-                            <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
-                                <!-- Portfolio combinations content will be inserted here -->
-                            </div>
-                            <div id="creators-combinations-tab" class="combinations-tab-pane">
-                                <!-- Creator combinations content will be inserted here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            portfolioContentSection.insertAdjacentHTML('beforeend', combinationsSection);
-
-            // Populate the combinations tabs
+            // Populate the combinations tabs (already in HTML)
             const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
             const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
 
