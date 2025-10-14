@@ -645,6 +645,11 @@ body {
         max-width: 100%;
     }
 
+    /* Table should size to content on mobile, not fill container */
+    .table-wrapper table {
+        width: auto;
+    }
+
     .table-wrapper::-webkit-scrollbar {
         height: 6px;
     }
