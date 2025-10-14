@@ -839,7 +839,13 @@ class UserAnalysisTool {
         const progressBar = document.getElementById('unifiedProgressBar');
         if (progressBar) {
             progressBar.style.width = `${percent}%`;
-            progressBar.textContent = label || `${Math.round(percent)}%`;
+            // Update text in the inner div (first child)
+            const textDiv = progressBar.querySelector('div');
+            if (textDiv) {
+                textDiv.textContent = label || `${Math.round(percent)}%`;
+            } else {
+                progressBar.textContent = label || `${Math.round(percent)}%`;
+            }
         }
     }
 }
