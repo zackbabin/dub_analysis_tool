@@ -244,6 +244,10 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
         investing_experience_years: attributes.investingExperienceYears,
         investing_objective: attributes.investingObjective,
         investment_type: attributes.investmentType,
+        // New behavioral metrics
+        total_rebalances: attributes.totalRebalances,
+        total_sessions: attributes.totalSessions,
+        total_leaderboard_views: attributes.totalLeaderboardViews,
         synced_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -307,6 +311,25 @@ function extractUserAttributes(data: any): any {
     const investmentTypeKeys = Object.keys(current).filter(k => k !== '$overall')
     if (investmentTypeKeys.length === 0) return null
     const investmentType = investmentTypeKeys[0] === 'undefined' ? null : investmentTypeKeys[0]
+    current = current[investmentTypeKeys[0]]
+
+    // Extract totalRebalances (key at level 9)
+    const totalRebalancesKeys = Object.keys(current).filter(k => k !== '$overall')
+    const totalRebalances = totalRebalancesKeys.length > 0 ? parseValue(totalRebalancesKeys[0]) : null
+    if (totalRebalancesKeys.length > 0) {
+      current = current[totalRebalancesKeys[0]]
+    }
+
+    // Extract totalSessions (key at level 10)
+    const totalSessionsKeys = Object.keys(current).filter(k => k !== '$overall')
+    const totalSessions = totalSessionsKeys.length > 0 ? parseValue(totalSessionsKeys[0]) : null
+    if (totalSessionsKeys.length > 0) {
+      current = current[totalSessionsKeys[0]]
+    }
+
+    // Extract totalLeaderboardViews (key at level 11)
+    const totalLeaderboardViewsKeys = Object.keys(current).filter(k => k !== '$overall')
+    const totalLeaderboardViews = totalLeaderboardViewsKeys.length > 0 ? parseValue(totalLeaderboardViewsKeys[0]) : null
 
     return {
       totalDeposits,
@@ -317,6 +340,9 @@ function extractUserAttributes(data: any): any {
       investingExperienceYears,
       investingObjective,
       investmentType,
+      totalRebalances,
+      totalSessions,
+      totalLeaderboardViews,
     }
   } catch (error) {
     console.error('Error extracting user attributes:', error)
