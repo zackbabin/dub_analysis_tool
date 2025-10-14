@@ -182,39 +182,29 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
   const rows: any[] = []
 
-  // Expected structure from sample:
-  // series: {
-  //   "Total of User Profiles": {
-  //     "$overall": { "all": 233 },
-  //     "email@example.com": {
-  //       "totalDeposits": {
-  //         "activeCreatedPortfolios": {
-  //           "lifetimeCreatedPortfolios": {
-  //             "totalTrades": {
-  //               "$overall": { "all": 1 },
-  //               "investingActivity": {
-  //                 "$overall": { "all": 1 },
-  //                 "investingExperienceYears": {
-  //                   "$overall": { "all": 1 },
-  //                   "investingObjective": {
-  //                     "$overall": { "all": 1 },
-  //                     "investmentType": { "all": 1 }
-  //                   }
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
+  // Structure:
+  // series has multiple metrics:
+  // - "A. Total of User Profiles" (or "Total of User Profiles") - contains user attributes
+  // - "B. Total Rebalances" - separate series with email->value structure
+  // - "C. Total Sessions" - separate series with email->value structure
+  // - "D. Total Leaderboard Views" - separate series with email->value structure
 
-  const metricData = data.series['Total of User Profiles']
-  if (!metricData) {
-    console.log('No "Total of User Profiles" metric found')
+  // Find the user profiles metric (could be "Total of User Profiles" or "A. Total of User Profiles")
+  const profileMetricKey = Object.keys(data.series).find(k =>
+    k.includes('Total of User Profiles') || k.includes('User Profiles')
+  )
+
+  if (!profileMetricKey) {
+    console.log('No User Profiles metric found')
     return []
   }
+
+  const metricData = data.series[profileMetricKey]
+
+  // Extract behavioral metrics (separate series)
+  const rebalancesData = data.series['B. Total Rebalances'] || {}
+  const sessionsData = data.series['C. Total Sessions'] || {}
+  const leaderboardViewsData = data.series['D. Total Leaderboard Views'] || {}
 
   // Iterate through each email
   for (const [email, emailData] of Object.entries(metricData)) {
@@ -234,6 +224,11 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
     const attributes = extractUserAttributes(emailData as any)
 
     if (attributes) {
+      // Extract behavioral metrics from separate series
+      const totalRebalances = extractBehavioralMetric(rebalancesData[email])
+      const totalSessions = extractBehavioralMetric(sessionsData[email])
+      const totalLeaderboardViews = extractBehavioralMetric(leaderboardViewsData[email])
+
       rows.push({
         email: normalizedEmail,
         total_deposits: attributes.totalDeposits,
@@ -244,10 +239,10 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
         investing_experience_years: attributes.investingExperienceYears,
         investing_objective: attributes.investingObjective,
         investment_type: attributes.investmentType,
-        // New behavioral metrics
-        total_rebalances: attributes.totalRebalances,
-        total_sessions: attributes.totalSessions,
-        total_leaderboard_views: attributes.totalLeaderboardViews,
+        // New behavioral metrics from separate series
+        total_rebalances: totalRebalances,
+        total_sessions: totalSessions,
+        total_leaderboard_views: totalLeaderboardViews,
         synced_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -256,6 +251,29 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
   console.log(`Processed ${rows.length} user profile rows`)
   return rows
+}
+
+function extractBehavioralMetric(emailData: any): number | null {
+  // Extract numeric value from nested behavioral metric structure
+  // Example structure: { "1700": { "1": { "$overall": { "all": 42 }, ... } } }
+  // We need to extract "1700" which is the numeric value at the top level
+
+  if (!emailData || typeof emailData !== 'object') {
+    return null
+  }
+
+  try {
+    // Get first key (skip $overall)
+    const keys = Object.keys(emailData).filter(k => k !== '$overall')
+    if (keys.length === 0) return null
+
+    // The first key is the metric value
+    const value = parseValue(keys[0])
+    return value
+  } catch (error) {
+    console.error('Error extracting behavioral metric:', error)
+    return null
+  }
 }
 
 function extractUserAttributes(data: any): any {
@@ -311,25 +329,6 @@ function extractUserAttributes(data: any): any {
     const investmentTypeKeys = Object.keys(current).filter(k => k !== '$overall')
     if (investmentTypeKeys.length === 0) return null
     const investmentType = investmentTypeKeys[0] === 'undefined' ? null : investmentTypeKeys[0]
-    current = current[investmentTypeKeys[0]]
-
-    // Extract totalRebalances (key at level 9)
-    const totalRebalancesKeys = Object.keys(current).filter(k => k !== '$overall')
-    const totalRebalances = totalRebalancesKeys.length > 0 ? parseValue(totalRebalancesKeys[0]) : null
-    if (totalRebalancesKeys.length > 0) {
-      current = current[totalRebalancesKeys[0]]
-    }
-
-    // Extract totalSessions (key at level 10)
-    const totalSessionsKeys = Object.keys(current).filter(k => k !== '$overall')
-    const totalSessions = totalSessionsKeys.length > 0 ? parseValue(totalSessionsKeys[0]) : null
-    if (totalSessionsKeys.length > 0) {
-      current = current[totalSessionsKeys[0]]
-    }
-
-    // Extract totalLeaderboardViews (key at level 11)
-    const totalLeaderboardViewsKeys = Object.keys(current).filter(k => k !== '$overall')
-    const totalLeaderboardViews = totalLeaderboardViewsKeys.length > 0 ? parseValue(totalLeaderboardViewsKeys[0]) : null
 
     return {
       totalDeposits,
@@ -340,9 +339,6 @@ function extractUserAttributes(data: any): any {
       investingExperienceYears,
       investingObjective,
       investmentType,
-      totalRebalances,
-      totalSessions,
-      totalLeaderboardViews,
     }
   } catch (error) {
     console.error('Error extracting user attributes:', error)
