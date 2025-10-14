@@ -488,63 +488,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
                 copiesTabPane.appendChild(copiesTable);
                 copiesTabPane.insertAdjacentHTML('beforeend', copySequenceHTML);
-
-                // Add High-Impact Combinations Section with nested tabs
-                const combinationsSection = `
-                    <div class="qda-result-section" style="margin-top: 2rem;">
-                        <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
-                        <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
-
-                        <div class="combinations-tabs-container">
-                            <div class="combinations-tab-navigation">
-                                <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
-                                <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
-                            </div>
-
-                            <div class="combinations-tab-content">
-                                <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
-                                    <!-- Portfolio combinations content will be inserted here -->
-                                </div>
-                                <div id="creators-combinations-tab" class="combinations-tab-pane">
-                                    <!-- Creator combinations content will be inserted here -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                copiesTabPane.insertAdjacentHTML('beforeend', combinationsSection);
-
-                // Populate the combinations tabs
-                const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
-                const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
-
-                if (portfoliosCombinationsTabPane && combinationsHTML) {
-                    portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
-                }
-                if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
-                    creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
-                }
-
-                // Initialize combinations tab switching
-                const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
-                const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
-
-                combinationsTabButtons.forEach(button => {
-                    button.addEventListener('click', () => {
-                        const targetTab = button.getAttribute('data-combinations-tab');
-
-                        // Remove active class from all buttons and panes
-                        combinationsTabButtons.forEach(btn => btn.classList.remove('active'));
-                        combinationsTabPanes.forEach(pane => pane.classList.remove('active'));
-
-                        // Add active class to clicked button and corresponding pane
-                        button.classList.add('active');
-                        const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
-                        if (targetPane) {
-                            targetPane.classList.add('active');
-                        }
-                    });
-                });
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 copiesTabPane.innerHTML = `
@@ -567,6 +510,63 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Add active class to clicked button and corresponding pane
                     button.classList.add('active');
                     const targetPane = portfolioContentSection.querySelector(`#${targetTab}-behavioral-tab`);
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                    }
+                });
+            });
+
+            // Add High-Impact Combinations Section after behavioral drivers
+            const combinationsSection = `
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
+                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
+
+                    <div class="combinations-tabs-container">
+                        <div class="combinations-tab-navigation">
+                            <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
+                            <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
+                        </div>
+
+                        <div class="combinations-tab-content">
+                            <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
+                                <!-- Portfolio combinations content will be inserted here -->
+                            </div>
+                            <div id="creators-combinations-tab" class="combinations-tab-pane">
+                                <!-- Creator combinations content will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            portfolioContentSection.insertAdjacentHTML('beforeend', combinationsSection);
+
+            // Populate the combinations tabs
+            const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
+            const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
+
+            if (portfoliosCombinationsTabPane && combinationsHTML) {
+                portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
+            }
+            if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
+                creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
+            }
+
+            // Initialize combinations tab switching
+            const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
+            const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
+
+            combinationsTabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-combinations-tab');
+
+                    // Remove active class from all buttons and panes
+                    combinationsTabButtons.forEach(btn => btn.classList.remove('active'));
+                    combinationsTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                    // Add active class to clicked button and corresponding pane
+                    button.classList.add('active');
+                    const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
                     if (targetPane) {
                         targetPane.classList.add('active');
                     }
