@@ -483,6 +483,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </div>
             `;
 
+            // Add Conversion Path Analysis section
+            portfolioHTML += `
+                <div id="conversion-path-section">
+                    ${copySequenceHTML}
+                </div>
+            `;
+
             // Insert complete HTML once
             portfolioContentSection.innerHTML = portfolioHTML;
 
@@ -511,7 +518,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             try {
                 const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
                 copiesTabPane.appendChild(copiesTable);
-                copiesTabPane.insertAdjacentHTML('beforeend', copySequenceHTML);
             } catch (e) {
                 console.error('Error building portfolio copies table:', e);
                 copiesTabPane.innerHTML = `
