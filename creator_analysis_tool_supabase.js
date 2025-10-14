@@ -744,11 +744,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Triggering Supabase creator enrichment sync...');
             const syncResult = await this.supabaseIntegration.triggerCreatorSync();
 
-            if (!syncResult || !syncResult.success) {
+            if (!syncResult || !syncResult.creatorData || !syncResult.creatorData.success) {
                 throw new Error('Failed to sync creator data');
             }
 
-            console.log('✅ Creator enrichment sync completed:', syncResult.stats);
+            console.log('✅ Creator enrichment sync completed:', syncResult.creatorData.stats);
             this.updateProgress(75, 'Loading enriched data...');
 
             // Step 2: Load merged data from creator_analysis view (as objects, not CSV)
@@ -809,11 +809,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Triggering Supabase creator enrichment sync...');
             const result = await this.supabaseIntegration.triggerCreatorSync();
 
-            if (!result || !result.success) {
+            if (!result || !result.creatorData || !result.creatorData.success) {
                 throw new Error('Failed to sync creator data');
             }
 
-            console.log('✅ Creator enrichment sync completed:', result.stats);
+            console.log('✅ Creator enrichment sync completed:', result.creatorData.stats);
             this.updateProgress(60, 'Loading creator data...');
 
             // Load and analyze the creator data from creator_analysis view (as objects, not CSV)
