@@ -499,9 +499,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const behavioralTabButtons = portfolioContentSection.querySelectorAll('.behavioral-tab-btn');
             const behavioralTabPanes = portfolioContentSection.querySelectorAll('.behavioral-tab-pane');
 
-            behavioralTabButtons.forEach(button => {
-                button.addEventListener('click', () => {
+            console.log('Behavioral tab buttons found:', behavioralTabButtons.length);
+            console.log('Behavioral tab panes found:', behavioralTabPanes.length);
+
+            behavioralTabButtons.forEach((button, index) => {
+                console.log(`Setting up listener for behavioral button ${index}:`, button.getAttribute('data-behavioral-tab'));
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
                     const targetTab = button.getAttribute('data-behavioral-tab');
+                    console.log('Behavioral tab clicked:', targetTab);
 
                     // Remove active class from all buttons and panes
                     behavioralTabButtons.forEach(btn => btn.classList.remove('active'));
@@ -512,6 +518,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     const targetPane = portfolioContentSection.querySelector(`#${targetTab}-behavioral-tab`);
                     if (targetPane) {
                         targetPane.classList.add('active');
+                        console.log('Activated pane:', targetTab);
+                    } else {
+                        console.error('Target pane not found:', `#${targetTab}-behavioral-tab`);
                     }
                 });
             });
