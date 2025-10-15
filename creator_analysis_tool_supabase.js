@@ -252,9 +252,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         `;
         table.appendChild(thead);
 
-        // Table body
+        // Table body - sort by Total Copies descending
         const tbody = document.createElement('tbody');
-        affinityData.forEach(row => {
+        const sortedData = [...affinityData].sort((a, b) =>
+            (b.premium_creator_total_copies || 0) - (a.premium_creator_total_copies || 0)
+        );
+
+        sortedData.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>

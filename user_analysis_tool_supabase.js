@@ -45,17 +45,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Restore cached HTML to each tab (if available and container exists)
                     if (data.summary && this.outputContainers.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.summary);
                     }
                     if (data.portfolio && this.outputContainers.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.portfolio);
                         // Re-initialize nested tab event listeners for portfolio
                         this.initializePortfolioNestedTabs();
                     }
                     if (data.subscription && this.outputContainers.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.subscription);
 
                         // Re-render subscription price chart if data is cached
                         if (data.subscriptionDistribution) {
