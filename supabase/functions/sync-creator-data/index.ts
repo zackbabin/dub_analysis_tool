@@ -184,20 +184,8 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
   console.log('Available series keys:', Object.keys(data.series))
 
-  // Find the user profiles metric - this contains the nested attribute structure
-  const profileMetricKey = Object.keys(data.series).find(k =>
-    k.includes('Total of User Profiles') || k.includes('User Profiles')
-  )
-
-  if (!profileMetricKey) {
-    console.log('No User Profiles metric found. Available keys:', Object.keys(data.series))
-    return []
-  }
-
-  console.log(`Found profile metric: ${profileMetricKey}`)
-  const metricData = data.series[profileMetricKey]
-
-  // Extract behavioral metrics (separate series)
+  // Use one of the behavioral metrics to iterate through users and extract attributes from the nested keys
+  // All metrics share the same grouping structure: Email -> totalDeposits -> activeCreatedPortfolios -> ...
   const rebalancesData = data.series['B. Total Rebalances'] || {}
   const sessionsData = data.series['C. Total Sessions'] || {}
   const leaderboardViewsData = data.series['D. Total Leaderboard Views'] || {}
@@ -208,8 +196,8 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
     leaderboardViews: Object.keys(leaderboardViewsData).length - 1
   })
 
-  // Process each email from the profile metric
-  for (const [email, emailData] of Object.entries(metricData)) {
+  // Use rebalances data as the source to iterate through all users
+  for (const [email, emailData] of Object.entries(rebalancesData)) {
     if (email === '$overall') continue
 
     const normalizedEmail = email.toLowerCase().trim()
@@ -222,12 +210,12 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
     stats.matchedCreators++
 
-    // Extract user attributes from nested structure
+    // Extract user attributes from nested grouping keys
     const attributes = extractUserAttributes(emailData as any)
 
     if (attributes) {
-      // Extract behavioral metrics from separate series
-      const totalRebalances = extractBehavioralMetric(rebalancesData[email])
+      // Extract behavioral metrics from $overall.all at email level
+      const totalRebalances = extractBehavioralMetric(emailData)
       const totalSessions = extractBehavioralMetric(sessionsData[email])
       const totalLeaderboardViews = extractBehavioralMetric(leaderboardViewsData[email])
 
@@ -241,7 +229,7 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
         investing_experience_years: attributes.investingExperienceYears,
         investing_objective: attributes.investingObjective,
         investment_type: attributes.investmentType,
-        // Behavioral metrics from separate series
+        // Behavioral metrics from $overall.all
         total_rebalances: totalRebalances,
         total_sessions: totalSessions,
         total_leaderboard_views: totalLeaderboardViews,
