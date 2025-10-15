@@ -102,7 +102,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Display results - Skip breakdown section, only show summary and behavioral analysis
+     * Override: Display results - Only show summary and affinity (hide behavioral analysis)
      */
     displayResults(results) {
         // Clear output container
@@ -124,24 +124,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             resultsDiv.appendChild(timestamp);
         }
 
-        // Create containers - SKIP creatorBreakdownInline
+        // Create containers - SKIP behavioral analysis
         const summaryContainer = document.createElement('div');
         summaryContainer.id = 'creatorSummaryStatsInline';
         resultsDiv.appendChild(summaryContainer);
-
-        const behavioralContainer = document.createElement('div');
-        behavioralContainer.id = 'creatorBehavioralAnalysisInline';
-        resultsDiv.appendChild(behavioralContainer);
 
         const affinityContainer = document.createElement('div');
         affinityContainer.id = 'premiumCreatorAffinityInline';
         resultsDiv.appendChild(affinityContainer);
 
-        // Display results - SKIP displayCreatorBreakdown
+        // Display results - SKIP behavioral analysis
         this.displayCreatorSummaryStats(results.summaryStats);
-
-        const tippingPoints = analysisData.tippingPoints;
-        this.displayCreatorBehavioralAnalysis(results.correlationResults, results.regressionResults, tippingPoints);
 
         // Load and display premium creator copy affinity
         this.loadAndDisplayPremiumCreatorAffinity();
@@ -150,6 +143,28 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Save HTML for restoration
         this.saveAnalysisResults(this.outputContainer.innerHTML);
+    }
+
+    /**
+     * Override: Display creator summary statistics - Only show H1 title, hide metric cards
+     */
+    displayCreatorSummaryStats(stats) {
+        const container = document.getElementById('creatorSummaryStatsInline');
+        if (!container) {
+            console.error('❌ Container creatorSummaryStatsInline not found!');
+            return;
+        }
+        container.innerHTML = '';
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+
+        // Add H1 title only
+        const title = document.createElement('h1');
+        title.textContent = 'Creator Analysis';
+        section.appendChild(title);
+
+        container.appendChild(section);
     }
 
     /**

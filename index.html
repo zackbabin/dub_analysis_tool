@@ -263,10 +263,21 @@
                 }
             };
 
-            // Upload button click handler
-            uploadBtn.onclick = () => {
-                console.log('🔵 Creator upload button clicked');
-                creatorTool.runWorkflow('upload');
+            // Upload button is DISABLED for Creator Analysis
+            uploadBtn.style.opacity = '0.5';
+            uploadBtn.style.cursor = 'not-allowed';
+            uploadBtn.style.background = '#e9ecef';
+            uploadBtn.style.borderColor = '#dee2e6';
+
+            // Disable text colors
+            const uploadBtnTitle = uploadBtn.querySelector('div:first-child');
+            const uploadBtnDesc = uploadBtn.querySelector('div:last-child');
+            if (uploadBtnTitle) uploadBtnTitle.style.color = '#6c757d';
+            if (uploadBtnDesc) uploadBtnDesc.style.color = '#adb5bd';
+
+            uploadBtn.onclick = (e) => {
+                e.preventDefault();
+                console.log('⚠️ Manual upload is disabled for Creator Analysis');
             };
 
             // Initialize Process Files button handler (if button exists)
