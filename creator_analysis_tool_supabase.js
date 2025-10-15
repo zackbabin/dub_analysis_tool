@@ -340,18 +340,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 // Type from top-level column in view
                 type: row.type || 'Regular',
 
-                // Target variables from top-level columns
+                // Dependent variable: total_copies from top-level column
                 totalCopies: this.cleanNumeric(row.total_copies),
-                totalSubscriptions: this.cleanNumeric(row.total_subscriptions),
 
-                // Creator insights metrics from top-level columns
-                totalDeposits: this.cleanNumeric(row.total_deposits),
-                activeCreatedPortfolios: this.cleanNumeric(row.active_created_portfolios),
-                lifetimeCreatedPortfolios: this.cleanNumeric(row.lifetime_created_portfolios),
-                totalTrades: this.cleanNumeric(row.total_trades)
+                // Additional outcome variable
+                totalSubscriptions: this.cleanNumeric(row.total_subscriptions)
             };
 
-            // Add ALL fields from raw_data JSONB (includes uploaded fields)
+            // Add ALL numeric fields from raw_data JSONB as independent variables
+            // This includes all 12 Mixpanel metrics plus any uploaded CSV fields
             Object.keys(rawData).forEach(key => {
                 // Skip fields we've already handled
                 if (key === 'type' || key === 'email') return;
@@ -371,11 +368,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 }
             });
 
+            console.log('Sample cleaned row keys:', Object.keys(cleanRow).slice(0, 20));
+
             return cleanRow;
         });
 
         const filteredRows = cleanedRows.filter(row => row.email || row.creatorUsername);
         console.log(`After filtering (must have email or username): ${filteredRows.length}`);
+
+        // Log sample of first row to verify all metrics are present
+        if (filteredRows.length > 0) {
+            console.log('First row sample keys:', Object.keys(filteredRows[0]));
+            console.log('First row sample values:', {
+                totalCopies: filteredRows[0].totalCopies,
+                total_deposits: filteredRows[0].total_deposits,
+                total_rebalances: filteredRows[0].total_rebalances,
+                total_sessions: filteredRows[0].total_sessions,
+                total_leaderboard_views: filteredRows[0].total_leaderboard_views
+            });
+        }
 
         return filteredRows;
     }
