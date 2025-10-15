@@ -120,9 +120,14 @@ serve(async (req) => {
           // Extract copy count
           const count = (countData as any)?.all || 0
           if (count > 0) {
+            // Normalize username: ensure it starts with @
+            const normalizedUsername = creatorUsername.startsWith('@')
+              ? creatorUsername
+              : '@' + creatorUsername
+
             copyRows.push({
               distinct_id: distinctId,
-              creator_username: creatorUsername,
+              creator_username: normalizedUsername,
               copy_count: count,
               synced_at: syncStartTime.toISOString()
             })
