@@ -7,7 +7,7 @@ body {
 
 /* Main wrapper to constrain all content - responsive approach */
 .main-wrapper {
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
     width: 100%;

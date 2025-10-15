@@ -45,14 +45,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Restore cached HTML to each tab (if available and container exists)
                     if (data.summary && this.outputContainers.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
+                        this.removeAnchorLinks(this.outputContainers.summary);
                     }
                     if (data.portfolio && this.outputContainers.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
+                        this.removeAnchorLinks(this.outputContainers.portfolio);
                         // Re-initialize nested tab event listeners for portfolio
                         this.initializePortfolioNestedTabs();
                     }
                     if (data.subscription && this.outputContainers.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
+                        this.removeAnchorLinks(this.outputContainers.subscription);
 
                         // Re-render subscription price chart if data is cached
                         if (data.subscriptionDistribution) {
@@ -71,6 +74,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         } catch (e) {
             console.warn('Failed to restore analysis results from localStorage:', e);
         }
+    }
+
+    /**
+     * Remove anchor link icons from cached HTML
+     */
+    removeAnchorLinks(container) {
+        if (!container) return;
+        const anchorIcons = container.querySelectorAll('.anchor-icon');
+        anchorIcons.forEach(icon => icon.remove());
     }
 
     /**
@@ -352,12 +364,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Restore cached HTML to each tab (if available)
                     if (data.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
+                        this.removeAnchorLinks(this.outputContainers.summary);
                     }
                     if (data.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
+                        this.removeAnchorLinks(this.outputContainers.portfolio);
                     }
                     if (data.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
+                        this.removeAnchorLinks(this.outputContainers.subscription);
                     }
                     if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
