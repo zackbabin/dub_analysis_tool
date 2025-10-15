@@ -1156,7 +1156,9 @@ class CreatorAnalysisTool {
         console.log('showProgress called, progressSection found:', !!progressSection);
         if (progressSection) {
             progressSection.style.display = 'block';
-            console.log('✅ Progress section displayed');
+            progressSection.style.visibility = 'visible';
+            progressSection.style.opacity = '1';
+            console.log('✅ Progress section displayed, computed style:', window.getComputedStyle(progressSection).display);
         } else {
             console.error('❌ Progress section not found! Element ID: creatorProgressSection');
         }

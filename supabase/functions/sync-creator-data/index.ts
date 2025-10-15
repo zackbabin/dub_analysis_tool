@@ -182,23 +182,19 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
   const rows: any[] = []
 
-  // Structure:
-  // series has multiple metrics:
-  // - "A. Total of User Profiles" (or "Total of User Profiles") - contains user attributes
-  // - "B. Total Rebalances" - separate series with email->value structure
-  // - "C. Total Sessions" - separate series with email->value structure
-  // - "D. Total Leaderboard Views" - separate series with email->value structure
+  console.log('Available series keys:', Object.keys(data.series))
 
-  // Find the user profiles metric (could be "Total of User Profiles" or "A. Total of User Profiles")
+  // Find the user profiles metric - this contains the nested attribute structure
   const profileMetricKey = Object.keys(data.series).find(k =>
     k.includes('Total of User Profiles') || k.includes('User Profiles')
   )
 
   if (!profileMetricKey) {
-    console.log('No User Profiles metric found')
+    console.log('No User Profiles metric found. Available keys:', Object.keys(data.series))
     return []
   }
 
+  console.log(`Found profile metric: ${profileMetricKey}`)
   const metricData = data.series[profileMetricKey]
 
   // Extract behavioral metrics (separate series)
@@ -206,7 +202,13 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
   const sessionsData = data.series['C. Total Sessions'] || {}
   const leaderboardViewsData = data.series['D. Total Leaderboard Views'] || {}
 
-  // Iterate through each email
+  console.log('Behavioral metrics found:', {
+    rebalances: Object.keys(rebalancesData).length - 1, // -1 for $overall
+    sessions: Object.keys(sessionsData).length - 1,
+    leaderboardViews: Object.keys(leaderboardViewsData).length - 1
+  })
+
+  // Process each email from the profile metric
   for (const [email, emailData] of Object.entries(metricData)) {
     if (email === '$overall') continue
 
@@ -220,7 +222,7 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
     stats.matchedCreators++
 
-    // Navigate through nested structure to extract attributes
+    // Extract user attributes from nested structure
     const attributes = extractUserAttributes(emailData as any)
 
     if (attributes) {
@@ -239,7 +241,7 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
         investing_experience_years: attributes.investingExperienceYears,
         investing_objective: attributes.investingObjective,
         investment_type: attributes.investmentType,
-        // New behavioral metrics from separate series
+        // Behavioral metrics from separate series
         total_rebalances: totalRebalances,
         total_sessions: totalSessions,
         total_leaderboard_views: totalLeaderboardViews,
