@@ -487,9 +487,13 @@
                 header.classList.add('anchor-link');
                 header.id = slug;
 
+                // Get current active tab from the DOM to set href correctly
+                const activeTabBtn = document.querySelector('.tab-btn.active');
+                const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'summary';
+
                 // Create anchor icon
                 const anchorIcon = document.createElement('a');
-                anchorIcon.href = `#${slug}`;
+                anchorIcon.href = `#${currentTab}#${slug}`;
                 anchorIcon.className = 'anchor-icon';
                 anchorIcon.innerHTML = '🔗';
                 anchorIcon.title = 'Link to this section';
@@ -498,7 +502,7 @@
                 anchorIcon.addEventListener('click', (e) => {
                     e.preventDefault();
 
-                    // Get current active tab from the DOM (more reliable than parsing URL)
+                    // Get current active tab again (in case it changed)
                     const activeTabBtn = document.querySelector('.tab-btn.active');
                     const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'summary';
 
