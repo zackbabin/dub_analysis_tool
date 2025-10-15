@@ -352,15 +352,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     // Restore cached HTML to each tab (if available)
                     if (data.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.summary);
                     }
                     if (data.portfolio) {
                         this.outputContainers.portfolio.innerHTML = data.portfolio;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.portfolio);
                     }
                     if (data.subscription) {
                         this.outputContainers.subscription.innerHTML = data.subscription;
-                        if (window.addAnchorLinks) window.addAnchorLinks(this.outputContainers.subscription);
                     }
                     if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
 
@@ -730,12 +727,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
         });
 
-        // Add anchor links to all H1 and H2 headers
-        if (window.addAnchorLinks) {
-            window.addAnchorLinks(summaryContainer);
-            window.addAnchorLinks(portfolioContainer);
-            window.addAnchorLinks(subscriptionContainer);
-        }
+        // Anchor links removed - using only tab anchors for simplicity
     }
 
     /**
