@@ -255,21 +255,36 @@ function processUserProfileData(data: any, creatorEmails: Set<string> | null, st
 
 function extractBehavioralMetric(emailData: any): number | null {
   // Extract numeric value from nested behavioral metric structure
-  // Example structure: { "1700": { "1": { "$overall": { "all": 42 }, ... } } }
-  // We need to extract "1700" which is the numeric value at the top level
+  // The actual metric value is in the $overall.all field deep in the nesting
+  // Example: { "4000": { "2": { "$overall": { "all": 12 } } } }
+  // We need to navigate to find $overall.all
 
   if (!emailData || typeof emailData !== 'object') {
     return null
   }
 
   try {
-    // Get first key (skip $overall)
-    const keys = Object.keys(emailData).filter(k => k !== '$overall')
-    if (keys.length === 0) return null
+    // Recursively search for $overall.all
+    const findOverallValue = (obj: any): number | null => {
+      if (!obj || typeof obj !== 'object') return null
 
-    // The first key is the metric value
-    const value = parseValue(keys[0])
-    return value
+      // Check if this level has $overall.all
+      if (obj.$overall && typeof obj.$overall.all === 'number') {
+        return obj.$overall.all
+      }
+
+      // Otherwise, recurse into child objects
+      for (const key of Object.keys(obj)) {
+        if (key !== '$overall') {
+          const result = findOverallValue(obj[key])
+          if (result !== null) return result
+        }
+      }
+
+      return null
+    }
+
+    return findOverallValue(emailData)
   } catch (error) {
     console.error('Error extracting behavioral metric:', error)
     return null
