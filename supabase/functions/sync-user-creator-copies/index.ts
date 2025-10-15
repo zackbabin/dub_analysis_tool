@@ -95,7 +95,16 @@ serve(async (req) => {
       console.log('Processing user-creator copies...')
 
       // Parse Mixpanel Insights response structure:
-      // series: { "Total Copies": { "distinct_id": { "$overall": {...}, "creator_username": { "all": count }, ... } } }
+      // series: { "Total Copies": {
+      //   "distinct_id": {
+      //     "$overall": {...},
+      //     "creator_username": {
+      //       "$overall": {...},
+      //       "Regular": { "all": count },
+      //       "Premium": { "all": count }
+      //     }
+      //   }
+      // }}
 
       const copyRows: any[] = []
       const copiesMetric = copiesData.series['Total Copies']
@@ -109,17 +118,43 @@ serve(async (req) => {
         // Skip $overall aggregate
         if (distinctId === '$overall') continue
 
-        // creatorData structure: { "$overall": {...}, "creator_username": { "all": count }, ... }
+        // creatorData structure: { "$overall": {...}, "creator_username": { "$overall": {...}, "Regular": {...}, "Premium": {...} }, ... }
         if (typeof creatorData !== 'object' || creatorData === null) continue
 
         // Iterate through creators for this user
-        for (const [creatorUsername, countData] of Object.entries(creatorData as Record<string, any>)) {
+        for (const [creatorUsername, typeData] of Object.entries(creatorData as Record<string, any>)) {
           // Skip $overall for this user
           if (creatorUsername === '$overall') continue
 
-          // Extract copy count
-          const count = (countData as any)?.all || 0
-          if (count > 0) {
+          if (typeof typeData !== 'object' || typeData === null) continue
+
+          // Extract Regular and Premium copy counts
+          let regularCount = 0
+          let premiumCount = 0
+          let totalCount = 0
+
+          // Check for Regular copies
+          if (typeData.Regular && typeof typeData.Regular === 'object') {
+            regularCount = typeData.Regular.all || 0
+          }
+
+          // Check for Premium copies
+          if (typeData.Premium && typeof typeData.Premium === 'object') {
+            premiumCount = typeData.Premium.all || 0
+          }
+
+          // Also check for legacy format (direct "all" count without type breakdown)
+          if (typeData.all && typeof typeData.all === 'number') {
+            totalCount = typeData.all
+            // If we have a total but no breakdown, assume it's regular
+            if (regularCount === 0 && premiumCount === 0) {
+              regularCount = totalCount
+            }
+          } else {
+            totalCount = regularCount + premiumCount
+          }
+
+          if (totalCount > 0) {
             // Normalize username: ensure it starts with @
             const normalizedUsername = creatorUsername.startsWith('@')
               ? creatorUsername
@@ -128,7 +163,9 @@ serve(async (req) => {
             copyRows.push({
               distinct_id: distinctId,
               creator_username: normalizedUsername,
-              copy_count: count,
+              copy_count: totalCount,
+              regular_copy_count: regularCount,
+              premium_copy_count: premiumCount,
               synced_at: syncStartTime.toISOString()
             })
           }
@@ -136,14 +173,33 @@ serve(async (req) => {
       }
 
       console.log(`Prepared ${copyRows.length} user-creator copy records`)
-      stats.userCreatorCopiesFetched = copyRows.length
+
+      // Aggregate duplicates (same user copying same creator as both Regular and Premium)
+      const aggregatedRows = new Map<string, any>()
+
+      for (const row of copyRows) {
+        const key = `${row.distinct_id}|${row.creator_username}`
+
+        if (aggregatedRows.has(key)) {
+          const existing = aggregatedRows.get(key)
+          existing.copy_count += row.copy_count
+          existing.regular_copy_count += row.regular_copy_count
+          existing.premium_copy_count += row.premium_copy_count
+        } else {
+          aggregatedRows.set(key, { ...row })
+        }
+      }
+
+      const finalRows = Array.from(aggregatedRows.values())
+      console.log(`Aggregated to ${finalRows.length} unique user-creator copy records`)
+      stats.userCreatorCopiesFetched = finalRows.length
 
       // Upsert data in batches
       const batchSize = 500
       let totalInserted = 0
 
-      for (let i = 0; i < copyRows.length; i += batchSize) {
-        const batch = copyRows.slice(i, i + batchSize)
+      for (let i = 0; i < finalRows.length; i += batchSize) {
+        const batch = finalRows.slice(i, i + batchSize)
         const { error: insertError } = await supabase
           .from('user_creator_copies')
           .upsert(batch, {
@@ -157,7 +213,7 @@ serve(async (req) => {
         }
 
         totalInserted += batch.length
-        console.log(`Upserted batch: ${totalInserted}/${copyRows.length} records`)
+        console.log(`Upserted batch: ${totalInserted}/${finalRows.length} records`)
       }
 
       stats.totalRecordsInserted = totalInserted
