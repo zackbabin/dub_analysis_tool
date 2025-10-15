@@ -498,10 +498,9 @@
                 anchorIcon.addEventListener('click', (e) => {
                     e.preventDefault();
 
-                    // Get current hash (tab) from URL
-                    const currentHash = window.location.hash.slice(1); // e.g., "portfolio" or "summary"
-                    const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
-                    const currentTab = validTabs.includes(currentHash.split('#')[0]) ? currentHash.split('#')[0] : 'summary';
+                    // Get current active tab from the DOM (more reliable than parsing URL)
+                    const activeTabBtn = document.querySelector('.tab-btn.active');
+                    const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'summary';
 
                     // Update URL with tab + section anchor
                     const newHash = `#${currentTab}#${slug}`;
