@@ -104,7 +104,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     /**
      * Override: Display results - Only show summary and affinity (hide behavioral analysis)
      */
-    displayResults(results) {
+    async displayResults(results) {
         // Clear output container
         this.outputContainer.innerHTML = '';
 
@@ -137,11 +137,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         this.displayCreatorSummaryStats(results.summaryStats);
 
         // Load and display premium creator copy affinity
-        this.loadAndDisplayPremiumCreatorAffinity();
+        await this.loadAndDisplayPremiumCreatorAffinity();
 
         resultsDiv.style.display = 'block';
 
-        // Save HTML for restoration
+        // Save HTML for restoration AFTER affinity data is loaded
         this.saveAnalysisResults(this.outputContainer.innerHTML);
     }
 
@@ -319,7 +319,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }));
 
             // Display results
-            this.displayResults(results);
+            await this.displayResults(results);
 
             this.updateProgress(100, 'Complete!');
 
@@ -457,7 +457,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }));
 
             // Display results
-            this.displayResults(results);
+            await this.displayResults(results);
 
             this.updateProgress(100, 'Complete!');
 
