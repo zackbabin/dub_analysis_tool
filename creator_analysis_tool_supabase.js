@@ -310,8 +310,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Hide progress bar after completion
             setTimeout(() => {
-                if (this.progressSection) {
-                    this.progressSection.style.display = 'none';
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
                 }
             }, 2000);
         } catch (error) {
@@ -465,8 +466,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      */
     showUploadSection() {
         // Hide progress bar (shouldn't be visible yet)
-        if (this.progressSection) {
-            this.progressSection.style.display = 'none';
+        const progressSection = document.getElementById('creatorProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'none';
         }
 
         // Show the creator content container (which was hidden in createUI)
@@ -556,12 +558,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         } catch (error) {
             console.error('Upload workflow error:', error);
             // Keep progress bar visible to show error
-            if (this.progressBar) {
-                const textDiv = this.progressBar.querySelector('div');
+            const progressBar = document.getElementById('creatorProgressBar');
+            if (progressBar) {
+                const textDiv = progressBar.querySelector('div');
                 if (textDiv) {
                     textDiv.textContent = `❌ Error: ${error.message}`;
                 }
-                this.progressBar.style.background = '#dc3545'; // Red for error
+                progressBar.style.background = '#dc3545'; // Red for error
             }
 
             // Also show error in status section
@@ -765,20 +768,22 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Hide progress bar after completion
             setTimeout(() => {
-                if (this.progressSection) {
-                    this.progressSection.style.display = 'none';
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
                 }
             }, 2000);
         } catch (error) {
             console.error('Sync and analyze workflow error:', error);
 
             // Keep progress bar visible to show error
-            if (this.progressBar) {
-                const textDiv = this.progressBar.querySelector('div');
+            const progressBar = document.getElementById('creatorProgressBar');
+            if (progressBar) {
+                const textDiv = progressBar.querySelector('div');
                 if (textDiv) {
                     textDiv.textContent = `❌ Error: ${error.message}`;
                 }
-                this.progressBar.style.background = '#dc3545'; // Red for error
+                progressBar.style.background = '#dc3545'; // Red for error
             }
 
             this.addStatusMessage(`❌ Error: ${error.message}`, 'error');
@@ -828,8 +833,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Hide progress bar after completion
             setTimeout(() => {
-                if (this.progressSection) {
-                    this.progressSection.style.display = 'none';
+                const progressSection = document.getElementById('creatorProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
                 }
             }, 2000);
         } catch (error) {

@@ -1152,21 +1152,23 @@ class CreatorAnalysisTool {
     }
 
     showProgress(percent) {
-        if (this.progressSection) {
-            this.progressSection.style.display = 'block';
+        const progressSection = document.getElementById('creatorProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
         }
         this.updateProgress(percent);
     }
 
     updateProgress(percent, label = null) {
-        if (this.progressBar) {
-            this.progressBar.style.width = `${percent}%`;
+        const progressBar = document.getElementById('creatorProgressBar');
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
             // Update text in the inner div
-            const textDiv = this.progressBar.querySelector('div');
+            const textDiv = progressBar.querySelector('div');
             if (textDiv) {
                 textDiv.textContent = label || `${Math.round(percent)}%`;
             } else {
-                this.progressBar.textContent = label || `${Math.round(percent)}%`;
+                progressBar.textContent = label || `${Math.round(percent)}%`;
             }
         }
     }
