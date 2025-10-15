@@ -1153,8 +1153,12 @@ class CreatorAnalysisTool {
 
     showProgress(percent) {
         const progressSection = document.getElementById('creatorProgressSection');
+        console.log('showProgress called, progressSection found:', !!progressSection);
         if (progressSection) {
             progressSection.style.display = 'block';
+            console.log('✅ Progress section displayed');
+        } else {
+            console.error('❌ Progress section not found! Element ID: creatorProgressSection');
         }
         this.updateProgress(percent);
     }
