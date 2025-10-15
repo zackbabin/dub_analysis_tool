@@ -803,6 +803,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         this.clearStatus();
         this.showProgress(0);
 
+        // Track start time to ensure minimum progress bar display time
+        const workflowStartTime = Date.now();
+
         try {
             this.updateProgress(20, 'Syncing Mixpanel data...');
 
@@ -831,13 +834,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             this.updateProgress(100, 'Complete!');
 
-            // Hide progress bar after completion
+            // Ensure progress bar is visible for at least 1.5 seconds
+            const elapsedTime = Date.now() - workflowStartTime;
+            const minDisplayTime = 1500; // 1.5 seconds
+            const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
+
+            // Hide progress bar after minimum display time + 1 second
             setTimeout(() => {
                 const progressSection = document.getElementById('creatorProgressSection');
                 if (progressSection) {
                     progressSection.style.display = 'none';
                 }
-            }, 2000);
+            }, remainingTime + 1000);
         } catch (error) {
             console.error('Sync workflow error:', error);
             this.addStatusMessage(`❌ Sync failed: ${error.message}`, 'error');
