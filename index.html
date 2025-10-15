@@ -487,13 +487,9 @@
                 header.classList.add('anchor-link');
                 header.id = slug;
 
-                // Get current active tab from the DOM to set href correctly
-                const activeTabBtn = document.querySelector('.tab-btn.active');
-                const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'summary';
-
                 // Create anchor icon
                 const anchorIcon = document.createElement('a');
-                anchorIcon.href = `#${currentTab}#${slug}`;
+                anchorIcon.href = '#'; // Use # to make it a link without navigation
                 anchorIcon.className = 'anchor-icon';
                 anchorIcon.innerHTML = '🔗';
                 anchorIcon.title = 'Link to this section';
@@ -501,14 +497,15 @@
                 // Prevent default and update URL without scrolling
                 anchorIcon.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
 
-                    // Get current active tab again (in case it changed)
+                    // Get current active tab from the DOM
                     const activeTabBtn = document.querySelector('.tab-btn.active');
                     const currentTab = activeTabBtn ? activeTabBtn.getAttribute('data-tab') : 'summary';
 
-                    // Update URL with tab + section anchor
-                    const newHash = `#${currentTab}#${slug}`;
-                    history.pushState(null, null, newHash);
+                    // Update URL with tab + section anchor (don't trigger hashchange)
+                    const newHash = `${currentTab}#${slug}`;
+                    window.history.replaceState(null, '', `#${newHash}`);
 
                     // Copy full URL to clipboard
                     const fullUrl = window.location.href;
@@ -522,7 +519,7 @@
                     }).catch(err => {
                         console.error('Failed to copy link:', err);
                     });
-                });
+                }, false);
 
                 // Insert anchor icon as first child
                 header.insertBefore(anchorIcon, header.firstChild);
