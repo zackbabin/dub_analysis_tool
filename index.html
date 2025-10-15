@@ -255,27 +255,11 @@
             // Sync button click handler
             syncBtn.onclick = async () => {
                 console.log('🔵 Creator sync button clicked');
-
-                // Show progress bar immediately
-                const progressSection = document.getElementById('creatorProgressSection');
-                if (progressSection) {
-                    progressSection.style.display = 'block';
-                }
-
-                // Call the sync workflow
                 try {
                     await creatorTool.runSyncWorkflow();
                 } catch (error) {
                     console.error('❌ Sync workflow failed:', error);
-                    // Show error in progress bar
-                    const progressBar = document.getElementById('creatorProgressBar');
-                    if (progressBar) {
-                        const textDiv = progressBar.querySelector('div');
-                        if (textDiv) {
-                            textDiv.textContent = `❌ Error: ${error.message}`;
-                        }
-                        progressBar.style.background = '#dc3545';
-                    }
+                    // Error display is handled in runSyncWorkflow
                 }
             };
 
@@ -313,17 +297,11 @@
 
                     console.log('✅ All 3 files selected, starting upload workflow');
 
-                    // Show progress bar
-                    const progressSection = document.getElementById('creatorProgressSection');
-                    if (progressSection) {
-                        progressSection.style.display = 'block';
-                    }
-
                     try {
                         await creatorTool.runUploadWorkflow();
                     } catch (error) {
                         console.error('❌ Upload workflow error:', error);
-                        // Error already shown in runUploadWorkflow
+                        // Error display is handled in runUploadWorkflow
                     }
                 };
             } else {
@@ -568,6 +546,10 @@
                 document.getElementById('creatorResultsContainer')
             );
             creatorTool.supabaseIntegration = window.supabaseIntegration;
+
+            // Assign progress elements directly (same pattern as userTool)
+            creatorTool.progressBar = document.getElementById('creatorProgressBar');
+            creatorTool.progressSection = document.getElementById('creatorProgressSection');
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
 
