@@ -57,24 +57,11 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-container">
-            <!-- Creator-specific data source component -->
+            <!-- Creator-specific data source component (includes progress bar and status) -->
             <div id="creatorDataSource">
                 <!-- This will be populated by JavaScript -->
             </div>
             <div id="creatorContent"></div>
-            <!-- Progress bar - same width as data source component -->
-            <div style="display: flex; justify-content: center;">
-                <div id="creatorProgressSection" style="display: none; margin-bottom: 10px; max-width: 800px; width: 100%;">
-                    <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
-                        <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; position: relative; color: white; font-weight: bold; font-size: 12px;">
-                            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); white-space: nowrap; width: max-content;">0%</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="creatorStatusSection" style="display: none;"></div>
-            <!-- File upload is now handled by unified data source component -->
-            <input type="file" id="creatorFileInput" accept=".csv" style="display: none;">
         </div>
         <div class="tab-results-container">
             <div id="creatorResultsContainer"></div>
@@ -196,25 +183,37 @@
             return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
-        // Create creator-specific data source component (upload and sync buttons)
+        // Create creator-specific data source component (based on unified component)
         function createCreatorDataSource(creatorTool) {
             const container = document.getElementById('creatorDataSource');
             container.innerHTML = `
                 <div style="display: flex; justify-content: center;">
-                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 800px; width: 100%;">
+                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 650px; width: 100%;">
                         <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center;">
-                            <div id="creatorSyncBtn" style="flex: 1; padding: 20px; background: white; border: 2px solid #17a2b8; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                            <div id="creatorSyncBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #17a2b8; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
                                 <div style="font-weight: bold; color: #17a2b8; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
                                 <div style="font-size: 12px; color: #6c757d;">Fetch latest data from Mixpanel</div>
                             </div>
-                            <div id="creatorManualUploadBtn" style="flex: 1; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Upload 3 CSV Files</div>
-                                <div style="font-size: 12px; color: #6c757d;">Upload and merge creator data files</div>
+                            <div id="creatorManualUploadBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Manually Upload Data</div>
+                                <div style="font-size: 12px; color: #6c757d;">Upload creator CSV file for analysis</div>
                             </div>
                         </div>
                     </div>
                 </div>
+                <!-- Progress bar - same width as data source component -->
+                <div style="display: flex; justify-content: center;">
+                    <div id="creatorProgressSection" style="display: none; margin-bottom: 10px; max-width: 800px; width: 100%;">
+                        <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
+                            <div id="creatorProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; position: relative; color: white; font-weight: bold; font-size: 12px;">
+                                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); white-space: nowrap; width: max-content;">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Status section -->
+                <div id="creatorStatusSection" style="display: none;"></div>
             `;
 
             initializeCreatorDataSourceButtons(creatorTool);
