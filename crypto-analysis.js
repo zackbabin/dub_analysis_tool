@@ -20,6 +20,7 @@ class CryptoAnalysis {
             rebalanceGrowth: 10.00,
             avgMonthlyPortfolioCreations: 0.02,
             portfolioCreationGrowth: 3.00,
+            avgTradeValue: 100.00,
 
             // Monthly baseline (3-month average)
             monthlyInstalls: 157443.98,
@@ -28,13 +29,17 @@ class CryptoAnalysis {
             // Growth assumptions (monthly)
             userGrowthRate: 10.00,
 
-            // Revenue model assumptions
-            transactionFee: 0.25,
-            subscriptionPrice: 5.00,
+            // Revenue model assumptions (maintenance fee model)
+            maintenanceFee: 2.00,
+            waivedFeesPercent: 30.00,
+            subscriptionPrice: 10.00,
             dubRevenueShare: 50.00,
-            subscriptionConversion: 5.00,
+            subscriptionConversion: 3.00,
             subscriptionChurnRate: 25.00,
-            accountClosureRate: 1.00,
+            accountClosureRate: 5.00,
+
+            // Cost assumptions
+            bakktTransactionFee: 0.50,
         };
 
         this.render();
@@ -98,10 +103,15 @@ class CryptoAnalysis {
             const newSubscribers = adjustedKycApproved * (this.assumptions.subscriptionConversion / 100);
             cumulativeSubscribers = (cumulativeSubscribers * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscribers;
 
-            // Revenue calculations
-            const transactionRevenue = totalTradingEvents * this.assumptions.transactionFee;
+            // Revenue calculations (maintenance fee model)
+            const accountsPayingFees = cumulativeFundedAccounts * (1 - this.assumptions.waivedFeesPercent / 100);
+            const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
             const subscriptionRevenue = cumulativeSubscribers * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
-            const totalRevenue = transactionRevenue + subscriptionRevenue;
+            const totalRevenue = maintenanceRevenue + subscriptionRevenue;
+
+            // Cost calculations
+            const totalTransactionValue = totalTradingEvents * this.assumptions.avgTradeValue;
+            const bakktTransactionCost = totalTransactionValue * (this.assumptions.bakktTransactionFee / 100);
 
             results.push({
                 month,
@@ -114,10 +124,12 @@ class CryptoAnalysis {
                 rebalances,
                 portfoliosCreated,
                 totalTradingEvents,
+                totalTransactionValue,
                 cumulativeSubscribers,
-                transactionRevenue,
+                maintenanceRevenue,
                 subscriptionRevenue,
-                totalRevenue
+                totalRevenue,
+                bakktTransactionCost
             });
         });
 
@@ -241,14 +253,17 @@ class CryptoAnalysis {
     renderRevenueModel() {
         return `
             <div style="background: #e7f3ff; padding: 16px; border-radius: 8px;">
-                <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Revenue Model</h4>
+                <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Revenue & Cost Model</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Transaction Fee ($ per trade)', 'transactionFee')}
+                    ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'maintenanceFee')}
+                    ${this.renderInput('Waived Fees (% of funded acct)', 'waivedFeesPercent')}
                     ${this.renderInput('Subscription Price ($/mo)', 'subscriptionPrice')}
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
+                    ${this.renderInput('Avg Trade Value ($)', 'avgTradeValue')}
+                    ${this.renderInput('Bakkt Transaction Fee (%)', 'bakktTransactionFee')}
                 </div>
             </div>
         `;
@@ -326,10 +341,13 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Total Transaction Value', 'totalTransactionValue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Transaction Revenue', 'transactionRevenue', projections, false, null, true)}
+                            ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, '#cfe2ff', true, true)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, '#ffe6e6', true)}
                         </tbody>
                     </table>
                 </div>
