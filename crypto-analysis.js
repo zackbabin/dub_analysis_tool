@@ -341,17 +341,24 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
                             ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'cumulativeFundedAccounts', projections)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('EQUITIES', null, projections, true, '#f8f9fa')}
+                            ${this.renderMetricRow('Total Trades', 'trades', projections)}
+                            ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
+                            ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
+                            ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Trades', 'trades', projections)}
                             ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
                             ${this.renderMetricRow('Total Transaction Value', 'totalTransactionValue', projections, false, null, true)}
+                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
-                            ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
                         </tbody>
