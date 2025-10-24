@@ -113,6 +113,9 @@ class CryptoAnalysis {
             const totalTransactionValue = totalTradingEvents * this.assumptions.avgTradeValue;
             const bakktTransactionCost = totalTransactionValue * (this.assumptions.bakktTransactionFee / 100);
 
+            // Gross profit calculation
+            const grossProfit = totalRevenue - bakktTransactionCost;
+
             results.push({
                 month,
                 installs,
@@ -129,7 +132,8 @@ class CryptoAnalysis {
                 maintenanceRevenue,
                 subscriptionRevenue,
                 totalRevenue,
-                bakktTransactionCost
+                bakktTransactionCost,
+                grossProfit
             });
         });
 
@@ -345,9 +349,11 @@ class CryptoAnalysis {
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, '#cfe2ff', true, true)}
+                            ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, '#ffe6e6', true)}
+                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, null, true)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
                         </tbody>
                     </table>
                 </div>
