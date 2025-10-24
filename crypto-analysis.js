@@ -7,29 +7,15 @@ class CryptoAnalysis {
 
         // Base assumptions
         this.assumptions = {
-            // Onboarding conversion rates
+            // Conversion rates
+            monthlyInstalls: 157443.98,
+            userGrowthRate: 10.00,
             installToKYC: 30.00,
             kycToLinkedBank: 21.98,
             linkedBankToACH: 53.58,
             achToCopy: 54.49,
 
-            // User behavior metrics (per user)
-            avgMonthlyTrades: 0.92,
-            avgMonthlyRebalances: 3.65,
-            tradeVolumeGrowth: 3.00,
-            rebalanceGrowth: 10.00,
-            avgMonthlyPortfolioCreations: 0.02,
-            portfolioCreationGrowth: 3.00,
-            avgTradeValue: 100.00,
-
-            // Monthly baseline (3-month average)
-            monthlyInstalls: 157443.98,
-            monthlyFundedAccounts: 9339,
-
-            // Growth assumptions (monthly)
-            userGrowthRate: 10.00,
-
-            // Revenue model assumptions (maintenance fee model)
+            // Other assumptions
             maintenanceFee: 2.00,
             waivedFeesPercent: 30.00,
             subscriptionPrice: 10.00,
@@ -37,9 +23,26 @@ class CryptoAnalysis {
             subscriptionConversion: 3.00,
             subscriptionChurnRate: 25.00,
             accountClosureRate: 5.00,
+            kycFee: 0.75,
 
-            // Cost assumptions
-            bakktTransactionFee: 0.50,
+            // Equities
+            equities_avgMonthlyTrades: 0.92,
+            equities_tradeVolumeGrowth: 3.00,
+            equities_avgMonthlyPortfolioCreations: 0.02,
+            equities_portfolioCreationGrowth: 3.00,
+            equities_avgMonthlyRebalances: 3.65,
+            equities_rebalanceGrowth: 10.00,
+            equities_apexTransactionFee: 0.04,
+
+            // Crypto
+            crypto_avgMonthlyTrades: 0.92,
+            crypto_tradeVolumeGrowth: 3.00,
+            crypto_avgMonthlyPortfolioCreations: 0.02,
+            crypto_portfolioCreationGrowth: 3.00,
+            crypto_avgMonthlyRebalances: 3.65,
+            crypto_rebalanceGrowth: 10.00,
+            crypto_avgTradeValue: 100.00,
+            crypto_bakktTransactionFee: 0.50,
         };
 
         this.render();
@@ -89,15 +92,25 @@ class CryptoAnalysis {
             const adjustedFundedAccounts = fundedAccounts * (1 - this.assumptions.accountClosureRate / 100);
             cumulativeFundedAccounts += adjustedFundedAccounts;
 
-            // Trading activity
-            const tradeVolumeMultiplier = Math.pow(1 + this.assumptions.tradeVolumeGrowth / 100, month - 1);
-            const rebalanceMultiplier = Math.pow(1 + this.assumptions.rebalanceGrowth / 100, month - 1);
-            const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month - 1);
+            // Equities trading activity
+            const equities_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.equities_tradeVolumeGrowth / 100, month - 1);
+            const equities_rebalanceMultiplier = Math.pow(1 + this.assumptions.equities_rebalanceGrowth / 100, month - 1);
+            const equities_portfolioCreationMultiplier = Math.pow(1 + this.assumptions.equities_portfolioCreationGrowth / 100, month - 1);
 
-            const trades = cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
-            const rebalances = cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
-            const portfoliosCreated = cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
-            const totalTradingEvents = trades + rebalances + portfoliosCreated;
+            const equities_trades = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyTrades * equities_tradeVolumeMultiplier;
+            const equities_rebalances = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyRebalances * equities_rebalanceMultiplier;
+            const equities_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyPortfolioCreations * equities_portfolioCreationMultiplier;
+            const equities_totalTradingEvents = equities_trades + equities_rebalances + equities_portfoliosCreated;
+
+            // Crypto trading activity
+            const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.crypto_tradeVolumeGrowth / 100, month - 1);
+            const crypto_rebalanceMultiplier = Math.pow(1 + this.assumptions.crypto_rebalanceGrowth / 100, month - 1);
+            const crypto_portfolioCreationMultiplier = Math.pow(1 + this.assumptions.crypto_portfolioCreationGrowth / 100, month - 1);
+
+            const crypto_trades = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyTrades * crypto_tradeVolumeMultiplier;
+            const crypto_rebalances = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyRebalances * crypto_rebalanceMultiplier;
+            const crypto_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyPortfolioCreations * crypto_portfolioCreationMultiplier;
+            const crypto_totalTradingEvents = crypto_trades + crypto_rebalances + crypto_portfoliosCreated;
 
             // Subscription calculations with churn
             const newSubscribers = adjustedKycApproved * (this.assumptions.subscriptionConversion / 100);
@@ -110,11 +123,11 @@ class CryptoAnalysis {
             const totalRevenue = maintenanceRevenue + subscriptionRevenue;
 
             // Cost calculations
-            const totalTransactionValue = totalTradingEvents * this.assumptions.avgTradeValue;
-            const bakktTransactionCost = totalTransactionValue * (this.assumptions.bakktTransactionFee / 100);
+            const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
+            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
 
             // Gross profit calculation
-            const grossProfit = totalRevenue - bakktTransactionCost;
+            const grossProfit = totalRevenue - crypto_bakktTransactionCost;
 
             results.push({
                 month,
@@ -123,16 +136,20 @@ class CryptoAnalysis {
                 linkedBankAccounts: adjustedLinkedBankAccounts,
                 fundedAccounts: adjustedFundedAccounts,
                 cumulativeFundedAccounts,
-                trades,
-                rebalances,
-                portfoliosCreated,
-                totalTradingEvents,
-                totalTransactionValue,
+                equities_trades,
+                equities_rebalances,
+                equities_portfoliosCreated,
+                equities_totalTradingEvents,
+                crypto_trades,
+                crypto_rebalances,
+                crypto_portfoliosCreated,
+                crypto_totalTradingEvents,
+                crypto_totalTransactionValue,
+                crypto_bakktTransactionCost,
                 cumulativeSubscribers,
                 maintenanceRevenue,
                 subscriptionRevenue,
                 totalRevenue,
-                bakktTransactionCost,
                 grossProfit
             });
         });
@@ -201,13 +218,11 @@ class CryptoAnalysis {
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
-                    <div style="display: flex; flex-direction: column; gap: 24px;">
-                        ${this.renderConversionRates()}
-                        ${this.renderOtherAssumptions()}
-                    </div>
-                    ${this.renderUserBehavior()}
-                    ${this.renderRevenueModel()}
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;">
+                    ${this.renderConversionRates()}
+                    ${this.renderOtherAssumptions()}
+                    ${this.renderEquitiesAssumptions()}
+                    ${this.renderCryptoAssumptions()}
                 </div>
             </div>
         `;
@@ -218,6 +233,8 @@ class CryptoAnalysis {
             <div>
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Conversion Rates</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
+                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
                     ${this.renderInput('Install → KYC (%)', 'installToKYC')}
                     ${this.renderInput('KYC → Linked Bank (%)', 'kycToLinkedBank')}
                     ${this.renderInput('Linked Bank → ACH (%)', 'linkedBankToACH')}
@@ -231,34 +248,6 @@ class CryptoAnalysis {
             <div>
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Other Assumptions</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
-                    ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
-                    ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
-                </div>
-            </div>
-        `;
-    }
-
-    renderUserBehavior() {
-        return `
-            <div>
-                <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">User Behavior (Per User)</h4>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Trades', 'avgMonthlyTrades')}
-                    ${this.renderInput('Trade Volume Growth (% monthly)', 'tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Portfolio Creations', 'avgMonthlyPortfolioCreations')}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'portfolioCreationGrowth')}
-                </div>
-            </div>
-        `;
-    }
-
-    renderRevenueModel() {
-        return `
-            <div style="background: #e7f3ff; padding: 16px; border-radius: 8px;">
-                <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Revenue & Cost Model</h4>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'maintenanceFee')}
                     ${this.renderInput('Waived Fees (% of funded acct)', 'waivedFeesPercent')}
                     ${this.renderInput('Subscription Price ($/mo)', 'subscriptionPrice')}
@@ -266,8 +255,42 @@ class CryptoAnalysis {
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
-                    ${this.renderInput('Avg Trade Value ($)', 'avgTradeValue')}
-                    ${this.renderInput('Bakkt Transaction Fee (%)', 'bakktTransactionFee')}
+                    ${this.renderInput('KYC Fee ($)', 'kycFee')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderEquitiesAssumptions() {
+        return `
+            <div style="background: #f0f8ff; padding: 16px; border-radius: 8px;">
+                <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Equities</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Trades', 'equities_avgMonthlyTrades')}
+                    ${this.renderInput('Trade Volume Growth (% monthly)', 'equities_tradeVolumeGrowth')}
+                    ${this.renderInput('Monthly Portfolio Creations', 'equities_avgMonthlyPortfolioCreations')}
+                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
+                    ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
+                    ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderCryptoAssumptions() {
+        return `
+            <div style="background: #fff3e0; padding: 16px; border-radius: 8px;">
+                <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 12px 0;">Crypto</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Trades', 'crypto_avgMonthlyTrades')}
+                    ${this.renderInput('Trade Volume Growth (% monthly)', 'crypto_tradeVolumeGrowth')}
+                    ${this.renderInput('Monthly Portfolio Creations', 'crypto_avgMonthlyPortfolioCreations')}
+                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'crypto_portfolioCreationGrowth')}
+                    ${this.renderInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'crypto_rebalanceGrowth')}
+                    ${this.renderInput('Avg Trade Value ($)', 'crypto_avgTradeValue')}
+                    ${this.renderInput('Bakkt Transaction Fee (%)', 'crypto_bakktTransactionFee')}
                 </div>
             </div>
         `;
@@ -343,18 +366,18 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'cumulativeFundedAccounts', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('EQUITIES', null, projections, true, '#f8f9fa')}
-                            ${this.renderMetricRow('Total Trades', 'trades', projections)}
-                            ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
-                            ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Total Trades', 'equities_trades', projections)}
+                            ${this.renderMetricRow('Total Rebalances', 'equities_rebalances', projections)}
+                            ${this.renderMetricRow('Total Portfolios Created', 'equities_portfoliosCreated', projections)}
+                            ${this.renderMetricRow('Total Trading Events', 'equities_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
-                            ${this.renderMetricRow('Total Trades', 'trades', projections)}
-                            ${this.renderMetricRow('Total Rebalances', 'rebalances', projections)}
-                            ${this.renderMetricRow('Total Portfolios Created', 'portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Total Trading Events', 'totalTradingEvents', projections)}
-                            ${this.renderMetricRow('Total Transaction Value', 'totalTransactionValue', projections, false, null, true)}
-                            ${this.renderMetricRow('Bakkt Transaction Cost', 'bakktTransactionCost', projections, false, null, true)}
+                            ${this.renderMetricRow('Total Trades', 'crypto_trades', projections)}
+                            ${this.renderMetricRow('Total Rebalances', 'crypto_rebalances', projections)}
+                            ${this.renderMetricRow('Total Portfolios Created', 'crypto_portfoliosCreated', projections)}
+                            ${this.renderMetricRow('Total Trading Events', 'crypto_totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Total Transaction Value', 'crypto_totalTransactionValue', projections, false, null, true)}
+                            ${this.renderMetricRow('Bakkt Transaction Cost', 'crypto_bakktTransactionCost', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
