@@ -123,11 +123,12 @@ class CryptoAnalysis {
             const totalRevenue = maintenanceRevenue + subscriptionRevenue;
 
             // Cost calculations
+            const kycCost = adjustedKycApproved * this.assumptions.kycFee;
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
 
             // Gross profit calculation
-            const grossProfit = totalRevenue - crypto_bakktTransactionCost;
+            const grossProfit = totalRevenue - kycCost - crypto_bakktTransactionCost;
 
             results.push({
                 month,
@@ -149,6 +150,7 @@ class CryptoAnalysis {
                 cumulativeSubscribers,
                 maintenanceRevenue,
                 subscriptionRevenue,
+                kycCost,
                 totalRevenue,
                 grossProfit
             });
@@ -181,6 +183,16 @@ class CryptoAnalysis {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
         }).format(value);
+    }
+
+    formatCost(value) {
+        const formatted = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(Math.abs(value));
+        return `(${formatted})`;
     }
 
     formatNumber(value) {
@@ -377,10 +389,11 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'crypto_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'crypto_totalTradingEvents', projections)}
                             ${this.renderMetricRow('Total Transaction Value', 'crypto_totalTransactionValue', projections, false, null, true)}
-                            ${this.renderMetricRow('Bakkt Transaction Cost', 'crypto_bakktTransactionCost', projections, false, null, true)}
+                            ${this.renderMetricRow('Bakkt Transaction Cost', 'crypto_bakktTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
+                            ${this.renderMetricRow('KYC Costs', 'kycCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
@@ -399,13 +412,32 @@ class CryptoAnalysis {
         `;
     }
 
-    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false) {
+    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false) {
+        if (isHeader) {
+            return `
+                <tr style="background: ${bgColor || '#f8f9fa'};">
+                    <td style="padding: 8px; font-weight: bold; position: sticky; left: 0; background: ${bgColor || '#f8f9fa'}; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
+                    ${projections.map(p => {
+                        const bg = p.month % 12 === 0 ? (bgColor || '#f8f9fa') : (bgColor || '#f8f9fa');
+                        return `<td style="text-align: right; padding: 8px; background: ${bg};"></td>`;
+                    }).join('')}
+                </tr>
+            `;
+        }
+
         return `
             <tr>
                 <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
                 ${projections.map(p => {
                     const value = p[key];
-                    const formatted = isCurrency ? this.formatCurrency(value) : this.formatNumber(value);
+                    let formatted;
+                    if (isCost) {
+                        formatted = this.formatCost(value);
+                    } else if (isCurrency) {
+                        formatted = this.formatCurrency(value);
+                    } else {
+                        formatted = this.formatNumber(value);
+                    }
                     const bg = p.month % 12 === 0 ? (bgColor || '#f8f9fa') : (bgColor || 'white');
                     return `<td style="text-align: right; padding: 8px; ${isBold ? 'font-weight: bold;' : ''} background: ${bg};">${formatted}</td>`;
                 }).join('')}
