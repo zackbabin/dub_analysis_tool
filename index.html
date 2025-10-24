@@ -24,6 +24,7 @@
         <button class="tab-btn" data-tab="subscription">Subscription Analysis</button>
         <button class="tab-btn" data-tab="creator">Creator Analysis</button>
         <button class="tab-btn" data-tab="business-model">Business Model Analysis</button>
+        <button class="tab-btn" data-tab="crypto">Crypto Analysis</button>
     </div>
 
     <!-- Unified Data Source Component (shared across all tabs) -->
@@ -75,6 +76,13 @@
         </div>
     </div>
 
+    <!-- Crypto Analysis Tab -->
+    <div id="crypto-tab" class="tab-pane">
+        <div class="tab-container">
+            <div id="cryptoContent"></div>
+        </div>
+    </div>
+
     <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -101,6 +109,9 @@
 
     <!-- Load Business Model Analysis Tool -->
     <script src="business-model-analysis.js?v=9"></script>
+
+    <!-- Load Crypto Analysis Tool -->
+    <script src="crypto-analysis.js"></script>
 
     <script>
         // Supabase Configuration
@@ -379,8 +390,8 @@
                 creatorDataSource.style.display = 'block';
                 // Re-initialize creator data source buttons
                 initializeCreatorDataSourceButtons(creatorTool);
-            } else if (tabName === 'business-model') {
-                // On Business Model tab: hide both
+            } else if (tabName === 'business-model' || tabName === 'crypto') {
+                // On Business Model or Crypto tab: hide both
                 unifiedDataSource.style.display = 'none';
                 creatorDataSource.style.display = 'none';
             } else {
@@ -422,7 +433,7 @@
             // Listen for hash changes (browser back/forward)
             window.addEventListener('hashchange', () => {
                 const hash = window.location.hash.slice(1); // Remove the '#'
-                const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
+                const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model', 'crypto'];
 
                 // Parse tab and section anchor (format: "portfolio#hidden-gems")
                 const hashParts = hash.split('#');
@@ -434,7 +445,7 @@
 
             // Initialize tab from URL hash on page load
             const initialHash = window.location.hash.slice(1);
-            const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model'];
+            const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model', 'crypto'];
 
             // Parse tab and section anchor
             const hashParts = initialHash.split('#');
@@ -499,6 +510,10 @@
             // Initialize Business Model Analysis Tool
             const businessModelAnalysis = new BusinessModelAnalysis('businessModelContent');
             console.log('✅ Business Model Analysis Tool initialized');
+
+            // Initialize Crypto Analysis Tool
+            const cryptoAnalysis = new CryptoAnalysis('cryptoContent');
+            console.log('✅ Crypto Analysis Tool initialized');
         };
     </script>
     </div> <!-- Close main-wrapper -->
