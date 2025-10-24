@@ -41,8 +41,9 @@ class CryptoAnalysis {
             crypto_portfolioCreationGrowth: 3.00,
             crypto_avgMonthlyRebalances: 3.65,
             crypto_rebalanceGrowth: 10.00,
-            crypto_avgTradeValue: 100.00,
-            crypto_bakktTransactionFee: 0.50,
+            crypto_avgTradeValue: 200.00,
+            crypto_bidAskSpread: 0.50,
+            crypto_bakktTransactionFee: 0.25,
         };
 
         this.render();
@@ -120,12 +121,16 @@ class CryptoAnalysis {
             const accountsPayingFees = cumulativeFundedAccounts * (1 - this.assumptions.waivedFeesPercent / 100);
             const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
             const subscriptionRevenue = cumulativeSubscribers * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
-            const totalRevenue = maintenanceRevenue + subscriptionRevenue;
+
+            // Crypto revenue and costs
+            const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
+            const cryptoRevenue = crypto_totalTransactionValue * (this.assumptions.crypto_bidAskSpread / 100);
+            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
+
+            const totalRevenue = maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
             // Cost calculations
             const kycCost = adjustedKycApproved * this.assumptions.kycFee;
-            const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
-            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
 
             // Gross profit calculation
             const grossProfit = totalRevenue - kycCost - crypto_bakktTransactionCost;
@@ -150,6 +155,7 @@ class CryptoAnalysis {
                 cumulativeSubscribers,
                 maintenanceRevenue,
                 subscriptionRevenue,
+                cryptoRevenue,
                 kycCost,
                 totalRevenue,
                 grossProfit
@@ -302,6 +308,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'crypto_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($)', 'crypto_avgTradeValue')}
+                    ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'crypto_bakktTransactionFee')}
                 </div>
             </div>
@@ -393,6 +400,7 @@ class CryptoAnalysis {
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
+                            ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('KYC Costs', 'kycCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
