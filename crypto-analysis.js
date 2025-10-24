@@ -95,7 +95,7 @@ class CryptoAnalysis {
             const portfolioCreationMultiplier = Math.pow(1 + this.assumptions.portfolioCreationGrowth / 100, month - 1);
 
             const trades = cumulativeFundedAccounts * this.assumptions.avgMonthlyTrades * tradeVolumeMultiplier;
-            const rebalances = this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
+            const rebalances = cumulativeFundedAccounts * this.assumptions.avgMonthlyRebalances * rebalanceMultiplier;
             const portfoliosCreated = cumulativeFundedAccounts * this.assumptions.avgMonthlyPortfolioCreations * portfolioCreationMultiplier;
             const totalTradingEvents = trades + rebalances + portfoliosCreated;
 
