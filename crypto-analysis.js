@@ -23,7 +23,8 @@ class CryptoAnalysis {
             dubRevenueShare: 50.00,
             subscriptionConversion: 3.00,
             subscriptionConversionGrowth: 0.00,
-            subscriptionsPerUser: 1.00,
+            subscriptionsPerSubscriber: 1.00,
+            subscriptionGrowthPerSubscriber: 0.00,
             subscriptionChurnRate: 25.00,
             accountClosureRate: 5.00,
             kycFee: 0.75,
@@ -80,6 +81,7 @@ class CryptoAnalysis {
         let totalActiveSubscriptions = 0;
         let cumulativeFundedAccounts = 0;
         let currentSubscriptionConversion = this.assumptions.subscriptionConversion;
+        let currentSubscriptionsPerSubscriber = this.assumptions.subscriptionsPerSubscriber;
 
         months.forEach(month => {
             // User growth (compound monthly)
@@ -124,13 +126,13 @@ class CryptoAnalysis {
 
             // Subscription calculations with churn and conversion growth
             const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
-            const subscriptionsPerUser = this.assumptions.subscriptionsPerUser;
-            const newSubscriptions = activeSubscribers * subscriptionsPerUser;
+            const newSubscriptions = activeSubscribers * currentSubscriptionsPerSubscriber;
             totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
             const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
 
-            // Increase subscription conversion rate for next month
+            // Increase subscription conversion rate and subscriptions per subscriber for next month
             currentSubscriptionConversion = currentSubscriptionConversion * (1 + this.assumptions.subscriptionConversionGrowth / 100);
+            currentSubscriptionsPerSubscriber = currentSubscriptionsPerSubscriber * (1 + this.assumptions.subscriptionGrowthPerSubscriber / 100);
 
             // Crypto revenue and costs
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
@@ -170,7 +172,7 @@ class CryptoAnalysis {
                 cryptoRevenue,
                 crypto_bakktTransactionCost,
                 activeSubscribers,
-                subscriptionsPerUser,
+                subscriptionsPerSubscriber: currentSubscriptionsPerSubscriber,
                 subscriptionConversionRate: currentSubscriptionConversion,
                 totalActiveSubscriptions,
                 subscriptionRevenue,
@@ -266,6 +268,7 @@ class CryptoAnalysis {
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
+                    ${this.renderSubscriptionAssumptions()}
                     ${this.renderEquitiesAssumptions()}
                     ${this.renderCryptoAssumptions()}
                 </div>
@@ -296,14 +299,25 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'maintenanceFee')}
                     ${this.renderInput('Waived Fees (% of funded acct)', 'waivedFeesPercent')}
+                    ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
+                    ${this.renderInput('KYC Fee ($)', 'kycFee')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderSubscriptionAssumptions() {
+        return `
+            <div style="background: #f3e5f5; padding: 16px; border-radius: 8px;">
+                <h4 style="font-size: 12px; font-weight: bold; color: #6a1b9a; text-transform: uppercase; margin: 0 0 12px 0;">Subscriptions</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Subscription Price ($/mo)', 'subscriptionPrice')}
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription Conversion Growth (% monthly)', 'subscriptionConversionGrowth')}
-                    ${this.renderInput('Subscriptions Per User', 'subscriptionsPerUser')}
+                    ${this.renderInput('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber')}
+                    ${this.renderInput('Subscription Growth Per Subscriber (% monthly)', 'subscriptionGrowthPerSubscriber')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
-                    ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
-                    ${this.renderInput('KYC Fee ($)', 'kycFee')}
                 </div>
             </div>
         `;
@@ -471,9 +485,9 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Transaction Value', 'crypto_totalTransactionValue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('SUBSCRIPTIONS', null, projections, true, '#f8f9fa')}
+                            ${this.renderMetricRow('Subscription CVR (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
                             ${this.renderMetricRow('Active Subscribers', 'activeSubscribers', projections)}
-                            ${this.renderMetricRow('Subscriptions Per User', 'subscriptionsPerUser', projections)}
-                            ${this.renderMetricRow('Subscription Conversion Rate (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
+                            ${this.renderMetricRow('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber', projections)}
                             ${this.renderMetricRow('Total Active Subscriptions', 'totalActiveSubscriptions', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
