@@ -8,7 +8,7 @@ class CryptoAnalysis {
         // Base assumptions
         this.assumptions = {
             // Conversion rates
-            monthlyInstalls: 157443.98,
+            monthlyInstalls: 150000.00,
             userGrowthRate: 10.00,
             submittedApplications: 10.00,
             kycApproved: 90.00,
@@ -22,9 +22,9 @@ class CryptoAnalysis {
             subscriptionPrice: 10.00,
             dubRevenueShare: 50.00,
             subscriptionConversion: 3.00,
-            subscriptionConversionGrowth: 0.00,
+            subscriptionConversionGrowth: 5.00,
             subscriptionsPerSubscriber: 1.00,
-            subscriptionGrowthPerSubscriber: 0.00,
+            subscriptionGrowthPerSubscriber: 2.00,
             subscriptionChurnRate: 25.00,
             accountClosureRate: 5.00,
             kycFee: 0.75,
@@ -39,11 +39,11 @@ class CryptoAnalysis {
             equities_apexTransactionFee: 0.04,
 
             // Crypto
-            crypto_avgMonthlyTrades: 0.92,
+            crypto_avgMonthlyTrades: 0.50,
             crypto_tradeVolumeGrowth: 3.00,
-            crypto_avgMonthlyPortfolioCreations: 0.02,
+            crypto_avgMonthlyPortfolioCreations: 0.01,
             crypto_portfolioCreationGrowth: 3.00,
-            crypto_avgMonthlyRebalances: 3.65,
+            crypto_avgMonthlyRebalances: 2.00,
             crypto_rebalanceGrowth: 10.00,
             crypto_avgTradeValue: 200.00,
             crypto_bidAskSpread: 0.50,
@@ -242,7 +242,7 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
-            <div style="width: 100%; max-width: 1400px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
+            <div style="width: 100%; max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Crypto Analysis</h1>
                     <p style="color: #6c757d; margin: 0;">Business model projections for cryptocurrency features</p>
