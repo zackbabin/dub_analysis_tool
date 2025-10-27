@@ -82,6 +82,7 @@ class CryptoAnalysis {
         let cumulativeFundedAccounts = 0;
         let currentSubscriptionConversion = this.assumptions.subscriptionConversion;
         let currentSubscriptionsPerSubscriber = this.assumptions.subscriptionsPerSubscriber;
+        let currentWaivedFeesPercent = this.assumptions.waivedFeesPercent;
 
         months.forEach(month => {
             // User growth (compound monthly)
@@ -121,7 +122,7 @@ class CryptoAnalysis {
             const crypto_totalTradingEvents = crypto_trades + crypto_rebalances + crypto_portfoliosCreated;
 
             // Maintenance revenue
-            const accountsPayingFees = cumulativeFundedAccounts * (1 - this.assumptions.waivedFeesPercent / 100);
+            const accountsPayingFees = cumulativeFundedAccounts * (1 - currentWaivedFeesPercent / 100);
             const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
 
             // Subscription calculations with churn and conversion growth
@@ -130,9 +131,10 @@ class CryptoAnalysis {
             totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
             const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
 
-            // Increase subscription conversion rate and subscriptions per subscriber for next month
+            // Increase subscription conversion rate, subscriptions per subscriber, and waived fees percent for next month
             currentSubscriptionConversion = currentSubscriptionConversion * (1 + this.assumptions.subscriptionConversionGrowth / 100);
             currentSubscriptionsPerSubscriber = currentSubscriptionsPerSubscriber * (1 + this.assumptions.subscriptionGrowthPerSubscriber / 100);
+            currentWaivedFeesPercent = currentWaivedFeesPercent * (1 + this.assumptions.subscriptionConversionGrowth / 100);
 
             // Crypto revenue and costs
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
