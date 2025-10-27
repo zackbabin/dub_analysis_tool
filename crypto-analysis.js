@@ -472,7 +472,7 @@ class CryptoAnalysis {
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('SUBSCRIPTIONS', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Active Subscriptions', 'activeSubscriptions', projections)}
-                            ${this.renderMetricRow('Subscription Conversion Rate (%)', 'subscriptionConversionRate', projections)}
+                            ${this.renderMetricRow('Subscription Conversion Rate (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
                             ${this.renderMetricRow('Cumulative Subscribers', 'cumulativeSubscribers', projections)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
@@ -480,7 +480,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
-                            ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda')}
+                            ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda', false, false, false, true)}
                         </tbody>
                     </table>
                 </div>
@@ -496,7 +496,7 @@ class CryptoAnalysis {
         `;
     }
 
-    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false) {
+    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false, isPercent = false) {
         if (isHeader) {
             return `
                 <tr style="background: ${bgColor || '#f8f9fa'};">
@@ -519,6 +519,8 @@ class CryptoAnalysis {
                         formatted = this.formatCost(value);
                     } else if (isCurrency) {
                         formatted = this.formatCurrency(value);
+                    } else if (isPercent) {
+                        formatted = value.toFixed(2) + '%';
                     } else {
                         formatted = this.formatNumber(value);
                     }
