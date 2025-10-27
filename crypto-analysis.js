@@ -39,12 +39,12 @@ class CryptoAnalysis {
             equities_apexTransactionFee: 0.04,
 
             // Crypto
-            crypto_avgMonthlyTrades: 0.50,
+            crypto_avgMonthlyTrades: 0.25,
             crypto_tradeVolumeGrowth: 3.00,
             crypto_avgMonthlyPortfolioCreations: 0.01,
             crypto_portfolioCreationGrowth: 3.00,
             crypto_avgMonthlyRebalances: 2.00,
-            crypto_rebalanceGrowth: 10.00,
+            crypto_rebalanceGrowth: 5.00,
             crypto_avgTradeValue: 200.00,
             crypto_bidAskSpread: 0.50,
             crypto_bakktTransactionFee: 0.25,
