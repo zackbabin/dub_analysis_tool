@@ -131,13 +131,15 @@ class CryptoAnalysis {
 
             // Cost calculations
             const kycCost = adjustedKycApproved * this.assumptions.kycFee;
+            const totalCosts = kycCost + crypto_bakktTransactionCost;
 
             // Gross profit calculation
-            const grossProfit = totalRevenue - kycCost - crypto_bakktTransactionCost;
+            const grossProfit = totalRevenue - totalCosts;
 
             results.push({
                 month,
                 installs,
+                kycCost,
                 kycApproved: adjustedKycApproved,
                 linkedBankAccounts: adjustedLinkedBankAccounts,
                 fundedAccounts: adjustedFundedAccounts,
@@ -156,7 +158,7 @@ class CryptoAnalysis {
                 maintenanceRevenue,
                 subscriptionRevenue,
                 cryptoRevenue,
-                kycCost,
+                totalCosts,
                 totalRevenue,
                 grossProfit
             });
@@ -379,6 +381,7 @@ class CryptoAnalysis {
                         </thead>
                         <tbody>
                             ${this.renderMetricRow('Installs', 'installs', projections)}
+                            ${this.renderMetricRow('KYC Costs', 'kycCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('KYC Approved', 'kycApproved', projections)}
                             ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
                             ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
@@ -401,7 +404,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('KYC Costs', 'kycCost', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
