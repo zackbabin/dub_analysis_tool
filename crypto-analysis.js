@@ -139,10 +139,12 @@ class CryptoAnalysis {
 
             // Cost calculations
             const kycCost = submittedApps * this.assumptions.kycFee;
-            const totalCosts = kycCost + crypto_bakktTransactionCost;
+            const equities_apexTransactionCost = equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee;
+            const totalCosts = kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
 
             // Gross profit calculation
             const grossProfit = totalRevenue - totalCosts;
+            const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
             results.push({
                 month,
@@ -157,6 +159,7 @@ class CryptoAnalysis {
                 equities_rebalances,
                 equities_portfoliosCreated,
                 equities_totalTradingEvents,
+                equities_apexTransactionCost,
                 crypto_trades,
                 crypto_rebalances,
                 crypto_portfoliosCreated,
@@ -170,7 +173,8 @@ class CryptoAnalysis {
                 subscriptionRevenue,
                 totalCosts,
                 totalRevenue,
-                grossProfit
+                grossProfit,
+                grossMargin
             });
         });
 
@@ -185,9 +189,17 @@ class CryptoAnalysis {
             const yearMonths = projections.slice(startMonth, endMonth);
             const lastMonth = projections[endMonth - 1];
 
+            const totalRevenue = yearMonths.reduce((sum, m) => sum + m.totalRevenue, 0);
+            const totalCosts = yearMonths.reduce((sum, m) => sum + m.totalCosts, 0);
+            const grossProfit = totalRevenue - totalCosts;
+            const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
             return {
                 year,
-                totalRevenue: yearMonths.reduce((sum, m) => sum + m.totalRevenue, 0),
+                totalRevenue,
+                totalCosts,
+                grossProfit,
+                grossMargin,
                 endingCumulativeFundedAccounts: lastMonth.cumulativeFundedAccounts,
                 endingSubscribers: lastMonth.cumulativeSubscribers,
             };
@@ -352,7 +364,7 @@ class CryptoAnalysis {
 
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 24px 0; font-size: 18px; font-weight: bold;">3-Year Revenue Projection</h3>
+                <h3 style="margin: 0 0 24px 0; font-size: 18px; font-weight: bold;">3-Year Financial Projection</h3>
 
                 <div style="display: grid; grid-template-columns: 180px repeat(3, 1fr); gap: 12px; align-items: start;">
                     <!-- Header Row -->
@@ -373,6 +385,48 @@ class CryptoAnalysis {
                     </div>
                     <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year3.totalRevenue)}</div>
+                    </div>
+
+                    <!-- Total Costs Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #ffe6e6; border-radius: 6px; font-weight: 600; font-size: 12px; color: #b71c1c;">
+                        Total Costs
+                    </div>
+                    <div style="padding: 16px; background: #ffe6e6; border-radius: 6px; border: 1px solid #ef9a9a; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #b71c1c;">${this.formatCost(year1.totalCosts)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #ffe6e6; border-radius: 6px; border: 1px solid #ef9a9a; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #b71c1c;">${this.formatCost(year2.totalCosts)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #ffe6e6; border-radius: 6px; border: 1px solid #ef9a9a; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #b71c1c;">${this.formatCost(year3.totalCosts)}</div>
+                    </div>
+
+                    <!-- Gross Profit Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #d4edda; border-radius: 6px; font-weight: 600; font-size: 12px; color: #1b5e20;">
+                        Gross Profit
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year1.grossProfit)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year2.grossProfit)}</div>
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year3.grossProfit)}</div>
+                    </div>
+
+                    <!-- Gross Margin Row -->
+                    <div style="display: flex; align-items: center; padding: 16px; background: #d4edda; border-radius: 6px; font-weight: 600; font-size: 12px; color: #1b5e20;">
+                        Gross Margin (%)
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${year1.grossMargin.toFixed(1)}%</div>
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${year2.grossMargin.toFixed(1)}%</div>
+                    </div>
+                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
+                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${year3.grossMargin.toFixed(1)}%</div>
                     </div>
                 </div>
             </div>
@@ -405,6 +459,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Rebalances', 'equities_rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'equities_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'equities_totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Apex Transaction Cost', 'equities_apexTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Trades', 'crypto_trades', projections)}
@@ -425,6 +480,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
+                            ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda')}
                         </tbody>
                     </table>
                 </div>
