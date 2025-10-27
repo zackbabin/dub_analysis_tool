@@ -447,7 +447,6 @@ class CryptoAnalysis {
                         </thead>
                         <tbody>
                             ${this.renderMetricRow('Installs', 'installs', projections)}
-                            ${this.renderMetricRow('KYC Costs', 'kycCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('KYC Approved', 'kycApproved', projections)}
                             ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
                             ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
@@ -459,7 +458,6 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Rebalances', 'equities_rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'equities_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'equities_totalTradingEvents', projections)}
-                            ${this.renderMetricRow('Apex Transaction Cost', 'equities_apexTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Trades', 'crypto_trades', projections)}
@@ -467,17 +465,21 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Portfolios Created', 'crypto_portfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Trading Events', 'crypto_totalTradingEvents', projections)}
                             ${this.renderMetricRow('Total Transaction Value', 'crypto_totalTransactionValue', projections, false, null, true)}
-                            ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Bakkt Transaction Cost', 'crypto_bakktTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('SUBSCRIPTIONS', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Active Subscriptions', 'activeSubscriptions', projections)}
                             ${this.renderMetricRow('Subscription Conversion Rate (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
                             ${this.renderMetricRow('Cumulative Subscribers', 'cumulativeSubscribers', projections)}
-                            ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true)}
+                            ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
+                            ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
+                            ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
+                            ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('Apex KYC Fees', 'kycCost', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Apex Transaction Fees', 'equities_apexTransactionCost', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Bakkt Transaction Fees', 'crypto_bakktTransactionCost', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
                             ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda', false, false, false, true)}
