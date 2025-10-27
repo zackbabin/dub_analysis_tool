@@ -18,7 +18,7 @@ class CryptoAnalysis {
 
             // Other assumptions
             maintenanceFee: 2.00,
-            waivedFeesPercent: 30.00,
+            waivedFeesPercent: 20.00,
             subscriptionPrice: 10.00,
             dubRevenueShare: 50.00,
             subscriptionConversion: 3.00,
