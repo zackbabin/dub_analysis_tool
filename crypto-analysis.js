@@ -265,7 +265,7 @@ class CryptoAnalysis {
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
