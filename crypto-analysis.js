@@ -10,7 +10,8 @@ class CryptoAnalysis {
             // Conversion rates
             monthlyInstalls: 157443.98,
             userGrowthRate: 10.00,
-            installToKYC: 30.00,
+            submittedApplications: 10.00,
+            kycApproved: 90.00,
             kycToLinkedBank: 21.98,
             linkedBankToACH: 53.58,
             achToCopy: 54.49,
@@ -83,7 +84,8 @@ class CryptoAnalysis {
             const installs = this.assumptions.monthlyInstalls * monthlyUserGrowth;
 
             // Conversion funnel
-            const kycApproved = installs * (this.assumptions.installToKYC / 100);
+            const submittedApps = installs * (this.assumptions.submittedApplications / 100);
+            const kycApproved = submittedApps * (this.assumptions.kycApproved / 100);
             const linkedBankAccounts = kycApproved * (this.assumptions.kycToLinkedBank / 100);
             const fundedAccounts = linkedBankAccounts * (this.assumptions.linkedBankToACH / 100);
 
@@ -130,7 +132,7 @@ class CryptoAnalysis {
             const totalRevenue = maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
             // Cost calculations
-            const kycCost = adjustedKycApproved * this.assumptions.kycFee;
+            const kycCost = submittedApps * this.assumptions.kycFee;
             const totalCosts = kycCost + crypto_bakktTransactionCost;
 
             // Gross profit calculation
@@ -255,7 +257,8 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Installs', 'monthlyInstalls')}
                     ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
-                    ${this.renderInput('Install → KYC (%)', 'installToKYC')}
+                    ${this.renderInput('Submitted Applications (%)', 'submittedApplications')}
+                    ${this.renderInput('KYC Approved (%)', 'kycApproved')}
                     ${this.renderInput('KYC → Linked Bank (%)', 'kycToLinkedBank')}
                     ${this.renderInput('Linked Bank → ACH (%)', 'linkedBankToACH')}
                 </div>
