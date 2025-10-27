@@ -82,7 +82,6 @@ class CryptoAnalysis {
         let cumulativeFundedAccounts = 0;
         let currentSubscriptionConversion = this.assumptions.subscriptionConversion;
         let currentSubscriptionsPerSubscriber = this.assumptions.subscriptionsPerSubscriber;
-        let currentWaivedFeesPercent = this.assumptions.waivedFeesPercent;
 
         months.forEach(month => {
             // User growth (compound monthly)
@@ -121,20 +120,19 @@ class CryptoAnalysis {
             const crypto_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyPortfolioCreations * crypto_portfolioCreationMultiplier;
             const crypto_totalTradingEvents = crypto_trades + crypto_rebalances + crypto_portfoliosCreated;
 
-            // Maintenance revenue
-            const accountsPayingFees = cumulativeFundedAccounts * (1 - currentWaivedFeesPercent / 100);
-            const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
-
             // Subscription calculations with churn and conversion growth
             const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
             const newSubscriptions = activeSubscribers * currentSubscriptionsPerSubscriber;
             totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
             const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
 
-            // Increase subscription conversion rate, subscriptions per subscriber, and waived fees percent for next month
+            // Maintenance revenue - accounts paying fees are funded accounts with waived fees applied, minus active subscribers
+            const accountsPayingFees = (cumulativeFundedAccounts * (1 - this.assumptions.waivedFeesPercent / 100)) - totalActiveSubscriptions;
+            const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
+
+            // Increase subscription conversion rate and subscriptions per subscriber for next month
             currentSubscriptionConversion = currentSubscriptionConversion * (1 + this.assumptions.subscriptionConversionGrowth / 100);
             currentSubscriptionsPerSubscriber = currentSubscriptionsPerSubscriber * (1 + this.assumptions.subscriptionGrowthPerSubscriber / 100);
-            currentWaivedFeesPercent = currentWaivedFeesPercent * (1 + this.assumptions.subscriptionConversionGrowth / 100);
 
             // Crypto revenue and costs
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
