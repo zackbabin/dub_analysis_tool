@@ -23,6 +23,7 @@ class CryptoAnalysis {
             dubRevenueShare: 50.00,
             subscriptionConversion: 3.00,
             subscriptionConversionGrowth: 0.00,
+            subscriptionsPerUser: 1.00,
             subscriptionChurnRate: 25.00,
             accountClosureRate: 5.00,
             kycFee: 0.75,
@@ -76,7 +77,7 @@ class CryptoAnalysis {
     calculateProjections() {
         const months = Array.from({ length: 36 }, (_, i) => i + 1);
         const results = [];
-        let cumulativeSubscribers = 0;
+        let totalActiveSubscriptions = 0;
         let cumulativeFundedAccounts = 0;
         let currentSubscriptionConversion = this.assumptions.subscriptionConversion;
 
@@ -122,10 +123,11 @@ class CryptoAnalysis {
             const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
 
             // Subscription calculations with churn and conversion growth
-            const activeSubscriptions = adjustedKycApproved * (currentSubscriptionConversion / 100);
-            const newSubscribers = activeSubscriptions;
-            cumulativeSubscribers = (cumulativeSubscribers * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscribers;
-            const subscriptionRevenue = cumulativeSubscribers * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
+            const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
+            const subscriptionsPerUser = this.assumptions.subscriptionsPerUser;
+            const newSubscriptions = activeSubscribers * subscriptionsPerUser;
+            totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
+            const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
 
             // Increase subscription conversion rate for next month
             currentSubscriptionConversion = currentSubscriptionConversion * (1 + this.assumptions.subscriptionConversionGrowth / 100);
@@ -167,9 +169,10 @@ class CryptoAnalysis {
                 crypto_totalTransactionValue,
                 cryptoRevenue,
                 crypto_bakktTransactionCost,
-                activeSubscriptions,
+                activeSubscribers,
+                subscriptionsPerUser,
                 subscriptionConversionRate: currentSubscriptionConversion,
-                cumulativeSubscribers,
+                totalActiveSubscriptions,
                 subscriptionRevenue,
                 totalCosts,
                 totalRevenue,
@@ -201,7 +204,7 @@ class CryptoAnalysis {
                 grossProfit,
                 grossMargin,
                 endingCumulativeFundedAccounts: lastMonth.cumulativeFundedAccounts,
-                endingSubscribers: lastMonth.cumulativeSubscribers,
+                endingSubscribers: lastMonth.totalActiveSubscriptions,
             };
         });
     }
@@ -297,6 +300,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
                     ${this.renderInput('Subscription Conversion (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription Conversion Growth (% monthly)', 'subscriptionConversionGrowth')}
+                    ${this.renderInput('Subscriptions Per User', 'subscriptionsPerUser')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
                     ${this.renderInput('KYC Fee ($)', 'kycFee')}
@@ -467,9 +471,10 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Total Transaction Value', 'crypto_totalTransactionValue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('SUBSCRIPTIONS', null, projections, true, '#f8f9fa')}
-                            ${this.renderMetricRow('Active Subscriptions', 'activeSubscriptions', projections)}
+                            ${this.renderMetricRow('Active Subscribers', 'activeSubscribers', projections)}
+                            ${this.renderMetricRow('Subscriptions Per User', 'subscriptionsPerUser', projections)}
                             ${this.renderMetricRow('Subscription Conversion Rate (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
-                            ${this.renderMetricRow('Cumulative Subscribers', 'cumulativeSubscribers', projections)}
+                            ${this.renderMetricRow('Total Active Subscriptions', 'totalActiveSubscriptions', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
