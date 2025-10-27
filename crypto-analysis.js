@@ -489,7 +489,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('SUBSCRIPTIONS', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Subscription CVR (%)', 'subscriptionConversionRate', projections, false, null, false, false, false, true)}
                             ${this.renderMetricRow('Active Subscribers', 'activeSubscribers', projections)}
-                            ${this.renderMetricRow('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber', projections)}
+                            ${this.renderMetricRow('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber', projections, false, null, false, false, false, false, true)}
                             ${this.renderMetricRow('Total Active Subscriptions', 'totalActiveSubscriptions', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
@@ -519,7 +519,7 @@ class CryptoAnalysis {
         `;
     }
 
-    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false, isPercent = false) {
+    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false, isPercent = false, isDecimal = false) {
         if (isHeader) {
             return `
                 <tr style="background: ${bgColor || '#f8f9fa'};">
@@ -544,6 +544,8 @@ class CryptoAnalysis {
                         formatted = this.formatCurrency(value);
                     } else if (isPercent) {
                         formatted = value.toFixed(2) + '%';
+                    } else if (isDecimal) {
+                        formatted = value.toFixed(2);
                     } else {
                         formatted = this.formatNumber(value);
                     }
