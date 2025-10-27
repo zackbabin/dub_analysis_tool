@@ -313,10 +313,10 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Subscription Price ($/mo)', 'subscriptionPrice')}
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
-                    ${this.renderInput('Subscription Conversion (% of KYC)', 'subscriptionConversion')}
-                    ${this.renderInput('Subscription Conversion Growth (% monthly)', 'subscriptionConversionGrowth')}
+                    ${this.renderInput('Subscription CVR (% of KYC)', 'subscriptionConversion')}
+                    ${this.renderInput('Subscription CVR Growth (% monthly)', 'subscriptionConversionGrowth')}
                     ${this.renderInput('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber')}
-                    ${this.renderInput('Subscription Growth Per Subscriber (% monthly)', 'subscriptionGrowthPerSubscriber')}
+                    ${this.renderInput('Growth Per Subscriber (% monthly)', 'subscriptionGrowthPerSubscriber')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
                 </div>
             </div>
