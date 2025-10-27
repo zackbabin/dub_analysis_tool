@@ -31,10 +31,12 @@ class CryptoAnalysis {
 
             // Equities
             equities_avgMonthlyTrades: 0.92,
+            equities_assetsPerPortfolio: 5.00,
             equities_tradeVolumeGrowth: 3.00,
             equities_avgMonthlyPortfolioCreations: 0.02,
             equities_portfolioCreationGrowth: 3.00,
             equities_avgMonthlyRebalances: 3.65,
+            equities_portfolioRebalancedPercent: 50.00,
             equities_rebalanceGrowth: 5.00,
             equities_apexTransactionFee: 0.04,
 
@@ -328,11 +330,13 @@ class CryptoAnalysis {
             <div style="background: #f0f8ff; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Equities</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Trades', 'equities_avgMonthlyTrades')}
+                    ${this.renderInput('Monthly Portfolio Copies', 'equities_avgMonthlyTrades')}
+                    ${this.renderInput('Assets Per Portfolio', 'equities_assetsPerPortfolio')}
                     ${this.renderInput('Trade Volume Growth (% monthly)', 'equities_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'equities_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
+                    ${this.renderInput('% Portfolio Rebalanced', 'equities_portfolioRebalancedPercent')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
                 </div>
@@ -345,7 +349,7 @@ class CryptoAnalysis {
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 12px 0;">Crypto</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Trades', 'crypto_avgMonthlyTrades')}
+                    ${this.renderInput('Monthly Portfolio Copies', 'crypto_avgMonthlyTrades')}
                     ${this.renderInput('Trade Volume Growth (% monthly)', 'crypto_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'crypto_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'crypto_portfolioCreationGrowth')}
