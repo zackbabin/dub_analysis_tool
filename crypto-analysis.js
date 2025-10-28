@@ -228,9 +228,23 @@ class CryptoAnalysis {
             const grossProfit = totalRevenue - totalCosts;
             const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
 
+            // Revenue breakdown by source
+            const pfofRevenue = yearMonths.reduce((sum, m) => sum + m.pfofRevenue, 0);
+            const maintenanceRevenue = yearMonths.reduce((sum, m) => sum + m.maintenanceRevenue, 0);
+            const cryptoRevenue = yearMonths.reduce((sum, m) => sum + m.cryptoRevenue, 0);
+            const subscriptionRevenue = yearMonths.reduce((sum, m) => sum + m.subscriptionRevenue, 0);
+
             return {
                 year,
                 totalRevenue,
+                pfofRevenue,
+                maintenanceRevenue,
+                cryptoRevenue,
+                subscriptionRevenue,
+                pfofPercent: totalRevenue > 0 ? (pfofRevenue / totalRevenue) * 100 : 0,
+                maintenancePercent: totalRevenue > 0 ? (maintenanceRevenue / totalRevenue) * 100 : 0,
+                cryptoPercent: totalRevenue > 0 ? (cryptoRevenue / totalRevenue) * 100 : 0,
+                subscriptionPercent: totalRevenue > 0 ? (subscriptionRevenue / totalRevenue) * 100 : 0,
                 totalCosts,
                 grossProfit,
                 grossMargin,
@@ -439,12 +453,30 @@ class CryptoAnalysis {
                     </div>
                     <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year1.totalRevenue)}</div>
+                        <div style="font-size: 11px; color: #495057; margin-top: 8px; line-height: 1.4;">
+                            PFOF: ${year1.pfofPercent.toFixed(1)}%<br>
+                            Maintenance: ${year1.maintenancePercent.toFixed(1)}%<br>
+                            Crypto: ${year1.cryptoPercent.toFixed(1)}%<br>
+                            Subscription: ${year1.subscriptionPercent.toFixed(1)}%
+                        </div>
                     </div>
                     <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year2.totalRevenue)}</div>
+                        <div style="font-size: 11px; color: #495057; margin-top: 8px; line-height: 1.4;">
+                            PFOF: ${year2.pfofPercent.toFixed(1)}%<br>
+                            Maintenance: ${year2.maintenancePercent.toFixed(1)}%<br>
+                            Crypto: ${year2.cryptoPercent.toFixed(1)}%<br>
+                            Subscription: ${year2.subscriptionPercent.toFixed(1)}%
+                        </div>
                     </div>
                     <div style="padding: 16px; background: #e7f3ff; border-radius: 6px; border: 1px solid #90caf9; text-align: center;">
                         <div style="font-size: 20px; font-weight: bold; color: #0d47a1;">${this.formatCurrency(year3.totalRevenue)}</div>
+                        <div style="font-size: 11px; color: #495057; margin-top: 8px; line-height: 1.4;">
+                            PFOF: ${year3.pfofPercent.toFixed(1)}%<br>
+                            Maintenance: ${year3.maintenancePercent.toFixed(1)}%<br>
+                            Crypto: ${year3.cryptoPercent.toFixed(1)}%<br>
+                            Subscription: ${year3.subscriptionPercent.toFixed(1)}%
+                        </div>
                     </div>
 
                     <!-- Total Costs Row -->
