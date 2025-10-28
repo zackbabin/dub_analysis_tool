@@ -117,10 +117,9 @@ class CryptoAnalysis {
             const equities_portfoliosLiquidated = -1 * cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyTrades * equities_tradeVolumeMultiplier * (this.assumptions.portfolioLiquidationRate / 100);
             cumulativeEquitiesPortfoliosCreated += equities_portfoliosCreated + equities_portfoliosLiquidated;
             const equities_rebalances = cumulativeEquitiesPortfoliosCreated * this.assumptions.equities_avgMonthlyRebalances * equities_rebalanceMultiplier;
-            const equities_totalTradingEvents = ((equities_trades * this.assumptions.equities_assetsPerPortfolio) +
+            const equities_totalTradingEvents = (equities_trades * this.assumptions.equities_assetsPerPortfolio) +
                                                 (equities_portfoliosCreated * this.assumptions.equities_assetsPerPortfolio) +
-                                                (equities_rebalances * this.assumptions.equities_assetsPerPortfolio * (this.assumptions.portfolioRebalancedPercent / 100)) +
-                                                (equities_portfoliosLiquidated * this.assumptions.equities_assetsPerPortfolio));
+                                                (cumulativeEquitiesPortfoliosCreated * this.assumptions.equities_avgMonthlyRebalances * (this.assumptions.portfolioRebalancedPercent / 100) * equities_rebalanceMultiplier);
 
             // Crypto trading activity
             const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.crypto_tradeVolumeGrowth / 100, month - 1);
@@ -132,10 +131,9 @@ class CryptoAnalysis {
             const crypto_portfoliosLiquidated = -1 * cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyTrades * crypto_tradeVolumeMultiplier * (this.assumptions.portfolioLiquidationRate / 100);
             cumulativeCryptoPortfoliosCreated += crypto_portfoliosCreated + crypto_portfoliosLiquidated;
             const crypto_rebalances = cumulativeCryptoPortfoliosCreated * this.assumptions.crypto_avgMonthlyRebalances * crypto_rebalanceMultiplier;
-            const crypto_totalTradingEvents = ((crypto_trades * this.assumptions.crypto_assetsPerPortfolio) +
+            const crypto_totalTradingEvents = (crypto_trades * this.assumptions.crypto_assetsPerPortfolio) +
                                                 (crypto_portfoliosCreated * this.assumptions.crypto_assetsPerPortfolio) +
-                                                (crypto_rebalances * this.assumptions.crypto_assetsPerPortfolio * (this.assumptions.portfolioRebalancedPercent / 100)) +
-                                                (crypto_portfoliosLiquidated * this.assumptions.crypto_assetsPerPortfolio));
+                                                (cumulativeCryptoPortfoliosCreated * this.assumptions.crypto_avgMonthlyRebalances * (this.assumptions.portfolioRebalancedPercent / 100) * crypto_rebalanceMultiplier);
 
             // PFOF Revenue
             const pfofRevenue = equities_totalTradingEvents * this.assumptions.equities_pfofFee;
