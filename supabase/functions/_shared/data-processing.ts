@@ -74,11 +74,11 @@ export function processFunnelData(data: any, funnelType: string): any[] {
 
 /**
  * Process portfolio-creator engagement data to create user-level pairs
- * Combines profile views, PDP views, subscriptions, and copies into normalized pairs
+ * Combines profile views, PDP views, subscriptions, copies, and liquidations into normalized pairs
  * @param profileViewsData - Profile views by creator
  * @param pdpViewsData - PDP views by portfolio/creator
  * @param subscriptionsData - Subscription events by user
- * @param copiesData - Copy events by user
+ * @param copiesData - Copy events by user (includes both Total Copies and Total Liquidations metrics)
  * @param syncedAt - Timestamp for sync tracking
  * @returns Array of consolidated engagement pairs
  */
@@ -172,6 +172,22 @@ export function processPortfolioCreatorPairs(
     })
   }
 
+  // Build liquidation counts
+  const liquidationCounts = new Map<string, number>()
+  const liquidationsMetric = copiesData?.series?.['B. Total Liquidations']
+  if (liquidationsMetric) {
+    Object.entries(liquidationsMetric).forEach(([distinctId, data]: [string, any]) => {
+      if (distinctId !== '$overall') {
+        const count = typeof data === 'object' && data !== null && '$overall' in data
+          ? parseInt(String(data['$overall'])) || 0
+          : parseInt(String(data)) || 0
+        if (count > 0) {
+          liquidationCounts.set(distinctId, count)
+        }
+      }
+    })
+  }
+
   // Process PDP views to create pairs
   const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
   if (pdpMetric) {
@@ -182,6 +198,7 @@ export function processPortfolioCreatorPairs(
       const subCount = subscriptionCounts.get(distinctId) || 0
       const didCopy = copiedUsers.has(distinctId)
       const copyCount = copyCounts.get(distinctId) || 0
+      const liquidationCount = liquidationCounts.get(distinctId) || 0
 
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
@@ -196,7 +213,7 @@ export function processPortfolioCreatorPairs(
           const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
 
           if (pdpCount > 0) {
-            // Add consolidated engagement pair with both subscription and copy data
+            // Add consolidated engagement pair with subscription, copy, and liquidation data
             engagementPairs.push({
               distinct_id: distinctId,
               portfolio_ticker: portfolioTicker,
@@ -208,6 +225,7 @@ export function processPortfolioCreatorPairs(
               subscription_count: subCount,
               did_copy: didCopy,
               copy_count: copyCount,
+              liquidation_count: liquidationCount,
               synced_at: syncedAt,
             })
           }
