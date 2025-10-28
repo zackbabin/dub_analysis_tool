@@ -259,6 +259,14 @@ class CryptoAnalysis {
         return `(${formatted})`;
     }
 
+    formatParentheses(value) {
+        const formatted = new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(Math.abs(value));
+        return `(${formatted})`;
+    }
+
     formatNumber(value) {
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 0,
@@ -508,7 +516,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('EQUITIES', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Portfolios Copied', 'equities_trades', projections)}
                             ${this.renderMetricRow('New Portfolios Created', 'equities_portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Portfolios Liquidated', 'equities_portfoliosLiquidated', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Portfolios Liquidated', 'equities_portfoliosLiquidated', projections)}
                             ${this.renderMetricRow('Cumulative Portfolios Created', 'cumulativeEquitiesPortfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Rebalances (Assets)', 'equities_rebalances', projections)}
                             ${this.renderMetricRow('Total Executed Orders (Assets)', 'equities_totalTradingEvents', projections)}
@@ -516,7 +524,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Portfolios Copied', 'crypto_trades', projections)}
                             ${this.renderMetricRow('New Portfolios Created', 'crypto_portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Portfolios Liquidated', 'crypto_portfoliosLiquidated', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Portfolios Liquidated', 'crypto_portfoliosLiquidated', projections)}
                             ${this.renderMetricRow('Cumulative Portfolios Created', 'cumulativeCryptoPortfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Rebalances (Assets)', 'crypto_rebalances', projections)}
                             ${this.renderMetricRow('Total Executed Orders (Assets)', 'crypto_totalTradingEvents', projections)}
