@@ -925,9 +925,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Hidden Gems Table
-        const topHiddenGems = hiddenGems && hiddenGems.length > 0 ? hiddenGems.slice(0, 10) : [];
-
-        if (topHiddenGems.length > 0) {
+        if (hiddenGems && hiddenGems.length > 0) {
             parts.push(
                 '<div class="table-wrapper">',
                 '<table class="qda-regression-table">',
@@ -941,12 +939,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <th style="text-align: right;">Conv Rate</th>
                     </tr>
                 </thead>
-                <tbody>`
+                <tbody id="hidden-gems-tbody">`
             );
 
-            topHiddenGems.forEach((gem, index) => {
+            // Render all hidden gems with visibility classes
+            hiddenGems.forEach((gem, index) => {
+                const visibilityClass = index < 10 ? '' : ' style="display: none;"';
+                const rowClass = index < 10 ? 'hidden-gems-row-initial' : 'hidden-gems-row-extra';
                 parts.push(
-                    `<tr>
+                    `<tr class="${rowClass}"${visibilityClass}>
                         <td>${gem.portfolio_ticker || 'N/A'}</td>
                         <td>${gem.creator_username || 'N/A'}</td>
                         <td style="text-align: right;">${parseInt(gem.total_pdp_views).toLocaleString()}</td>
@@ -958,6 +959,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
 
             parts.push('</tbody></table></div>');
+
+            // Add Show More/Show Less button if there are more than 10 items
+            if (hiddenGems.length > 10) {
+                parts.push(
+                    `<div style="text-align: center; margin-top: 1rem;">
+                        <button id="hidden-gems-toggle-btn" class="show-more-btn" onclick="window.toggleHiddenGems()">
+                            Show More
+                        </button>
+                    </div>`
+                );
+            }
         }
 
         parts.push('</div>');
@@ -1958,9 +1970,82 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         return table;
     }
 
+    /**
+     * Toggle Hidden Gems visibility (Show More/Show Less)
+     */
+    toggleHiddenGems() {
+        const extraRows = document.querySelectorAll('.hidden-gems-row-extra');
+        const button = document.getElementById('hidden-gems-toggle-btn');
+
+        if (!extraRows.length || !button) return;
+
+        const isHidden = extraRows[0].style.display === 'none';
+
+        // Toggle visibility in batches of 10
+        let visibleCount = document.querySelectorAll('.hidden-gems-row-initial').length;
+
+        extraRows.forEach((row, index) => {
+            if (isHidden) {
+                // Show next 10
+                if (index < 10) {
+                    row.style.display = '';
+                }
+            } else {
+                // Hide all extra rows
+                row.style.display = 'none';
+            }
+        });
+
+        // Update button text
+        if (isHidden) {
+            const remainingCount = Array.from(extraRows).filter(row => row.style.display === 'none').length;
+            if (remainingCount > 0) {
+                button.textContent = 'Show More';
+            } else {
+                button.textContent = 'Show Less';
+            }
+        } else {
+            button.textContent = 'Show More';
+        }
+    }
+
 }
 
 // Export to window
 window.UserAnalysisToolSupabase = UserAnalysisToolSupabase;
+
+// Global toggle function for Hidden Gems
+window.toggleHiddenGems = function() {
+    const extraRows = document.querySelectorAll('.hidden-gems-row-extra');
+    const button = document.getElementById('hidden-gems-toggle-btn');
+
+    if (!extraRows.length || !button) return;
+
+    const isHidden = extraRows[0].style.display === 'none';
+
+    extraRows.forEach((row, index) => {
+        if (isHidden) {
+            // Show next 10
+            if (index < 10) {
+                row.style.display = '';
+            }
+        } else {
+            // Hide all extra rows
+            row.style.display = 'none';
+        }
+    });
+
+    // Update button text
+    if (isHidden) {
+        const remainingCount = Array.from(extraRows).filter(row => row.style.display === 'none').length;
+        if (remainingCount > 0) {
+            button.textContent = 'Show More';
+        } else {
+            button.textContent = 'Show Less';
+        }
+    } else {
+        button.textContent = 'Show More';
+    }
+};
 
 console.log('✅ User Analysis Tool (Supabase) loaded successfully!');

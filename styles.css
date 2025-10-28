@@ -847,3 +847,25 @@ body {
         padding: 6px 4px !important;
     }
 }
+
+/* Show More/Show Less Button for Hidden Gems */
+.show-more-btn {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.show-more-btn:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.show-more-btn:active {
+    transform: translateY(0);
+}

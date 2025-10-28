@@ -1092,7 +1092,7 @@ class SupabaseIntegration {
                     .from('hidden_gems_portfolios')
                     .select('*')
                     .order('total_pdp_views', { ascending: false })
-                    .limit(10);
+                    .limit(50);
 
                 if (error) {
                     console.error('Error loading hidden gems:', error);

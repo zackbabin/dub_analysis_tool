@@ -163,7 +163,7 @@ class CryptoAnalysis {
 
             // Cost calculations
             const kycCost = submittedApps * this.assumptions.kycFee;
-            const equities_apexTransactionCost = equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee;
+            const equities_apexTransactionCost = month <= 6 ? equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee : 0;
             const totalCosts = kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
 
             // Gross profit calculation
