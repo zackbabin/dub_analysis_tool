@@ -963,7 +963,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Show More/Show Less button if there are more than 10 items
             if (hiddenGems.length > 10) {
                 parts.push(
-                    `<div style="text-align: center; margin-top: 1rem;">
+                    `<div style="text-align: left; margin-top: 1rem;">
                         <button id="hidden-gems-toggle-btn" class="show-more-btn" onclick="window.toggleHiddenGems()">
                             Show More
                         </button>
@@ -2021,29 +2021,27 @@ window.toggleHiddenGems = function() {
 
     if (!extraRows.length || !button) return;
 
-    const isHidden = extraRows[0].style.display === 'none';
+    // Check if any rows are currently hidden
+    const anyHidden = Array.from(extraRows).some(row => row.style.display === 'none');
 
-    extraRows.forEach((row, index) => {
-        if (isHidden) {
-            // Show next 10
-            if (index < 10) {
+    if (anyHidden) {
+        // Show next 10 hidden rows
+        let shown = 0;
+        extraRows.forEach((row) => {
+            if (row.style.display === 'none' && shown < 10) {
                 row.style.display = '';
+                shown++;
             }
-        } else {
-            // Hide all extra rows
-            row.style.display = 'none';
-        }
-    });
+        });
 
-    // Update button text
-    if (isHidden) {
-        const remainingCount = Array.from(extraRows).filter(row => row.style.display === 'none').length;
-        if (remainingCount > 0) {
-            button.textContent = 'Show More';
-        } else {
-            button.textContent = 'Show Less';
-        }
+        // Check if there are still hidden rows
+        const stillHidden = Array.from(extraRows).some(row => row.style.display === 'none');
+        button.textContent = stillHidden ? 'Show More' : 'Show Less';
     } else {
+        // Hide all extra rows
+        extraRows.forEach((row) => {
+            row.style.display = 'none';
+        });
         button.textContent = 'Show More';
     }
 };
