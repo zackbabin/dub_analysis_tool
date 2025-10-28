@@ -10,7 +10,7 @@ class CryptoAnalysis {
             // Conversion rates
             monthlyInstalls: 150000.00,
             userGrowthRate: 10.00,
-            submittedApplications: 10.00,
+            submittedApplications: 52.00,
             kycApproved: 90.00,
             kycToLinkedBank: 21.98,
             linkedBankToACH: 53.58,
@@ -32,10 +32,10 @@ class CryptoAnalysis {
             kycFee: 0.75,
 
             // Equities
-            equities_avgMonthlyTrades: 0.92,
+            equities_avgMonthlyTrades: 1.50,
             equities_assetsPerPortfolio: 4.00,
             equities_tradeVolumeGrowth: 2.00,
-            equities_avgMonthlyPortfolioCreations: 0.02,
+            equities_avgMonthlyPortfolioCreations: 0.07,
             equities_portfolioCreationGrowth: 2.00,
             equities_avgMonthlyRebalances: 3.65,
             equities_rebalanceGrowth: 2.00,
@@ -51,7 +51,7 @@ class CryptoAnalysis {
             crypto_avgMonthlyRebalances: 2.00,
             crypto_rebalanceGrowth: 2.00,
             crypto_avgTradeValue: 200.00,
-            crypto_bidAskSpread: 0.50,
+            crypto_bidAskSpread: 0.75,
             crypto_bakktTransactionFee: 0.25,
         };
 
@@ -511,7 +511,6 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
                             ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'cumulativeFundedAccounts', projections)}
-                            ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('EQUITIES', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Portfolios Copied', 'equities_trades', projections)}
