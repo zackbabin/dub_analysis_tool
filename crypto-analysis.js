@@ -39,7 +39,7 @@ class CryptoAnalysis {
             equities_portfolioCreationGrowth: 2.00,
             equities_avgMonthlyRebalances: 3.65,
             equities_rebalanceGrowth: 2.00,
-            equities_pfofFee: 0.60,
+            equities_pfofFee: 0.10,
             equities_apexTransactionFee: 0.04,
 
             // Crypto
