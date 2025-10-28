@@ -23,7 +23,7 @@ class CryptoAnalysis {
             portfolioRebalancedPercent: 20.00,
             subscriptionPrice: 10.00,
             dubRevenueShare: 50.00,
-            subscriptionConversion: 3.00,
+            subscriptionConversion: 2.00,
             subscriptionConversionGrowth: 5.00,
             subscriptionsPerSubscriber: 1.00,
             subscriptionGrowthPerSubscriber: 2.00,
@@ -33,7 +33,7 @@ class CryptoAnalysis {
 
             // Equities
             equities_avgMonthlyTrades: 0.92,
-            equities_assetsPerPortfolio: 5.00,
+            equities_assetsPerPortfolio: 4.00,
             equities_tradeVolumeGrowth: 2.00,
             equities_avgMonthlyPortfolioCreations: 0.02,
             equities_portfolioCreationGrowth: 2.00,
@@ -44,7 +44,7 @@ class CryptoAnalysis {
 
             // Crypto
             crypto_avgMonthlyTrades: 0.25,
-            crypto_assetsPerPortfolio: 5.00,
+            crypto_assetsPerPortfolio: 2.00,
             crypto_tradeVolumeGrowth: 2.00,
             crypto_avgMonthlyPortfolioCreations: 0.01,
             crypto_portfolioCreationGrowth: 2.00,
