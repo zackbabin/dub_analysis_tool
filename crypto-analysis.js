@@ -38,6 +38,7 @@ class CryptoAnalysis {
             equities_avgMonthlyRebalances: 3.65,
             equities_portfolioRebalancedPercent: 50.00,
             equities_rebalanceGrowth: 5.00,
+            equities_pfofFee: 0.60,
             equities_apexTransactionFee: 0.04,
 
             // Crypto
@@ -110,7 +111,9 @@ class CryptoAnalysis {
             const equities_trades = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyTrades * equities_tradeVolumeMultiplier;
             const equities_rebalances = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyRebalances * equities_rebalanceMultiplier;
             const equities_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.equities_avgMonthlyPortfolioCreations * equities_portfolioCreationMultiplier;
-            const equities_totalTradingEvents = equities_trades + equities_rebalances + equities_portfoliosCreated;
+            const equities_totalTradingEvents = (equities_trades * this.assumptions.equities_assetsPerPortfolio) +
+                                                (equities_portfoliosCreated * this.assumptions.equities_assetsPerPortfolio) +
+                                                (equities_rebalances * this.assumptions.equities_assetsPerPortfolio * (this.assumptions.equities_portfolioRebalancedPercent / 100));
 
             // Crypto trading activity
             const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.crypto_tradeVolumeGrowth / 100, month - 1);
@@ -121,6 +124,9 @@ class CryptoAnalysis {
             const crypto_rebalances = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyRebalances * crypto_rebalanceMultiplier;
             const crypto_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyPortfolioCreations * crypto_portfolioCreationMultiplier;
             const crypto_totalTradingEvents = crypto_trades + crypto_rebalances + crypto_portfoliosCreated;
+
+            // PFOF Revenue
+            const pfofRevenue = equities_totalTradingEvents * this.assumptions.equities_pfofFee;
 
             // Subscription calculations with churn and conversion growth
             const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
@@ -141,7 +147,7 @@ class CryptoAnalysis {
             const cryptoRevenue = crypto_totalTransactionValue * (this.assumptions.crypto_bidAskSpread / 100);
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
 
-            const totalRevenue = maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
+            const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
             // Cost calculations
             const kycCost = submittedApps * this.assumptions.kycFee;
@@ -160,6 +166,7 @@ class CryptoAnalysis {
                 linkedBankAccounts: adjustedLinkedBankAccounts,
                 fundedAccounts: adjustedFundedAccounts,
                 cumulativeFundedAccounts,
+                pfofRevenue,
                 maintenanceRevenue,
                 equities_trades,
                 equities_rebalances,
@@ -338,6 +345,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
                     ${this.renderInput('% Portfolio Rebalanced', 'equities_portfolioRebalancedPercent')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
+                    ${this.renderInput('PFOF Fee (per asset) ($)', 'equities_pfofFee')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
                 </div>
             </div>
@@ -476,10 +484,10 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('EQUITIES', null, projections, true, '#f8f9fa')}
-                            ${this.renderMetricRow('Total Trades', 'equities_trades', projections)}
+                            ${this.renderMetricRow('Total Portfolios Copied', 'equities_trades', projections)}
                             ${this.renderMetricRow('Total Rebalances', 'equities_rebalances', projections)}
                             ${this.renderMetricRow('Total Portfolios Created', 'equities_portfoliosCreated', projections)}
-                            ${this.renderMetricRow('Total Trading Events', 'equities_totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Total Executed Orders (Assets)', 'equities_totalTradingEvents', projections)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Trades', 'crypto_trades', projections)}
@@ -494,6 +502,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber', projections, false, null, false, false, false, false, true)}
                             ${this.renderMetricRow('Total Active Subscriptions', 'totalActiveSubscriptions', projections)}
                             ${this.renderSeparatorRow(projections)}
+                            ${this.renderMetricRow('PFOF Revenue', 'pfofRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
