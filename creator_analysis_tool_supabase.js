@@ -243,6 +243,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <tr>
                 <th style="text-align: left;">Premium Creator</th>
                 <th style="text-align: right;">Total Copies</th>
+                <th style="text-align: right;">Total Liquidations</th>
                 <th style="text-align: left;">Top 1</th>
                 <th style="text-align: left;">Top 2</th>
                 <th style="text-align: left;">Top 3</th>
@@ -263,6 +264,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_copies || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(row.premium_creator_total_liquidations || 0).toLocaleString()}</td>
                 <td>${row.top_1 || '-'}</td>
                 <td>${row.top_2 || '-'}</td>
                 <td>${row.top_3 || '-'}</td>
