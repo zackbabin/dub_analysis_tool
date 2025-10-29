@@ -349,21 +349,14 @@ class SupabaseIntegration {
      */
     convertToCSVFormat(data) {
         if (!data || data.length === 0) {
-            return ['', '', '', '']; // Return empty CSV strings for 4 files
+            return ['', '', '', '']; // Return empty CSV strings for 4 files (only first is used)
         }
 
-        // We'll create a single comprehensive CSV that mimics the structure
-        // of the merged data that processComprehensiveData() expects
-
-        // Since main_analysis view already has everything joined,
-        // we need to split it back into the 4 required files for compatibility
-
+        // Create comprehensive subscribers CSV with all metrics
+        // Time funnel data is no longer used, but we return empty strings for compatibility
         const subscribersCSV = this.createSubscribersCSV(data);
-        const timeToFirstCopyCSV = this.createTimeFunnelCSV(data, 'time_to_first_copy_days', 'Time to First Copy');
-        const timeToFundedCSV = this.createTimeFunnelCSV(data, 'time_to_funded_account_days', 'Time to Funded Account');
-        const timeToLinkedBankCSV = this.createTimeFunnelCSV(data, 'time_to_linked_bank_days', 'Time to Linked Bank');
 
-        return [subscribersCSV, timeToFirstCopyCSV, timeToFundedCSV, timeToLinkedBankCSV];
+        return [subscribersCSV, '', '', ''];
     }
 
     /**
@@ -407,9 +400,10 @@ class SupabaseIntegration {
             'T. Portfolio Card Taps',
             // Additional calculated fields that the analysis expects
             'Total Stripe Views',
-            'Total Copy Starts',
             'Unique Creators Interacted',
-            'Unique Portfolios Interacted'
+            'Unique Portfolios Interacted',
+            'Total Profile Views',
+            'Total PDP Views'
         ];
 
         const rows = data.map(row => [
@@ -447,32 +441,25 @@ class SupabaseIntegration {
             row.stripe_modal_views || 0,
             row.creator_card_taps || 0,
             row.portfolio_card_taps || 0,
-            // Additional calculated fields (currently set to 0 as placeholder)
-            // These match what user_analysis_tool.js lines 1008-1017 expect
+            // Additional calculated fields from main_analysis view
             row.stripe_modal_views || 0, // Total Stripe Views = R. Stripe Modal Views
-            0, // Total Copy Starts (no data source in user_analysis_tool.js either)
-            0, // Unique Creators Interacted (no data source in user_analysis_tool.js either)
-            0  // Unique Portfolios Interacted (no data source in user_analysis_tool.js either)
+            row.unique_creators_viewed || 0, // Unique Creators Interacted (from main_analysis aggregation)
+            row.unique_portfolios_viewed || 0, // Unique Portfolios Interacted (from main_analysis aggregation)
+            row.total_profile_views || ((row.regular_creator_profile_views || 0) + (row.premium_creator_profile_views || 0)), // Total Profile Views
+            row.total_pdp_views || ((row.regular_pdp_views || 0) + (row.premium_pdp_views || 0)) // Total PDP Views
         ]);
 
         return this.arrayToCSV(headers, rows);
     }
 
     /**
-     * Create time funnel CSV
+     * DEPRECATED: Create time funnel CSV
+     * Time funnel data is no longer collected or used in analysis
+     * This function is kept for reference only
      */
     createTimeFunnelCSV(data, timeField, funnelName) {
-        const headers = ['Funnel', '$distinct_id', funnelName];
-
-        const rows = data
-            .filter(row => row[timeField] !== null && row[timeField] !== undefined)
-            .map(row => [
-                funnelName,
-                row.distinct_id || '',
-                row[timeField] || 0
-            ]);
-
-        return this.arrayToCSV(headers, rows);
+        // No longer used - time_funnels table removed from schema
+        return '';
     }
 
     /**

@@ -38,7 +38,6 @@ interface PortfolioCreatorCopyPair {
   creator_id: string
   creator_username: string | null
   pdp_view_count: number
-  profile_view_count: number
   did_copy: boolean
   copy_count: number
   synced_at: string

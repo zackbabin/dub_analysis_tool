@@ -1110,7 +1110,7 @@ function processComprehensiveData(contents) {
 
 // Constants
 const ALL_VARIABLES = [
-    'hasLinkedBank', 'totalCopyStarts', 'totalStripeViews', 'paywallViews',
+    'hasLinkedBank', 'totalStripeViews', 'paywallViews',
     'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
     'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
     'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
@@ -1118,7 +1118,8 @@ const ALL_VARIABLES = [
     'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
     'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
     'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
-    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps'
+    'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps',
+    'totalProfileViews', 'totalPDPViews'
 ];
 
 const SECTION_EXCLUSIONS = {
@@ -1552,13 +1553,14 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         totalTrades: cleanNumeric(row['Total Trades'] || row['totalTrades']),
 
         // Behavioral / Engagement Metrics
-        totalCopyStarts: cleanNumeric(row['Total Copy Starts']),
         totalRegularCopies: cleanNumeric(row['Total Regular Copies'] || row['F. Total Regular Copies']),
         uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
         uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
 
         regularPDPViews: cleanNumeric(row['Regular PDP Views'] || row['H. Regular PDP Views']),
         premiumPDPViews: cleanNumeric(row['Premium PDP Views'] || row['I. Premium PDP Views']),
+        totalPDPViews: cleanNumeric(row['Total PDP Views']),
+        totalProfileViews: cleanNumeric(row['Total Profile Views']),
         paywallViews: cleanNumeric(row['Paywall Views'] || row['J. Paywall Views']),
         totalStripeViews: cleanNumeric(row['Total Stripe Views'] || row['R. Stripe Modal Views']),
         regularCreatorProfileViews: cleanNumeric(row['Regular Creator Profile Views'] || row['K. Regular Creator Profile Views']),

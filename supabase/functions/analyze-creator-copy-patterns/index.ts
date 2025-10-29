@@ -270,7 +270,7 @@ serve(async (_req) => {
 
     while (hasMore) {
       const { data: pageData, error: loadError } = await supabaseClient
-        .from('user_portfolio_creator_copies')
+        .from('user_creator_profile_copies')
         .select('distinct_id, creator_id, creator_username, profile_view_count, did_copy, copy_count')
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
