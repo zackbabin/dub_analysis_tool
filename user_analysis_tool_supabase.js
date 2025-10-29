@@ -423,7 +423,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             engagementSummary,
             topSubscriptionCombos,
             hiddenGems,
-            hiddenGemsSummary,
             copyEngagementSummary,
             topCopyCombos,
             topCreatorCopyCombos,
@@ -435,7 +434,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopSubscriptionCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
-            this.supabaseIntegration.loadHiddenGemsSummary().catch(e => { console.warn('Failed to load hidden gems summary:', e); return null; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
             this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
@@ -444,6 +442,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
+
+        // Calculate hidden gems summary from hiddenGems array
+        const hiddenGemsSummary = hiddenGems && hiddenGems.length > 0 ? {
+            total_hidden_gems: hiddenGems.length,
+            avg_pdp_views: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.total_pdp_views || 0), 0) / hiddenGems.length * 10) / 10,
+            avg_conversion_rate: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.conversion_rate_pct || 0), 0) / hiddenGems.length * 100) / 100
+        } : null;
         const subscriptionSequenceAnalysis = null; // Set to null since we're not loading it
         const topSequences = []; // Empty array for now
 

@@ -180,14 +180,6 @@ SELECT
 FROM user_portfolio_creator_copies
 GROUP BY creator_id;
 
--- View: hidden_gems_summary
--- Summary statistics for hidden gems analysis
-CREATE OR REPLACE VIEW hidden_gems_summary AS
-SELECT
-    COUNT(*) as total_hidden_gems,
-    ROUND(AVG(total_pdp_views), 1) as avg_pdp_views,
-    ROUND(AVG(conversion_rate_pct), 2) as avg_conversion_rate
-FROM hidden_gems_portfolios;
 
 -- View: latest_subscription_distribution
 -- Most recent subscription price distribution

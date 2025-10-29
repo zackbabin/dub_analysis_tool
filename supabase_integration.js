@@ -1095,33 +1095,6 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * Load hidden gems summary statistics
-     * Returns aggregate stats for hidden gems analysis
-     */
-    async loadHiddenGemsSummary() {
-        return this.cachedQuery('hidden_gems_summary', async () => {
-            console.log('Loading hidden gems summary...');
-
-            try {
-                const { data, error } = await this.supabase
-                    .from('hidden_gems_summary')
-                    .select('*')
-                    .single();
-
-                if (error) {
-                    console.error('Error loading hidden gems summary:', error);
-                    throw error;
-                }
-
-                console.log(`✅ Loaded hidden gems summary`);
-                return data;
-            } catch (error) {
-                console.error('Error loading hidden gems summary:', error);
-                throw error;
-            }
-        });
-    }
 
     // Portfolio sequence analysis removed - not used in UI
     // Function and edge function deleted
