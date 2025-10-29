@@ -57,10 +57,6 @@
     <!-- Creator Analysis Tab -->
     <div id="creator-tab" class="tab-pane">
         <div class="tab-container">
-            <!-- Creator-specific data source component (includes progress bar and status) -->
-            <div id="creatorDataSource">
-                <!-- This will be populated by JavaScript -->
-            </div>
             <div id="creatorContent"></div>
         </div>
         <div class="tab-results-container">
@@ -344,7 +340,19 @@
             syncBtn.querySelector('div:last-child').style.color = '#6c757d';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
-            syncBtn.onclick = () => userTool.runWorkflow('github');
+            syncBtn.onclick = async () => {
+                console.log('🔵 Unified sync button clicked - syncing both user and creator data');
+                try {
+                    // Run both sync workflows in parallel
+                    await Promise.all([
+                        userTool.runWorkflow('github'),
+                        creatorTool.runSyncWorkflow()
+                    ]);
+                    console.log('✅ Both sync workflows completed successfully');
+                } catch (error) {
+                    console.error('❌ Sync workflow failed:', error);
+                }
+            };
 
             // Manually Upload Data button is always DISABLED on user tabs
             uploadBtn.disabled = true;
@@ -381,22 +389,13 @@
 
             // Hide/show data source components based on tab
             const unifiedDataSource = document.getElementById('unifiedDataSource');
-            const creatorDataSource = document.getElementById('creatorDataSource');
 
-            if (tabName === 'creator') {
-                // On Creator tab: show creator-specific component, hide unified
+            if (tabName === 'business-model' || tabName === 'crypto') {
+                // On Business Model or Crypto tab: hide data source
                 unifiedDataSource.style.display = 'none';
-                creatorDataSource.style.display = 'block';
-                // Re-initialize creator data source buttons
-                initializeCreatorDataSourceButtons(creatorTool);
-            } else if (tabName === 'business-model' || tabName === 'crypto') {
-                // On Business Model or Crypto tab: hide both
-                unifiedDataSource.style.display = 'none';
-                creatorDataSource.style.display = 'none';
             } else {
-                // On User tabs (summary, portfolio, subscription): show unified, hide creator
+                // On all data tabs (summary, portfolio, subscription, creator): show unified
                 unifiedDataSource.style.display = 'block';
-                creatorDataSource.style.display = 'none';
             }
 
             // Update button states based on active tab
