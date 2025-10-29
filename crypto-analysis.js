@@ -103,11 +103,13 @@ class CryptoAnalysis {
             const linkedBankAccounts = kycApproved * (this.assumptions.kycToLinkedBank / 100);
             const fundedAccounts = linkedBankAccounts * (this.assumptions.linkedBankToACH / 100);
 
-            // Apply account closure rates
+            // Apply account closure rates to new accounts and cumulative
             const adjustedKycApproved = kycApproved * (1 - this.assumptions.accountClosureRate / 100);
             const adjustedLinkedBankAccounts = linkedBankAccounts * (1 - this.assumptions.accountClosureRate / 100);
             const adjustedFundedAccounts = fundedAccounts * (1 - this.assumptions.accountClosureRate / 100);
-            cumulativeFundedAccounts += adjustedFundedAccounts;
+
+            // Apply closure rate to existing cumulative accounts and add new adjusted accounts
+            cumulativeFundedAccounts = (cumulativeFundedAccounts * (1 - this.assumptions.accountClosureRate / 100)) + adjustedFundedAccounts;
 
             // Equities trading activity
             const equities_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.equities_tradeVolumeGrowth / 100, month - 1);
@@ -163,7 +165,7 @@ class CryptoAnalysis {
             const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
             // Cost calculations
-            const kycCost = submittedApps * this.assumptions.kycFee;
+            const kycCost = adjustedKycApproved * this.assumptions.kycFee;
             const equities_apexTransactionCost = month <= 6 ? equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee : 0;
             const totalCosts = kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
 
@@ -556,9 +558,9 @@ class CryptoAnalysis {
                             </tr>
                         </thead>
                         <tbody>
-                            ${this.renderMetricRow('Installs', 'installs', projections)}
-                            ${this.renderMetricRow('KYC Approved', 'kycApproved', projections)}
-                            ${this.renderMetricRow('Linked Bank Accounts', 'linkedBankAccounts', projections)}
+                            ${this.renderMetricRow('New Installs', 'installs', projections)}
+                            ${this.renderMetricRow('New KYC Approved', 'kycApproved', projections)}
+                            ${this.renderMetricRow('New Linked Bank Accounts', 'linkedBankAccounts', projections)}
                             ${this.renderMetricRow('New Funded Accounts', 'fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'cumulativeFundedAccounts', projections)}
                             ${this.renderSeparatorRow(projections)}
