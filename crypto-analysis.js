@@ -18,7 +18,6 @@ class CryptoAnalysis {
 
             // Other assumptions
             maintenanceFee: 2.00,
-            waivedFeesPercent: 20.00,
             portfolioLiquidationRate: 5.00,
             portfolioRebalancedPercent: 20.00,
             subscriptionPrice: 10.00,
@@ -148,8 +147,8 @@ class CryptoAnalysis {
             totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
             const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
 
-            // Maintenance revenue - accounts paying fees are funded accounts with waived fees applied, minus active subscribers
-            const accountsPayingFees = (cumulativeFundedAccounts * (1 - this.assumptions.waivedFeesPercent / 100)) - totalActiveSubscriptions;
+            // Maintenance revenue - (Cumulative Funded Accounts - Active Subscribers) * Maintenance Fee
+            const accountsPayingFees = cumulativeFundedAccounts - totalActiveSubscriptions;
             const maintenanceRevenue = accountsPayingFees * this.assumptions.maintenanceFee;
 
             // Increase subscription conversion rate and subscriptions per subscriber for next month
@@ -352,7 +351,6 @@ class CryptoAnalysis {
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Other Assumptions</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'maintenanceFee')}
-                    ${this.renderInput('Waived Fees (% of funded acct)', 'waivedFeesPercent')}
                     ${this.renderInput('Portfolio Liquidation Rate (% monthly)', 'portfolioLiquidationRate')}
                     ${this.renderInput('% Portfolio Rebalanced', 'portfolioRebalancedPercent')}
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
