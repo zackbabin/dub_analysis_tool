@@ -212,10 +212,16 @@ export function processPortfolioCreatorPairs(
         Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
           if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
 
-          // Extract creator username and PDP view count
+          // Get creator username from the pre-built map (ensures consistency across portfolios)
+          const creatorUsername = creatorIdToUsername.get(creatorId)
+          if (!creatorUsername) {
+            console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
+            return
+          }
+
+          // Extract PDP view count
           // Structure: { "$overall": { all: count }, "username": { all: count } }
-          // Use $overall for count to avoid duplicates, but extract username for reference
-          let creatorUsername: string | null = null
+          // Use $overall for count to avoid duplicates
           let pdpCount = 0
 
           // First, get the count from $overall (if exists)
@@ -226,20 +232,15 @@ export function processPortfolioCreatorPairs(
               : parseInt(String(overallData)) || 0
           }
 
-          // Then get the username (skip $overall)
-          Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
-            if (username && username !== '$overall' && username !== 'undefined' && !creatorUsername) {
-              creatorUsername = username
-              // If we didn't get count from $overall, use username count
-              if (pdpCount === 0) {
-                pdpCount = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
-                  ? parseInt(String((viewCount as any).all)) || 0
-                  : parseInt(String(viewCount)) || 0
-              }
-            }
-          })
+          // If no $overall, try to get count from the username key
+          if (pdpCount === 0 && usernameData[creatorUsername]) {
+            const usernameViewData = usernameData[creatorUsername]
+            pdpCount = typeof usernameViewData === 'object' && usernameViewData !== null && 'all' in usernameViewData
+              ? parseInt(String((usernameViewData as any).all)) || 0
+              : parseInt(String(usernameViewData)) || 0
+          }
 
-          if (!creatorUsername || pdpCount === 0) return
+          if (pdpCount === 0) return
 
           // Extract copy count for this specific portfolio-creator pair from same chart
           let copyCount = 0
