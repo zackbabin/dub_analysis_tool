@@ -8,11 +8,10 @@ CREATE MATERIALIZED VIEW main_analysis AS
 WITH copy_engagement AS (
   SELECT
     distinct_id,
-    SUM(profile_view_count) as total_profile_views_calc,
-    SUM(pdp_view_count) as total_pdp_views_calc,
     COUNT(DISTINCT creator_id) as unique_creators_viewed,
     COUNT(DISTINCT portfolio_ticker) as unique_portfolios_viewed,
-    SUM(CASE WHEN did_copy THEN 1 ELSE 0 END) as total_copies_calc,
+    SUM(pdp_view_count) as total_pdp_views_calc,
+    SUM(copy_count) as total_copies_calc,
     MAX(CASE WHEN did_copy THEN 1 ELSE 0 END) as did_copy
   FROM user_portfolio_creator_engagement
   WHERE did_copy = true
@@ -21,10 +20,17 @@ WITH copy_engagement AS (
 subscription_engagement AS (
   SELECT
     distinct_id,
-    SUM(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as total_subscriptions_calc,
+    SUM(subscription_count) as total_subscriptions_calc,
     MAX(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as did_subscribe
-  FROM user_portfolio_creator_engagement
+  FROM user_creator_engagement
   WHERE did_subscribe = true
+  GROUP BY distinct_id
+),
+profile_views_agg AS (
+  SELECT
+    distinct_id,
+    SUM(profile_view_count) as total_profile_views_calc
+  FROM user_creator_engagement
   GROUP BY distinct_id
 )
 SELECT
@@ -62,7 +68,7 @@ SELECT
   si.creator_card_taps,
   si.portfolio_card_taps,
   si.subscribed_within_7_days,
-  COALESCE(ce.total_profile_views_calc, 0) as total_profile_views,
+  COALESCE(pv.total_profile_views_calc, 0) as total_profile_views,
   COALESCE(ce.total_pdp_views_calc, 0) as total_pdp_views,
   COALESCE(ce.unique_creators_viewed, 0) as unique_creators_viewed,
   COALESCE(ce.unique_portfolios_viewed, 0) as unique_portfolios_viewed,
@@ -70,7 +76,8 @@ SELECT
   COALESCE(se.did_subscribe, 0) as did_subscribe
 FROM subscribers_insights si
 LEFT JOIN copy_engagement ce ON si.distinct_id = ce.distinct_id
-LEFT JOIN subscription_engagement se ON si.distinct_id = se.distinct_id;
+LEFT JOIN subscription_engagement se ON si.distinct_id = se.distinct_id
+LEFT JOIN profile_views_agg pv ON si.distinct_id = pv.distinct_id;
 
 -- Create indexes for faster queries on materialized view
 CREATE INDEX IF NOT EXISTS idx_main_analysis_distinct_id ON main_analysis (distinct_id);
