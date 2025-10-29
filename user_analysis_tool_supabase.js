@@ -987,8 +987,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const copiersData = summaryData.find(d => d.did_copy === true) || {};
-        const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
+        const copiersData = summaryData.find(d => d.did_copy === 1) || {};
+        const nonCopiersData = summaryData.find(d => d.did_copy === 0) || {};
 
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
