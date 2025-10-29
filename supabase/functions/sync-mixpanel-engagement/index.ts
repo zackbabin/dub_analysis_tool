@@ -18,9 +18,8 @@ import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
 const CHART_IDS = {
   // User engagement analysis for subscriptions/copies
   profileViewsByCreator: '85165851',  // Total Profile Views
-  pdpViewsByPortfolio: '85165580',     // Total PDP Views by creatorId, portfolioTicker, distinctId
+  pdpViewsByPortfolio: '85165580',     // Total PDP Views, Total Copies, Total Liquidations by creatorId, portfolioTicker, distinctId
   subscriptionsByCreator: '85165590',  // Total Subscriptions
-  copiesByCreator: '85172578',  // Total Copies
 }
 
 interface SyncStats {
@@ -83,17 +82,16 @@ serve(async (req) => {
       }
 
       // Fetch engagement data with controlled concurrency to respect Mixpanel rate limits
-      // Max 5 concurrent queries allowed by Mixpanel - we use 4 for safety
-      console.log('Fetching engagement charts with max 4 concurrent requests...')
-      const CONCURRENCY_LIMIT = 4
+      // Max 5 concurrent queries allowed by Mixpanel - we use 3 for safety
+      console.log('Fetching engagement charts with max 3 concurrent requests...')
+      const CONCURRENCY_LIMIT = 3
       const limit = pLimit(CONCURRENCY_LIMIT)
 
       const [
         profileViewsData,
         pdpViewsData,
         subscriptionsData,
-        copiesData,
-      ]: [any, any, any, any] = await Promise.all([
+      ]: [any, any, any] = await Promise.all([
         limit(() =>
           fetchInsightsData(
             credentials,
@@ -102,7 +100,7 @@ serve(async (req) => {
           )
         ),
         limit(() =>
-          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio')
+          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio (with Copies & Liquidations)')
         ),
         limit(() =>
           fetchInsightsData(
@@ -110,9 +108,6 @@ serve(async (req) => {
             CHART_IDS.subscriptionsByCreator,
             'Subscriptions by Creator'
           )
-        ),
-        limit(() =>
-          fetchInsightsData(credentials, CHART_IDS.copiesByCreator, 'Copies by Creator')
         ),
       ])
 
@@ -126,21 +121,20 @@ serve(async (req) => {
 
       const batchSize = 500
 
-      // Process and store portfolio-creator engagement pairs (consolidated table)
-      console.log('Processing portfolio-creator engagement pairs...')
-      const engagementPairs = processPortfolioCreatorPairs(
+      // Process and store engagement data (two tables: portfolio-creator and creator-level)
+      console.log('Processing engagement pairs...')
+      const { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
         profileViewsData,
         pdpViewsData,
         subscriptionsData,
-        copiesData,
         syncStartTime.toISOString()
       )
 
-      // Upsert engagement pairs to consolidated table in batches
-      if (engagementPairs.length > 0) {
-        console.log(`Upserting ${engagementPairs.length} engagement pairs to consolidated table...`)
-        for (let i = 0; i < engagementPairs.length; i += batchSize) {
-          const batch = engagementPairs.slice(i, i + batchSize)
+      // Upsert portfolio-creator engagement pairs to user_portfolio_creator_engagement
+      if (portfolioCreatorPairs.length > 0) {
+        console.log(`Upserting ${portfolioCreatorPairs.length} portfolio-creator pairs...`)
+        for (let i = 0; i < portfolioCreatorPairs.length; i += batchSize) {
+          const batch = portfolioCreatorPairs.slice(i, i + batchSize)
           const { error: insertError } = await supabase
             .from('user_portfolio_creator_engagement')
             .upsert(batch, {
@@ -149,14 +143,37 @@ serve(async (req) => {
             })
 
           if (insertError) {
-            console.error('Error upserting engagement pairs batch:', insertError)
+            console.error('Error upserting portfolio-creator pairs batch:', insertError)
             throw insertError
           }
-          console.log(`Upserted batch: ${i + batch.length}/${engagementPairs.length} engagement pairs`)
+          console.log(`Upserted batch: ${i + batch.length}/${portfolioCreatorPairs.length} portfolio-creator pairs`)
         }
-        console.log('✓ Engagement pairs upserted successfully to consolidated table')
-        stats.engagementRecordsFetched += engagementPairs.length
-        stats.totalRecordsInserted += engagementPairs.length
+        console.log('✓ Portfolio-creator pairs upserted successfully')
+        stats.engagementRecordsFetched += portfolioCreatorPairs.length
+        stats.totalRecordsInserted += portfolioCreatorPairs.length
+      }
+
+      // Upsert creator-level engagement pairs to user_creator_engagement
+      if (creatorPairs.length > 0) {
+        console.log(`Upserting ${creatorPairs.length} creator-level pairs...`)
+        for (let i = 0; i < creatorPairs.length; i += batchSize) {
+          const batch = creatorPairs.slice(i, i + batchSize)
+          const { error: insertError } = await supabase
+            .from('user_creator_engagement')
+            .upsert(batch, {
+              onConflict: 'distinct_id,creator_id',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            console.error('Error upserting creator pairs batch:', insertError)
+            throw insertError
+          }
+          console.log(`Upserted batch: ${i + batch.length}/${creatorPairs.length} creator pairs`)
+        }
+        console.log('✓ Creator-level pairs upserted successfully')
+        stats.engagementRecordsFetched += creatorPairs.length
+        stats.totalRecordsInserted += creatorPairs.length
       }
 
       // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)

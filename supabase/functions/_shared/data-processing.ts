@@ -75,21 +75,20 @@ export function processFunnelData(data: any, funnelType: string): any[] {
 /**
  * Process portfolio-creator engagement data to create user-level pairs
  * Combines profile views, PDP views, subscriptions, copies, and liquidations into normalized pairs
- * @param profileViewsData - Profile views by creator
- * @param pdpViewsData - PDP views by portfolio/creator
- * @param subscriptionsData - Subscription events by user
- * @param copiesData - Copy events by user (includes both Total Copies and Total Liquidations metrics)
+ * @param profileViewsData - Profile views by creator (chart 85165851)
+ * @param pdpViewsData - PDP views, copies, liquidations by portfolio/creator (chart 85165580)
+ * @param subscriptionsData - Subscription events by user (chart 85165590)
  * @param syncedAt - Timestamp for sync tracking
- * @returns Array of consolidated engagement pairs
+ * @returns Object with two arrays: portfolioCreatorPairs and creatorPairs
  */
 export function processPortfolioCreatorPairs(
   profileViewsData: any,
   pdpViewsData: any,
   subscriptionsData: any,
-  copiesData: any,
   syncedAt: string
-): any[] {
-  const engagementPairs: any[] = []
+): { portfolioCreatorPairs: any[], creatorPairs: any[] } {
+  const portfolioCreatorPairs: any[] = []
+  const creatorPairs: any[] = []
 
   // Build creator username map
   const creatorIdToUsername = new Map<string, string>()
@@ -112,8 +111,8 @@ export function processPortfolioCreatorPairs(
     })
   }
 
-  // Build profile view counts map
-  const profileViewCounts = new Map<string, Map<string, number>>()
+  // Build creator-level engagement pairs (profile views)
+  // Chart 85165851 structure: distinctId -> creatorId -> creatorUsername -> { all: count }
   if (profileMetric) {
     Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
       if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
@@ -128,11 +127,24 @@ export function processPortfolioCreatorPairs(
               : parseInt(String(viewCount)) || 0
 
             if (count > 0) {
-              if (!profileViewCounts.has(distinctId)) {
-                profileViewCounts.set(distinctId, new Map())
+              // Find or create creator pair
+              const existingPair = creatorPairs.find(
+                p => p.distinct_id === distinctId && p.creator_id === creatorId
+              )
+
+              if (existingPair) {
+                existingPair.profile_view_count += count
+              } else {
+                creatorPairs.push({
+                  distinct_id: distinctId,
+                  creator_id: creatorId,
+                  creator_username: username,
+                  profile_view_count: count,
+                  did_subscribe: false,
+                  subscription_count: 0,
+                  synced_at: syncedAt,
+                })
               }
-              const userCounts = profileViewCounts.get(distinctId)!
-              userCounts.set(creatorId, (userCounts.get(creatorId) || 0) + count)
             }
           }
         })
@@ -140,94 +152,119 @@ export function processPortfolioCreatorPairs(
     })
   }
 
-  // Build subscription users and counts
-  const subscribedUsers = new Set<string>()
-  const subscriptionCounts = new Map<string, number>()
+  // Build subscription data and add to creator pairs
+  // Chart 85165590 structure: distinctId -> creatorId -> creatorUsername -> { all: count }
   const subsMetric = subscriptionsData?.series?.['Total Subscriptions']
   if (subsMetric) {
-    Object.entries(subsMetric).forEach(([distinctId, data]: [string, any]) => {
-      if (distinctId !== '$overall') {
-        subscribedUsers.add(distinctId)
-        const count = typeof data === 'object' && data !== null && '$overall' in data
-          ? parseInt(String(data['$overall'])) || 1
-          : parseInt(String(data)) || 1
-        subscriptionCounts.set(distinctId, count)
-      }
-    })
-  }
+    Object.entries(subsMetric).forEach(([distinctId, creatorData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
-  // Build copied users and counts
-  const copiedUsers = new Set<string>()
-  const copyCounts = new Map<string, number>()
-  const copiesMetric = copiesData?.series?.['Total Copies']
-  if (copiesMetric) {
-    Object.entries(copiesMetric).forEach(([distinctId, data]: [string, any]) => {
-      if (distinctId !== '$overall') {
-        copiedUsers.add(distinctId)
-        const count = typeof data === 'object' && data !== null && '$overall' in data
-          ? parseInt(String(data['$overall'])) || 1
-          : parseInt(String(data)) || 1
-        copyCounts.set(distinctId, count)
-      }
-    })
-  }
+      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
 
-  // Process PDP views to create pairs
-  const pdpMetric = pdpViewsData?.series?.['Total PDP Views']
-  const liquidationsMetric = copiesData?.series?.['B. Total Liquidations']
+        Object.entries(usernameData).forEach(([username, subCount]: [string, any]) => {
+          if (username && username !== '$overall' && username !== 'undefined') {
+            const count = typeof subCount === 'object' && subCount !== null && 'all' in subCount
+              ? parseInt(String((subCount as any).all)) || 0
+              : parseInt(String(subCount)) || 0
 
-  if (pdpMetric) {
-    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+            if (count > 0) {
+              // Find or create creator pair
+              const existingPair = creatorPairs.find(
+                p => p.distinct_id === distinctId && p.creator_id === creatorId
+              )
 
-      const didSubscribe = subscribedUsers.has(distinctId)
-      const subCount = subscriptionCounts.get(distinctId) || 0
-      const didCopy = copiedUsers.has(distinctId)
-      const copyCount = copyCounts.get(distinctId) || 0
-
-      Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
-        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
-
-        Object.entries(creatorData).forEach(([creatorId, viewCount]: [string, any]) => {
-          if (creatorId === '$overall') return
-
-          const pdpCount = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
-            ? parseInt(String((viewCount as any).all))
-            : parseInt(String(viewCount)) || 0
-          const creatorUsername = creatorIdToUsername.get(creatorId) || null
-          const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
-
-          // Extract liquidation count directly from nested structure for this specific portfolio-creator pair
-          let liquidationCount = 0
-          if (liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]) {
-            const liquidationData = liquidationsMetric[distinctId][portfolioTicker][creatorId]
-            liquidationCount = typeof liquidationData === 'object' && liquidationData !== null && 'all' in liquidationData
-              ? parseInt(String(liquidationData.all)) || 0
-              : parseInt(String(liquidationData)) || 0
-          }
-
-          if (pdpCount > 0) {
-            // Add consolidated engagement pair with subscription, copy, and liquidation data
-            engagementPairs.push({
-              distinct_id: distinctId,
-              portfolio_ticker: portfolioTicker,
-              creator_id: creatorId,
-              creator_username: creatorUsername,
-              pdp_view_count: pdpCount,
-              profile_view_count: profileViewCount,
-              did_subscribe: didSubscribe,
-              subscription_count: subCount,
-              did_copy: didCopy,
-              copy_count: copyCount,
-              liquidation_count: liquidationCount,
-              synced_at: syncedAt,
-            })
+              if (existingPair) {
+                existingPair.did_subscribe = true
+                existingPair.subscription_count = count
+              } else {
+                creatorPairs.push({
+                  distinct_id: distinctId,
+                  creator_id: creatorId,
+                  creator_username: username,
+                  profile_view_count: 0,
+                  did_subscribe: true,
+                  subscription_count: count,
+                  synced_at: syncedAt,
+                })
+              }
+            }
           }
         })
       })
     })
   }
 
-  console.log(`Processed ${engagementPairs.length} consolidated engagement pairs`)
-  return engagementPairs
+  // Process PDP views to create portfolio-creator pairs
+  // Chart 85165580 contains: A. Total PDP Views, B. Total Copies, C. Total Liquidations
+  // All metrics share the same nested structure: distinctId -> portfolioTicker -> creatorId -> creatorUsername -> { all: count }
+  const pdpMetric = pdpViewsData?.series?.['A. Total PDP Views']
+  const copiesMetric = pdpViewsData?.series?.['B. Total Copies']
+  const liquidationsMetric = pdpViewsData?.series?.['C. Total Liquidations']
+
+  if (pdpMetric) {
+    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+
+      Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
+        if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+        Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
+          if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+          // Extract creator username and PDP view count
+          // Structure: { "$overall": { all: count }, "username": { all: count } }
+          let creatorUsername: string | null = null
+          let pdpCount = 0
+
+          Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
+            if (username && username !== '$overall' && username !== 'undefined') {
+              creatorUsername = username
+              pdpCount = typeof viewCount === 'object' && viewCount !== null && 'all' in viewCount
+                ? parseInt(String((viewCount as any).all)) || 0
+                : parseInt(String(viewCount)) || 0
+            }
+          })
+
+          if (!creatorUsername || pdpCount === 0) return
+
+          // Extract copy count for this specific portfolio-creator pair from same chart
+          let copyCount = 0
+          let didCopy = false
+          if (copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]?.[creatorUsername]) {
+            const copyData = copiesMetric[distinctId][portfolioTicker][creatorId][creatorUsername]
+            copyCount = typeof copyData === 'object' && copyData !== null && 'all' in copyData
+              ? parseInt(String(copyData.all)) || 0
+              : parseInt(String(copyData)) || 0
+            didCopy = copyCount > 0
+          }
+
+          // Extract liquidation count for this specific portfolio-creator pair from same chart
+          let liquidationCount = 0
+          if (liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]?.[creatorUsername]) {
+            const liquidationData = liquidationsMetric[distinctId][portfolioTicker][creatorId][creatorUsername]
+            liquidationCount = typeof liquidationData === 'object' && liquidationData !== null && 'all' in liquidationData
+              ? parseInt(String(liquidationData.all)) || 0
+              : parseInt(String(liquidationData)) || 0
+          }
+
+          // Add portfolio-creator engagement pair (no profile views or subscriptions)
+          portfolioCreatorPairs.push({
+            distinct_id: distinctId,
+            portfolio_ticker: portfolioTicker,
+            creator_id: creatorId,
+            creator_username: creatorUsername,
+            pdp_view_count: pdpCount,
+            did_copy: didCopy,
+            copy_count: copyCount,
+            liquidation_count: liquidationCount,
+            synced_at: syncedAt,
+          })
+        })
+      })
+    })
+  }
+
+  console.log(`Processed ${portfolioCreatorPairs.length} portfolio-creator pairs and ${creatorPairs.length} creator pairs`)
+  return { portfolioCreatorPairs, creatorPairs }
 }
