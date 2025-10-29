@@ -23,8 +23,8 @@ class CryptoAnalysis {
             portfolioRebalancedPercent: 20.00,
             subscriptionPrice: 10.00,
             dubRevenueShare: 50.00,
-            subscriptionConversion: 2.00,
-            subscriptionConversionGrowth: 5.00,
+            subscriptionConversion: 3.00,
+            subscriptionConversionGrowth: 3.00,
             subscriptionsPerSubscriber: 1.00,
             subscriptionGrowthPerSubscriber: 2.00,
             subscriptionChurnRate: 25.00,
@@ -298,8 +298,8 @@ class CryptoAnalysis {
         this.container.innerHTML = `
             <div style="width: 100%; max-width: 1800px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 <div style="text-align: center; margin-bottom: 32px;">
-                    <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Crypto Analysis</h1>
-                    <p style="color: #6c757d; margin: 0;">Business model projections for cryptocurrency features</p>
+                    <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Business Model Analysis</h1>
+                    <p style="color: #6c757d; margin: 0;">Financial projections and business model assumptions</p>
                 </div>
 
                 ${this.renderAssumptions()}
