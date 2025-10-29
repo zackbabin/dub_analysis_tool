@@ -96,13 +96,13 @@ serve(async (req) => {
 
       // Parse Mixpanel Insights response structure:
       // series: {
-      //   "Total Copies": { distinct_id: { creator_username: { "Regular": {...}, "Premium": {...} } } },
-      //   "Total Liquidations": { distinct_id: { creator_username: { "all": count } } }
+      //   "A. Total Copies": { distinct_id: { creator_username: { creatorType: { "Regular": {...}, "Premium": {...} } } } },
+      //   "B. Total Liquidations": { distinct_id: { creator_username: { creatorType: { "all": count } } } }
       // }
 
       const copyRows: any[] = []
-      const copiesMetric = copiesData.series['Total Copies']
-      const liquidationsMetric = copiesData.series['Total Liquidations']
+      const copiesMetric = copiesData.series['A. Total Copies']
+      const liquidationsMetric = copiesData.series['B. Total Liquidations']
 
       if (!copiesMetric) {
         throw new Error('Total Copies metric not found in response')
@@ -152,9 +152,17 @@ serve(async (req) => {
           // Extract liquidation count from liquidationsMetric
           let liquidationCount = 0
           if (liquidationsMetric && liquidationsMetric[distinctId]) {
-            const liquidationCreatorData = liquidationsMetric[distinctId][creatorUsername]
+            const liquidationCreatorData = liquidationsMetric[distinctId]
             if (liquidationCreatorData && typeof liquidationCreatorData === 'object') {
-              liquidationCount = liquidationCreatorData.all || 0
+              const creatorLiquidations = liquidationCreatorData[creatorUsername]
+              if (creatorLiquidations && typeof creatorLiquidations === 'object') {
+                // Could be nested under creatorType or have direct 'all' count
+                if (creatorLiquidations.all) {
+                  liquidationCount = creatorLiquidations.all || 0
+                } else if (creatorLiquidations.$overall && creatorLiquidations.$overall.all) {
+                  liquidationCount = creatorLiquidations.$overall.all || 0
+                }
+              }
             }
           }
 
