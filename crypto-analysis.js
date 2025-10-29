@@ -39,7 +39,8 @@ class CryptoAnalysis {
             equities_portfolioCreationGrowth: 2.00,
             equities_avgMonthlyRebalances: 3.65,
             equities_rebalanceGrowth: 2.00,
-            equities_pfofFee: 0.10,
+            equities_avgTradeValue: 25.00,
+            equities_pfofFee: 0.0034,
             equities_apexTransactionFee: 0.04,
 
             // Crypto
@@ -122,6 +123,7 @@ class CryptoAnalysis {
             const equities_totalTradingEvents = (equities_trades * this.assumptions.equities_assetsPerPortfolio) +
                                                 (equities_portfoliosCreated * this.assumptions.equities_assetsPerPortfolio) +
                                                 equities_rebalances;
+            const equities_totalTransactionValue = equities_totalTradingEvents * this.assumptions.equities_avgTradeValue;
 
             // Crypto trading activity
             const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.crypto_tradeVolumeGrowth / 100, month - 1);
@@ -138,7 +140,7 @@ class CryptoAnalysis {
                                                 crypto_rebalances;
 
             // PFOF Revenue
-            const pfofRevenue = equities_totalTradingEvents * this.assumptions.equities_pfofFee;
+            const pfofRevenue = equities_totalTransactionValue * (this.assumptions.equities_pfofFee / 100);
 
             // Subscription calculations with churn and conversion growth
             const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
@@ -186,6 +188,7 @@ class CryptoAnalysis {
                 cumulativeEquitiesPortfoliosCreated,
                 equities_portfoliosLiquidated,
                 equities_totalTradingEvents,
+                equities_totalTransactionValue,
                 equities_apexTransactionCost,
                 crypto_trades,
                 crypto_rebalances,
@@ -388,7 +391,8 @@ class CryptoAnalysis {
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
-                    ${this.renderInput('PFOF Fee (per asset) ($)', 'equities_pfofFee')}
+                    ${this.renderInput('Avg Trade Value ($)', 'equities_avgTradeValue')}
+                    ${this.renderInputFourDecimals('PFOF Fee (%)', 'equities_pfofFee')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
                 </div>
             </div>
@@ -426,6 +430,22 @@ class CryptoAnalysis {
                     data-key="${key}"
                     style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
                     onblur="this.value = parseFloat(this.value).toFixed(2)"
+                />
+            </div>
+        `;
+    }
+
+    renderInputFourDecimals(label, key) {
+        return `
+            <div>
+                <label style="display: block; font-size: 11px; color: #6c757d; margin-bottom: 4px;">${label}</label>
+                <input
+                    type="number"
+                    step="0.0001"
+                    value="${this.assumptions[key].toFixed(4)}"
+                    data-key="${key}"
+                    style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
+                    onblur="this.value = parseFloat(this.value).toFixed(4)"
                 />
             </div>
         `;
@@ -551,6 +571,7 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Cumulative Portfolios Created', 'cumulativeEquitiesPortfoliosCreated', projections)}
                             ${this.renderMetricRow('Total Rebalances (Assets)', 'equities_rebalances', projections)}
                             ${this.renderMetricRow('Total Executed Orders (Assets)', 'equities_totalTradingEvents', projections)}
+                            ${this.renderMetricRow('Total Transaction Value', 'equities_totalTransactionValue', projections, false, null, true)}
                             ${this.renderSeparatorRow(projections)}
                             ${this.renderMetricRow('CRYPTO', null, projections, true, '#f8f9fa')}
                             ${this.renderMetricRow('Total Portfolios Copied', 'crypto_trades', projections)}
