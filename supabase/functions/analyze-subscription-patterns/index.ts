@@ -255,8 +255,9 @@ serve(async (_req) => {
 
     while (hasMore) {
       const { data: pageData, error: loadError } = await supabaseClient
-        .from('user_portfolio_creator_views')
-        .select('*')
+        .from('user_portfolio_creator_engagement')
+        .select('distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, synced_at')
+        .gt('pdp_view_count', 0)
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
       if (loadError) {
