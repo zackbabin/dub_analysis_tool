@@ -51,7 +51,7 @@ class CryptoAnalysis {
             crypto_portfolioCreationGrowth: 2.00,
             crypto_avgMonthlyRebalances: 2.00,
             crypto_rebalanceGrowth: 2.00,
-            crypto_avgTradeValue: 200.00,
+            crypto_avgTradeValue: 50.00,
             crypto_bidAskSpread: 0.75,
             crypto_bakktTransactionFee: 0.25,
         };
@@ -391,7 +391,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($)', 'equities_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($ per asset)', 'equities_avgTradeValue')}
                     ${this.renderInputFourDecimals('PFOF Fee (%)', 'equities_pfofFee')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
                 </div>
@@ -411,7 +411,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'crypto_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'crypto_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($)', 'crypto_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($ per asset)', 'crypto_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'crypto_bakktTransactionFee')}
                 </div>
