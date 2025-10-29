@@ -172,29 +172,35 @@ export function processPortfolioCreatorPairs(
     })
   }
 
-  // Build liquidation counts
-  const liquidationCounts = new Map<string, number>()
+  // Build liquidation counts - store per distinctId -> portfolioTicker -> creatorId
+  const liquidationCounts = new Map<string, Map<string, Map<string, number>>>()
   const liquidationsMetric = copiesData?.series?.['B. Total Liquidations']
   if (liquidationsMetric) {
     Object.entries(liquidationsMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
       if (distinctId !== '$overall' && typeof portfolioData === 'object' && portfolioData !== null) {
-        // Structure: distinctId -> portfolioTicker -> creatorId -> { all: count }
-        // We need to sum up all liquidations for this distinct_id across all portfolios/creators
-        let userTotalLiquidations = 0
+        const userLiquidations = new Map<string, Map<string, number>>()
 
         Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
           if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+          const portfolioLiquidations = new Map<string, number>()
 
           Object.entries(creatorData).forEach(([creatorId, countData]: [string, any]) => {
             if (creatorId === '$overall' || typeof countData !== 'object' || countData === null) return
 
             const count = countData.all || 0
-            userTotalLiquidations += count
+            if (count > 0) {
+              portfolioLiquidations.set(creatorId, count)
+            }
           })
+
+          if (portfolioLiquidations.size > 0) {
+            userLiquidations.set(portfolioTicker, portfolioLiquidations)
+          }
         })
 
-        if (userTotalLiquidations > 0) {
-          liquidationCounts.set(distinctId, userTotalLiquidations)
+        if (userLiquidations.size > 0) {
+          liquidationCounts.set(distinctId, userLiquidations)
         }
       }
     })
@@ -210,7 +216,6 @@ export function processPortfolioCreatorPairs(
       const subCount = subscriptionCounts.get(distinctId) || 0
       const didCopy = copiedUsers.has(distinctId)
       const copyCount = copyCounts.get(distinctId) || 0
-      const liquidationCount = liquidationCounts.get(distinctId) || 0
 
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
@@ -223,6 +228,9 @@ export function processPortfolioCreatorPairs(
             : parseInt(String(viewCount)) || 0
           const creatorUsername = creatorIdToUsername.get(creatorId) || null
           const profileViewCount = profileViewCounts.get(distinctId)?.get(creatorId) || 0
+
+          // Get liquidation count for this specific portfolio-creator pair
+          const liquidationCount = liquidationCounts.get(distinctId)?.get(portfolioTicker)?.get(creatorId) || 0
 
           if (pdpCount > 0) {
             // Add consolidated engagement pair with subscription, copy, and liquidation data
