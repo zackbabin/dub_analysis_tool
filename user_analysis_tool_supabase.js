@@ -937,6 +937,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <th style="text-align: right;">Unique Views</th>
                         <th style="text-align: right;">Copies</th>
                         <th style="text-align: right;">Conv Rate</th>
+                        <th style="text-align: right;">Total Liquidations</th>
                     </tr>
                 </thead>
                 <tbody id="hidden-gems-tbody">`
@@ -954,6 +955,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <td style="text-align: right;">${parseInt(gem.unique_views).toLocaleString()}</td>
                         <td style="text-align: right;">${parseInt(gem.total_copies).toLocaleString()}</td>
                         <td style="text-align: right;">${parseFloat(gem.conversion_rate_pct).toFixed(1)}%</td>
+                        <td style="text-align: right;">${parseInt(gem.total_liquidations || 0).toLocaleString()}</td>
                     </tr>`
                 );
             });

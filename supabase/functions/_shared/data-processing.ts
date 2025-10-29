@@ -174,15 +174,27 @@ export function processPortfolioCreatorPairs(
 
   // Build liquidation counts
   const liquidationCounts = new Map<string, number>()
-  const liquidationsMetric = copiesData?.series?.['B. Uniques of Liquidated Portfolio']
+  const liquidationsMetric = copiesData?.series?.['B. Total Liquidations']
   if (liquidationsMetric) {
-    Object.entries(liquidationsMetric).forEach(([distinctId, data]: [string, any]) => {
-      if (distinctId !== '$overall') {
-        const count = typeof data === 'object' && data !== null && '$overall' in data
-          ? parseInt(String(data['$overall'])) || 0
-          : parseInt(String(data)) || 0
-        if (count > 0) {
-          liquidationCounts.set(distinctId, count)
+    Object.entries(liquidationsMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId !== '$overall' && typeof portfolioData === 'object' && portfolioData !== null) {
+        // Structure: distinctId -> portfolioTicker -> creatorId -> { all: count }
+        // We need to sum up all liquidations for this distinct_id across all portfolios/creators
+        let userTotalLiquidations = 0
+
+        Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
+          if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+
+          Object.entries(creatorData).forEach(([creatorId, countData]: [string, any]) => {
+            if (creatorId === '$overall' || typeof countData !== 'object' || countData === null) return
+
+            const count = countData.all || 0
+            userTotalLiquidations += count
+          })
+        })
+
+        if (userTotalLiquidations > 0) {
+          liquidationCounts.set(distinctId, userTotalLiquidations)
         }
       }
     })
