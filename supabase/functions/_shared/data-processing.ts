@@ -209,6 +209,12 @@ export function processPortfolioCreatorPairs(
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
+        // Filter out invalid portfolio tickers (single character, null, undefined, etc.)
+        if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') {
+          console.warn(`Skipping invalid portfolio ticker: "${portfolioTicker}"`)
+          return
+        }
+
         Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
           if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
 
