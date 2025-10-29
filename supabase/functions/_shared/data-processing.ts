@@ -174,7 +174,7 @@ export function processPortfolioCreatorPairs(
 
   // Build liquidation counts
   const liquidationCounts = new Map<string, number>()
-  const liquidationsMetric = copiesData?.series?.['B. Total Liquidations']
+  const liquidationsMetric = copiesData?.series?.['Total Liquidations']
   if (liquidationsMetric) {
     Object.entries(liquidationsMetric).forEach(([distinctId, data]: [string, any]) => {
       if (distinctId !== '$overall') {

@@ -95,19 +95,14 @@ serve(async (req) => {
       console.log('Processing user-creator copies...')
 
       // Parse Mixpanel Insights response structure:
-      // series: { "Total Copies": {
-      //   "distinct_id": {
-      //     "$overall": {...},
-      //     "creator_username": {
-      //       "$overall": {...},
-      //       "Regular": { "all": count },
-      //       "Premium": { "all": count }
-      //     }
-      //   }
-      // }}
+      // series: {
+      //   "Total Copies": { distinct_id: { creator_username: { "Regular": {...}, "Premium": {...} } } },
+      //   "Total Liquidations": { distinct_id: { creator_username: { "all": count } } }
+      // }
 
       const copyRows: any[] = []
       const copiesMetric = copiesData.series['Total Copies']
+      const liquidationsMetric = copiesData.series['Total Liquidations']
 
       if (!copiesMetric) {
         throw new Error('Total Copies metric not found in response')
@@ -154,6 +149,15 @@ serve(async (req) => {
             totalCount = regularCount + premiumCount
           }
 
+          // Extract liquidation count from liquidationsMetric
+          let liquidationCount = 0
+          if (liquidationsMetric && liquidationsMetric[distinctId]) {
+            const liquidationCreatorData = liquidationsMetric[distinctId][creatorUsername]
+            if (liquidationCreatorData && typeof liquidationCreatorData === 'object') {
+              liquidationCount = liquidationCreatorData.all || 0
+            }
+          }
+
           if (totalCount > 0) {
             // Normalize username: ensure it starts with @
             const normalizedUsername = creatorUsername.startsWith('@')
@@ -166,6 +170,7 @@ serve(async (req) => {
               copy_count: totalCount,
               regular_copy_count: regularCount,
               premium_copy_count: premiumCount,
+              liquidation_count: liquidationCount,
               synced_at: syncStartTime.toISOString()
             })
           }
@@ -185,6 +190,7 @@ serve(async (req) => {
           existing.copy_count += row.copy_count
           existing.regular_copy_count += row.regular_copy_count
           existing.premium_copy_count += row.premium_copy_count
+          existing.liquidation_count += row.liquidation_count
         } else {
           aggregatedRows.set(key, { ...row })
         }
