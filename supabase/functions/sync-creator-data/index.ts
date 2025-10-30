@@ -116,7 +116,7 @@ serve(async (req) => {
       // Compute premium creator copy affinity
       console.log('Computing premium creator copy affinity...')
       try {
-        await computePremiumCreatorAffinity(supabase)
+        await computePremiumCreatorAffinity(supabase, credentials)
         console.log('✅ Premium creator affinity computed successfully')
       } catch (affinityError) {
         console.error('⚠️ Warning: Failed to compute affinity:', affinityError)
@@ -356,18 +356,67 @@ function parseValue(val: string): number | null {
 // Affinity Computation
 // ============================================================================
 
-async function computePremiumCreatorAffinity(supabase: any) {
+const PREMIUM_CREATORS_CHART_ID = '85725073'
+
+async function fetchPremiumCreatorsFromMixpanel(credentials: MixpanelCredentials): Promise<Map<string, string[]>> {
+  console.log('Fetching premium creators from Mixpanel...')
+
+  const data = await fetchInsightsData(credentials, PREMIUM_CREATORS_CHART_ID, 'Premium Creators')
+
+  // Map of creatorUsername -> [creatorIds]
+  const creatorMap = new Map<string, string[]>()
+
+  if (!data || !data.series || !data.series['Uniques of Viewed Portfolio Details']) {
+    console.error('No premium creator data found')
+    return creatorMap
+  }
+
+  const series = data.series['Uniques of Viewed Portfolio Details']
+
+  for (const [username, usernameData] of Object.entries(series)) {
+    if (username === '$overall' || typeof usernameData !== 'object') continue
+
+    // Extract creator IDs from the nested structure
+    const creatorIds: string[] = []
+    for (const [key, value] of Object.entries(usernameData as any)) {
+      if (key !== '$overall' && key !== 'all') {
+        creatorIds.push(key)
+      }
+    }
+
+    if (creatorIds.length > 0) {
+      creatorMap.set(username, creatorIds)
+    }
+  }
+
+  console.log(`Found ${creatorMap.size} premium creators from Mixpanel`)
+  return creatorMap
+}
+
+async function computePremiumCreatorAffinity(supabase: any, credentials: MixpanelCredentials) {
   console.log('Starting affinity computation...')
 
-  // Get all premium creators (those with subscription_count > 0)
+  // Get premium creators from Mixpanel chart
+  const premiumCreatorMap = await fetchPremiumCreatorsFromMixpanel(credentials)
+
+  if (premiumCreatorMap.size === 0) {
+    console.log('No premium creators found, skipping affinity computation')
+    return
+  }
+
+  // Get all creator IDs from the map
+  const allPremiumCreatorIds = Array.from(premiumCreatorMap.values()).flat()
+  console.log(`Total premium creator IDs to process: ${allPremiumCreatorIds.length}`)
+
+  // Get creator engagement data for these premium creators
   const { data: premiumCreators, error: premiumError } = await supabase
     .from('user_creator_engagement')
     .select('creator_id, creator_username, subscription_count')
-    .gt('subscription_count', 0)
+    .in('creator_id', allPremiumCreatorIds)
 
   if (premiumError) throw premiumError
 
-  console.log(`Found ${premiumCreators.length} premium creators`)
+  console.log(`Found ${premiumCreators.length} premium creators in database`)
 
   // For each premium creator, compute their affinity data
   const allAffinityRows: any[] = []
