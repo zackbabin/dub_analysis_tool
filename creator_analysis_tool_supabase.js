@@ -860,7 +860,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('✅ User data sync completed:', userResult.stats);
             console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
 
-            this.updateProgress(75, 'Loading and displaying updated data...');
+            this.updateProgress(75, 'Refreshing Creator Analysis display...');
             this.addStatusMessage('✅ All data synced successfully', 'success');
 
             // Invalidate all cached data to ensure fresh display
@@ -868,12 +868,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.supabaseIntegration.invalidateCache('creator_analysis');
             this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
 
-            // Reload data from database and refresh UI display
+            // Reload and redisplay Creator Analysis (same as user tool does)
             console.log('Loading fresh creator data from database...');
-            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
 
-            // Process and display the fresh data
-            await this.processAndAnalyzeDirect(creatorData);
+            this.updateProgress(90, 'Processing data...');
+            await this.processAndAnalyzeDirect(contents);
 
             this.updateProgress(100, 'Complete!');
             console.log('✅ Creator Analysis UI refreshed with latest data');
