@@ -202,124 +202,129 @@ export function processPortfolioCreatorPairs(
   const copiesMetric = pdpViewsData?.series?.['B. Total Copies']
   const liquidationsMetric = pdpViewsData?.series?.['C. Total Liquidations']
 
-  if (pdpMetric) {
-    Object.entries(pdpMetric).forEach(([distinctId, portfolioData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+  // Collect all unique (distinctId, portfolioTicker, creatorId) combinations from ALL metrics
+  // This ensures we don't miss copies or liquidations that exist without PDP views
+  const allCombinations = new Set<string>()
 
+  const addCombinationsFromMetric = (metric: any) => {
+    if (!metric) return
+    Object.entries(metric).forEach(([distinctId, portfolioData]: [string, any]) => {
+      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
-
-        // Filter out invalid portfolio tickers (single character, null, undefined, etc.)
-        if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') {
-          console.warn(`Skipping invalid portfolio ticker: "${portfolioTicker}"`)
-          return
-        }
-
-        Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-          if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
-
-          // Get creator username from the pre-built map OR extract from current metric data
-          let creatorUsername = creatorIdToUsername.get(creatorId)
-
-          // If not in map, try to extract from the current usernameData
-          // This handles cases where creators have liquidations but no profile views
-          if (!creatorUsername) {
-            // usernameData structure: { "$overall": {...}, "actual_username": {...} }
-            // Find the first key that's not $overall
-            const usernameKeys = Object.keys(usernameData).filter(k => k !== '$overall')
-            if (usernameKeys.length > 0) {
-              creatorUsername = usernameKeys[0]
-              // Add to map for consistency across metrics
-              creatorIdToUsername.set(creatorId, creatorUsername)
-            }
-          }
-
-          if (!creatorUsername) {
-            console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
-            return
-          }
-
-          // Extract PDP view count
-          // Structure: { "$overall": { all: count }, "username": { all: count } }
-          // Use $overall for count to avoid duplicates
-          let pdpCount = 0
-
-          // First, get the count from $overall (if exists)
-          if (usernameData['$overall']) {
-            const overallData = usernameData['$overall']
-            pdpCount = typeof overallData === 'object' && overallData !== null && 'all' in overallData
-              ? parseInt(String(overallData.all)) || 0
-              : parseInt(String(overallData)) || 0
-          }
-
-          // If no $overall, try to get count from the username key
-          if (pdpCount === 0 && usernameData[creatorUsername]) {
-            const usernameViewData = usernameData[creatorUsername]
-            pdpCount = typeof usernameViewData === 'object' && usernameViewData !== null && 'all' in usernameViewData
-              ? parseInt(String((usernameViewData as any).all)) || 0
-              : parseInt(String(usernameViewData)) || 0
-          }
-
-          if (pdpCount === 0) return
-
-          // Extract copy count for this specific portfolio-creator pair from same chart
-          let copyCount = 0
-          let didCopy = false
-
-          // Try with $overall first, then with username
-          if (copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]) {
-            const creatorCopies = copiesMetric[distinctId][portfolioTicker][creatorId]
-
-            if (creatorCopies['$overall']) {
-              const overallCopyData = creatorCopies['$overall']
-              copyCount = typeof overallCopyData === 'object' && overallCopyData !== null && 'all' in overallCopyData
-                ? parseInt(String(overallCopyData.all)) || 0
-                : parseInt(String(overallCopyData)) || 0
-            } else if (creatorCopies[creatorUsername]) {
-              const copyData = creatorCopies[creatorUsername]
-              copyCount = typeof copyData === 'object' && copyData !== null && 'all' in copyData
-                ? parseInt(String(copyData.all)) || 0
-                : parseInt(String(copyData)) || 0
-            }
-            didCopy = copyCount > 0
-          }
-
-          // Extract liquidation count for this specific portfolio-creator pair from same chart
-          let liquidationCount = 0
-
-          // Try with $overall first, then with username
-          if (liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]) {
-            const creatorLiquidations = liquidationsMetric[distinctId][portfolioTicker][creatorId]
-
-            if (creatorLiquidations['$overall']) {
-              const overallLiqData = creatorLiquidations['$overall']
-              liquidationCount = typeof overallLiqData === 'object' && overallLiqData !== null && 'all' in overallLiqData
-                ? parseInt(String(overallLiqData.all)) || 0
-                : parseInt(String(overallLiqData)) || 0
-            } else if (creatorLiquidations[creatorUsername]) {
-              const liquidationData = creatorLiquidations[creatorUsername]
-              liquidationCount = typeof liquidationData === 'object' && liquidationData !== null && 'all' in liquidationData
-                ? parseInt(String(liquidationData.all)) || 0
-                : parseInt(String(liquidationData)) || 0
-            }
-          }
-
-          // Add portfolio-creator engagement pair (no profile views or subscriptions)
-          portfolioCreatorPairs.push({
-            distinct_id: distinctId,
-            portfolio_ticker: portfolioTicker,
-            creator_id: creatorId,
-            creator_username: creatorUsername,
-            pdp_view_count: pdpCount,
-            did_copy: didCopy,
-            copy_count: copyCount,
-            liquidation_count: liquidationCount,
-            synced_at: syncedAt,
-          })
+        if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') return
+        Object.keys(creatorData).forEach(creatorId => {
+          if (creatorId === '$overall') return
+          allCombinations.add(`${distinctId}|${portfolioTicker}|${creatorId}`)
         })
       })
     })
   }
+
+  addCombinationsFromMetric(pdpMetric)
+  addCombinationsFromMetric(copiesMetric)
+  addCombinationsFromMetric(liquidationsMetric)
+
+  console.log(`Found ${allCombinations.size} unique portfolio-creator combinations across all metrics`)
+
+  // Now process each unique combination
+  allCombinations.forEach(combinationKey => {
+    const [distinctId, portfolioTicker, creatorId] = combinationKey.split('|')
+
+    // Get the username data from any metric that has it (prefer PDP metric)
+    let usernameData = pdpMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+
+    if (!usernameData || typeof usernameData !== 'object') return
+
+    // Get creator username from the pre-built map OR extract from current metric data
+    let creatorUsername = creatorIdToUsername.get(creatorId)
+
+    // If not in map, try to extract from the usernameData
+    if (!creatorUsername) {
+      const usernameKeys = Object.keys(usernameData).filter(k => k !== '$overall')
+      if (usernameKeys.length > 0) {
+        creatorUsername = usernameKeys[0]
+        creatorIdToUsername.set(creatorId, creatorUsername)
+      }
+    }
+
+    if (!creatorUsername) {
+      console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
+      return
+    }
+
+    // Extract PDP view count
+    let pdpCount = 0
+    const pdpData = pdpMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    if (pdpData) {
+      if (pdpData['$overall']) {
+        const overallData = pdpData['$overall']
+        pdpCount = typeof overallData === 'object' && overallData !== null && 'all' in overallData
+          ? parseInt(String(overallData.all)) || 0
+          : parseInt(String(overallData)) || 0
+      } else if (pdpData[creatorUsername]) {
+        const usernameViewData = pdpData[creatorUsername]
+        pdpCount = typeof usernameViewData === 'object' && usernameViewData !== null && 'all' in usernameViewData
+          ? parseInt(String(usernameViewData.all)) || 0
+          : parseInt(String(usernameViewData)) || 0
+      }
+    }
+
+    // Extract copy count
+    let copyCount = 0
+    let didCopy = false
+    const copyData = copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    if (copyData) {
+      if (copyData['$overall']) {
+        const overallCopyData = copyData['$overall']
+        copyCount = typeof overallCopyData === 'object' && overallCopyData !== null && 'all' in overallCopyData
+          ? parseInt(String(overallCopyData.all)) || 0
+          : parseInt(String(overallCopyData)) || 0
+      } else if (copyData[creatorUsername]) {
+        const creatorCopyData = copyData[creatorUsername]
+        copyCount = typeof creatorCopyData === 'object' && creatorCopyData !== null && 'all' in creatorCopyData
+          ? parseInt(String(creatorCopyData.all)) || 0
+          : parseInt(String(creatorCopyData)) || 0
+      }
+      didCopy = copyCount > 0
+    }
+
+    // Extract liquidation count
+    let liquidationCount = 0
+    const liqData = liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    if (liqData) {
+      if (liqData['$overall']) {
+        const overallLiqData = liqData['$overall']
+        liquidationCount = typeof overallLiqData === 'object' && overallLiqData !== null && 'all' in overallLiqData
+          ? parseInt(String(overallLiqData.all)) || 0
+          : parseInt(String(overallLiqData)) || 0
+      } else if (liqData[creatorUsername]) {
+        const creatorLiqData = liqData[creatorUsername]
+        liquidationCount = typeof creatorLiqData === 'object' && creatorLiqData !== null && 'all' in creatorLiqData
+          ? parseInt(String(creatorLiqData.all)) || 0
+          : parseInt(String(creatorLiqData)) || 0
+      }
+    }
+
+    // Only create record if there's activity
+    if (pdpCount === 0 && copyCount === 0 && liquidationCount === 0) return
+
+    // Add portfolio-creator engagement pair
+    portfolioCreatorPairs.push({
+      distinct_id: distinctId,
+      portfolio_ticker: portfolioTicker,
+      creator_id: creatorId,
+      creator_username: creatorUsername,
+      pdp_view_count: pdpCount,
+      did_copy: didCopy,
+      copy_count: copyCount,
+      liquidation_count: liquidationCount,
+      synced_at: syncedAt,
+    })
+  })
+
 
   console.log(`Processed ${portfolioCreatorPairs.length} portfolio-creator pairs and ${creatorPairs.length} creator pairs`)
   return { portfolioCreatorPairs, creatorPairs }
