@@ -852,29 +852,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         try {
             // Note: User tool already syncs both user and creator data in parallel
-            // This workflow just needs to reload and redisplay the Creator Analysis UI
+            // This workflow just needs to reload and redisplay the Premium Creator Copy Affinity
             this.updateProgress(50, 'Waiting for sync to complete...');
 
-            // Wait a moment for user sync to complete (they run in parallel)
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Wait for sync to complete (runs in parallel with user tool)
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
-            this.updateProgress(75, 'Refreshing Creator Analysis display...');
-            this.addStatusMessage('✅ Data sync in progress, refreshing display...', 'info');
+            this.updateProgress(75, 'Refreshing Premium Creator Copy Affinity...');
 
-            // Invalidate all cached data to ensure fresh display
-            console.log('Invalidating cached data...');
-            this.supabaseIntegration.invalidateCache('creator_analysis');
+            // Invalidate affinity cache to ensure fresh display
+            console.log('Invalidating affinity cache...');
             this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
 
-            // Reload and redisplay Creator Analysis (same as user tool does)
-            console.log('Loading fresh creator data from database...');
-            const contents = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-
-            this.updateProgress(90, 'Processing data...');
-            await this.processAndAnalyzeDirect(contents);
+            // Reload and redisplay Premium Creator Copy Affinity table
+            console.log('Loading fresh affinity data from premium_creator_copy_affinity_pivoted...');
+            await this.loadAndDisplayPremiumCreatorAffinity();
 
             this.updateProgress(100, 'Complete!');
-            console.log('✅ Creator Analysis UI refreshed with latest data');
+            this.addStatusMessage('✅ Premium Creator Copy Affinity refreshed', 'success');
+            console.log('✅ Premium Creator Copy Affinity table refreshed with latest data');
 
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;
