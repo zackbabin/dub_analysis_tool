@@ -843,25 +843,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const workflowStartTime = Date.now();
 
         try {
-            this.updateProgress(25, 'Syncing user and creator data from Mixpanel...');
+            // Note: User tool already syncs both user and creator data in parallel
+            // This workflow just needs to reload and redisplay the Creator Analysis UI
+            this.updateProgress(50, 'Waiting for sync to complete...');
 
-            console.log('Triggering Supabase sync (User + Creator data)...');
-
-            // Sync both user data (for affinity analysis) and creator data in parallel
-            const [userResult, creatorResult] = await Promise.all([
-                this.supabaseIntegration.triggerMixpanelSync(),
-                this.supabaseIntegration.triggerCreatorSync()
-            ]);
-
-            if (!creatorResult || !creatorResult.creatorData || !creatorResult.creatorData.success) {
-                throw new Error('Failed to sync creator data');
-            }
-
-            console.log('✅ User data sync completed:', userResult.stats);
-            console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
+            // Wait a moment for user sync to complete (they run in parallel)
+            await new Promise(resolve => setTimeout(resolve, 1000));
 
             this.updateProgress(75, 'Refreshing Creator Analysis display...');
-            this.addStatusMessage('✅ All data synced successfully', 'success');
+            this.addStatusMessage('✅ Data sync in progress, refreshing display...', 'info');
 
             // Invalidate all cached data to ensure fresh display
             console.log('Invalidating cached data...');
