@@ -308,7 +308,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Save results to localStorage
             const now = new Date();
             const timestamp = now.toLocaleString('en-US', {
-                month: 'short',
+                month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
                 hour: 'numeric',
@@ -446,7 +446,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Save results to localStorage
             const now = new Date();
             const timestamp = now.toLocaleString('en-US', {
-                month: 'short',
+                month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
                 hour: 'numeric',
