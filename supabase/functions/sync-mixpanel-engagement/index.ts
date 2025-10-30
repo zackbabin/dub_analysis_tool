@@ -181,7 +181,11 @@ serve(async (req) => {
       console.log('Triggering pattern analysis (using stored data)...')
 
       // Trigger all 3 analyses using the merged function
-      const analysisPromises = [
+      // Note: We await Promise.allSettled to ensure fetch requests are initiated,
+      // but the analysis functions themselves run in background and we don't wait for completion
+      console.log('Triggering all 3 pattern analysis functions...')
+
+      const analysisResults = await Promise.allSettled([
         fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
           headers: {
@@ -194,10 +198,15 @@ serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text()
             console.error('⚠️ Subscription analysis returned error:', response.status, errorText)
+            return { success: false, type: 'subscription', error: errorText }
           } else {
             console.log('✓ Subscription analysis invoked successfully')
+            return { success: true, type: 'subscription' }
           }
-        }).catch((err) => console.error('⚠️ Subscription analysis failed to invoke:', err.message)),
+        }).catch((err) => {
+          console.error('⚠️ Subscription analysis failed to invoke:', err.message)
+          return { success: false, type: 'subscription', error: err.message }
+        }),
 
         fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
@@ -211,10 +220,15 @@ serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text()
             console.error('⚠️ Copy analysis returned error:', response.status, errorText)
+            return { success: false, type: 'copy', error: errorText }
           } else {
             console.log('✓ Copy analysis invoked successfully')
+            return { success: true, type: 'copy' }
           }
-        }).catch((err) => console.error('⚠️ Copy analysis failed to invoke:', err.message)),
+        }).catch((err) => {
+          console.error('⚠️ Copy analysis failed to invoke:', err.message)
+          return { success: false, type: 'copy', error: err.message }
+        }),
 
         fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
@@ -228,18 +242,24 @@ serve(async (req) => {
           if (!response.ok) {
             const errorText = await response.text()
             console.error('⚠️ Creator copy analysis returned error:', response.status, errorText)
+            return { success: false, type: 'creator_copy', error: errorText }
           } else {
             console.log('✓ Creator copy analysis invoked successfully')
+            return { success: true, type: 'creator_copy' }
           }
-        }).catch((err) => console.error('⚠️ Creator copy analysis failed to invoke:', err.message))
-      ]
+        }).catch((err) => {
+          console.error('⚠️ Creator copy analysis failed to invoke:', err.message)
+          return { success: false, type: 'creator_copy', error: err.message }
+        })
+      ])
 
-      // Keep promises referenced but don't await (fire-and-forget that survives function return)
-      Promise.allSettled(analysisPromises).then(() => {
-        console.log('✓ All pattern analysis functions triggered')
-      })
+      // Log results of analysis invocations
+      const successfulAnalyses = analysisResults.filter(r => r.status === 'fulfilled' && r.value.success).length
+      console.log(`✓ Successfully invoked ${successfulAnalyses}/3 pattern analysis functions`)
 
-      console.log('✓ Pattern analysis functions triggered (running in background)')
+      if (successfulAnalyses === 0) {
+        console.warn('⚠️ WARNING: No analysis functions were successfully invoked')
+      }
 
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table

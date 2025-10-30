@@ -825,7 +825,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Override: Run the sync workflow using Supabase
-     * Only syncs Mixpanel data to creators_insights table - does NOT run analysis
+     * Syncs both user engagement data (for affinity) and creator insights data
      */
     async runSyncWorkflow() {
         if (!this.supabaseIntegration) {
@@ -839,19 +839,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const workflowStartTime = Date.now();
 
         try {
-            this.updateProgress(50, 'Syncing creator data from Mixpanel...');
+            this.updateProgress(25, 'Syncing user and creator data from Mixpanel...');
 
-            console.log('Triggering Supabase creator data sync...');
-            const result = await this.supabaseIntegration.triggerCreatorSync();
+            console.log('Triggering Supabase sync (User + Creator data)...');
 
-            if (!result || !result.creatorData || !result.creatorData.success) {
+            // Sync both user data (for affinity analysis) and creator data in parallel
+            const [userResult, creatorResult] = await Promise.all([
+                this.supabaseIntegration.triggerMixpanelSync(),
+                this.supabaseIntegration.triggerCreatorSync()
+            ]);
+
+            if (!creatorResult || !creatorResult.creatorData || !creatorResult.creatorData.success) {
                 throw new Error('Failed to sync creator data');
             }
 
-            console.log('✅ Creator data sync completed:', result.creatorData.stats);
+            console.log('✅ User data sync completed:', userResult.stats);
+            console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
             this.updateProgress(100, 'Complete!');
 
-            this.addStatusMessage('✅ Creator data synced successfully', 'success');
+            this.addStatusMessage('✅ All data synced successfully', 'success');
 
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;

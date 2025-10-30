@@ -9,9 +9,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 // Analysis type configurations
 const ANALYSIS_CONFIGS = {
   subscription: {
-    table: 'user_portfolio_creator_engagement',
-    select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, synced_at',
-    filterColumn: 'pdp_view_count',
+    table: 'user_creator_engagement',
+    select: 'distinct_id, creator_id, creator_username, profile_view_count, did_subscribe, subscription_count, synced_at',
+    filterColumn: 'profile_view_count',
     outcomeColumn: 'did_subscribe',
     entityType: 'creator',
     refreshView: 'refresh_subscription_engagement_summary',

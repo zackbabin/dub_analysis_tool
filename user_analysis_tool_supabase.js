@@ -209,12 +209,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             throw new Error('Supabase not configured. Please save your Supabase credentials first.');
         }
 
-        console.log('Triggering Supabase Edge Function...');
+        console.log('Triggering Supabase Edge Functions (User + Creator data)...');
 
-        // Call the Edge Function (credentials stored in Supabase secrets)
-        const result = await this.supabaseIntegration.triggerMixpanelSync();
+        // Sync both user data and creator data
+        const [userResult, creatorResult] = await Promise.all([
+            this.supabaseIntegration.triggerMixpanelSync(),
+            this.supabaseIntegration.triggerCreatorSync()
+        ]);
 
-        console.log('✅ Supabase sync completed:', result.stats);
+        console.log('✅ User data sync completed:', userResult.stats);
+        console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
 
         // Trigger event sequence sync (fetch raw data from Mixpanel)
         // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)
