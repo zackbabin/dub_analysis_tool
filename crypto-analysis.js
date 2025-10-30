@@ -20,7 +20,7 @@ class CryptoAnalysis {
             maintenanceFee: 2.00,
             portfolioLiquidationRate: 5.00,
             portfolioRebalancedPercent: 20.00,
-            subscriptionPrice: 10.00,
+            subscriptionPrice: 13.70,
             dubRevenueShare: 50.00,
             subscriptionConversion: 3.00,
             subscriptionConversionGrowth: 3.00,
@@ -371,7 +371,7 @@ class CryptoAnalysis {
             <div style="background: #f3e5f5; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #6a1b9a; text-transform: uppercase; margin: 0 0 12px 0;">Subscriptions</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Subscription Price ($/mo)', 'subscriptionPrice')}
+                    ${this.renderInput('Subscriber MRR ($/mo)', 'subscriptionPrice')}
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
                     ${this.renderInput('Subscription CVR (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription CVR Growth (% monthly)', 'subscriptionConversionGrowth')}
