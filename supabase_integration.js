@@ -495,12 +495,9 @@ class SupabaseIntegration {
         console.log('Triggering Creator sync via Supabase Edge Functions...');
 
         try {
-            // Call both sync functions in parallel
-            console.log('Syncing creator data and user-creator copies...');
-            const [creatorDataResult, userCreatorCopiesResult] = await Promise.all([
-                this.supabase.functions.invoke('sync-creator-data', { body: {} }),
-                this.supabase.functions.invoke('sync-user-creator-copies', { body: {} })
-            ]);
+            // Call sync-creator-data function
+            console.log('Syncing creator data...');
+            const creatorDataResult = await this.supabase.functions.invoke('sync-creator-data', { body: {} });
 
             // Check creator data sync
             if (creatorDataResult.error) {
@@ -512,22 +509,10 @@ class SupabaseIntegration {
                 throw new Error(creatorDataResult.data.error || 'Unknown error during creator sync');
             }
 
-            // Check user-creator copies sync
-            if (userCreatorCopiesResult.error) {
-                console.error('User-creator copies sync error:', userCreatorCopiesResult.error);
-                throw new Error(`User-creator copies sync failed: ${userCreatorCopiesResult.error.message}`);
-            }
-
-            if (!userCreatorCopiesResult.data.success) {
-                throw new Error(userCreatorCopiesResult.data.error || 'Unknown error during user-creator copies sync');
-            }
-
             console.log('✅ Creator data sync completed:', creatorDataResult.data.stats);
-            console.log('✅ User-creator copies sync completed:', userCreatorCopiesResult.data.stats);
 
             return {
-                creatorData: creatorDataResult.data,
-                userCreatorCopies: userCreatorCopiesResult.data
+                creatorData: creatorDataResult.data
             };
         } catch (error) {
             console.error('Error calling Creator sync Edge Functions:', error);
