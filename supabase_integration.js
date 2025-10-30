@@ -139,13 +139,15 @@ class SupabaseIntegration {
                 const { data, error } = await this.supabase.functions.invoke(functionName, { body });
 
                 if (error) {
-                    // Check if it's a cold start / network error worth retrying
+                    // Check if it's a cold start / network error / timeout worth retrying
                     const isRetryableError = error.message?.includes('Failed to send') ||
                                             error.message?.includes('Failed to fetch') ||
-                                            error.name === 'FunctionsFetchError';
+                                            error.message?.includes('non-2xx status code') ||
+                                            error.name === 'FunctionsFetchError' ||
+                                            error.name === 'FunctionsHttpError';
 
                     if (isRetryableError && attempt < maxRetries) {
-                        console.warn(`⚠️ ${label} failed (likely cold start), will retry...`);
+                        console.warn(`⚠️ ${label} failed (likely cold start or timeout), will retry...`);
                         lastError = error;
                         continue;
                     }
