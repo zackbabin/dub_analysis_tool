@@ -211,13 +211,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         console.log('Triggering Supabase Edge Functions (User + Creator data)...');
 
-        // Sync both user data and creator data
-        const [userResult, creatorResult] = await Promise.all([
-            this.supabaseIntegration.triggerMixpanelSync(),
-            this.supabaseIntegration.triggerCreatorSync()
-        ]);
-
+        // Sync user data first (populates engagement tables)
+        const userResult = await this.supabaseIntegration.triggerMixpanelSync();
         console.log('✅ User data sync completed:', userResult.stats);
+
+        // Then sync creator data (now that engagement tables are populated)
+        const creatorResult = await this.supabaseIntegration.triggerCreatorSync();
         console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
 
         // Trigger event sequence sync (fetch raw data from Mixpanel)
