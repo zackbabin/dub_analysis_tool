@@ -191,8 +191,15 @@ class SupabaseIntegration {
 
         try {
             // Part 1: Sync users/subscribers data (with retry for cold starts)
+            // Note: sync-mixpanel-users can take 10-20s on cold start due to large dataset
             console.log('📊 Step 1/3: Syncing user/subscriber data...');
-            const usersData = await this.invokeFunctionWithRetry('sync-mixpanel-users', {}, 'Users sync');
+            const usersData = await this.invokeFunctionWithRetry(
+                'sync-mixpanel-users',
+                {},
+                'Users sync',
+                3,      // maxRetries: 3 attempts (increased from 2)
+                5000    // retryDelay: 5 seconds (increased from 3)
+            );
 
             console.log('✅ Step 1/3 complete: User data synced successfully');
             console.log('   Stats:', usersData.stats);
@@ -223,7 +230,13 @@ class SupabaseIntegration {
             // Part 3: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
             console.log('📊 Step 3/3: Syncing engagement...');
-            const engagementData = await this.invokeFunctionWithRetry('sync-mixpanel-engagement', {}, 'Engagement sync');
+            const engagementData = await this.invokeFunctionWithRetry(
+                'sync-mixpanel-engagement',
+                {},
+                'Engagement sync',
+                3,      // maxRetries: 3 attempts (increased from 2)
+                5000    // retryDelay: 5 seconds (increased from 3)
+            );
 
             console.log('✅ Step 3/3 complete: Engagement data synced successfully');
             console.log('   Stats:', engagementData.stats);
