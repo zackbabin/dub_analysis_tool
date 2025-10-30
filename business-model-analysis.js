@@ -51,6 +51,7 @@ class BusinessModelAnalysis {
             modelB_accountClosureRate: 5.00,
 
             // Other fees
+            kycAlloyFee: 1.00,
             plaidFeePerLink: 2.00,
         };
 
@@ -225,6 +226,10 @@ class BusinessModelAnalysis {
             const modelB_subscriptionRevenue = cumulativeSubscribersB * this.assumptions.modelB_subscriptionPrice * (this.assumptions.modelB_dubRevenueShare / 100);
             const modelB_totalRevenue = modelB_maintenanceRevenue + modelB_subscriptionRevenue;
 
+            // KYC/Alloy Fees (applies to both models)
+            const modelA_kycAlloyFees = modelA_kycApproved * this.assumptions.kycAlloyFee;
+            const modelB_kycAlloyFees = modelB_kycApproved * this.assumptions.kycAlloyFee;
+
             // Plaid Link Fees (applies to both models)
             const modelA_plaidLinkFees = modelA_linkedBankAccounts * this.assumptions.plaidFeePerLink;
             const modelB_plaidLinkFees = modelB_linkedBankAccounts * this.assumptions.plaidFeePerLink;
@@ -236,6 +241,7 @@ class BusinessModelAnalysis {
                 cumulativeSubscribersB,
                 // Model A specific metrics
                 modelA_kycApproved,
+                modelA_kycAlloyFees,
                 modelA_linkedBankAccounts,
                 modelA_fundedAccounts,
                 modelA_cumulativeFundedAccounts,
@@ -425,6 +431,7 @@ class BusinessModelAnalysis {
                     ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
                     ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
+                    ${this.renderInput('KYC / Alloy Fee ($)', 'kycAlloyFee', true)}
                     ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink', true)}
                 </div>
             </div>
