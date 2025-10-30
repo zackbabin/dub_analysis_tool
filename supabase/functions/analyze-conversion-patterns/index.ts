@@ -1,21 +1,44 @@
+// Supabase Edge Function: analyze-conversion-patterns
+// MERGED: Combines analyze-subscription-patterns, analyze-copy-patterns, and analyze-creator-copy-patterns
+// Analyzes conversion patterns using exhaustive search + logistic regression
+// Supports 3 analysis types via request body parameter
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const MIXPANEL_PROJECT_ID = '2599235'
-const MIXPANEL_USERNAME = Deno.env.get('MIXPANEL_SERVICE_USERNAME') || ''
-const MIXPANEL_PASSWORD = Deno.env.get('MIXPANEL_SERVICE_SECRET') || ''
-
-const CHART_IDS = {
-  profileViewsByCreator: '85165851',
-  pdpViewsByPortfolio: '85165580',
-  subscriptionsByCreator: '85165590',
+// Analysis type configurations
+const ANALYSIS_CONFIGS = {
+  subscription: {
+    table: 'user_portfolio_creator_engagement',
+    select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, synced_at',
+    filterColumn: 'pdp_view_count',
+    outcomeColumn: 'did_subscribe',
+    entityType: 'creator',
+    refreshView: 'refresh_subscription_engagement_summary',
+  },
+  copy: {
+    table: 'user_portfolio_creator_copies',
+    select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
+    filterColumn: 'pdp_view_count',
+    outcomeColumn: 'did_copy',
+    entityType: 'portfolio',
+    refreshView: 'refresh_copy_engagement_summary',
+  },
+  creator_copy: {
+    table: 'user_creator_profile_copies',
+    select: 'distinct_id, creator_id, creator_username, profile_view_count, did_copy, copy_count',
+    filterColumn: 'profile_view_count',
+    outcomeColumn: 'did_copy',
+    entityType: 'creator',
+    refreshView: null,
+  },
 }
 
 interface UserData {
   distinct_id: string
-  creator_ids: Set<string>
-  did_subscribe: boolean
-  subscription_count: number
+  entity_ids: Set<string>  // Can be creator_ids or portfolio_tickers
+  did_convert: boolean
+  conversion_count: number
 }
 
 interface CombinationResult {
@@ -30,18 +53,6 @@ interface CombinationResult {
   conversion_rate_in_group: number
   overall_conversion_rate: number
   total_conversions: number
-}
-
-interface PortfolioCreatorPair {
-  distinct_id: string
-  portfolio_ticker: string
-  creator_id: string
-  creator_username: string | null
-  pdp_view_count: number
-  profile_view_count: number
-  did_subscribe: boolean
-  subscription_count: number
-  synced_at: string
 }
 
 /**
@@ -130,10 +141,10 @@ function evaluateCombination(
   const y: number[] = []
 
   for (const user of users) {
-    // Check if user viewed BOTH creators in the combination
-    const hasExposure = combination.every(id => user.creator_ids.has(id))
+    // Check if user viewed BOTH entities in the combination
+    const hasExposure = combination.every(id => user.entity_ids.has(id))
     X.push(hasExposure ? 1 : 0)
-    y.push(user.did_subscribe ? 1 : 0)
+    y.push(user.did_convert ? 1 : 0)
   }
 
   const model = fitLogisticRegression(X, y)
@@ -148,32 +159,30 @@ function evaluateCombination(
   let falseNegatives = 0
   let exposedConverters = 0
   let exposedTotal = 0
-  let totalConversions = 0
 
   for (let i = 0; i < X.length; i++) {
-    const predicted = X[i] === 1 ? 1 : 0
-    const actual = y[i]
+    const hasExposure = X[i] === 1
+    const didConvert = y[i] === 1
 
-    if (predicted === 1 && actual === 1) truePositives++
-    else if (predicted === 1 && actual === 0) falsePositives++
-    else if (predicted === 0 && actual === 0) trueNegatives++
-    else if (predicted === 0 && actual === 1) falseNegatives++
-
-    if (X[i] === 1) {
+    if (hasExposure) {
       exposedTotal++
-      if (actual === 1) {
+      if (didConvert) {
         exposedConverters++
-        totalConversions += users[i].subscription_count
+        truePositives++
+      } else {
+        falsePositives++
+      }
+    } else {
+      if (didConvert) {
+        falseNegatives++
+      } else {
+        trueNegatives++
       }
     }
   }
 
-  const precision = truePositives + falsePositives > 0
-    ? truePositives / (truePositives + falsePositives)
-    : 0
-  const recall = truePositives + falseNegatives > 0
-    ? truePositives / (truePositives + falseNegatives)
-    : 0
+  const precision = truePositives / (truePositives + falsePositives) || 0
+  const recall = truePositives / (truePositives + falseNegatives) || 0
   const conversionRateInGroup = exposedTotal > 0 ? exposedConverters / exposedTotal : 0
   const lift = overallConversionRate > 0 ? conversionRateInGroup / overallConversionRate : 0
 
@@ -188,66 +197,88 @@ function evaluateCombination(
     users_with_exposure: exposedTotal,
     conversion_rate_in_group: conversionRateInGroup,
     overall_conversion_rate: overallConversionRate,
-    total_conversions: totalConversions,
+    total_conversions: exposedConverters,
   }
 }
 
 /**
- * Convert raw pairs to user-level data
+ * Convert pairs to user-level data
  */
-function pairsToUserData(pairs: PortfolioCreatorPair[]): UserData[] {
+function pairsToUserData(
+  pairs: any[],
+  outcomeColumn: string,
+  entityColumn: string
+): UserData[] {
   const userMap = new Map<string, UserData>()
 
   for (const pair of pairs) {
+    const entityId = entityColumn === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
+
     if (!userMap.has(pair.distinct_id)) {
       userMap.set(pair.distinct_id, {
         distinct_id: pair.distinct_id,
-        creator_ids: new Set(),
-        did_subscribe: pair.did_subscribe,
-        subscription_count: pair.subscription_count,
+        entity_ids: new Set(),
+        did_convert: pair[outcomeColumn],
+        conversion_count: pair.copy_count || pair.subscription_count || 0,
       })
     }
-    userMap.get(pair.distinct_id)!.creator_ids.add(pair.creator_id)
+    userMap.get(pair.distinct_id)!.entity_ids.add(entityId)
   }
 
   return Array.from(userMap.values())
 }
 
 /**
- * Get top creators with sufficient engagement
+ * Get top entities with sufficient engagement
  */
-function getTopCreators(users: UserData[], minUsers = 5): string[] {
-  const creatorCounts = new Map<string, number>()
+function getTopEntities(users: UserData[], minUsers = 5): string[] {
+  const entityCounts = new Map<string, number>()
 
   for (const user of users) {
-    for (const creatorId of user.creator_ids) {
-      creatorCounts.set(creatorId, (creatorCounts.get(creatorId) || 0) + 1)
+    for (const entityId of user.entity_ids) {
+      entityCounts.set(entityId, (entityCounts.get(entityId) || 0) + 1)
     }
   }
 
-  const topCreators = Array.from(creatorCounts.entries())
+  const topEntities = Array.from(entityCounts.entries())
     .filter(([_, count]) => count >= minUsers)
     .sort((a, b) => b[1] - a[1])
     .map(([id, _]) => id)
 
-  console.log(`Found ${topCreators.length} creators with >=${minUsers} user exposures`)
-  return topCreators
+  console.log(`Found ${topEntities.length} entities with >=${minUsers} user exposures`)
+  return topEntities
 }
 
 /**
  * Main handler
  */
-serve(async (_req) => {
+serve(async (req) => {
   try {
+    // Parse request body to get analysis type
+    const body = await req.json()
+    const analysisType = body.analysis_type || 'subscription'
+
+    if (!ANALYSIS_CONFIGS[analysisType]) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Invalid analysis_type: ${analysisType}. Must be 'subscription', 'copy', or 'creator_copy'`
+        }),
+        { headers: { 'Content-Type': 'application/json' }, status: 400 }
+      )
+    }
+
+    const config = ANALYSIS_CONFIGS[analysisType]
+    console.log(`Starting ${analysisType} pattern analysis...`)
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     // Step 1: Load stored engagement data from Supabase
-    console.log('Loading stored engagement data from Supabase...')
+    console.log(`Loading stored ${analysisType} data from ${config.table}...`)
 
-    // Fetch ALL rows (Supabase defaults to 1000 limit, we need to override)
     let allPairRows: any[] = []
     let page = 0
     const pageSize = 10000
@@ -255,9 +286,9 @@ serve(async (_req) => {
 
     while (hasMore) {
       const { data: pageData, error: loadError } = await supabaseClient
-        .from('user_portfolio_creator_engagement')
-        .select('distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, synced_at')
-        .gt('pdp_view_count', 0)
+        .from(config.table)
+        .select(config.select)
+        .gt(config.filterColumn, 0)
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
       if (loadError) {
@@ -291,20 +322,22 @@ serve(async (_req) => {
       )
     }
 
-    console.log(`✓ Loaded ${pairRows.length} portfolio-creator pairs from database`)
+    console.log(`✓ Loaded ${pairRows.length} pairs from database`)
 
-    // Refresh materialized view
-    try {
-      await supabaseClient.rpc('refresh_subscription_engagement_summary')
-      console.log('✓ Materialized view refreshed')
-    } catch (err) {
-      console.warn('Warning: Failed to refresh materialized view:', err)
+    // Refresh materialized view if configured
+    if (config.refreshView) {
+      try {
+        await supabaseClient.rpc(config.refreshView)
+        console.log(`✓ Materialized view refreshed (${config.refreshView})`)
+      } catch (err) {
+        console.warn('Warning: Failed to refresh materialized view:', err)
+      }
     }
 
     // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
     console.log(`Converting ${pairRows.length} pairs to user-level data...`)
-    const users = pairsToUserData(pairRows)
+    const users = pairsToUserData(pairRows, config.outcomeColumn, config.entityType)
     console.log(`✓ Converted to ${users.length} unique users`)
 
     if (users.length < 50) {
@@ -319,58 +352,55 @@ serve(async (_req) => {
     }
 
     const analyzedAt = new Date().toISOString()
-    const batchSize = 500
 
-    // Get creators with at least 1 user (maximize coverage)
-    // Combinations are filtered by ≥1 exposure AND ≥1 subscription
-    const allCreators = getTopCreators(users, 1) // Min 1 user per creator
+    // Get entities with at least 1 user
+    const allEntities = getTopEntities(users, 1)
 
-    // Safety limit: Cap at 200 creators for 2-way analysis
-    // 200 creators = 19,900 pairs (much faster than 3-way)
-    const MAX_CREATORS = 200
-    const topCreators = allCreators.slice(0, MAX_CREATORS)
+    // Safety limit: Cap at 200 entities for 2-way analysis
+    const MAX_ENTITIES = 200
+    const topEntities = allEntities.slice(0, MAX_ENTITIES)
 
-    if (topCreators.length < 2) {
+    if (topEntities.length < 2) {
       return new Response(
         JSON.stringify({
           success: true,
           stats: { pairs_synced: pairRows.length },
-          warning: 'Insufficient creators for pattern analysis (need 2+ with engagement)',
+          warning: 'Insufficient entities for pattern analysis (need 2+ with engagement)',
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
-    const totalCombinations = (topCreators.length * (topCreators.length - 1)) / 2
-    console.log(`Testing ${totalCombinations} 2-way combinations from ${topCreators.length} creators (${allCreators.length} total available, capped at ${MAX_CREATORS})`)
+    const totalCombinations = (topEntities.length * (topEntities.length - 1)) / 2
+    console.log(`Testing ${totalCombinations} 2-way combinations from ${topEntities.length} ${config.entityType}s (${allEntities.length} total available, capped at ${MAX_ENTITIES})`)
 
-    // Stream results to database in batches to reduce memory usage
-    // Instead of keeping all 19,900 results in memory, insert in chunks
+    // Stream results to database in batches
     const STREAM_BATCH_SIZE = 100
     let streamBatch: CombinationResult[] = []
     let processed = 0
     let keptCount = 0
 
-    // Build creator ID to username map first (needed for streaming inserts)
-    console.log('Building creator username map...')
-    const creatorIdToUsername = new Map<string, string>()
-    for (const pair of pairRows) {
-      if (pair.creator_id && pair.creator_username && !creatorIdToUsername.has(pair.creator_id)) {
-        creatorIdToUsername.set(pair.creator_id, pair.creator_username)
+    // Build entity ID to username map (for creators only)
+    let entityIdToUsername = new Map<string, string>()
+    if (config.entityType === 'creator') {
+      console.log('Building creator username map...')
+      for (const pair of pairRows) {
+        if (pair.creator_id && pair.creator_username && !entityIdToUsername.has(pair.creator_id)) {
+          entityIdToUsername.set(pair.creator_id, pair.creator_username)
+        }
       }
+      console.log(`✓ Mapped ${entityIdToUsername.size} creator IDs to usernames`)
     }
-    console.log(`✓ Mapped ${creatorIdToUsername.size} creator IDs to usernames`)
 
     // Clear old data before streaming new results
     await supabaseClient
       .from('conversion_pattern_combinations')
       .delete()
-      .eq('analysis_type', 'subscription')
+      .eq('analysis_type', analysisType)
 
     // Parallel evaluation with controlled concurrency
-    // Evaluates 4 combinations simultaneously (pure CPU work, no API calls)
     const EVAL_CONCURRENCY = 4
-    const allCombinations = Array.from(generateCombinations(topCreators, 2))
+    const allCombinations = Array.from(generateCombinations(topEntities, 2))
 
     console.log(`Starting parallel evaluation with concurrency ${EVAL_CONCURRENCY}...`)
 
@@ -389,15 +419,20 @@ serve(async (_req) => {
           streamBatch.push(result)
           keptCount++
 
-          // Insert batch when it reaches size limit
+          // Insert batch when full
           if (streamBatch.length >= STREAM_BATCH_SIZE) {
-            const insertRows = streamBatch.map((r, index) => ({
-              analysis_type: 'subscription',
-              combination_rank: keptCount - streamBatch.length + index + 1, // Temporary rank
+            const batchToInsert = streamBatch.map((r, idx) => ({
+              analysis_type: analysisType,
+              combination_rank: keptCount - streamBatch.length + idx + 1,
               value_1: r.combination[0],
               value_2: r.combination[1],
-              username_1: creatorIdToUsername.get(r.combination[0]) || null,
-              username_2: creatorIdToUsername.get(r.combination[1]) || null,
+              username_1: entityIdToUsername.get(r.combination[0]) || null,
+              username_2: entityIdToUsername.get(r.combination[1]) || null,
+              log_likelihood: r.log_likelihood,
+              aic: r.aic,
+              odds_ratio: r.odds_ratio,
+              precision: r.precision,
+              recall: r.recall,
               lift: r.lift,
               users_with_exposure: r.users_with_exposure,
               conversion_rate_in_group: r.conversion_rate_in_group,
@@ -408,33 +443,38 @@ serve(async (_req) => {
 
             const { error: insertError } = await supabaseClient
               .from('conversion_pattern_combinations')
-              .insert(insertRows)
+              .insert(batchToInsert)
 
             if (insertError) {
               console.error('Error inserting batch:', insertError)
               throw insertError
             }
 
-            streamBatch = [] // Clear batch after insert
+            streamBatch = []
           }
         }
       }
 
       processed += chunk.length
-      if (processed % 1000 === 0 || i + EVAL_CONCURRENCY >= allCombinations.length) {
-        console.log(`Processed ${processed}/${totalCombinations} combinations (kept ${keptCount})...`)
+      if (processed % 1000 === 0) {
+        console.log(`Progress: ${processed}/${totalCombinations} combinations evaluated (${keptCount} kept)`)
       }
     }
 
-    // Insert remaining results
+    // Insert final batch
     if (streamBatch.length > 0) {
-      const insertRows = streamBatch.map((r, index) => ({
-        analysis_type: 'subscription',
-        combination_rank: keptCount - streamBatch.length + index + 1,
+      const batchToInsert = streamBatch.map((r, idx) => ({
+        analysis_type: analysisType,
+        combination_rank: keptCount - streamBatch.length + idx + 1,
         value_1: r.combination[0],
         value_2: r.combination[1],
-        username_1: creatorIdToUsername.get(r.combination[0]) || null,
-        username_2: creatorIdToUsername.get(r.combination[1]) || null,
+        username_1: entityIdToUsername.get(r.combination[0]) || null,
+        username_2: entityIdToUsername.get(r.combination[1]) || null,
+        log_likelihood: r.log_likelihood,
+        aic: r.aic,
+        odds_ratio: r.odds_ratio,
+        precision: r.precision,
+        recall: r.recall,
         lift: r.lift,
         users_with_exposure: r.users_with_exposure,
         conversion_rate_in_group: r.conversion_rate_in_group,
@@ -445,7 +485,7 @@ serve(async (_req) => {
 
       const { error: insertError } = await supabaseClient
         .from('conversion_pattern_combinations')
-        .insert(insertRows)
+        .insert(batchToInsert)
 
       if (insertError) {
         console.error('Error inserting final batch:', insertError)
@@ -453,85 +493,30 @@ serve(async (_req) => {
       }
     }
 
-    console.log(`✓ Pattern analysis complete: ${keptCount} combinations streamed to database`)
-
-    // Now fetch all results back to sort by Expected Value and update ranks
-    console.log('Sorting results by Expected Value...')
-    const { data: allResults, error: fetchError } = await supabaseClient
-      .from('conversion_pattern_combinations')
-      .select('*')
-      .eq('analysis_type', 'subscription')
-
-    if (fetchError) {
-      console.error('Error fetching results for sorting:', fetchError)
-      throw fetchError
-    }
-
-    // Sort by Expected Value (lift × total_conversions)
-    const sortedResults = (allResults || []).sort((a, b) => {
-      const evA = a.lift * a.total_conversions
-      const evB = b.lift * b.total_conversions
-      return evB - evA
-    })
-
-    // Update ranks in batches
-    for (let i = 0; i < sortedResults.length; i += batchSize) {
-      const batch = sortedResults.slice(i, i + batchSize)
-      const updates = batch.map((result, index) => ({
-        id: result.id,
-        combination_rank: i + index + 1
-      }))
-
-      for (const update of updates) {
-        await supabaseClient
-          .from('conversion_pattern_combinations')
-          .update({ combination_rank: update.combination_rank })
-          .eq('id', update.id)
-      }
-    }
-
-    console.log(`✓ Updated ranks for ${sortedResults.length} combinations`)
-
-    // Prepare top 10 results for response
-    const top10 = sortedResults.slice(0, 10).map(r => ({
-      creators: [r.value_1, r.value_2],
-      aic: Math.round(r.aic * 100) / 100,
-      odds_ratio: Math.round(r.odds_ratio * 100) / 100,
-      lift: Math.round(r.lift * 100) / 100,
-      conversion_rate: Math.round(r.conversion_rate_in_group * 10000) / 100,
-    }))
+    console.log(`✓ Completed ${analysisType} pattern analysis: ${keptCount} combinations with results`)
 
     return new Response(
       JSON.stringify({
         success: true,
+        message: `${analysisType} pattern analysis completed successfully`,
         stats: {
+          analysis_type: analysisType,
           pairs_synced: pairRows.length,
-          total_users: users.length,
-          creators_tested: topCreators.length,
-          combinations_total: totalCombinations,
-          combinations_processed: processed,
-          combinations_evaluated: sortedResults.length,
-          combinations_stored: sortedResults.length,
-          completion_percentage: 100,
+          users_analyzed: users.length,
+          combinations_tested: totalCombinations,
+          combinations_with_results: keptCount,
         },
-        top_10_combinations: top10,
       }),
-      {
-        headers: { 'Content-Type': 'application/json' },
-        status: 200,
-      }
+      { headers: { 'Content-Type': 'application/json' }, status: 200 }
     )
-  } catch (error: any) {
-    console.error('Error in analyze-subscription-patterns:', error)
+  } catch (error) {
+    console.error('Error in pattern analysis:', error)
     return new Response(
       JSON.stringify({
         success: false,
-        error: error?.message || String(error),
+        error: error.message || 'Unknown error occurred',
       }),
-      {
-        headers: { 'Content-Type': 'application/json' },
-        status: 500,
-      }
+      { headers: { 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

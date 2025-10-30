@@ -180,16 +180,16 @@ serve(async (req) => {
       // Fire and forget - don't wait for completion to avoid timeout
       console.log('Triggering pattern analysis (using stored data)...')
 
-      // Trigger all analyses and keep promises alive but don't await
+      // Trigger all 3 analyses using the merged function
       const analysisPromises = [
-        fetch(`${supabaseUrl}/functions/v1/analyze-subscription-patterns`, {
+        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceKey}`,
             'apikey': supabaseServiceKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({})
+          body: JSON.stringify({ analysis_type: 'subscription' })
         }).then(async (response) => {
           if (!response.ok) {
             const errorText = await response.text()
@@ -199,14 +199,14 @@ serve(async (req) => {
           }
         }).catch((err) => console.error('⚠️ Subscription analysis failed to invoke:', err.message)),
 
-        fetch(`${supabaseUrl}/functions/v1/analyze-copy-patterns`, {
+        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceKey}`,
             'apikey': supabaseServiceKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({})
+          body: JSON.stringify({ analysis_type: 'copy' })
         }).then(async (response) => {
           if (!response.ok) {
             const errorText = await response.text()
@@ -216,14 +216,14 @@ serve(async (req) => {
           }
         }).catch((err) => console.error('⚠️ Copy analysis failed to invoke:', err.message)),
 
-        fetch(`${supabaseUrl}/functions/v1/analyze-creator-copy-patterns`, {
+        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceKey}`,
             'apikey': supabaseServiceKey,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({})
+          body: JSON.stringify({ analysis_type: 'creator_copy' })
         }).then(async (response) => {
           if (!response.ok) {
             const errorText = await response.text()
@@ -232,8 +232,6 @@ serve(async (req) => {
             console.log('✓ Creator copy analysis invoked successfully')
           }
         }).catch((err) => console.error('⚠️ Creator copy analysis failed to invoke:', err.message))
-
-        // Portfolio sequence analysis removed - not used in UI
       ]
 
       // Keep promises referenced but don't await (fire-and-forget that survives function return)
@@ -271,7 +269,7 @@ serve(async (req) => {
         .eq('id', syncLogId)
 
       console.log('Engagement sync completed successfully')
-      console.log('Note: subscription_engagement_summary will be refreshed by analyze-subscription-patterns after pattern analysis completes')
+      console.log('Note: engagement summaries will be refreshed by analyze-conversion-patterns after pattern analysis completes')
 
       return new Response(
         JSON.stringify({
