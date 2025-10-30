@@ -243,11 +243,16 @@
             syncBtn.onclick = async () => {
                 console.log('🔵 Unified sync button clicked - syncing both user and creator data');
                 try {
-                    // Run both sync workflows in parallel
-                    await Promise.all([
-                        userTool.runWorkflow('github'),
-                        creatorTool.runSyncWorkflow()
-                    ]);
+                    // Run user sync first (populates engagement tables that affinity views depend on)
+                    console.log('Step 1: Running user analysis sync...');
+                    await userTool.runWorkflow('github');
+                    console.log('✅ User analysis sync completed');
+
+                    // Then run creator sync (refreshes affinity views from populated tables)
+                    console.log('Step 2: Refreshing creator analysis...');
+                    await creatorTool.runSyncWorkflow();
+                    console.log('✅ Creator analysis refresh completed');
+
                     console.log('✅ Both sync workflows completed successfully');
                 } catch (error) {
                     console.error('❌ Sync workflow failed:', error);

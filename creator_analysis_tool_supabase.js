@@ -856,14 +856,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const workflowStartTime = Date.now();
 
         try {
-            // Note: User tool already syncs both user and creator data in parallel
+            // Note: User tool sync has already completed (runs sequentially before this)
             // This workflow just needs to reload and redisplay the Premium Creator Copy Affinity
-            this.updateProgress(50, 'Waiting for sync to complete...');
-
-            // Wait for sync to complete (runs in parallel with user tool)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            this.updateProgress(75, 'Refreshing Premium Creator Copy Affinity...');
+            this.updateProgress(50, 'Loading Premium Creator Copy Affinity...');
 
             // Invalidate affinity cache to ensure fresh display
             console.log('Invalidating affinity cache...');
