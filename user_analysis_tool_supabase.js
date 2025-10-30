@@ -506,18 +506,46 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
 
             // Build complete HTML structure with H1 in same section as metrics
+            const portfolioH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Portfolio Analysis</strong>
+                    Copy behavior metrics showing engagement patterns and conversion rates.
+                    <ul>
+                        <li><strong>Data Sources:</strong>
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                        </li>
+                        <li><strong>Metrics:</strong> Copy engagement, conversion rates, hidden gems analysis</li>
+                    </ul>
+                </span>
+            </span>`;
+
             let portfolioHTML = `
                 <div class="qda-result-section">
-                    <h1 style="margin-bottom: 0.25rem;">Portfolio Analysis</h1>
+                    <h1 style="margin-bottom: 0.25rem; display: inline;">Portfolio Analysis</h1>${portfolioH1Tooltip}
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                 </div>
             `;
 
             // Add Top Behavioral Drivers Section with nested tabs
+            const behavioralTooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Top Behavioral Drivers</strong>
+                    Statistical analysis showing which user behaviors best predict deposits and copies.
+                    <ul>
+                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-84933160%22" target="_blank" style="color: #17a2b8;">Chart 84933160</a> (User behavior metrics)</li>
+                        <li><strong>Analysis:</strong> Correlation + Logistic Regression</li>
+                        <li><strong>Metrics:</strong> Correlation coefficient, odds ratio, tipping point</li>
+                    </ul>
+                </span>
+            </span>`;
+
             portfolioHTML += `
                 <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem;">Top Behavioral Drivers</h2>
+                    <h2 style="margin-bottom: 0.25rem; display: inline;">Top Behavioral Drivers</h2>${behavioralTooltip}
                     <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits and copies</p>
 
                     <div class="behavioral-tabs-container">
@@ -539,9 +567,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
 
             // Add High-Impact Combinations Section structure to portfolioHTML
+            const combinationsTooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>High-Impact Combinations</strong>
+                    Portfolio and creator pairs that users view together before copying, with highest conversion lift.
+                    <ul>
+                        <li><strong>Data Sources:</strong>
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
+                        </li>
+                        <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (200 items = ~19,900 pairs tested)</li>
+                        <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
+                    </ul>
+                </span>
+            </span>`;
+
             portfolioHTML += `
                 <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem;">High-Impact Combinations</h2>
+                    <h2 style="margin-bottom: 0.25rem; display: inline;">High-Impact Combinations</h2>${combinationsTooltip}
                     <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
 
                     <div class="combinations-tabs-container">
@@ -646,9 +690,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Generate unique ID for chart container
                 const chartId = `subscription-price-chart-${Date.now()}`;
 
+                const priceTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                    <span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Subscription Price Distribution</strong>
+                        Distribution of subscription prices across all creator subscriptions.
+                        <ul>
+                            <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)</li>
+                            <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
+                        </ul>
+                    </span>
+                </span>`;
+
                 priceDistributionHTML = `
                     <div style="margin-top: 3rem;">
-                        <h2 style="margin-top: 0; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
+                        <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Subscription Price Distribution</h2>${priceTooltipHTML}
                         <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
                     </div>
                 `;
@@ -666,7 +722,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 `;
             }
 
-            const subCorrelationHeaderHTML = this.generateCorrelationHeaderHTML('Top Subscription Drivers', 'The top events that are the strongest predictors of subscriptions');
+            const subDriversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Top Subscription Drivers</strong>
+                    Behavioral patterns and events that predict subscription conversions.
+                    <ul>
+                        <li><strong>Data Sources:</strong>
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                        </li>
+                        <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
+                        <li><strong>Metrics:</strong> Correlation coefficients, odds ratios, statistical significance</li>
+                    </ul>
+                </span>
+            </span>`;
+            const subCorrelationHeaderHTML = `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${subDriversTooltipHTML}<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>`;
             // const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos); // Moved to Portfolio Analysis tab as creator copy combinations
             const subCombinationsHTML = ''; // Commented out - moved to Portfolio Analysis tab
             // const subSequenceHTML = subscriptionSequenceAnalysis ?
@@ -679,8 +750,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Create complete section wrapper
                 const subWrapper = document.createElement('div');
                 subWrapper.className = 'qda-result-section';
+
+                const h1TooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                    <span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Subscription Analysis</strong>
+                        User behavior patterns leading to creator subscriptions.
+                        <ul>
+                            <li><strong>Data Sources:</strong>
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions by Creator),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)
+                            </li>
+                            <li><strong>Metrics:</strong> Subscription rates, price distribution, behavioral drivers</li>
+                        </ul>
+                    </span>
+                </span>`;
+
                 subWrapper.innerHTML = `
-                    <h1 style="margin-bottom: 0.25rem;">Subscription Analysis</h1>
+                    <h1 style="margin-bottom: 0.25rem; display: inline;">Subscription Analysis</h1>${h1TooltipHTML}
                     ${subMetricsHTML}
                     ${priceDistributionHTML}
                     ${subCorrelationHeaderHTML}
@@ -888,7 +976,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Portfolios attracting attention but not yet frequently copied:
                 <ul>
                     <li><strong>Criteria:</strong> ≥10 total PDP views, ≥5:1 views-to-copies ratio, ≤100 total copies</li>
-                    <li><strong>Data Source:</strong> portfolio_creator_engagement_metrics materialized view</li>
+                    <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (aggregated in portfolio_creator_engagement_metrics view)</li>
                     <li><strong>Ranking:</strong> By total PDP views (descending)</li>
                     <li><strong>Limit:</strong> Top 10 portfolios shown</li>
                 </ul>
@@ -1168,7 +1256,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <strong>Conversion Path Analysis</strong>
                 AI-powered event sequence analysis to identify predictive patterns:
                 <ul>
-                    <li><strong>Data Source:</strong> User event sequences from Mixpanel (up to 1000 converters + 1000 non-converters, 100 events per user)</li>
+                    <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85247935%22" target="_blank" style="color: #17a2b8;">Chart 85247935</a> - User event sequences from Mixpanel (up to 1000 converters + 1000 non-converters, 100 events per user)</li>
                     <li><strong>Processing:</strong> Batch processing with prompt caching analyzes users in groups of 200 for efficiency</li>
                     <li><strong>AI Method:</strong> Claude Sonnet 4 analyzes temporal patterns, frequency thresholds, and key differentiators</li>
                     <li><strong>Analysis:</strong> Identifies sequences where order matters, minimum event counts for conversion, and critical moments before conversion</li>

@@ -214,6 +214,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <strong>Premium Creator Copy Affinity</strong>
                 Shows which other creators are most frequently copied by users who copied each Premium creator.
                 <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85130412%22" target="_blank" style="color: #17a2b8;">Chart 85130412</a> (Creator User Profiles)
+                    </li>
                     <li><strong>Analysis:</strong> Identifies co-copying patterns among Premium creator audiences</li>
                     <li><strong>Format:</strong> Copy count - Creator username</li>
                     <li><strong>Use Case:</strong> Understand creator affinity networks and cross-promotion opportunities</li>

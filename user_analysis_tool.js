@@ -1790,8 +1790,26 @@ function displaySummaryStatsInline(stats) {
 
     const title = document.createElement('h1');
     title.textContent = 'Summary Statistics';
-    title.style.marginBottom = '0.25rem';
+    title.style.cssText = 'margin-bottom: 0.25rem; display: inline;';
     resultSection.appendChild(title);
+
+    // Add tooltip with Mixpanel chart link
+    const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+        <span class="info-icon">i</span>
+        <span class="tooltip-text">
+            <strong>Summary Statistics</strong>
+            High-level conversion metrics and user behavior across the entire platform.
+            <ul>
+                <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-84933160%22" target="_blank" style="color: #17a2b8;">Mixpanel Chart 84933160</a></li>
+                <li><strong>Metrics:</strong> User demographics, deposits, copies, subscriptions, engagement</li>
+                <li><strong>Updated:</strong> Real-time sync from Mixpanel</li>
+            </ul>
+        </span>
+    </span>`;
+
+    const tooltipSpan = document.createElement('span');
+    tooltipSpan.innerHTML = tooltipHTML;
+    resultSection.appendChild(tooltipSpan);
 
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';
