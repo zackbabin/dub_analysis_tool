@@ -49,6 +49,9 @@ class BusinessModelAnalysis {
             modelB_subscriptionConversion: 3.00,
             modelB_subscriptionChurnRate: 25.00,
             modelB_accountClosureRate: 5.00,
+
+            // Other fees
+            plaidFeePerLink: 2.00,
         };
 
         // Load synced values first, then render
@@ -222,6 +225,10 @@ class BusinessModelAnalysis {
             const modelB_subscriptionRevenue = cumulativeSubscribersB * this.assumptions.modelB_subscriptionPrice * (this.assumptions.modelB_dubRevenueShare / 100);
             const modelB_totalRevenue = modelB_maintenanceRevenue + modelB_subscriptionRevenue;
 
+            // Plaid Link Fees (applies to both models)
+            const modelA_plaidLinkFees = modelA_linkedBankAccounts * this.assumptions.plaidFeePerLink;
+            const modelB_plaidLinkFees = modelB_linkedBankAccounts * this.assumptions.plaidFeePerLink;
+
             results.push({
                 month,
                 installs,
@@ -238,6 +245,7 @@ class BusinessModelAnalysis {
                 modelA_totalTradingEvents,
                 modelA_transactionRevenue,
                 modelA_subscriptionRevenue,
+                modelA_plaidLinkFees,
                 modelA_totalRevenue,
                 // Model B specific metrics
                 modelB_kycApproved,
@@ -250,6 +258,7 @@ class BusinessModelAnalysis {
                 modelB_totalTradingEvents,
                 modelB_maintenanceRevenue,
                 modelB_subscriptionRevenue,
+                modelB_plaidLinkFees,
                 modelB_totalRevenue
             });
         });
@@ -416,6 +425,7 @@ class BusinessModelAnalysis {
                     ${this.renderInput('User Growth (% monthly)', 'userGrowthRate')}
                     ${this.renderInput('Monthly Rebalances', 'avgMonthlyRebalances')}
                     ${this.renderInput('Rebalance Growth (% monthly)', 'rebalanceGrowth')}
+                    ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink', true)}
                 </div>
             </div>
         `;
@@ -505,6 +515,7 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Installs', 'installs', projections)}
                             ${this.renderMetricRow('KYC Approved', 'modelA_kycApproved', projections)}
                             ${this.renderMetricRow('Linked Bank Accounts', 'modelA_linkedBankAccounts', projections)}
+                            ${this.renderMetricRow('Plaid Link Fees', 'modelA_plaidLinkFees', projections, false, null, true)}
                             ${this.renderMetricRow('New Funded Accounts', 'modelA_fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'modelA_cumulativeFundedAccounts', projections)}
                             ${this.renderMetricRow('Total Trades', 'modelA_trades', projections)}
@@ -520,6 +531,7 @@ class BusinessModelAnalysis {
                             ${this.renderMetricRow('Installs', 'installs', projections)}
                             ${this.renderMetricRow('KYC Approved', 'modelB_kycApproved', projections)}
                             ${this.renderMetricRow('Linked Bank Accounts', 'modelB_linkedBankAccounts', projections)}
+                            ${this.renderMetricRow('Plaid Link Fees', 'modelB_plaidLinkFees', projections, false, null, true)}
                             ${this.renderMetricRow('New Funded Accounts', 'modelB_fundedAccounts', projections)}
                             ${this.renderMetricRow('Cumulative Funded Accounts', 'modelB_cumulativeFundedAccounts', projections)}
                             ${this.renderMetricRow('Total Trades', 'modelB_trades', projections)}
