@@ -244,8 +244,9 @@ function processSubscriptionPricingData(data: any): any[] {
             // Normalize interval: treat "Annual" and "Annually" the same
             const normalizedInterval = interval === 'Annual' ? 'Annually' : interval
 
-            // Create unique key per creator-price-interval combination
-            const key = `${creatorId}|${normalizedUsername}|${price}|${normalizedInterval}`
+            // Create unique key matching database constraint: creator_id, price, interval, synced_at
+            // Note: We use syncedAt (not username) because that's the DB constraint
+            const key = `${creatorId}|${price}|${normalizedInterval}|${syncedAt}`
 
             if (!creatorDataMap.has(key)) {
               creatorDataMap.set(key, {
