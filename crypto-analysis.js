@@ -159,7 +159,13 @@ class CryptoAnalysis {
             const pfofRevenue = equities_totalTransactionValue * (this.assumptions.equities_pfofFee / 100);
 
             // Subscription calculations with churn and conversion growth
-            const activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
+            let activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
+
+            // When "No Crypto Subscriptions" toggle is active, reduce active subscribers
+            if (this.noCryptoSubscriptions) {
+                activeSubscribers = activeSubscribers * (1 - this.assumptions.cryptoSubscriptionsPercent / 100);
+            }
+
             const newSubscriptions = activeSubscribers * currentSubscriptionsPerSubscriber;
             totalActiveSubscriptions = (totalActiveSubscriptions * (1 - this.assumptions.subscriptionChurnRate / 100)) + newSubscriptions;
             const subscriptionRevenue = totalActiveSubscriptions * this.assumptions.subscriptionPrice * (this.assumptions.dubRevenueShare / 100);
