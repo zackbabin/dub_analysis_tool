@@ -29,7 +29,7 @@ class CryptoAnalysis {
             subscriptionChurnRate: 25.00,
             cryptoSubscriptionsPercent: 25.00,
             accountClosureRate: 5.00,
-            kycFee: 0.75,
+            kycFee: 1.00,
             plaidFeePerLink: 2.00,
 
             // Equities
