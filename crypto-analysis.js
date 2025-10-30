@@ -56,14 +56,14 @@ class CryptoAnalysis {
             crypto_bakktTransactionFee: 0.25,
 
             // Crypto - no subscriptions
-            cryptoNoSub_avgMonthlyTrades: 0.25,
-            cryptoNoSub_assetsPerPortfolio: 2.00,
-            cryptoNoSub_tradeVolumeGrowth: 2.00,
-            cryptoNoSub_avgMonthlyPortfolioCreations: 0.01,
-            cryptoNoSub_portfolioCreationGrowth: 2.00,
-            cryptoNoSub_avgMonthlyRebalances: 2.00,
-            cryptoNoSub_rebalanceGrowth: 2.00,
-            cryptoNoSub_avgTradeValue: 50.00,
+            cryptoNoSub_avgMonthlyTrades: 0.50,
+            cryptoNoSub_assetsPerPortfolio: 3.00,
+            cryptoNoSub_tradeVolumeGrowth: 4.00,
+            cryptoNoSub_avgMonthlyPortfolioCreations: 0.02,
+            cryptoNoSub_portfolioCreationGrowth: 3.00,
+            cryptoNoSub_avgMonthlyRebalances: 4.00,
+            cryptoNoSub_rebalanceGrowth: 3.00,
+            cryptoNoSub_avgTradeValue: 75.00,
             cryptoNoSub_bidAskSpread: 0.75,
             cryptoNoSub_bakktTransactionFee: 0.25,
         };
