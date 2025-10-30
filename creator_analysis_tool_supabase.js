@@ -863,6 +863,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             this.addStatusMessage('✅ All data synced successfully', 'success');
 
+            // Invalidate cache and reload affinity data
+            console.log('Invalidating cache and reloading premium creator affinity...');
+            this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
+            await this.loadAndDisplayPremiumCreatorAffinity();
+            console.log('✅ Premium creator affinity data refreshed');
+
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;
             const minDisplayTime = 1500; // 1.5 seconds
