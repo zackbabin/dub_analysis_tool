@@ -839,32 +839,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const workflowStartTime = Date.now();
 
         try {
-            this.updateProgress(20, 'Syncing Mixpanel data...');
+            this.updateProgress(50, 'Syncing creator data from Mixpanel...');
 
-            console.log('Triggering Supabase creator enrichment sync...');
+            console.log('Triggering Supabase creator data sync...');
             const result = await this.supabaseIntegration.triggerCreatorSync();
 
             if (!result || !result.creatorData || !result.creatorData.success) {
                 throw new Error('Failed to sync creator data');
             }
 
-            console.log('✅ Creator enrichment sync completed:', result.creatorData.stats);
-            this.updateProgress(60, 'Loading creator data...');
-
-            // Load and analyze the creator data from creator_analysis view (as objects, not CSV)
-            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
-
-            if (!creatorData || creatorData.length === 0) {
-                throw new Error('No data returned from database');
-            }
-
-            console.log(`✅ Loaded ${creatorData.length} creators from creator_analysis view`);
-            this.updateProgress(80, 'Analyzing data...');
-
-            // Process and analyze the data (directly, no CSV conversion)
-            await this.processAndAnalyzeDirect(creatorData);
-
+            console.log('✅ Creator data sync completed:', result.creatorData.stats);
             this.updateProgress(100, 'Complete!');
+
+            this.addStatusMessage('✅ Creator data synced successfully', 'success');
 
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;
