@@ -29,6 +29,7 @@ class CryptoAnalysis {
             subscriptionChurnRate: 25.00,
             accountClosureRate: 5.00,
             kycFee: 0.75,
+            plaidFeePerLink: 2.00,
 
             // Equities
             equities_avgMonthlyTrades: 1.50,
@@ -165,9 +166,10 @@ class CryptoAnalysis {
             const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
             // Cost calculations
+            const plaidLinkFees = adjustedLinkedBankAccounts * this.assumptions.plaidFeePerLink;
             const kycCost = adjustedKycApproved * this.assumptions.kycFee;
             const equities_apexTransactionCost = month <= 6 ? equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee : 0;
-            const totalCosts = kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
+            const totalCosts = plaidLinkFees + kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
 
             // Gross profit calculation
             const grossProfit = totalRevenue - totalCosts;
@@ -176,6 +178,7 @@ class CryptoAnalysis {
             results.push({
                 month,
                 installs,
+                plaidLinkFees,
                 kycCost,
                 kycApproved: adjustedKycApproved,
                 linkedBankAccounts: adjustedLinkedBankAccounts,
@@ -356,7 +359,8 @@ class CryptoAnalysis {
                     ${this.renderInput('Portfolio Liquidation Rate (% monthly)', 'portfolioLiquidationRate')}
                     ${this.renderInput('% Portfolio Rebalanced', 'portfolioRebalancedPercent')}
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
-                    ${this.renderInput('KYC Fee ($)', 'kycFee')}
+                    ${this.renderInput('KYC/Alloy Fee ($)', 'kycFee')}
+                    ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink')}
                 </div>
             </div>
         `;
@@ -594,7 +598,8 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
                             ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Apex KYC Fees', 'kycCost', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('Plaid Link Fees', 'plaidLinkFees', projections, false, null, false, false, true)}
+                            ${this.renderMetricRow('KYC/Alloy Fees', 'kycCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('Apex Transaction Fees', 'equities_apexTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('Bakkt Transaction Fees', 'crypto_bakktTransactionCost', projections, false, null, false, false, true)}
                             ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true)}
