@@ -483,27 +483,46 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
 
     if (copiedCreatorsError) throw copiedCreatorsError
 
-    // Build affinity rows
-    const affinityRows = copiedCreators.map((copiedCreator: any) => {
+    // Build affinity rows and separate by Premium vs Regular
+    const premiumAffinityRows: any[] = []
+    const regularAffinityRows: any[] = []
+
+    for (const copiedCreator of copiedCreators) {
       const stats = creatorStats.get(copiedCreator.creator_id)!
-      return {
+      const isPremium = allPremiumCreatorIds.includes(copiedCreator.creator_id)
+
+      const row = {
         premium_creator: premiumCreator.creator_username,
         copied_creator: copiedCreator.creator_username,
-        copy_type: copiedCreator.subscription_count > 0 ? 'Premium' : 'Regular',
+        copy_type: isPremium ? 'Premium' : 'Regular',
         unique_copiers: stats.uniqueCopiers.size,
         total_copies: stats.totalCopies,
         total_liquidations: stats.totalLiquidations
       }
-    })
 
-    // Sort by unique_copiers descending and assign ranks
-    affinityRows.sort((a, b) => b.unique_copiers - a.unique_copiers)
-    affinityRows.forEach((row, index) => {
+      if (isPremium) {
+        premiumAffinityRows.push(row)
+      } else {
+        regularAffinityRows.push(row)
+      }
+    }
+
+    // Sort premium creators by unique_copiers and assign ranks
+    premiumAffinityRows.sort((a, b) => b.unique_copiers - a.unique_copiers)
+    premiumAffinityRows.forEach((row, index) => {
       row.rank = index + 1
+      row.category = 'premium'
     })
 
-    console.log(`  Generated ${affinityRows.length} affinity records`)
-    allAffinityRows.push(...affinityRows)
+    // Sort regular creators by unique_copiers and assign ranks
+    regularAffinityRows.sort((a, b) => b.unique_copiers - a.unique_copiers)
+    regularAffinityRows.forEach((row, index) => {
+      row.rank = index + 1
+      row.category = 'regular'
+    })
+
+    console.log(`  Generated ${premiumAffinityRows.length} premium + ${regularAffinityRows.length} regular affinity records`)
+    allAffinityRows.push(...premiumAffinityRows, ...regularAffinityRows)
   }
 
   console.log(`Total affinity records: ${allAffinityRows.length}`)

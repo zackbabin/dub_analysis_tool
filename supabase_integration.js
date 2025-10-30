@@ -1262,40 +1262,84 @@ class SupabaseIntegration {
 
     /**
      * Pivot affinity data from rows to the expected column format
+     * Shows top Premium and top Regular creators separately in each top_N column
      */
     pivotAffinityData(data) {
         const grouped = new Map();
 
+        // Group by premium creator
         for (const row of data) {
             if (!grouped.has(row.premium_creator)) {
                 grouped.set(row.premium_creator, {
                     premium_creator: row.premium_creator,
                     premium_creator_total_copies: 0,
                     premium_creator_total_liquidations: 0,
-                    top_1: null,
-                    top_2: null,
-                    top_3: null,
-                    top_4: null,
-                    top_5: null
+                    premium: [],  // Premium affinity rows
+                    regular: []   // Regular affinity rows
                 });
             }
 
             const creator = grouped.get(row.premium_creator);
 
-            // Add totals from rank 1
-            if (row.rank === 1) {
-                creator.premium_creator_total_copies = row.total_copies;
-                creator.premium_creator_total_liquidations = row.total_liquidations;
-            }
-
-            // Format the top N entries
-            if (row.rank <= 5) {
-                const formatted = `${row.copied_creator} (${row.copy_type}): ${row.total_copies} copies, ${row.total_liquidations} liquidations`;
-                creator[`top_${row.rank}`] = formatted;
+            // Separate premium and regular creators
+            if (row.category === 'premium') {
+                creator.premium.push(row);
+            } else if (row.category === 'regular') {
+                creator.regular.push(row);
             }
         }
 
-        return Array.from(grouped.values());
+        // Format the output for display
+        const result = [];
+        for (const [creatorName, creatorData] of grouped) {
+            const formattedCreator = {
+                premium_creator: creatorName,
+                premium_creator_total_copies: 0,
+                premium_creator_total_liquidations: 0,
+                top_1: null,
+                top_2: null,
+                top_3: null,
+                top_4: null,
+                top_5: null
+            };
+
+            // Calculate totals from rank 1 of both categories
+            if (creatorData.premium.length > 0) {
+                const topPremium = creatorData.premium[0];
+                formattedCreator.premium_creator_total_copies += topPremium.total_copies;
+                formattedCreator.premium_creator_total_liquidations += topPremium.total_liquidations;
+            }
+            if (creatorData.regular.length > 0) {
+                const topRegular = creatorData.regular[0];
+                formattedCreator.premium_creator_total_copies += topRegular.total_copies;
+                formattedCreator.premium_creator_total_liquidations += topRegular.total_liquidations;
+            }
+
+            // Format top N entries (show top Premium and top Regular for each rank)
+            for (let i = 1; i <= 5; i++) {
+                const parts = [];
+
+                // Add top premium creator for this rank
+                if (creatorData.premium.length >= i) {
+                    const premiumRow = creatorData.premium[i - 1];
+                    parts.push(`${premiumRow.copied_creator} (Premium): ${premiumRow.total_copies} copies, ${premiumRow.total_liquidations} liquidations`);
+                }
+
+                // Add top regular creator for this rank
+                if (creatorData.regular.length >= i) {
+                    const regularRow = creatorData.regular[i - 1];
+                    parts.push(`${regularRow.copied_creator} (Regular): ${regularRow.total_copies} copies, ${regularRow.total_liquidations} liquidations`);
+                }
+
+                if (parts.length > 0) {
+                    formattedCreator[`top_${i}`] = parts.join(' | ');
+                }
+            }
+
+            result.push(formattedCreator);
+        }
+
+        return result;
     }
 
     /**
