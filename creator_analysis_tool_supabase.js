@@ -168,8 +168,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
-        // Add H1 title only
+        // Add H1 title only - matching style from Portfolio Analysis
         const title = document.createElement('h1');
+        title.style.cssText = 'margin-bottom: 0.25rem;';
         title.textContent = 'Creator Analysis';
         section.appendChild(title);
 
