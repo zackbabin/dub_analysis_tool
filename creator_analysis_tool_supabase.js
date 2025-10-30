@@ -114,24 +114,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.className = 'qda-analysis-results';
         this.outputContainer.appendChild(resultsDiv);
 
-        // Add data scope text (top left) and timestamp (top right) to match other tabs
-        const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
-        const lastUpdated = analysisData.lastUpdated;
-
-        if (lastUpdated) {
-            // Add data scope text (top left)
-            const dataScope = document.createElement('div');
-            dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
-            resultsDiv.appendChild(dataScope);
-
-            // Add timestamp (top right)
-            const timestamp = document.createElement('div');
-            timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${lastUpdated}`;
-            resultsDiv.appendChild(timestamp);
-        }
-
         // Create containers - SKIP behavioral analysis
         const summaryContainer = document.createElement('div');
         summaryContainer.id = 'creatorSummaryStatsInline';
@@ -146,6 +128,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
+
+        // Add data scope text (top left) and timestamp (top right) to match other tabs
+        // Insert at the beginning using insertBefore, matching the pattern from user_analysis_tool_supabase.js
+        const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
+        const lastUpdated = analysisData.lastUpdated;
+
+        if (lastUpdated) {
+            // Add timestamp first (will be inserted at position 0)
+            const timestamp = document.createElement('div');
+            timestamp.className = 'qda-timestamp';
+            timestamp.textContent = `Last updated: ${lastUpdated}`;
+            resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+
+            // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
+            const dataScope = document.createElement('div');
+            dataScope.className = 'qda-data-scope';
+            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
+            resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
+        }
 
         resultsDiv.style.display = 'block';
 
