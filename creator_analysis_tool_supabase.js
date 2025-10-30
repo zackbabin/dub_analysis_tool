@@ -171,11 +171,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
-        // Add H1 title only - matching style from Portfolio Analysis
-        const title = document.createElement('h1');
-        title.style.cssText = 'margin-bottom: 0.25rem;';
-        title.textContent = 'Creator Analysis';
-        section.appendChild(title);
+        // Add H1 title with tooltip - matching exact style from Portfolio Analysis
+        const creatorH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Creator Analysis</strong>
+                Premium creator affinity showing which creators are copied together.
+                <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copy Behavior)
+                    </li>
+                    <li><strong>Metrics:</strong> Copy affinity analysis for premium creators</li>
+                </ul>
+            </span>
+        </span>`;
+
+        section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Creator Analysis</h1>${creatorH1Tooltip}`;
 
         container.appendChild(section);
     }
