@@ -17,7 +17,7 @@ const ANALYSIS_CONFIGS = {
     refreshView: 'refresh_subscription_engagement_summary',
   },
   copy: {
-    table: 'user_portfolio_creator_copies',
+    table: 'user_portfolio_creator_engagement',
     select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
     filterColumn: 'pdp_view_count',
     outcomeColumn: 'did_copy',
