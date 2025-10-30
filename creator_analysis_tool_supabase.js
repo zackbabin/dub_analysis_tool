@@ -863,6 +863,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.updateProgress(75, 'Loading and displaying updated data...');
             this.addStatusMessage('✅ All data synced successfully', 'success');
 
+            // Invalidate all cached data to ensure fresh display
+            console.log('Invalidating cached data...');
+            this.supabaseIntegration.invalidateCache('creator_analysis');
+            this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
+
             // Reload data from database and refresh UI display
             console.log('Loading fresh creator data from database...');
             const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();

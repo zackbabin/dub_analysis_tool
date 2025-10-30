@@ -392,6 +392,11 @@
             );
             creatorTool.supabaseIntegration = window.supabaseIntegration;
 
+            // Assign unified UI elements for progress and status (same as userTool)
+            creatorTool.progressBar = document.getElementById('unifiedProgressBar');
+            creatorTool.progressSection = document.getElementById('unifiedProgressSection');
+            creatorTool.statusSection = document.getElementById('unifiedStatusSection');
+
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
 
             // Create unified data source component (for all 4 data tabs)
