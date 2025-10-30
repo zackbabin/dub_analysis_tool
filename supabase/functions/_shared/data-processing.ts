@@ -218,8 +218,22 @@ export function processPortfolioCreatorPairs(
         Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
           if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
 
-          // Get creator username from the pre-built map (ensures consistency across portfolios)
-          const creatorUsername = creatorIdToUsername.get(creatorId)
+          // Get creator username from the pre-built map OR extract from current metric data
+          let creatorUsername = creatorIdToUsername.get(creatorId)
+
+          // If not in map, try to extract from the current usernameData
+          // This handles cases where creators have liquidations but no profile views
+          if (!creatorUsername) {
+            // usernameData structure: { "$overall": {...}, "actual_username": {...} }
+            // Find the first key that's not $overall
+            const usernameKeys = Object.keys(usernameData).filter(k => k !== '$overall')
+            if (usernameKeys.length > 0) {
+              creatorUsername = usernameKeys[0]
+              // Add to map for consistency across metrics
+              creatorIdToUsername.set(creatorId, creatorUsername)
+            }
+          }
+
           if (!creatorUsername) {
             console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
             return
