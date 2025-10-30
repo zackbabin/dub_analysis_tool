@@ -4,6 +4,7 @@
 class CryptoAnalysis {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
+        this.noCryptoSubscriptions = false; // Toggle state
 
         // Base assumptions
         this.assumptions = {
@@ -138,18 +139,19 @@ class CryptoAnalysis {
                                                 equities_rebalances;
             const equities_totalTransactionValue = equities_totalTradingEvents * this.assumptions.equities_avgTradeValue;
 
-            // Crypto trading activity
-            const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions.crypto_tradeVolumeGrowth / 100, month - 1);
-            const crypto_rebalanceMultiplier = Math.pow(1 + this.assumptions.crypto_rebalanceGrowth / 100, month - 1);
-            const crypto_portfolioCreationMultiplier = Math.pow(1 + this.assumptions.crypto_portfolioCreationGrowth / 100, month - 1);
+            // Crypto trading activity - use appropriate assumptions based on toggle
+            const cryptoPrefix = this.noCryptoSubscriptions ? 'cryptoNoSub' : 'crypto';
+            const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_tradeVolumeGrowth`] / 100, month - 1);
+            const crypto_rebalanceMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_rebalanceGrowth`] / 100, month - 1);
+            const crypto_portfolioCreationMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_portfolioCreationGrowth`] / 100, month - 1);
 
-            const crypto_trades = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyTrades * crypto_tradeVolumeMultiplier;
-            const crypto_portfoliosCreated = cumulativeFundedAccounts * this.assumptions.crypto_avgMonthlyPortfolioCreations * crypto_portfolioCreationMultiplier;
+            const crypto_trades = cumulativeFundedAccounts * this.assumptions[`${cryptoPrefix}_avgMonthlyTrades`] * crypto_tradeVolumeMultiplier;
+            const crypto_portfoliosCreated = cumulativeFundedAccounts * this.assumptions[`${cryptoPrefix}_avgMonthlyPortfolioCreations`] * crypto_portfolioCreationMultiplier;
             const crypto_portfoliosLiquidated = previousCumulativeCryptoPortfoliosCreated * (this.assumptions.portfolioLiquidationRate / 100);
             cumulativeCryptoPortfoliosCreated += crypto_portfoliosCreated - crypto_portfoliosLiquidated;
-            const crypto_rebalances = cumulativeCryptoPortfoliosCreated * this.assumptions.crypto_avgMonthlyRebalances * (this.assumptions.crypto_assetsPerPortfolio * (this.assumptions.portfolioRebalancedPercent / 100)) * crypto_rebalanceMultiplier;
-            const crypto_totalTradingEvents = (crypto_trades * this.assumptions.crypto_assetsPerPortfolio) +
-                                                (crypto_portfoliosCreated * this.assumptions.crypto_assetsPerPortfolio) +
+            const crypto_rebalances = cumulativeCryptoPortfoliosCreated * this.assumptions[`${cryptoPrefix}_avgMonthlyRebalances`] * (this.assumptions[`${cryptoPrefix}_assetsPerPortfolio`] * (this.assumptions.portfolioRebalancedPercent / 100)) * crypto_rebalanceMultiplier;
+            const crypto_totalTradingEvents = (crypto_trades * this.assumptions[`${cryptoPrefix}_assetsPerPortfolio`]) +
+                                                (crypto_portfoliosCreated * this.assumptions[`${cryptoPrefix}_assetsPerPortfolio`]) +
                                                 crypto_rebalances;
 
             // PFOF Revenue
@@ -169,10 +171,10 @@ class CryptoAnalysis {
             currentSubscriptionConversion = currentSubscriptionConversion * (1 + this.assumptions.subscriptionConversionGrowth / 100);
             currentSubscriptionsPerSubscriber = currentSubscriptionsPerSubscriber * (1 + this.assumptions.subscriptionGrowthPerSubscriber / 100);
 
-            // Crypto revenue and costs
-            const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions.crypto_avgTradeValue;
-            const cryptoRevenue = crypto_totalTransactionValue * (this.assumptions.crypto_bidAskSpread / 100);
-            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.crypto_bakktTransactionFee / 100);
+            // Crypto revenue and costs - use appropriate assumptions based on toggle
+            const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions[`${cryptoPrefix}_avgTradeValue`];
+            const cryptoRevenue = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bidAskSpread`] / 100);
+            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
 
             const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
@@ -333,7 +335,20 @@ class CryptoAnalysis {
     renderAssumptions() {
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                            <input
+                                type="checkbox"
+                                id="noCryptoSubscriptionsToggle"
+                                ${this.noCryptoSubscriptions ? 'checked' : ''}
+                                style="width: 18px; height: 18px; cursor: pointer;"
+                            />
+                            <span style="font-size: 14px; font-weight: 500; color: #495057;">No Crypto Subscriptions</span>
+                        </label>
+                    </div>
+                </div>
                 <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr 1fr; gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
@@ -698,6 +713,15 @@ class CryptoAnalysis {
                 this.updateAssumption(key, e.target.value);
             });
         });
+
+        // Attach toggle listener
+        const toggle = document.getElementById('noCryptoSubscriptionsToggle');
+        if (toggle) {
+            toggle.addEventListener('change', (e) => {
+                this.noCryptoSubscriptions = e.target.checked;
+                this.updateCalculations();
+            });
+        }
     }
 }
 
