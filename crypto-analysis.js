@@ -27,6 +27,7 @@ class CryptoAnalysis {
             subscriptionsPerSubscriber: 1.00,
             subscriptionGrowthPerSubscriber: 2.00,
             subscriptionChurnRate: 25.00,
+            cryptoSubscriptionsPercent: 25.00,
             accountClosureRate: 5.00,
             kycFee: 0.75,
             plaidFeePerLink: 2.00,
@@ -405,6 +406,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber')}
                     ${this.renderInput('Growth Per Subscriber (% monthly)', 'subscriptionGrowthPerSubscriber')}
                     ${this.renderInput('Subscription Churn (% monthly)', 'subscriptionChurnRate')}
+                    ${this.renderInput('Crypto Subscriptions (% total)', 'cryptoSubscriptionsPercent')}
                 </div>
             </div>
         `;
