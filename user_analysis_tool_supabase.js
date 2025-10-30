@@ -436,11 +436,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopSubscriptionCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
+            this.supabaseIntegration.loadTopSubscriptionCombinations('expected_value', 10, 5).catch(e => { console.warn('Failed to load subscription combos:', e); return []; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 5).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 5).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
             this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; })
             // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
@@ -578,6 +578,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
                         </li>
                         <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (200 items = ~19,900 pairs tested)</li>
+                        <li><strong>Filtering:</strong> Minimum 5 users must have viewed both items in combination</li>
+                        <li><strong>Sorting:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
                         <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
                     </ul>
                 </span>
