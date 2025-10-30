@@ -1303,16 +1303,11 @@ class SupabaseIntegration {
                 top_5: null
             };
 
-            // Calculate totals from rank 1 of both categories
-            if (creatorData.premium.length > 0) {
-                const topPremium = creatorData.premium[0];
-                formattedCreator.premium_creator_total_copies += topPremium.total_copies;
-                formattedCreator.premium_creator_total_liquidations += topPremium.total_liquidations;
-            }
-            if (creatorData.regular.length > 0) {
-                const topRegular = creatorData.regular[0];
-                formattedCreator.premium_creator_total_copies += topRegular.total_copies;
-                formattedCreator.premium_creator_total_liquidations += topRegular.total_liquidations;
+            // Use stored totals from the first row (all rows for same premium creator have same totals)
+            const firstRow = creatorData.premium[0] || creatorData.regular[0];
+            if (firstRow) {
+                formattedCreator.premium_creator_total_copies = firstRow.premium_creator_total_copies || 0;
+                formattedCreator.premium_creator_total_liquidations = firstRow.premium_creator_total_liquidations || 0;
             }
 
             // Format top N entries (show top Premium and top Regular for each rank)

@@ -404,17 +404,34 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
     return
   }
 
-  // Get all creator IDs from the map
-  const allPremiumCreatorIds = Array.from(premiumCreatorMap.values()).flat()
-  console.log(`Total premium creator IDs to process: ${allPremiumCreatorIds.length}`)
+  // Get all creator IDs from the map and deduplicate
+  const allPremiumCreatorIds = [...new Set(Array.from(premiumCreatorMap.values()).flat())]
+  console.log(`Total unique premium creator IDs to process: ${allPremiumCreatorIds.length}`)
 
-  // Get creator engagement data for these premium creators
-  const { data: premiumCreators, error: premiumError } = await supabase
-    .from('user_creator_engagement')
-    .select('creator_id, creator_username, subscription_count')
-    .in('creator_id', allPremiumCreatorIds)
+  // Get creator engagement data for these premium creators (chunk if needed)
+  let premiumCreators: any[] = []
 
-  if (premiumError) throw premiumError
+  if (allPremiumCreatorIds.length <= 100) {
+    const { data, error } = await supabase
+      .from('user_creator_engagement')
+      .select('creator_id, creator_username, subscription_count')
+      .in('creator_id', allPremiumCreatorIds)
+
+    if (error) throw error
+    premiumCreators = data || []
+  } else {
+    // Chunk into batches of 100
+    for (let i = 0; i < allPremiumCreatorIds.length; i += 100) {
+      const chunk = allPremiumCreatorIds.slice(i, i + 100)
+      const { data, error } = await supabase
+        .from('user_creator_engagement')
+        .select('creator_id, creator_username, subscription_count')
+        .in('creator_id', chunk)
+
+      if (error) throw error
+      if (data) premiumCreators.push(...data)
+    }
+  }
 
   console.log(`Found ${premiumCreators.length} premium creators in database`)
 
@@ -424,17 +441,22 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
   for (const premiumCreator of premiumCreators) {
     console.log(`Computing affinity for ${premiumCreator.creator_username}...`)
 
-    // Get all users who copied this premium creator
+    // Get all users who copied this premium creator AND their totals
     const { data: copiers, error: copiersError } = await supabase
       .from('user_portfolio_creator_engagement')
-      .select('distinct_id')
+      .select('distinct_id, copy_count, liquidation_count')
       .eq('creator_id', premiumCreator.creator_id)
       .eq('did_copy', true)
 
     if (copiersError) throw copiersError
 
     const copierIds = copiers.map((c: any) => c.distinct_id)
-    console.log(`  Found ${copierIds.length} copiers`)
+
+    // Calculate total copies and liquidations for this premium creator
+    const premiumCreatorTotalCopies = copiers.reduce((sum: number, c: any) => sum + (c.copy_count || 0), 0)
+    const premiumCreatorTotalLiquidations = copiers.reduce((sum: number, c: any) => sum + (c.liquidation_count || 0), 0)
+
+    console.log(`  Found ${copierIds.length} copiers (${premiumCreatorTotalCopies} total copies, ${premiumCreatorTotalLiquidations} total liquidations)`)
 
     if (copierIds.length === 0) continue
 
@@ -476,12 +498,29 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
     const copiedCreatorIds = Array.from(creatorStats.keys())
     if (copiedCreatorIds.length === 0) continue
 
-    const { data: copiedCreators, error: copiedCreatorsError } = await supabase
-      .from('user_creator_engagement')
-      .select('creator_id, creator_username, subscription_count')
-      .in('creator_id', copiedCreatorIds)
+    // Chunk query if needed (max 100 IDs per .in() query to avoid URL length issues)
+    let copiedCreators: any[] = []
 
-    if (copiedCreatorsError) throw copiedCreatorsError
+    if (copiedCreatorIds.length <= 100) {
+      const { data, error } = await supabase
+        .from('user_creator_engagement')
+        .select('creator_id, creator_username, subscription_count')
+        .in('creator_id', copiedCreatorIds)
+
+      if (error) throw error
+      copiedCreators = data || []
+    } else {
+      for (let i = 0; i < copiedCreatorIds.length; i += 100) {
+        const chunk = copiedCreatorIds.slice(i, i + 100)
+        const { data, error } = await supabase
+          .from('user_creator_engagement')
+          .select('creator_id, creator_username, subscription_count')
+          .in('creator_id', chunk)
+
+        if (error) throw error
+        if (data) copiedCreators.push(...data)
+      }
+    }
 
     // Build affinity rows and separate by Premium vs Regular
     const premiumAffinityRows: any[] = []
@@ -493,6 +532,8 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
 
       const row = {
         premium_creator: premiumCreator.creator_username,
+        premium_creator_total_copies: premiumCreatorTotalCopies,
+        premium_creator_total_liquidations: premiumCreatorTotalLiquidations,
         copied_creator: copiedCreator.creator_username,
         copy_type: isPremium ? 'Premium' : 'Regular',
         unique_copiers: stats.uniqueCopiers.size,
