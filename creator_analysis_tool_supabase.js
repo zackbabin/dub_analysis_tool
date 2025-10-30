@@ -114,10 +114,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.className = 'qda-analysis-results';
         this.outputContainer.appendChild(resultsDiv);
 
-        // Add timestamp
+        // Add data scope text (top left) and timestamp (top right) to match other tabs
         const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
         const lastUpdated = analysisData.lastUpdated;
+
         if (lastUpdated) {
+            // Add data scope text (top left)
+            const dataScope = document.createElement('div');
+            dataScope.className = 'qda-data-scope';
+            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
+            resultsDiv.appendChild(dataScope);
+
+            // Add timestamp (top right)
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
             timestamp.textContent = `Last updated: ${lastUpdated}`;
