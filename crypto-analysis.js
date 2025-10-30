@@ -14,7 +14,6 @@ class CryptoAnalysis {
             kycApproved: 90.00,
             kycToLinkedBank: 21.98,
             linkedBankToACH: 53.58,
-            achToCopy: 54.49,
 
             // Other assumptions
             maintenanceFee: 2.00,
