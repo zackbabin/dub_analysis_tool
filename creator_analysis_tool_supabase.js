@@ -859,15 +859,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             console.log('✅ User data sync completed:', userResult.stats);
             console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
-            this.updateProgress(100, 'Complete!');
 
+            this.updateProgress(75, 'Loading and displaying updated data...');
             this.addStatusMessage('✅ All data synced successfully', 'success');
 
-            // Invalidate cache and reload affinity data
-            console.log('Invalidating cache and reloading premium creator affinity...');
-            this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
-            await this.loadAndDisplayPremiumCreatorAffinity();
-            console.log('✅ Premium creator affinity data refreshed');
+            // Reload data from database and refresh UI display
+            console.log('Loading fresh creator data from database...');
+            const creatorData = await this.supabaseIntegration.loadCreatorDataFromSupabase();
+
+            // Process and display the fresh data
+            await this.processAndAnalyzeDirect(creatorData);
+
+            this.updateProgress(100, 'Complete!');
+            console.log('✅ Creator Analysis UI refreshed with latest data');
 
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;
