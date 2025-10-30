@@ -67,6 +67,7 @@ class CryptoAnalysis {
             cryptoNoSub_avgTradeValue: 75.00,
             cryptoNoSub_bidAskSpread: 0.75,
             cryptoNoSub_bakktTransactionFee: 0.25,
+            cryptoNoSub_dubRevenueShare: 50.00,
         };
 
         this.render();
@@ -180,7 +181,13 @@ class CryptoAnalysis {
 
             // Crypto revenue and costs - use appropriate assumptions based on toggle
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions[`${cryptoPrefix}_avgTradeValue`];
-            const cryptoRevenue = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bidAskSpread`] / 100);
+            let cryptoRevenue = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bidAskSpread`] / 100);
+
+            // When "No Crypto Subscriptions" toggle is active, apply Dub Revenue Share
+            if (this.noCryptoSubscriptions) {
+                cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoNoSub_dubRevenueShare / 100);
+            }
+
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
 
             const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
@@ -473,6 +480,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoNoSub_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoNoSub_bakktTransactionFee')}
+                    ${this.renderInput('Dub Revenue Share (%)', 'cryptoNoSub_dubRevenueShare')}
                 </div>
             </div>
         `;
