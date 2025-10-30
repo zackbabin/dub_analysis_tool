@@ -103,8 +103,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Override: Display results - Only show summary and affinity (hide behavioral analysis)
+     * EXACT same pattern as Portfolio/Subscription tabs
      */
-    async displayResults(results) {
+    async displayResults(results, timestampStr = null) {
         // Clear output container
         this.outputContainer.innerHTML = '';
 
@@ -129,16 +130,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
 
-        // Add data scope text (top left) and timestamp (top right) to match other tabs
-        // Insert at the beginning using insertBefore, matching the pattern from user_analysis_tool_supabase.js
-        const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
-        const lastUpdated = analysisData.lastUpdated;
+        // Add data scope text (top left) and timestamp (top right) - EXACT same pattern as other tabs
+        // If timestampStr is provided, use it (from fresh sync), otherwise get from localStorage (from cache)
+        if (!timestampStr) {
+            const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
+            timestampStr = analysisData.lastUpdated;
+        }
 
-        if (lastUpdated) {
+        if (timestampStr) {
             // Add timestamp first (will be inserted at position 0)
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${lastUpdated}`;
+            timestamp.textContent = `Last updated: ${timestampStr}`;
             resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
@@ -150,7 +153,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         resultsDiv.style.display = 'block';
 
-        // Save HTML for restoration AFTER affinity data is loaded
+        // Save HTML for restoration AFTER affinity data is loaded AND timestamp/data scope are added
         this.saveAnalysisResults(this.outputContainer.innerHTML);
     }
 
@@ -338,8 +341,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 lastUpdated: timestamp
             }));
 
-            // Display results
-            await this.displayResults(results);
+            // Display results with timestamp
+            await this.displayResults(results, timestamp);
 
             this.updateProgress(100, 'Complete!');
 
@@ -476,8 +479,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 lastUpdated: timestamp
             }));
 
-            // Display results
-            await this.displayResults(results);
+            // Display results with timestamp
+            await this.displayResults(results, timestamp);
 
             this.updateProgress(100, 'Complete!');
 
