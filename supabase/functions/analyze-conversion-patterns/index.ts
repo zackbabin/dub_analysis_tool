@@ -392,6 +392,20 @@ serve(async (req) => {
       console.log(`✓ Mapped ${entityIdToUsername.size} creator IDs to usernames`)
     }
 
+    // Build entity ID to total views map
+    console.log('Building entity total views map...')
+    const entityIdToTotalViews = new Map<string, number>()
+    const viewColumn = config.filterColumn // 'pdp_view_count' or 'profile_view_count'
+
+    for (const pair of pairRows) {
+      const entityId = config.entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
+      if (entityId) {
+        const currentTotal = entityIdToTotalViews.get(entityId) || 0
+        entityIdToTotalViews.set(entityId, currentTotal + (pair[viewColumn] || 0))
+      }
+    }
+    console.log(`✓ Calculated total views for ${entityIdToTotalViews.size} entities`)
+
     // Clear old data before streaming new results
     await supabaseClient
       .from('conversion_pattern_combinations')
@@ -428,6 +442,8 @@ serve(async (req) => {
               value_2: r.combination[1],
               username_1: entityIdToUsername.get(r.combination[0]) || null,
               username_2: entityIdToUsername.get(r.combination[1]) || null,
+              total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
+              total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
               log_likelihood: r.log_likelihood,
               aic: r.aic,
               odds_ratio: r.odds_ratio,
@@ -470,6 +486,8 @@ serve(async (req) => {
         value_2: r.combination[1],
         username_1: entityIdToUsername.get(r.combination[0]) || null,
         username_2: entityIdToUsername.get(r.combination[1]) || null,
+        total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
+        total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
         log_likelihood: r.log_likelihood,
         aic: r.aic,
         odds_ratio: r.odds_ratio,

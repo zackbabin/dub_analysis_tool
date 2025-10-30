@@ -536,7 +536,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <strong>Top Behavioral Drivers</strong>
                     Statistical analysis showing which user behaviors best predict deposits and copies.
                     <ul>
-                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-84933160%22" target="_blank" style="color: #17a2b8;">Chart 84933160</a> (User behavior metrics)</li>
+                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85713544%22" target="_blank" style="color: #17a2b8;">Chart 85713544</a> (User behavior metrics)</li>
                         <li><strong>Analysis:</strong> Correlation + Logistic Regression</li>
                         <li><strong>Metrics:</strong> Correlation coefficient, odds ratio, tipping point</li>
                     </ul>

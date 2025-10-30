@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 
 const CHART_IDS = {
-  subscribersInsights: '84933160',
+  subscribersInsights: '85713544',
 }
 
 interface SyncStats {

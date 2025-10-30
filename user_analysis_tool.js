@@ -1800,7 +1800,7 @@ function displaySummaryStatsInline(stats) {
             <strong>Summary Statistics</strong>
             High-level conversion metrics and user behavior across the entire platform.
             <ul>
-                <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-84933160%22" target="_blank" style="color: #17a2b8;">Mixpanel Chart 84933160</a></li>
+                <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85713544%22" target="_blank" style="color: #17a2b8;">Chart 85713544</a></li>
                 <li><strong>Metrics:</strong> User demographics, deposits, copies, subscriptions, engagement</li>
                 <li><strong>Updated:</strong> Real-time sync from Mixpanel</li>
             </ul>
