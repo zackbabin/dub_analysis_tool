@@ -53,6 +53,18 @@ class CryptoAnalysis {
             crypto_avgTradeValue: 50.00,
             crypto_bidAskSpread: 0.75,
             crypto_bakktTransactionFee: 0.25,
+
+            // Crypto - no subscriptions
+            cryptoNoSub_avgMonthlyTrades: 0.25,
+            cryptoNoSub_assetsPerPortfolio: 2.00,
+            cryptoNoSub_tradeVolumeGrowth: 2.00,
+            cryptoNoSub_avgMonthlyPortfolioCreations: 0.01,
+            cryptoNoSub_portfolioCreationGrowth: 2.00,
+            cryptoNoSub_avgMonthlyRebalances: 2.00,
+            cryptoNoSub_rebalanceGrowth: 2.00,
+            cryptoNoSub_avgTradeValue: 50.00,
+            cryptoNoSub_bidAskSpread: 0.75,
+            cryptoNoSub_bakktTransactionFee: 0.25,
         };
 
         this.render();
@@ -299,7 +311,7 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
-            <div style="width: 100%; max-width: 1800px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
+            <div style="width: 100%; max-width: 2200px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Business Model Analysis</h1>
                     <p style="color: #6c757d; margin: 0;">Financial projections and business model assumptions</p>
@@ -322,12 +334,13 @@ class CryptoAnalysis {
         return `
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
-                <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr; gap: 24px;">
+                <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr 1fr; gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
                     ${this.renderEquitiesAssumptions()}
                     ${this.renderCryptoAssumptions()}
+                    ${this.renderCryptoNoSubscriptionsAssumptions()}
                 </div>
             </div>
         `;
@@ -417,6 +430,26 @@ class CryptoAnalysis {
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'crypto_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'crypto_bakktTransactionFee')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderCryptoNoSubscriptionsAssumptions() {
+        return `
+            <div style="background: #fff3e0; padding: 16px; border-radius: 8px;">
+                <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 12px 0;">Crypto - no subscriptions</h4>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Portfolio Copies', 'cryptoNoSub_avgMonthlyTrades')}
+                    ${this.renderInput('Assets Per Portfolio', 'cryptoNoSub_assetsPerPortfolio')}
+                    ${this.renderInput('Trade Volume Growth (% monthly)', 'cryptoNoSub_tradeVolumeGrowth')}
+                    ${this.renderInput('Monthly Portfolio Creations', 'cryptoNoSub_avgMonthlyPortfolioCreations')}
+                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoNoSub_portfolioCreationGrowth')}
+                    ${this.renderInput('Monthly Rebalances', 'cryptoNoSub_avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoNoSub_rebalanceGrowth')}
+                    ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoNoSub_avgTradeValue')}
+                    ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
+                    ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoNoSub_bakktTransactionFee')}
                 </div>
             </div>
         `;

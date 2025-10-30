@@ -113,6 +113,16 @@ serve(async (req) => {
 
       console.log('Creator enrichment sync completed successfully')
 
+      // Compute premium creator copy affinity
+      console.log('Computing premium creator copy affinity...')
+      try {
+        await computePremiumCreatorAffinity(supabase)
+        console.log('✅ Premium creator affinity computed successfully')
+      } catch (affinityError) {
+        console.error('⚠️ Warning: Failed to compute affinity:', affinityError)
+        // Don't fail the whole sync if affinity computation fails
+      }
+
       // Update sync log with success
       const syncEndTime = new Date()
       const durationSeconds = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000)
@@ -340,4 +350,137 @@ function parseValue(val: string): number | null {
   if (val === 'undefined' || val === 'null' || !val) return null
   const num = parseFloat(val)
   return isNaN(num) ? null : num
+}
+
+// ============================================================================
+// Affinity Computation
+// ============================================================================
+
+async function computePremiumCreatorAffinity(supabase: any) {
+  console.log('Starting affinity computation...')
+
+  // Get all premium creators (those with subscription_count > 0)
+  const { data: premiumCreators, error: premiumError } = await supabase
+    .from('user_creator_engagement')
+    .select('creator_id, creator_username, subscription_count')
+    .gt('subscription_count', 0)
+
+  if (premiumError) throw premiumError
+
+  console.log(`Found ${premiumCreators.length} premium creators`)
+
+  // For each premium creator, compute their affinity data
+  const allAffinityRows: any[] = []
+
+  for (const premiumCreator of premiumCreators) {
+    console.log(`Computing affinity for ${premiumCreator.creator_username}...`)
+
+    // Get all users who copied this premium creator
+    const { data: copiers, error: copiersError } = await supabase
+      .from('user_portfolio_creator_engagement')
+      .select('distinct_id')
+      .eq('creator_id', premiumCreator.creator_id)
+      .eq('did_copy', true)
+
+    if (copiersError) throw copiersError
+
+    const copierIds = copiers.map((c: any) => c.distinct_id)
+    console.log(`  Found ${copierIds.length} copiers`)
+
+    if (copierIds.length === 0) continue
+
+    // Get all creators these copiers also copied (excluding the premium creator itself)
+    const { data: otherCopies, error: otherCopiesError } = await supabase
+      .from('user_portfolio_creator_engagement')
+      .select('distinct_id, creator_id, copy_count, liquidation_count')
+      .in('distinct_id', copierIds)
+      .eq('did_copy', true)
+      .neq('creator_id', premiumCreator.creator_id)
+
+    if (otherCopiesError) throw otherCopiesError
+
+    console.log(`  Found ${otherCopies.length} other copy records`)
+
+    // Group by creator_id and aggregate
+    const creatorStats = new Map<string, {
+      uniqueCopiers: Set<string>,
+      totalCopies: number,
+      totalLiquidations: number
+    }>()
+
+    for (const copy of otherCopies) {
+      if (!creatorStats.has(copy.creator_id)) {
+        creatorStats.set(copy.creator_id, {
+          uniqueCopiers: new Set(),
+          totalCopies: 0,
+          totalLiquidations: 0
+        })
+      }
+
+      const stats = creatorStats.get(copy.creator_id)!
+      stats.uniqueCopiers.add(copy.distinct_id)
+      stats.totalCopies += copy.copy_count || 0
+      stats.totalLiquidations += copy.liquidation_count || 0
+    }
+
+    // Get creator usernames and subscription counts for all copied creators
+    const copiedCreatorIds = Array.from(creatorStats.keys())
+    if (copiedCreatorIds.length === 0) continue
+
+    const { data: copiedCreators, error: copiedCreatorsError } = await supabase
+      .from('user_creator_engagement')
+      .select('creator_id, creator_username, subscription_count')
+      .in('creator_id', copiedCreatorIds)
+
+    if (copiedCreatorsError) throw copiedCreatorsError
+
+    // Build affinity rows
+    const affinityRows = copiedCreators.map((copiedCreator: any) => {
+      const stats = creatorStats.get(copiedCreator.creator_id)!
+      return {
+        premium_creator: premiumCreator.creator_username,
+        copied_creator: copiedCreator.creator_username,
+        copy_type: copiedCreator.subscription_count > 0 ? 'Premium' : 'Regular',
+        unique_copiers: stats.uniqueCopiers.size,
+        total_copies: stats.totalCopies,
+        total_liquidations: stats.totalLiquidations
+      }
+    })
+
+    // Sort by unique_copiers descending and assign ranks
+    affinityRows.sort((a, b) => b.unique_copiers - a.unique_copiers)
+    affinityRows.forEach((row, index) => {
+      row.rank = index + 1
+    })
+
+    console.log(`  Generated ${affinityRows.length} affinity records`)
+    allAffinityRows.push(...affinityRows)
+  }
+
+  console.log(`Total affinity records: ${allAffinityRows.length}`)
+
+  // Clear existing data and insert new data
+  if (allAffinityRows.length > 0) {
+    console.log('Clearing old affinity data...')
+    const { error: deleteError } = await supabase
+      .from('premium_creator_copy_affinity_computed')
+      .delete()
+      .neq('id', 0) // Delete all rows
+
+    if (deleteError) throw deleteError
+
+    console.log('Inserting new affinity data...')
+    const batchSize = 500
+    for (let i = 0; i < allAffinityRows.length; i += batchSize) {
+      const batch = allAffinityRows.slice(i, i + batchSize)
+      const { error: insertError } = await supabase
+        .from('premium_creator_copy_affinity_computed')
+        .insert(batch)
+
+      if (insertError) throw insertError
+      console.log(`  Inserted ${Math.min(i + batchSize, allAffinityRows.length)}/${allAffinityRows.length}`)
+    }
+  }
+
+  console.log('Affinity computation complete!')
 }

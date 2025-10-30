@@ -1231,14 +1231,15 @@ class SupabaseIntegration {
      * Returns which creators are most frequently copied by users who copied each Premium creator
      */
     async loadPremiumCreatorCopyAffinity() {
-        return this.cachedQuery('premium_creator_copy_affinity_pivoted', async () => {
-            console.log('Loading premium creator copy affinity...');
+        return this.cachedQuery('premium_creator_copy_affinity_computed', async () => {
+            console.log('Loading premium creator copy affinity from computed table...');
 
             try {
                 const { data, error } = await this.supabase
-                    .from('premium_creator_copy_affinity_pivoted')
+                    .from('premium_creator_copy_affinity_computed')
                     .select('*')
-                    .order('premium_creator', { ascending: true });
+                    .order('premium_creator', { ascending: true })
+                    .order('rank', { ascending: true });
 
                 if (error) {
                     console.error('Error loading premium creator copy affinity:', error);
@@ -1246,12 +1247,55 @@ class SupabaseIntegration {
                 }
 
                 console.log(`✅ Loaded ${data.length} premium creator affinity records`);
-                return data;
+
+                // Pivot the data to match the expected format
+                const pivoted = this.pivotAffinityData(data);
+                console.log(`✅ Pivoted into ${pivoted.length} premium creator records`);
+
+                return pivoted;
             } catch (error) {
                 console.error('Error loading premium creator copy affinity:', error);
                 throw error;
             }
         });
+    }
+
+    /**
+     * Pivot affinity data from rows to the expected column format
+     */
+    pivotAffinityData(data) {
+        const grouped = new Map();
+
+        for (const row of data) {
+            if (!grouped.has(row.premium_creator)) {
+                grouped.set(row.premium_creator, {
+                    premium_creator: row.premium_creator,
+                    premium_creator_total_copies: 0,
+                    premium_creator_total_liquidations: 0,
+                    top_1: null,
+                    top_2: null,
+                    top_3: null,
+                    top_4: null,
+                    top_5: null
+                });
+            }
+
+            const creator = grouped.get(row.premium_creator);
+
+            // Add totals from rank 1
+            if (row.rank === 1) {
+                creator.premium_creator_total_copies = row.total_copies;
+                creator.premium_creator_total_liquidations = row.total_liquidations;
+            }
+
+            // Format the top N entries
+            if (row.rank <= 5) {
+                const formatted = `${row.copied_creator} (${row.copy_type}): ${row.total_copies} copies, ${row.total_liquidations} liquidations`;
+                creator[`top_${row.rank}`] = formatted;
+            }
+        }
+
+        return Array.from(grouped.values());
     }
 
     /**
