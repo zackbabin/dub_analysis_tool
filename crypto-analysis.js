@@ -15,6 +15,7 @@ class CryptoAnalysis {
             kycApproved: 90.00,
             kycToLinkedBank: 21.98,
             linkedBankToACH: 53.58,
+            subscriptionConversion: 3.00,
 
             // Other assumptions
             maintenanceFee: 2.00,
@@ -22,7 +23,6 @@ class CryptoAnalysis {
             portfolioRebalancedPercent: 20.00,
             subscriptionPrice: 13.70,
             dubRevenueShare: 50.00,
-            subscriptionConversion: 3.00,
             subscriptionConversionGrowth: 3.00,
             subscriptionsPerSubscriber: 1.00,
             subscriptionGrowthPerSubscriber: 2.00,
@@ -372,10 +372,12 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 24px;">
-                    ${this.renderConversionRates()}
-                    ${this.renderOtherAssumptions()}
-                    ${this.renderSubscriptionAssumptions()}
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px;">
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        ${this.renderConversionRates()}
+                        ${this.renderOtherAssumptions()}
+                        ${this.renderSubscriptionAssumptions()}
+                    </div>
                     ${this.renderEquitiesAssumptions()}
                     ${this.renderCryptoAssumptions()}
                     ${this.renderCryptoNoSubscriptionsAssumptions()}
@@ -396,6 +398,7 @@ class CryptoAnalysis {
                     ${this.renderInput('KYC Approved (%)', 'kycApproved')}
                     ${this.renderInput('KYC → Linked Bank (%)', 'kycToLinkedBank')}
                     ${this.renderInput('Linked Bank → ACH (%)', 'linkedBankToACH')}
+                    ${this.renderInput('Subscription CVR (% of KYC)', 'subscriptionConversion')}
                 </div>
             </div>
         `;
@@ -426,7 +429,6 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Subscriber MRR ($/mo)', 'subscriptionPrice')}
                     ${this.renderInput('Dub Revenue Share (%)', 'dubRevenueShare')}
-                    ${this.renderInput('Subscription CVR (% of KYC)', 'subscriptionConversion')}
                     ${this.renderInput('Subscription CVR Growth (% monthly)', 'subscriptionConversionGrowth')}
                     ${this.renderInput('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber')}
                     ${this.renderInput('Growth Per Subscriber (% monthly)', 'subscriptionGrowthPerSubscriber')}
