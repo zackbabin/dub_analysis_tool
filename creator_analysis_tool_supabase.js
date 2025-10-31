@@ -194,7 +194,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     /**
      * Restore creator analysis from unified cache
      */
-    async restoreFromUnifiedCache() {
+    restoreFromUnifiedCache() {
         try {
             const cached = localStorage.getItem('dubAnalysisResults');
             if (cached) {
@@ -203,9 +203,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     this.outputContainer.innerHTML = data.creator;
                     const cacheAge = data.timestamp ? Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000) : null;
                     console.log(`✅ Restored creator analysis from unified cache${cacheAge ? ` (${cacheAge} min ago)` : ''}`);
-
-                    // Load Premium Creator Affinity fresh (it's dynamic and not cached in HTML)
-                    await this.loadAndDisplayPremiumCreatorAffinity();
                 }
             }
         } catch (e) {
