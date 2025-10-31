@@ -6,11 +6,6 @@
 -- Step 1: Create Performance Indexes
 -- ============================================================================
 
--- Index for identifying premium creators (subscription_count > 0)
-CREATE INDEX IF NOT EXISTS idx_user_creator_engagement_subscription
-ON user_creator_engagement(creator_id, subscription_count, creator_username)
-WHERE subscription_count > 0;
-
 -- Index for finding copiers of a specific creator
 CREATE INDEX IF NOT EXISTS idx_upce_creator_copy
 ON user_portfolio_creator_engagement(creator_id, did_copy, distinct_id, copy_count, liquidation_count)
@@ -26,11 +21,10 @@ WHERE did_copy = true;
 -- ============================================================================
 
 CREATE OR REPLACE VIEW premium_creator_copy_affinity_base AS
-WITH premium_creators AS (
-  -- Premium creators are those with subscriptions
-  SELECT DISTINCT creator_id, creator_username
-  FROM user_creator_engagement
-  WHERE subscription_count > 0
+WITH premium_creators_list AS (
+  -- Premium creators from the authoritative Mixpanel list (chart 85725073)
+  SELECT creator_id, creator_username
+  FROM premium_creators
 ),
 premium_creator_copiers AS (
   -- Get all users who copied each premium creator
@@ -41,7 +35,7 @@ premium_creator_copiers AS (
     upce.distinct_id AS copier_id,
     upce.copy_count,
     upce.liquidation_count
-  FROM premium_creators pc
+  FROM premium_creators_list pc
   JOIN user_portfolio_creator_engagement upce
     ON pc.creator_id = upce.creator_id
     AND upce.did_copy = true
@@ -83,7 +77,7 @@ SELECT
 FROM affinity_raw ar
 JOIN premium_totals pt
   ON ar.premium_creator = pt.premium_creator
-LEFT JOIN premium_creators pc
+LEFT JOIN premium_creators_list pc
   ON ar.copied_creator_id = pc.creator_id
 GROUP BY
   ar.premium_creator,

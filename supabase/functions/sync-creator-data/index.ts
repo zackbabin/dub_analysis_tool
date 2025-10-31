@@ -7,13 +7,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 
-// Mixpanel Chart ID for user profile data
-const USER_PROFILE_CHART_ID = '85130412'
+// Mixpanel Chart IDs
+const CHART_IDS = {
+  creatorProfiles: '85130412',  // User profile data for creators
+  premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
+}
 
 interface SyncStats {
   totalMixpanelUsers: number
   matchedCreators: number
   enrichedCreators: number
+  premiumCreatorsCount: number
 }
 
 serve(async (req) => {
@@ -64,9 +68,13 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
+      // Fetch premium creators list from Mixpanel
+      console.log(`Fetching premium creators from Mixpanel chart ${CHART_IDS.premiumCreators}...`)
+      const premiumCreatorsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreators, 'Premium Creators')
+
       // Fetch user profile data from Mixpanel
-      console.log(`Fetching user profile data from Mixpanel chart ${USER_PROFILE_CHART_ID}...`)
-      const userProfileData = await fetchInsightsData(credentials, USER_PROFILE_CHART_ID, 'User Profiles')
+      console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
+      const userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
 
       console.log('User profile data fetched successfully')
 
@@ -77,6 +85,29 @@ serve(async (req) => {
         totalMixpanelUsers: 0,
         matchedCreators: 0,
         enrichedCreators: 0,
+        premiumCreatorsCount: 0,
+      }
+
+      // Process premium creators data
+      const premiumCreatorRows = processPremiumCreatorsData(premiumCreatorsData)
+      stats.premiumCreatorsCount = premiumCreatorRows.length
+      console.log(`Processed ${premiumCreatorRows.length} premium creators`)
+
+      // Store premium creators in database
+      if (premiumCreatorRows.length > 0) {
+        console.log('Upserting premium creators...')
+        const { error: premiumError } = await supabase
+          .from('premium_creators')
+          .upsert(premiumCreatorRows, {
+            onConflict: 'creator_id',
+            ignoreDuplicates: false,
+          })
+
+        if (premiumError) {
+          console.error('Error upserting premium creators:', premiumError)
+          throw premiumError
+        }
+        console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
       }
 
       const enrichmentRows = processUserProfileData(userProfileData, null, stats)
@@ -344,6 +375,48 @@ function parseValue(val: string): number | null {
   if (val === 'undefined' || val === 'null' || !val) return null
   const num = parseFloat(val)
   return isNaN(num) ? null : num
+}
+
+/**
+ * Process premium creators data from Mixpanel
+ * Extracts creator_id and creator_username from the chart
+ */
+function processPremiumCreatorsData(data: any): any[] {
+  if (!data || !data.headers || !data.series) {
+    console.log('No premium creators data')
+    return []
+  }
+
+  const rows: any[] = []
+  const now = new Date().toISOString()
+
+  // Find column indices
+  const creatorIdIndex = data.headers.indexOf('creatorId')
+  const creatorUsernameIndex = data.headers.indexOf('creatorUsername')
+
+  if (creatorIdIndex === -1 || creatorUsernameIndex === -1) {
+    console.error('Required columns not found in premium creators data')
+    return []
+  }
+
+  // Process each row
+  if (Array.isArray(data.series)) {
+    data.series.forEach((row: any[]) => {
+      const creatorId = row[creatorIdIndex]
+      const creatorUsername = row[creatorUsernameIndex]
+
+      if (creatorId && creatorUsername) {
+        rows.push({
+          creator_id: String(creatorId),
+          creator_username: String(creatorUsername),
+          synced_at: now,
+        })
+      }
+    })
+  }
+
+  console.log(`Processed ${rows.length} premium creators from Mixpanel`)
+  return rows
 }
 
 // ============================================================================
