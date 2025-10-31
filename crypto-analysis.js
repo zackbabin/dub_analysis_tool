@@ -367,7 +367,7 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(150px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
+                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(130px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
@@ -439,10 +439,8 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'equities_assetsPerPortfolio')}
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'equities_avgMonthlyTrades', 'equities_tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Portfolio Creations', 'equities_avgMonthlyPortfolioCreations')}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
-                    ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'equities_rebalanceGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Created', 'equities_avgMonthlyPortfolioCreations', 'equities_portfolioCreationGrowth')}
+                    ${this.renderCombinedInput('Monthly Rebalances', 'equities_avgMonthlyRebalances', 'equities_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'equities_avgTradeValue')}
                     ${this.renderInputFourDecimals('PFOF Fee (%)', 'equities_pfofFee')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
@@ -469,10 +467,8 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'crypto_assetsPerPortfolio')}
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'crypto_avgMonthlyTrades', 'crypto_tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Portfolio Creations', 'crypto_avgMonthlyPortfolioCreations')}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'crypto_portfolioCreationGrowth')}
-                    ${this.renderInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'crypto_rebalanceGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Created', 'crypto_avgMonthlyPortfolioCreations', 'crypto_portfolioCreationGrowth')}
+                    ${this.renderCombinedInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances', 'crypto_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'crypto_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
                 </div>
@@ -498,10 +494,8 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'cryptoNoSub_assetsPerPortfolio')}
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoNoSub_avgMonthlyTrades', 'cryptoNoSub_tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Portfolio Creations', 'cryptoNoSub_avgMonthlyPortfolioCreations')}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoNoSub_portfolioCreationGrowth')}
-                    ${this.renderInput('Monthly Rebalances', 'cryptoNoSub_avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoNoSub_rebalanceGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Created', 'cryptoNoSub_avgMonthlyPortfolioCreations', 'cryptoNoSub_portfolioCreationGrowth')}
+                    ${this.renderCombinedInput('Monthly Rebalances', 'cryptoNoSub_avgMonthlyRebalances', 'cryptoNoSub_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoNoSub_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoNoSub_dubRevenueShare')}
@@ -528,10 +522,8 @@ class CryptoAnalysis {
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'cryptoPerfFee_assetsPerPortfolio')}
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoPerfFee_avgMonthlyTrades', 'cryptoPerfFee_tradeVolumeGrowth')}
-                    ${this.renderInput('Monthly Portfolio Creations', 'cryptoPerfFee_avgMonthlyPortfolioCreations')}
-                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoPerfFee_portfolioCreationGrowth')}
-                    ${this.renderInput('Monthly Rebalances', 'cryptoPerfFee_avgMonthlyRebalances')}
-                    ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoPerfFee_rebalanceGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Created', 'cryptoPerfFee_avgMonthlyPortfolioCreations', 'cryptoPerfFee_portfolioCreationGrowth')}
+                    ${this.renderCombinedInput('Monthly Rebalances', 'cryptoPerfFee_avgMonthlyRebalances', 'cryptoPerfFee_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
