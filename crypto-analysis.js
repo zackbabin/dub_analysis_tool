@@ -538,8 +538,8 @@ class CryptoAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoPerfFee_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
-                    ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
+                    ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
                 </div>
             </div>
         `;
