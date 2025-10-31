@@ -367,7 +367,7 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 24px;">
+                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(200px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
@@ -437,9 +437,8 @@ class CryptoAnalysis {
             <div style="background: #f0f8ff; padding: 16px; border-radius: 8px;">
                 <h4 style="font-size: 12px; font-weight: bold; color: #0056b3; text-transform: uppercase; margin: 0 0 12px 0;">Equities</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Portfolio Copies', 'equities_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'equities_assetsPerPortfolio')}
-                    ${this.renderInput('Portfolio Volume Growth (% monthly)', 'equities_tradeVolumeGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Copied', 'equities_avgMonthlyTrades', 'equities_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'equities_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'equities_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'equities_avgMonthlyRebalances')}
@@ -468,9 +467,8 @@ class CryptoAnalysis {
                     />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Portfolio Copies', 'crypto_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'crypto_assetsPerPortfolio')}
-                    ${this.renderInput('Trade Volume Growth (% monthly)', 'crypto_tradeVolumeGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Copied', 'crypto_avgMonthlyTrades', 'crypto_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'crypto_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'crypto_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances')}
@@ -498,9 +496,8 @@ class CryptoAnalysis {
                     />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Portfolio Copies', 'cryptoNoSub_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'cryptoNoSub_assetsPerPortfolio')}
-                    ${this.renderInput('Trade Volume Growth (% monthly)', 'cryptoNoSub_tradeVolumeGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoNoSub_avgMonthlyTrades', 'cryptoNoSub_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'cryptoNoSub_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoNoSub_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'cryptoNoSub_avgMonthlyRebalances')}
@@ -529,9 +526,8 @@ class CryptoAnalysis {
                     />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Monthly Portfolio Copies', 'cryptoPerfFee_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'cryptoPerfFee_assetsPerPortfolio')}
-                    ${this.renderInput('Trade Volume Growth (% monthly)', 'cryptoPerfFee_tradeVolumeGrowth')}
+                    ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoPerfFee_avgMonthlyTrades', 'cryptoPerfFee_tradeVolumeGrowth')}
                     ${this.renderInput('Monthly Portfolio Creations', 'cryptoPerfFee_avgMonthlyPortfolioCreations')}
                     ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoPerfFee_portfolioCreationGrowth')}
                     ${this.renderInput('Monthly Rebalances', 'cryptoPerfFee_avgMonthlyRebalances')}
@@ -573,6 +569,35 @@ class CryptoAnalysis {
                     style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
                     onblur="this.value = parseFloat(this.value).toFixed(4)"
                 />
+            </div>
+        `;
+    }
+
+    renderCombinedInput(label, key1, key2) {
+        return `
+            <div>
+                <label style="display: block; font-size: 11px; color: #6c757d; margin-bottom: 4px;">${label}</label>
+                <div style="display: flex; gap: 8px;">
+                    <input
+                        type="number"
+                        step="0.01"
+                        value="${this.assumptions[key1].toFixed(2)}"
+                        data-key="${key1}"
+                        style="flex: 1; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
+                        onblur="this.value = parseFloat(this.value).toFixed(2)"
+                    />
+                    <div style="position: relative; flex: 1;">
+                        <input
+                            type="number"
+                            step="0.01"
+                            value="${this.assumptions[key2].toFixed(2)}"
+                            data-key="${key2}"
+                            style="width: 100%; padding: 8px 24px 8px 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
+                            onblur="this.value = parseFloat(this.value).toFixed(2)"
+                        />
+                        <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #6c757d; pointer-events: none;">%</span>
+                    </div>
+                </div>
             </div>
         `;
     }
