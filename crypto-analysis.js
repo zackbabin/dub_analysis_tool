@@ -367,7 +367,7 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(200px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 24px;">
+                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(150px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
@@ -577,16 +577,16 @@ class CryptoAnalysis {
         return `
             <div>
                 <label style="display: block; font-size: 11px; color: #6c757d; margin-bottom: 4px;">${label}</label>
-                <div style="display: flex; gap: 8px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <input
                         type="number"
                         step="0.01"
                         value="${this.assumptions[key1].toFixed(2)}"
                         data-key="${key1}"
-                        style="flex: 1; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
+                        style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; font-size: 13px; box-sizing: border-box;"
                         onblur="this.value = parseFloat(this.value).toFixed(2)"
                     />
-                    <div style="position: relative; flex: 1;">
+                    <div style="position: relative;">
                         <input
                             type="number"
                             step="0.01"
