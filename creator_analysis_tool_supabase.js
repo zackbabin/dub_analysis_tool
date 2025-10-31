@@ -22,8 +22,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.supabaseIntegration = window.supabaseIntegration;
         }
 
-        // Call parent to create base UI (which restores cached results)
+        // Call parent to create base UI
         super.createUI(container, outputContainer);
+
+        // Restore from unified cache (same pattern as user tabs)
+        this.restoreFromUnifiedCache();
 
         // Always hide the upload form container (it's inside creatorContent)
         // The data source buttons should always be visible
@@ -103,7 +106,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Override: Display results - Only show summary and affinity (hide behavioral analysis)
-     * EXACT same pattern as Portfolio/Subscription tabs
+     * EXACT same pattern as Portfolio/Subscription tabs - uses unified cache
      */
     async displayResults(results, timestampStr = null) {
         // Clear output container
@@ -131,17 +134,30 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         await this.loadAndDisplayPremiumCreatorAffinity();
 
         // Add data scope text (top left) and timestamp (top right) - EXACT same pattern as other tabs
-        // If timestampStr is provided, use it (from fresh sync), otherwise get from localStorage (from cache)
+        // If timestampStr is provided, use it (from fresh sync), otherwise get from unified cache
         if (!timestampStr) {
-            const analysisData = JSON.parse(localStorage.getItem('creatorAnalysisResults') || '{}');
-            timestampStr = analysisData.lastUpdated;
+            const cached = localStorage.getItem('dubAnalysisResults');
+            if (cached) {
+                const data = JSON.parse(cached);
+                timestampStr = data.timestamp;
+            }
         }
 
         if (timestampStr) {
+            // Format timestamp to match other tabs
+            const formattedTimestamp = new Date(timestampStr).toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
             // Add timestamp first (will be inserted at position 0)
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${timestampStr}`;
+            timestamp.textContent = `Last updated: ${formattedTimestamp}`;
             resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
@@ -153,8 +169,45 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         resultsDiv.style.display = 'block';
 
-        // Save HTML for restoration AFTER affinity data is loaded AND timestamp/data scope are added
-        this.saveAnalysisResults(this.outputContainer.innerHTML);
+        // Save HTML to unified cache (same as other tabs)
+        this.saveToUnifiedCache();
+    }
+
+    /**
+     * Save creator analysis HTML to unified cache
+     */
+    saveToUnifiedCache() {
+        try {
+            const cached = localStorage.getItem('dubAnalysisResults');
+            const data = cached ? JSON.parse(cached) : {};
+
+            // Add creator tab HTML to unified cache
+            data.creator = this.outputContainer.innerHTML;
+
+            localStorage.setItem('dubAnalysisResults', JSON.stringify(data));
+            console.log('✅ Saved creator analysis to unified cache');
+        } catch (e) {
+            console.warn('Failed to save creator analysis to unified cache:', e);
+        }
+    }
+
+    /**
+     * Restore creator analysis from unified cache
+     */
+    restoreFromUnifiedCache() {
+        try {
+            const cached = localStorage.getItem('dubAnalysisResults');
+            if (cached) {
+                const data = JSON.parse(cached);
+                if (data.creator && this.outputContainer) {
+                    this.outputContainer.innerHTML = data.creator;
+                    const cacheAge = data.timestamp ? Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000) : null;
+                    console.log(`✅ Restored creator analysis from unified cache${cacheAge ? ` (${cacheAge} min ago)` : ''}`);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to restore creator analysis from unified cache:', e);
+        }
     }
 
     /**
