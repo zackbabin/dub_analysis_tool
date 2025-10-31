@@ -379,10 +379,10 @@ function parseValue(val: string): number | null {
 
 /**
  * Process premium creators data from Mixpanel
- * Extracts creator_id and creator_username from the chart
+ * Extracts creator_id and creator_username from the nested chart response
  */
 function processPremiumCreatorsData(data: any): any[] {
-  if (!data || !data.headers || !data.series) {
+  if (!data || !data.series) {
     console.log('No premium creators data')
     return []
   }
@@ -390,29 +390,37 @@ function processPremiumCreatorsData(data: any): any[] {
   const rows: any[] = []
   const now = new Date().toISOString()
 
-  // Find column indices
-  const creatorIdIndex = data.headers.indexOf('creatorId')
-  const creatorUsernameIndex = data.headers.indexOf('creatorUsername')
+  // The data comes in nested format: series -> metric -> creatorUsername -> creatorId
+  // Example: series["Uniques of Viewed Portfolio Details"]["@brettsimba"]["339489349854568448"]
+  console.log('Processing premium creators from nested Mixpanel format...')
 
-  if (creatorIdIndex === -1 || creatorUsernameIndex === -1) {
-    console.error('Required columns not found in premium creators data')
+  // Get the metric data (should be the first/only metric)
+  const metricKeys = Object.keys(data.series)
+  if (metricKeys.length === 0) {
+    console.log('No metrics found in series data')
     return []
   }
 
-  // Process each row
-  if (Array.isArray(data.series)) {
-    data.series.forEach((row: any[]) => {
-      const creatorId = row[creatorIdIndex]
-      const creatorUsername = row[creatorUsernameIndex]
+  const metricData = data.series[metricKeys[0]]
+  console.log(`Found metric: ${metricKeys[0]}`)
 
-      if (creatorId && creatorUsername) {
+  // Iterate through creator usernames (skip $overall)
+  for (const [creatorUsername, usernameData] of Object.entries(metricData)) {
+    if (creatorUsername === '$overall') continue
+    if (typeof usernameData !== 'object') continue
+
+    // Find the creator_id (the 18-digit number key)
+    for (const [key, value] of Object.entries(usernameData as any)) {
+      // Creator IDs are 18-digit numbers, skip $overall and other keys
+      if (key !== '$overall' && /^\d+$/.test(key)) {
         rows.push({
-          creator_id: String(creatorId),
+          creator_id: String(key),
           creator_username: String(creatorUsername),
           synced_at: now,
         })
+        break // Only take the first creator_id per username
       }
-    })
+    }
   }
 
   console.log(`Processed ${rows.length} premium creators from Mixpanel`)
