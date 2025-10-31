@@ -80,7 +80,7 @@ class CryptoAnalysis {
             cryptoPerfFee_avgTradeValue: 50.00,
             cryptoPerfFee_bidAskSpread: 0.25,
             cryptoPerfFee_bakktTransactionFee: 0.25,
-            cryptoPerfFee_avgMonthlyReturns: 5.00,
+            cryptoPerfFee_avgMonthlyReturns: 1.00,
             cryptoPerfFee_performanceFee: 10.00,
             cryptoPerfFee_dubRevenueShare: 50.00,
         };
