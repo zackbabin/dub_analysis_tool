@@ -377,9 +377,12 @@ async function fetchPremiumCreatorsFromMixpanel(credentials: MixpanelCredentials
     if (username === '$overall' || typeof usernameData !== 'object') continue
 
     // Extract creator IDs from the nested structure
+    // Structure: username -> { "$overall": {...}, "creatorId1": {...}, "creatorId2": {...} }
     const creatorIds: string[] = []
     for (const [key, value] of Object.entries(usernameData as any)) {
-      if (key !== '$overall' && key !== 'all') {
+      // Skip $overall and any other non-numeric keys
+      // Creator IDs are numeric strings
+      if (key !== '$overall' && !isNaN(Number(key))) {
         creatorIds.push(key)
       }
     }
@@ -389,7 +392,7 @@ async function fetchPremiumCreatorsFromMixpanel(credentials: MixpanelCredentials
     }
   }
 
-  console.log(`Found ${creatorMap.size} premium creators from Mixpanel`)
+  console.log(`Found ${creatorMap.size} premium creators`)
   return creatorMap
 }
 
