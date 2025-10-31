@@ -80,8 +80,9 @@ class CryptoAnalysis {
             cryptoPerfFee_avgTradeValue: 50.00,
             cryptoPerfFee_bidAskSpread: 0.75,
             cryptoPerfFee_bakktTransactionFee: 0.25,
-            cryptoPerfFee_dubRevenueShare: 50.00,
+            cryptoPerfFee_avgMonthlyReturns: 10.00,
             cryptoPerfFee_performanceFee: 10.00,
+            cryptoPerfFee_dubRevenueShare: 50.00,
         };
 
         this.render();
@@ -203,8 +204,8 @@ class CryptoAnalysis {
                 // No Crypto Subscriptions: apply Dub Revenue Share
                 cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoNoSub_dubRevenueShare / 100);
             } else if (this.activeScenario === 'cryptoPerfFee') {
-                // Performance Fees: apply Dub Revenue Share first, then Performance Fee
-                cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100);
+                // Performance Fees: (total transaction value * Avg Monthly Returns) * Performance Fee * Dub Revenue Share
+                cryptoRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_avgMonthlyReturns / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100) * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100);
             }
 
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
@@ -534,8 +535,9 @@ class CryptoAnalysis {
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoPerfFee_bakktTransactionFee')}
-                    ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
+                    ${this.renderInput('Avg Monthly Returns (%)', 'cryptoPerfFee_avgMonthlyReturns')}
                     ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
+                    ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
                 </div>
             </div>
         `;
