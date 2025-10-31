@@ -78,9 +78,9 @@ class CryptoAnalysis {
             cryptoPerfFee_avgMonthlyRebalances: 3.00,
             cryptoPerfFee_rebalanceGrowth: 2.50,
             cryptoPerfFee_avgTradeValue: 50.00,
-            cryptoPerfFee_bidAskSpread: 0.75,
+            cryptoPerfFee_bidAskSpread: 0.25,
             cryptoPerfFee_bakktTransactionFee: 0.25,
-            cryptoPerfFee_avgMonthlyReturns: 10.00,
+            cryptoPerfFee_avgMonthlyReturns: 5.00,
             cryptoPerfFee_performanceFee: 10.00,
             cryptoPerfFee_dubRevenueShare: 50.00,
         };
@@ -204,8 +204,10 @@ class CryptoAnalysis {
                 // No Crypto Subscriptions: apply Dub Revenue Share
                 cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoNoSub_dubRevenueShare / 100);
             } else if (this.activeScenario === 'cryptoPerfFee') {
-                // Performance Fees: (total transaction value * Avg Monthly Returns) * Performance Fee * Dub Revenue Share
-                cryptoRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_avgMonthlyReturns / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100) * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100);
+                // Performance Fees: Bid-Ask Spread + Performance Fee on Returns
+                const bidAskRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_bidAskSpread / 100);
+                const performanceFeeRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_avgMonthlyReturns / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100) * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100);
+                cryptoRevenue = bidAskRevenue + performanceFeeRevenue;
             }
 
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
