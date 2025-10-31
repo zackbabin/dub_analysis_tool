@@ -486,8 +486,7 @@ body {
     position: absolute;
     z-index: 1000;
     bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
+    right: 0;
     opacity: 0;
     transition: opacity 0.3s, visibility 0.3s;
     font-size: 13px;
@@ -505,8 +504,7 @@ body {
     content: "";
     position: absolute;
     top: 100%;
-    left: 50%;
-    margin-left: -6px;
+    right: 8px;
     border-width: 6px;
     border-style: solid;
     border-color: #2d3748 transparent transparent transparent;
