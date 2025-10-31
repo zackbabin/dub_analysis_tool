@@ -373,7 +373,7 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1fr; gap: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
@@ -461,15 +461,12 @@ class CryptoAnalysis {
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto</h4>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <input
-                            type="checkbox"
-                            id="cryptoToggle"
-                            ${this.activeScenario === 'crypto' ? 'checked' : ''}
-                            style="width: 18px; height: 18px; cursor: pointer;"
-                        />
-                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
-                    </label>
+                    <input
+                        type="checkbox"
+                        id="cryptoToggle"
+                        ${this.activeScenario === 'crypto' ? 'checked' : ''}
+                        style="width: 18px; height: 18px; cursor: pointer;"
+                    />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Portfolio Copies', 'crypto_avgMonthlyTrades')}
@@ -492,15 +489,12 @@ class CryptoAnalysis {
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - no subscriptions</h4>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <input
-                            type="checkbox"
-                            id="cryptoNoSubToggle"
-                            ${this.activeScenario === 'cryptoNoSub' ? 'checked' : ''}
-                            style="width: 18px; height: 18px; cursor: pointer;"
-                        />
-                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
-                    </label>
+                    <input
+                        type="checkbox"
+                        id="cryptoNoSubToggle"
+                        ${this.activeScenario === 'cryptoNoSub' ? 'checked' : ''}
+                        style="width: 18px; height: 18px; cursor: pointer;"
+                    />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Portfolio Copies', 'cryptoNoSub_avgMonthlyTrades')}
@@ -524,15 +518,12 @@ class CryptoAnalysis {
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - performance fees</h4>
-                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <input
-                            type="checkbox"
-                            id="cryptoPerfFeeToggle"
-                            ${this.activeScenario === 'cryptoPerfFee' ? 'checked' : ''}
-                            style="width: 18px; height: 18px; cursor: pointer;"
-                        />
-                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
-                    </label>
+                    <input
+                        type="checkbox"
+                        id="cryptoPerfFeeToggle"
+                        ${this.activeScenario === 'cryptoPerfFee' ? 'checked' : ''}
+                        style="width: 18px; height: 18px; cursor: pointer;"
+                    />
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Portfolio Copies', 'cryptoPerfFee_avgMonthlyTrades')}
