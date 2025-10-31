@@ -4,7 +4,7 @@
 class CryptoAnalysis {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
-        this.activeScenario = null; // 'crypto', 'cryptoNoSub', or 'cryptoPerfFee'
+        this.activeScenario = 'crypto'; // 'crypto', 'cryptoNoSub', or 'cryptoPerfFee' - default to 'crypto'
 
         // Base assumptions
         this.assumptions = {
@@ -805,11 +805,11 @@ class CryptoAnalysis {
                     this.updateAllToggles();
                     this.updateCalculations();
                 } else {
-                    // If unchecking the currently active scenario, deactivate it
+                    // Prevent unchecking if this is the currently active scenario
+                    // At least one toggle must always be active
                     if (this.activeScenario === scenarioKey) {
-                        this.activeScenario = null;
-                        this.updateAllToggles();
-                        this.updateCalculations();
+                        e.preventDefault();
+                        e.target.checked = true;
                     }
                 }
             });
