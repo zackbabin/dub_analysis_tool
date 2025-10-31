@@ -228,7 +228,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const creatorH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
-                <strong>Creator Analysis</strong>
+                <strong>Premium Creator Analysis</strong>
                 Premium creator affinity showing which creators are copied together.
                 <ul>
                     <li><strong>Data Sources:</strong>
@@ -240,7 +240,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             </span>
         </span>`;
 
-        section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Creator Analysis</h1>${creatorH1Tooltip}`;
+        section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Premium Creator Analysis</h1>${creatorH1Tooltip}`;
 
         container.appendChild(section);
     }
