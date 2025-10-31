@@ -874,19 +874,19 @@ class SupabaseIntegration {
      * @param {number} limit - Number of results to return
      * @param {boolean} mapUsernames - Whether to map creator IDs to usernames
      */
-    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false, minExposure = 20) {
+    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false, minExposure = 1) {
         // Create cache key from parameters
         const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}_${minExposure}`;
 
         return this.cachedQuery(cacheKey, async () => {
-            console.log(`Loading top ${analysisType} combinations by ${metric} (min ${minExposure} users exposed)...`);
+            console.log(`Loading top ${analysisType} combinations by ${metric}...`);
 
             try {
                 let query = this.supabase
                     .from('conversion_pattern_combinations')
                     .select('*')
                     .eq('analysis_type', analysisType)
-                    .gte('users_with_exposure', minExposure); // Filter: only combinations with enough users
+                    .gte('users_with_exposure', minExposure); // Filter: minimum 1 user exposed
 
                 // Sort by the requested metric (skip database sort for expected_value)
                 if (metric !== 'expected_value') {
@@ -962,8 +962,9 @@ class SupabaseIntegration {
 
     /**
      * Load top subscription combinations (wrapper for backwards compatibility)
+     * DEPRECATED: Subscription combinations removed - use creator_copy analysis instead
      */
-    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20, minExposure = 1) {
         return this.loadTopCombinations('subscription', metric, limit, true, minExposure);
     }
 
@@ -1049,9 +1050,9 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top copy combinations (wrapper for backwards compatibility)
+     * Load top copy combinations (portfolio combinations that drive copies)
      */
-    async loadTopCopyCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+    async loadTopCopyCombinations(metric = 'lift', limit = 20, minExposure = 1) {
         return this.loadTopCombinations('copy', metric, limit, false, minExposure);
     }
 
@@ -1059,7 +1060,7 @@ class SupabaseIntegration {
      * Load top creator copy combinations
      * Analyzes which creator profile view combinations drive copies
      */
-    async loadTopCreatorCopyCombinations(metric = 'lift', limit = 20, minExposure = 20) {
+    async loadTopCreatorCopyCombinations(metric = 'lift', limit = 20, minExposure = 1) {
         return this.loadTopCombinations('creator_copy', metric, limit, true, minExposure);
     }
 

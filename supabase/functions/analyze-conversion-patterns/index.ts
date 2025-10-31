@@ -7,21 +7,17 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 // Analysis type configurations
+// Supports two analysis types:
+// - 'copy': Portfolio combinations that drive copies (uses portfolio_ticker)
+// - 'creator_copy': Creator combinations that drive copies (uses creator_id/username)
 const ANALYSIS_CONFIGS = {
-  subscription: {
-    table: 'user_creator_engagement',
-    select: 'distinct_id, creator_id, creator_username, profile_view_count, did_subscribe, subscription_count, synced_at',
-    filterColumn: 'profile_view_count',
-    outcomeColumn: 'did_subscribe',
-    entityType: 'creator',
-    refreshView: 'refresh_subscription_engagement_summary',
-  },
   copy: {
     table: 'user_portfolio_creator_engagement',
     select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
     filterColumn: 'pdp_view_count',
     outcomeColumn: 'did_copy',
     entityType: 'portfolio',
+    entityIdColumn: 'portfolio_ticker',  // Key identifier for this entity type
     refreshView: 'refresh_copy_engagement_summary',
   },
   creator_copy: {
@@ -30,6 +26,7 @@ const ANALYSIS_CONFIGS = {
     filterColumn: 'profile_view_count',
     outcomeColumn: 'did_copy',
     entityType: 'creator',
+    entityIdColumn: 'creator_id',  // Key identifier for this entity type
     refreshView: null,
   },
 }
@@ -256,13 +253,13 @@ serve(async (req) => {
   try {
     // Parse request body to get analysis type
     const body = await req.json()
-    const analysisType = body.analysis_type || 'subscription'
+    const analysisType = body.analysis_type || 'copy'  // Default to portfolio copy analysis
 
     if (!ANALYSIS_CONFIGS[analysisType]) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: `Invalid analysis_type: ${analysisType}. Must be 'subscription', 'copy', or 'creator_copy'`
+          error: `Invalid analysis_type: ${analysisType}. Must be 'copy' or 'creator_copy'`
         }),
         { headers: { 'Content-Type': 'application/json' }, status: 400 }
       )
@@ -380,16 +377,26 @@ serve(async (req) => {
     let processed = 0
     let keptCount = 0
 
-    // Build entity ID to username map (for creators only)
-    let entityIdToUsername = new Map<string, string>()
+    // Build entity ID to display name map
+    // For creators: maps creator_id -> creator_username
+    // For portfolios: maps portfolio_ticker -> portfolio_ticker (identity mapping for consistency)
+    let entityIdToDisplayName = new Map<string, string>()
     if (config.entityType === 'creator') {
       console.log('Building creator username map...')
       for (const pair of pairRows) {
-        if (pair.creator_id && pair.creator_username && !entityIdToUsername.has(pair.creator_id)) {
-          entityIdToUsername.set(pair.creator_id, pair.creator_username)
+        if (pair.creator_id && pair.creator_username && !entityIdToDisplayName.has(pair.creator_id)) {
+          entityIdToDisplayName.set(pair.creator_id, pair.creator_username)
         }
       }
-      console.log(`✓ Mapped ${entityIdToUsername.size} creator IDs to usernames`)
+      console.log(`✓ Mapped ${entityIdToDisplayName.size} creator IDs to usernames`)
+    } else if (config.entityType === 'portfolio') {
+      console.log('Building portfolio ticker map...')
+      for (const pair of pairRows) {
+        if (pair.portfolio_ticker && !entityIdToDisplayName.has(pair.portfolio_ticker)) {
+          entityIdToDisplayName.set(pair.portfolio_ticker, pair.portfolio_ticker)
+        }
+      }
+      console.log(`✓ Mapped ${entityIdToDisplayName.size} portfolio tickers`)
     }
 
     // Build entity ID to total views map
@@ -440,8 +447,8 @@ serve(async (req) => {
               combination_rank: keptCount - streamBatch.length + idx + 1,
               value_1: r.combination[0],
               value_2: r.combination[1],
-              username_1: entityIdToUsername.get(r.combination[0]) || null,
-              username_2: entityIdToUsername.get(r.combination[1]) || null,
+              username_1: entityIdToDisplayName.get(r.combination[0]) || null,
+              username_2: entityIdToDisplayName.get(r.combination[1]) || null,
               total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
               total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
               log_likelihood: r.log_likelihood,
@@ -484,8 +491,8 @@ serve(async (req) => {
         combination_rank: keptCount - streamBatch.length + idx + 1,
         value_1: r.combination[0],
         value_2: r.combination[1],
-        username_1: entityIdToUsername.get(r.combination[0]) || null,
-        username_2: entityIdToUsername.get(r.combination[1]) || null,
+        username_1: entityIdToDisplayName.get(r.combination[0]) || null,
+        username_2: entityIdToDisplayName.get(r.combination[1]) || null,
         total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
         total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
         log_likelihood: r.log_likelihood,
