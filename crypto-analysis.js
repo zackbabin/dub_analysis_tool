@@ -32,6 +32,7 @@ class CryptoAnalysis {
             kycFee: 1.00,
             plaidFeePerLink: 2.00,
             bakktTransactionFee: 0.25,
+            avgMonthlyReturns: 1.00,
 
             // Equities
             equities_avgMonthlyTrades: 1.50,
@@ -78,7 +79,6 @@ class CryptoAnalysis {
             cryptoPerfFee_rebalanceGrowth: 4.00,
             cryptoPerfFee_avgTradeValue: 75.00,
             cryptoPerfFee_bidAskSpread: 0.25,
-            cryptoPerfFee_avgMonthlyReturns: 1.00,
             cryptoPerfFee_performanceFee: 10.00,
             cryptoPerfFee_dubRevenueShare: 50.00,
         };
@@ -204,7 +204,7 @@ class CryptoAnalysis {
             } else if (this.activeScenario === 'cryptoPerfFee') {
                 // Performance Fees: Bid-Ask Spread + Performance Fee on Returns
                 const bidAskRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_bidAskSpread / 100);
-                const performanceFeeRevenue = crypto_totalTransactionValue * (this.assumptions.cryptoPerfFee_avgMonthlyReturns / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100) * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100);
+                const performanceFeeRevenue = crypto_totalTransactionValue * (this.assumptions.avgMonthlyReturns / 100) * (this.assumptions.cryptoPerfFee_performanceFee / 100) * (this.assumptions.cryptoPerfFee_dubRevenueShare / 100);
                 cryptoRevenue = bidAskRevenue + performanceFeeRevenue;
             }
 
@@ -413,6 +413,7 @@ class CryptoAnalysis {
                     ${this.renderInput('KYC/Alloy Fee ($)', 'kycFee')}
                     ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'bakktTransactionFee')}
+                    ${this.renderInput('Avg Monthly Returns (%)', 'avgMonthlyReturns')}
                 </div>
             </div>
         `;
@@ -533,7 +534,6 @@ class CryptoAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoPerfFee_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
-                    ${this.renderInput('Avg Monthly Returns (%)', 'cryptoPerfFee_avgMonthlyReturns')}
                     ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
                 </div>
