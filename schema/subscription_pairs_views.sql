@@ -2,28 +2,18 @@
 -- These views analyze user engagement with portfolio-creator pairs and subscription conversions
 
 -- Materialized View: subscription_engagement_summary
--- Aggregates engagement metrics by subscription status
+-- Aggregates engagement metrics by subscription status from main_analysis
 -- Refresh this after syncing new data: REFRESH MATERIALIZED VIEW subscription_engagement_summary;
 DROP MATERIALIZED VIEW IF EXISTS subscription_engagement_summary CASCADE;
 CREATE MATERIALIZED VIEW subscription_engagement_summary AS
 SELECT
   did_subscribe,
   COUNT(DISTINCT distinct_id) as total_users,
-  ROUND(AVG(profile_views), 2) as avg_profile_views,
-  ROUND(AVG(pdp_views), 2) as avg_pdp_views,
-  ROUND(AVG(unique_creators), 2) as avg_unique_creators,
-  ROUND(AVG(unique_portfolios), 2) as avg_unique_portfolios
-FROM (
-  SELECT
-    distinct_id,
-    did_subscribe,
-    SUM(pdp_view_count + profile_view_count) as pdp_views,
-    COUNT(DISTINCT creator_id) as unique_creators,
-    COUNT(DISTINCT portfolio_ticker) as unique_portfolios,
-    SUM(profile_view_count) as profile_views
-  FROM user_portfolio_creator_engagement
-  GROUP BY distinct_id, did_subscribe
-) user_engagement
+  ROUND(AVG(total_profile_views), 2) as avg_profile_views,
+  ROUND(AVG(total_pdp_views), 2) as avg_pdp_views,
+  ROUND(AVG(unique_creators_viewed), 2) as avg_unique_creators,
+  ROUND(AVG(unique_portfolios_viewed), 2) as avg_unique_portfolios
+FROM main_analysis
 GROUP BY did_subscribe;
 
 -- Create indexes on materialized view
