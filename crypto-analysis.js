@@ -73,7 +73,7 @@ class CryptoAnalysis {
             cryptoPerfFee_avgMonthlyTrades: 0.50,
             cryptoPerfFee_assetsPerPortfolio: 3.00,
             cryptoPerfFee_tradeVolumeGrowth: 5.00,
-            cryptoPerfFee_avgMonthlyPortfolioCreations: 0.40,
+            cryptoPerfFee_avgMonthlyPortfolioCreations: 0.04,
             cryptoPerfFee_portfolioCreationGrowth: 3.00,
             cryptoPerfFee_avgMonthlyRebalances: 5.00,
             cryptoPerfFee_rebalanceGrowth: 4.00,
@@ -214,7 +214,7 @@ class CryptoAnalysis {
 
             // Cost calculations
             const plaidLinkFees = adjustedLinkedBankAccounts * this.assumptions.plaidFeePerLink;
-            const kycCost = adjustedKycApproved * this.assumptions.kycFee;
+            const kycCost = submittedApps * this.assumptions.kycFee;
             const equities_apexTransactionCost = month <= 6 ? equities_totalTradingEvents * this.assumptions.equities_apexTransactionFee : 0;
             const totalCosts = plaidLinkFees + kycCost + equities_apexTransactionCost + crypto_bakktTransactionCost;
 
