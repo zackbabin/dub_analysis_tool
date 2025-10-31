@@ -347,7 +347,7 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
-            <div style="width: 100%; max-width: 2200px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
+            <div style="width: 100%; max-width: 2800px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 <div style="text-align: center; margin-bottom: 32px;">
                     <h1 style="font-size: 28px; font-weight: bold; margin: 0 0 8px 0;">Crypto Business Analysis</h1>
                     <p style="color: #6c757d; margin: 0;">Financial projections and business model assumptions</p>
@@ -372,12 +372,10 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 24px;">
                     ${this.renderConversionRates()}
-                    <div style="display: flex; flex-direction: column; gap: 24px;">
-                        ${this.renderOtherAssumptions()}
-                        ${this.renderSubscriptionAssumptions()}
-                    </div>
+                    ${this.renderOtherAssumptions()}
+                    ${this.renderSubscriptionAssumptions()}
                     ${this.renderEquitiesAssumptions()}
                     ${this.renderCryptoAssumptions()}
                     ${this.renderCryptoNoSubscriptionsAssumptions()}
