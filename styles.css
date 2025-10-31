@@ -477,6 +477,7 @@ body {
 .info-tooltip .tooltip-text {
     visibility: hidden;
     width: 400px;
+    max-width: 400px;
     background-color: #2d3748;
     color: #fff;
     text-align: left;
@@ -494,7 +495,10 @@ body {
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     white-space: normal;
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .info-tooltip .tooltip-text::after {
