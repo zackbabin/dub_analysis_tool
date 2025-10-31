@@ -306,7 +306,7 @@ body {
 
 /* Increase width for Crypto Analysis tab only */
 #crypto-tab {
-    max-width: 1600px;
+    max-width: 2800px;
     margin: 0 auto;
 }
 
