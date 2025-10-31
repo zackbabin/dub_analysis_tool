@@ -4,7 +4,7 @@
 class CryptoAnalysis {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
-        this.noCryptoSubscriptions = false; // Toggle state
+        this.activeScenario = null; // 'crypto', 'cryptoNoSub', or 'cryptoPerfFee'
 
         // Base assumptions
         this.assumptions = {
@@ -68,6 +68,19 @@ class CryptoAnalysis {
             cryptoNoSub_bidAskSpread: 0.75,
             cryptoNoSub_bakktTransactionFee: 0.25,
             cryptoNoSub_dubRevenueShare: 50.00,
+
+            // Crypto - performance fees
+            cryptoPerfFee_avgMonthlyTrades: 0.30,
+            cryptoPerfFee_assetsPerPortfolio: 2.50,
+            cryptoPerfFee_tradeVolumeGrowth: 2.50,
+            cryptoPerfFee_avgMonthlyPortfolioCreations: 0.015,
+            cryptoPerfFee_portfolioCreationGrowth: 2.50,
+            cryptoPerfFee_avgMonthlyRebalances: 3.00,
+            cryptoPerfFee_rebalanceGrowth: 2.50,
+            cryptoPerfFee_avgTradeValue: 50.00,
+            cryptoPerfFee_bidAskSpread: 0.75,
+            cryptoPerfFee_bakktTransactionFee: 0.25,
+            cryptoPerfFee_performanceFee: 10.00,
         };
 
         this.render();
@@ -141,8 +154,8 @@ class CryptoAnalysis {
                                                 equities_rebalances;
             const equities_totalTransactionValue = equities_totalTradingEvents * this.assumptions.equities_avgTradeValue;
 
-            // Crypto trading activity - use appropriate assumptions based on toggle
-            const cryptoPrefix = this.noCryptoSubscriptions ? 'cryptoNoSub' : 'crypto';
+            // Crypto trading activity - use appropriate assumptions based on active scenario
+            const cryptoPrefix = this.activeScenario || 'crypto';
             const crypto_tradeVolumeMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_tradeVolumeGrowth`] / 100, month - 1);
             const crypto_rebalanceMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_rebalanceGrowth`] / 100, month - 1);
             const crypto_portfolioCreationMultiplier = Math.pow(1 + this.assumptions[`${cryptoPrefix}_portfolioCreationGrowth`] / 100, month - 1);
@@ -162,9 +175,13 @@ class CryptoAnalysis {
             // Subscription calculations with churn and conversion growth
             let activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
 
-            // When "No Crypto Subscriptions" toggle is active, reduce active subscribers
-            if (this.noCryptoSubscriptions) {
+            // Apply scenario-specific subscription modifications
+            if (this.activeScenario === 'cryptoNoSub') {
+                // No Crypto Subscriptions: reduce active subscribers
                 activeSubscribers = activeSubscribers * (1 - this.assumptions.cryptoSubscriptionsPercent / 100);
+            } else if (this.activeScenario === 'cryptoPerfFee') {
+                // Performance Fees: eliminate subscriptions completely
+                activeSubscribers = 0;
             }
 
             const newSubscriptions = activeSubscribers * currentSubscriptionsPerSubscriber;
@@ -183,9 +200,13 @@ class CryptoAnalysis {
             const crypto_totalTransactionValue = crypto_totalTradingEvents * this.assumptions[`${cryptoPrefix}_avgTradeValue`];
             let cryptoRevenue = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bidAskSpread`] / 100);
 
-            // When "No Crypto Subscriptions" toggle is active, apply Dub Revenue Share
-            if (this.noCryptoSubscriptions) {
+            // Apply scenario-specific revenue modifications
+            if (this.activeScenario === 'cryptoNoSub') {
+                // No Crypto Subscriptions: apply Dub Revenue Share
                 cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoNoSub_dubRevenueShare / 100);
+            } else if (this.activeScenario === 'cryptoPerfFee') {
+                // Performance Fees: apply performance fee percentage
+                cryptoRevenue = cryptoRevenue * (this.assumptions.cryptoPerfFee_performanceFee / 100);
             }
 
             const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
@@ -351,25 +372,15 @@ class CryptoAnalysis {
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                            <input
-                                type="checkbox"
-                                id="noCryptoSubscriptionsToggle"
-                                ${this.noCryptoSubscriptions ? 'checked' : ''}
-                                style="width: 18px; height: 18px; cursor: pointer;"
-                            />
-                            <span style="font-size: 14px; font-weight: 500; color: #495057;">No Crypto Subscriptions</span>
-                        </label>
-                    </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr 1fr; gap: 24px;">
+                <div style="display: grid; grid-template-columns: 0.8fr 0.8fr 1fr 1fr 1fr 1fr 1fr; gap: 24px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
                     ${this.renderEquitiesAssumptions()}
                     ${this.renderCryptoAssumptions()}
                     ${this.renderCryptoNoSubscriptionsAssumptions()}
+                    ${this.renderCryptoPerformanceFeesAssumptions()}
                 </div>
             </div>
         `;
@@ -447,8 +458,19 @@ class CryptoAnalysis {
 
     renderCryptoAssumptions() {
         return `
-            <div style="background: #fff3e0; padding: 16px; border-radius: 8px;">
-                <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 12px 0;">Crypto</h4>
+            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto</h4>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input
+                            type="checkbox"
+                            id="cryptoToggle"
+                            ${this.activeScenario === 'crypto' ? 'checked' : ''}
+                            style="width: 18px; height: 18px; cursor: pointer;"
+                        />
+                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
+                    </label>
+                </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Portfolio Copies', 'crypto_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'crypto_assetsPerPortfolio')}
@@ -467,8 +489,19 @@ class CryptoAnalysis {
 
     renderCryptoNoSubscriptionsAssumptions() {
         return `
-            <div style="background: #fff3e0; padding: 16px; border-radius: 8px;">
-                <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 12px 0;">Crypto - no subscriptions</h4>
+            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - no subscriptions</h4>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input
+                            type="checkbox"
+                            id="cryptoNoSubToggle"
+                            ${this.activeScenario === 'cryptoNoSub' ? 'checked' : ''}
+                            style="width: 18px; height: 18px; cursor: pointer;"
+                        />
+                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
+                    </label>
+                </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Monthly Portfolio Copies', 'cryptoNoSub_avgMonthlyTrades')}
                     ${this.renderInput('Assets Per Portfolio', 'cryptoNoSub_assetsPerPortfolio')}
@@ -481,6 +514,38 @@ class CryptoAnalysis {
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoNoSub_bakktTransactionFee')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoNoSub_dubRevenueShare')}
+                </div>
+            </div>
+        `;
+    }
+
+    renderCryptoPerformanceFeesAssumptions() {
+        return `
+            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - performance fees</h4>
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <input
+                            type="checkbox"
+                            id="cryptoPerfFeeToggle"
+                            ${this.activeScenario === 'cryptoPerfFee' ? 'checked' : ''}
+                            style="width: 18px; height: 18px; cursor: pointer;"
+                        />
+                        <span style="font-size: 12px; font-weight: 500; color: #e65100;">Active</span>
+                    </label>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    ${this.renderInput('Monthly Portfolio Copies', 'cryptoPerfFee_avgMonthlyTrades')}
+                    ${this.renderInput('Assets Per Portfolio', 'cryptoPerfFee_assetsPerPortfolio')}
+                    ${this.renderInput('Trade Volume Growth (% monthly)', 'cryptoPerfFee_tradeVolumeGrowth')}
+                    ${this.renderInput('Monthly Portfolio Creations', 'cryptoPerfFee_avgMonthlyPortfolioCreations')}
+                    ${this.renderInput('Portfolio Creation Growth (% monthly)', 'cryptoPerfFee_portfolioCreationGrowth')}
+                    ${this.renderInput('Monthly Rebalances', 'cryptoPerfFee_avgMonthlyRebalances')}
+                    ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoPerfFee_rebalanceGrowth')}
+                    ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
+                    ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
+                    ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoPerfFee_bakktTransactionFee')}
+                    ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
                 </div>
             </div>
         `;
@@ -730,14 +795,42 @@ class CryptoAnalysis {
             });
         });
 
-        // Attach toggle listener
-        const toggle = document.getElementById('noCryptoSubscriptionsToggle');
+        // Attach toggle listeners for the 3 crypto scenarios
+        this.attachScenarioToggle('cryptoToggle', 'crypto');
+        this.attachScenarioToggle('cryptoNoSubToggle', 'cryptoNoSub');
+        this.attachScenarioToggle('cryptoPerfFeeToggle', 'cryptoPerfFee');
+    }
+
+    attachScenarioToggle(toggleId, scenarioKey) {
+        const toggle = document.getElementById(toggleId);
         if (toggle) {
             toggle.addEventListener('change', (e) => {
-                this.noCryptoSubscriptions = e.target.checked;
-                this.updateCalculations();
+                if (e.target.checked) {
+                    // Turn off all other toggles and activate this scenario
+                    this.activeScenario = scenarioKey;
+                    this.updateAllToggles();
+                    this.updateCalculations();
+                } else {
+                    // If unchecking the currently active scenario, deactivate it
+                    if (this.activeScenario === scenarioKey) {
+                        this.activeScenario = null;
+                        this.updateAllToggles();
+                        this.updateCalculations();
+                    }
+                }
             });
         }
+    }
+
+    updateAllToggles() {
+        // Update all toggle states to reflect the activeScenario
+        const cryptoToggle = document.getElementById('cryptoToggle');
+        const cryptoNoSubToggle = document.getElementById('cryptoNoSubToggle');
+        const cryptoPerfFeeToggle = document.getElementById('cryptoPerfFeeToggle');
+
+        if (cryptoToggle) cryptoToggle.checked = (this.activeScenario === 'crypto');
+        if (cryptoNoSubToggle) cryptoNoSubToggle.checked = (this.activeScenario === 'cryptoNoSub');
+        if (cryptoPerfFeeToggle) cryptoPerfFeeToggle.checked = (this.activeScenario === 'cryptoPerfFee');
     }
 }
 

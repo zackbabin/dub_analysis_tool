@@ -304,6 +304,12 @@ body {
     margin: 0;
 }
 
+/* Increase width for Crypto Analysis tab only */
+#crypto-tab .tab-container {
+    max-width: none;
+    width: 100%;
+}
+
 /* Behavioral Tabs (Nested tabs within Portfolio Analysis) */
 .behavioral-tabs-container {
     margin-top: 1rem;
