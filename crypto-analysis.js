@@ -79,7 +79,7 @@ class CryptoAnalysis {
             cryptoPerfFee_rebalanceGrowth: 4.00,
             cryptoPerfFee_avgTradeValue: 75.00,
             cryptoPerfFee_bidAskSpread: 0.25,
-            cryptoPerfFee_performanceFee: 10.00,
+            cryptoPerfFee_performanceFee: 20.00,
             cryptoPerfFee_dubRevenueShare: 50.00,
         };
 
