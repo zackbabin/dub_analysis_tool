@@ -100,8 +100,9 @@ WITH ranked_affinity AS (
     copied_creator,
     copy_type,
     total_copies,
+    unique_copiers,
     ROW_NUMBER() OVER (
-      PARTITION BY premium_creator, copy_type
+      PARTITION BY premium_creator
       ORDER BY unique_copiers DESC, total_copies DESC
     ) AS rank
   FROM premium_creator_copy_affinity_base
@@ -110,16 +111,26 @@ SELECT
   premium_creator,
   premium_creator_total_copies,
   premium_creator_total_liquidations,
-  MAX(CASE WHEN copy_type = 'Premium' AND rank = 1 THEN copied_creator || ': ' || total_copies END) AS top_1_premium,
-  MAX(CASE WHEN copy_type = 'Regular' AND rank = 1 THEN copied_creator || ': ' || total_copies END) AS top_1_regular,
-  MAX(CASE WHEN copy_type = 'Premium' AND rank = 2 THEN copied_creator || ': ' || total_copies END) AS top_2_premium,
-  MAX(CASE WHEN copy_type = 'Regular' AND rank = 2 THEN copied_creator || ': ' || total_copies END) AS top_2_regular,
-  MAX(CASE WHEN copy_type = 'Premium' AND rank = 3 THEN copied_creator || ': ' || total_copies END) AS top_3_premium,
-  MAX(CASE WHEN copy_type = 'Regular' AND rank = 3 THEN copied_creator || ': ' || total_copies END) AS top_3_regular,
-  MAX(CASE WHEN copy_type = 'Premium' AND rank = 4 THEN copied_creator || ': ' || total_copies END) AS top_4_premium,
-  MAX(CASE WHEN copy_type = 'Regular' AND rank = 4 THEN copied_creator || ': ' || total_copies END) AS top_4_regular,
-  MAX(CASE WHEN copy_type = 'Premium' AND rank = 5 THEN copied_creator || ': ' || total_copies END) AS top_5_premium,
-  MAX(CASE WHEN copy_type = 'Regular' AND rank = 5 THEN copied_creator || ': ' || total_copies END) AS top_5_regular
+  MAX(CASE WHEN rank = 1 THEN
+    CASE WHEN copy_type = 'Premium' THEN '⭐ ' ELSE '' END ||
+    copied_creator || ': ' || total_copies
+  END) AS top_1,
+  MAX(CASE WHEN rank = 2 THEN
+    CASE WHEN copy_type = 'Premium' THEN '⭐ ' ELSE '' END ||
+    copied_creator || ': ' || total_copies
+  END) AS top_2,
+  MAX(CASE WHEN rank = 3 THEN
+    CASE WHEN copy_type = 'Premium' THEN '⭐ ' ELSE '' END ||
+    copied_creator || ': ' || total_copies
+  END) AS top_3,
+  MAX(CASE WHEN rank = 4 THEN
+    CASE WHEN copy_type = 'Premium' THEN '⭐ ' ELSE '' END ||
+    copied_creator || ': ' || total_copies
+  END) AS top_4,
+  MAX(CASE WHEN rank = 5 THEN
+    CASE WHEN copy_type = 'Premium' THEN '⭐ ' ELSE '' END ||
+    copied_creator || ': ' || total_copies
+  END) AS top_5
 FROM ranked_affinity
 WHERE rank <= 5
 GROUP BY premium_creator, premium_creator_total_copies, premium_creator_total_liquidations
