@@ -372,9 +372,9 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 24px;">
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px;">
+                    ${this.renderConversionRates()}
                     <div style="display: flex; flex-direction: column; gap: 24px;">
-                        ${this.renderConversionRates()}
                         ${this.renderOtherAssumptions()}
                         ${this.renderSubscriptionAssumptions()}
                     </div>
