@@ -347,6 +347,16 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
+            <style>
+                .tooltip-content {
+                    visibility: hidden;
+                    opacity: 0;
+                }
+                tr:hover .tooltip-content {
+                    visibility: visible;
+                    opacity: 1;
+                }
+            </style>
             <div style="width: 100%; max-width: 1800px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 ${this.renderAssumptions()}
                 <div id="cryptoYearContainer">
@@ -714,20 +724,20 @@ class CryptoAnalysis {
                             ${this.renderMetricRow('Subscriptions Per Subscriber', 'subscriptionsPerSubscriber', projections, false, null, false, false, false, false, true)}
                             ${this.renderMetricRow('Total Active Subscriptions', 'totalActiveSubscriptions', projections)}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('PFOF Revenue', 'pfofRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true)}
-                            ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true)}
+                            ${this.renderMetricRow('PFOF Revenue', 'pfofRevenue', projections, false, null, true, false, false, false, false, 'Calculated as: <b>Total Equities Transaction Value × PFOF Fee %</b><br><br>Uses assumptions: PFOF Fee (%), Avg Trade Value, Assets Per Portfolio')}
+                            ${this.renderMetricRow('Maintenance Revenue', 'maintenanceRevenue', projections, false, null, true, false, false, false, false, 'Calculated as: <b>(Cumulative Funded Accounts - Total Active Subscriptions) × Maintenance Fee</b><br><br>Only non-subscribers pay the monthly maintenance fee')}
+                            ${this.renderMetricRow('Crypto Revenue', 'cryptoRevenue', projections, false, null, true, false, false, false, false, 'Calculation varies by active crypto scenario:<br><br><b>Subscription + Fees:</b> Crypto Transaction Value × Bid-Ask Spread %<br><br><b>No Subs + Rev Share:</b> (Crypto Transaction Value × Bid-Ask Spread %) × Dub Revenue Share %<br><br><b>Performance Fees:</b> (Crypto Transaction Value × Bid-Ask Spread %) + (Crypto Transaction Value × Avg Monthly Returns % × Performance Fee % × Dub Revenue Share %)')}
+                            ${this.renderMetricRow('Subscription Revenue', 'subscriptionRevenue', projections, false, null, true, false, false, false, false, 'Calculated as: <b>Total Active Subscriptions × Subscriber MRR × Dub Revenue Share %</b><br><br>Active subscriptions grow with new subscribers and shrink with churn')}
+                            ${this.renderMetricRow('Total Revenue', 'totalRevenue', projections, false, null, true, true, false, false, false, 'Sum of all revenue streams:<br><br>PFOF Revenue + Maintenance Revenue + Crypto Revenue + Subscription Revenue')}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Plaid Link Fees', 'plaidLinkFees', projections, false, null, false, false, true)}
-                            ${this.renderMetricRow('KYC/Alloy Fees', 'kycCost', projections, false, null, false, false, true)}
-                            ${this.renderMetricRow('Apex Transaction Fees', 'equities_apexTransactionCost', projections, false, null, false, false, true)}
-                            ${this.renderMetricRow('Bakkt Transaction Fees', 'crypto_bakktTransactionCost', projections, false, null, false, false, true)}
-                            ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true)}
+                            ${this.renderMetricRow('Plaid Link Fees', 'plaidLinkFees', projections, false, null, false, false, true, false, false, 'Calculated as: <b>New Linked Bank Accounts × Plaid Fee Per Link</b><br><br>One-time fee charged when a user links their bank account via Plaid')}
+                            ${this.renderMetricRow('KYC/Alloy Fees', 'kycCost', projections, false, null, false, false, true, false, false, 'Calculated as: <b>Submitted Applications × KYC Fee</b><br><br>One-time fee for identity verification through Alloy per application submitted')}
+                            ${this.renderMetricRow('Apex Transaction Fees', 'equities_apexTransactionCost', projections, false, null, false, false, true, false, false, 'Calculated as: <b>Total Equities Executed Orders × Apex Transaction Fee</b><br><br>Only applies for first 6 months. Fee per equities trade executed through Apex Clearing')}
+                            ${this.renderMetricRow('Bakkt Transaction Fees', 'crypto_bakktTransactionCost', projections, false, null, false, false, true, false, false, 'Calculated as: <b>Crypto Transaction Value × Bakkt Transaction Fee %</b><br><br>Fee charged by Bakkt as a percentage of crypto transaction volume')}
+                            ${this.renderMetricRow('Total Costs', 'totalCosts', projections, false, null, false, true, true, false, false, 'Sum of all costs:<br><br>Plaid Link Fees + KYC/Alloy Fees + Apex Transaction Fees + Bakkt Transaction Fees')}
                             ${this.renderSeparatorRow(projections)}
-                            ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true)}
-                            ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda', false, false, false, true)}
+                            ${this.renderMetricRow('Gross Profit', 'grossProfit', projections, false, '#d4edda', true, true, false, false, false, 'Calculated as: <b>Total Revenue - Total Costs</b>')}
+                            ${this.renderMetricRow('Gross Margin (%)', 'grossMargin', projections, false, '#d4edda', false, false, false, true, false, 'Calculated as: <b>(Gross Profit ÷ Total Revenue) × 100</b><br><br>Measures profitability as a percentage of revenue')}
                         </tbody>
                     </table>
                 </div>
@@ -743,7 +753,7 @@ class CryptoAnalysis {
         `;
     }
 
-    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false, isPercent = false, isDecimal = false) {
+    renderMetricRow(label, key, projections, isHeader = false, bgColor = null, isCurrency = false, isBold = false, isCost = false, isPercent = false, isDecimal = false, tooltip = null) {
         if (isHeader) {
             return `
                 <tr style="background: ${bgColor || '#f8f9fa'};">
@@ -756,9 +766,21 @@ class CryptoAnalysis {
             `;
         }
 
+        const tooltipHtml = tooltip ? `
+            <span style="position: relative; display: inline-block; margin-left: 4px; cursor: help;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align: middle;">
+                    <circle cx="7" cy="7" r="6" stroke="#6c757d" stroke-width="1.5" fill="none"/>
+                    <text x="7" y="10" text-anchor="middle" font-size="10" fill="#6c757d" font-weight="bold">?</text>
+                </svg>
+                <span style="visibility: hidden; opacity: 0; position: absolute; left: 20px; top: -8px; background: #333; color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; white-space: normal; width: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.2s, visibility 0.2s; line-height: 1.4;" class="tooltip-content">${tooltip}</span>
+            </span>
+        ` : '';
+
         return `
             <tr>
-                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">${label}</td>
+                <td style="padding: 8px; ${isBold ? 'font-weight: bold;' : ''} position: sticky; left: 0; background: white; z-index: 1; min-width: 200px; white-space: nowrap;">
+                    ${label}${tooltipHtml}
+                </td>
                 ${projections.map(p => {
                     const value = p[key];
                     let formatted;
