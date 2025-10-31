@@ -176,12 +176,9 @@ class CryptoAnalysis {
             let activeSubscribers = adjustedKycApproved * (currentSubscriptionConversion / 100);
 
             // Apply scenario-specific subscription modifications
-            if (this.activeScenario === 'cryptoNoSub') {
-                // No Crypto Subscriptions: reduce active subscribers
+            if (this.activeScenario === 'cryptoNoSub' || this.activeScenario === 'cryptoPerfFee') {
+                // No Crypto Subscriptions & Performance Fees: reduce active subscribers by cryptoSubscriptionsPercent
                 activeSubscribers = activeSubscribers * (1 - this.assumptions.cryptoSubscriptionsPercent / 100);
-            } else if (this.activeScenario === 'cryptoPerfFee') {
-                // Performance Fees: eliminate subscriptions completely
-                activeSubscribers = 0;
             }
 
             const newSubscriptions = activeSubscribers * currentSubscriptionsPerSubscriber;
