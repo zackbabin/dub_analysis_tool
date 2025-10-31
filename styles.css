@@ -457,21 +457,18 @@ body {
     margin-left: 6px;
     cursor: help;
     vertical-align: middle;
-    /* Add padding to create larger hoverable area */
-    padding: 8px;
-    margin: -8px 0 -8px 0;
 }
 
 .info-tooltip .info-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background-color: #6c757d;
     color: white;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: bold;
     font-family: Arial, sans-serif;
     vertical-align: middle;
@@ -479,24 +476,25 @@ body {
 
 .info-tooltip .tooltip-text {
     visibility: hidden;
-    width: 350px;
+    width: 400px;
     background-color: #2d3748;
     color: #fff;
     text-align: left;
     border-radius: 8px;
-    padding: 12px;
+    padding: 14px 16px;
     position: absolute;
     z-index: 1000;
-    bottom: 125%;
+    bottom: calc(100% + 8px);
     left: 50%;
-    margin-left: -175px;
+    transform: translateX(-50%);
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.3s, visibility 0.3s;
     font-size: 13px;
-    line-height: 1.5;
+    line-height: 1.6;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    /* Add padding area to keep tooltip visible when moving to it */
-    padding-bottom: 20px;
+    white-space: normal;
+    word-wrap: break-word;
+    pointer-events: none;
 }
 
 .info-tooltip .tooltip-text::after {
@@ -504,13 +502,19 @@ body {
     position: absolute;
     top: 100%;
     left: 50%;
-    margin-left: -5px;
-    border-width: 5px;
+    margin-left: -6px;
+    border-width: 6px;
     border-style: solid;
     border-color: #2d3748 transparent transparent transparent;
 }
 
-.info-tooltip:hover .tooltip-text,
+.info-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Keep tooltip visible when hovering over it */
 .info-tooltip .tooltip-text:hover {
     visibility: visible;
     opacity: 1;
