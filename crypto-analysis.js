@@ -367,7 +367,7 @@ class CryptoAnalysis {
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
                 </div>
-                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(130px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
+                <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(110px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
@@ -402,10 +402,10 @@ class CryptoAnalysis {
             <div>
                 <h4 style="font-size: 12px; font-weight: bold; color: #495057; text-transform: uppercase; margin: 0 0 12px 0;">Other Assumptions</h4>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
-                    ${this.renderInput('Maintenance Fee ($/mo per funded acct)', 'maintenanceFee')}
-                    ${this.renderInput('Portfolio Liquidation Rate (% monthly)', 'portfolioLiquidationRate')}
+                    ${this.renderInput('Monthly Maintenance Fee ($)', 'maintenanceFee')}
+                    ${this.renderInput('Liquidation Rate (%/mo)', 'portfolioLiquidationRate')}
                     ${this.renderInput('% Portfolio Rebalanced', 'portfolioRebalancedPercent')}
-                    ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
+                    ${this.renderInput('Account Closure Rate (%/mo)', 'accountClosureRate')}
                     ${this.renderInput('KYC/Alloy Fee ($)', 'kycFee')}
                     ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink')}
                     ${this.renderInput('Bakkt Transaction Fee (%)', 'bakktTransactionFee')}
@@ -441,7 +441,7 @@ class CryptoAnalysis {
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'equities_avgMonthlyTrades', 'equities_tradeVolumeGrowth')}
                     ${this.renderCombinedInput('Monthly Portfolios Created', 'equities_avgMonthlyPortfolioCreations', 'equities_portfolioCreationGrowth')}
                     ${this.renderCombinedInput('Monthly Rebalances', 'equities_avgMonthlyRebalances', 'equities_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($ per asset)', 'equities_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($/asset)', 'equities_avgTradeValue')}
                     ${this.renderInputFourDecimals('PFOF Fee (%)', 'equities_pfofFee')}
                     ${this.renderInput('Apex Transaction Fee ($)', 'equities_apexTransactionFee')}
                 </div>
@@ -469,7 +469,7 @@ class CryptoAnalysis {
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'crypto_avgMonthlyTrades', 'crypto_tradeVolumeGrowth')}
                     ${this.renderCombinedInput('Monthly Portfolios Created', 'crypto_avgMonthlyPortfolioCreations', 'crypto_portfolioCreationGrowth')}
                     ${this.renderCombinedInput('Monthly Rebalances', 'crypto_avgMonthlyRebalances', 'crypto_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($ per asset)', 'crypto_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($/asset)', 'crypto_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
                 </div>
             </div>
@@ -496,7 +496,7 @@ class CryptoAnalysis {
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoNoSub_avgMonthlyTrades', 'cryptoNoSub_tradeVolumeGrowth')}
                     ${this.renderCombinedInput('Monthly Portfolios Created', 'cryptoNoSub_avgMonthlyPortfolioCreations', 'cryptoNoSub_portfolioCreationGrowth')}
                     ${this.renderCombinedInput('Monthly Rebalances', 'cryptoNoSub_avgMonthlyRebalances', 'cryptoNoSub_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoNoSub_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($/asset)', 'cryptoNoSub_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoNoSub_dubRevenueShare')}
                 </div>
@@ -524,7 +524,7 @@ class CryptoAnalysis {
                     ${this.renderCombinedInput('Monthly Portfolios Copied', 'cryptoPerfFee_avgMonthlyTrades', 'cryptoPerfFee_tradeVolumeGrowth')}
                     ${this.renderCombinedInput('Monthly Portfolios Created', 'cryptoPerfFee_avgMonthlyPortfolioCreations', 'cryptoPerfFee_portfolioCreationGrowth')}
                     ${this.renderCombinedInput('Monthly Rebalances', 'cryptoPerfFee_avgMonthlyRebalances', 'cryptoPerfFee_rebalanceGrowth')}
-                    ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
+                    ${this.renderInput('Avg Trade Value ($/asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
                     ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
