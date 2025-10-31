@@ -1,39 +1,22 @@
--- Create or update main_analysis view
--- This view joins user engagement data with portfolio/creator interaction metrics
+-- Create or update main_analysis view (SIMPLIFIED)
+-- This view maps all columns from subscribers_insights and calculates derived metrics
+-- All base metrics are already aggregated in subscribers_insights by the sync process
 -- Execute this in Supabase SQL Editor
 
 DROP MATERIALIZED VIEW IF EXISTS main_analysis CASCADE;
 
 CREATE MATERIALIZED VIEW main_analysis AS
-WITH copy_engagement AS (
+WITH unique_engagement AS (
+  -- Only calculate metrics that aren't in subscribers_insights
   SELECT
     distinct_id,
     COUNT(DISTINCT creator_id) as unique_creators_viewed,
-    COUNT(DISTINCT portfolio_ticker) as unique_portfolios_viewed,
-    SUM(pdp_view_count) as total_pdp_views_calc,
-    SUM(copy_count) as total_copies_calc,
-    MAX(CASE WHEN did_copy THEN 1 ELSE 0 END) as did_copy
+    COUNT(DISTINCT portfolio_ticker) as unique_portfolios_viewed
   FROM user_portfolio_creator_engagement
-  WHERE did_copy = true
-  GROUP BY distinct_id
-),
-subscription_engagement AS (
-  SELECT
-    distinct_id,
-    SUM(subscription_count) as total_subscriptions_calc,
-    MAX(CASE WHEN did_subscribe THEN 1 ELSE 0 END) as did_subscribe
-  FROM user_creator_engagement
-  WHERE did_subscribe = true
-  GROUP BY distinct_id
-),
-profile_views_agg AS (
-  SELECT
-    distinct_id,
-    SUM(profile_view_count) as total_profile_views_calc
-  FROM user_creator_engagement
   GROUP BY distinct_id
 )
 SELECT
+  -- Map all columns directly from subscribers_insights
   si.distinct_id,
   si.income,
   si.net_worth,
@@ -51,7 +34,7 @@ SELECT
   si.total_withdrawal_count,
   si.active_created_portfolios,
   si.lifetime_created_portfolios,
-  COALESCE(ce.total_copies_calc, si.total_copies, 0) as total_copies,
+  si.total_copies,
   si.total_regular_copies,
   si.total_premium_copies,
   si.regular_pdp_views,
@@ -59,7 +42,7 @@ SELECT
   si.paywall_views,
   si.regular_creator_profile_views,
   si.premium_creator_profile_views,
-  COALESCE(se.total_subscriptions_calc, si.total_subscriptions, 0) as total_subscriptions,
+  si.total_subscriptions,
   si.stripe_modal_views,
   si.app_sessions,
   si.discover_tab_views,
@@ -67,17 +50,17 @@ SELECT
   si.premium_tab_views,
   si.creator_card_taps,
   si.portfolio_card_taps,
-  si.subscribed_within_7_days,
-  COALESCE(pv.total_profile_views_calc, 0) as total_profile_views,
-  COALESCE(ce.total_pdp_views_calc, 0) as total_pdp_views,
-  COALESCE(ce.unique_creators_viewed, 0) as unique_creators_viewed,
-  COALESCE(ce.unique_portfolios_viewed, 0) as unique_portfolios_viewed,
-  COALESCE(ce.did_copy, 0) as did_copy,
-  COALESCE(se.did_subscribe, 0) as did_subscribe
+  -- Calculate derived metrics from subscribers_insights columns
+  (COALESCE(si.regular_creator_profile_views, 0) + COALESCE(si.premium_creator_profile_views, 0)) as total_profile_views,
+  (COALESCE(si.regular_pdp_views, 0) + COALESCE(si.premium_pdp_views, 0)) as total_pdp_views,
+  -- Add unique engagement metrics from granular tables
+  COALESCE(ue.unique_creators_viewed, 0) as unique_creators_viewed,
+  COALESCE(ue.unique_portfolios_viewed, 0) as unique_portfolios_viewed,
+  -- Boolean flags for filtering
+  CASE WHEN si.total_copies > 0 THEN 1 ELSE 0 END as did_copy,
+  CASE WHEN si.total_subscriptions > 0 THEN 1 ELSE 0 END as did_subscribe
 FROM subscribers_insights si
-LEFT JOIN copy_engagement ce ON si.distinct_id = ce.distinct_id
-LEFT JOIN subscription_engagement se ON si.distinct_id = se.distinct_id
-LEFT JOIN profile_views_agg pv ON si.distinct_id = pv.distinct_id;
+LEFT JOIN unique_engagement ue ON si.distinct_id = ue.distinct_id;
 
 -- Create indexes for faster queries on materialized view
 CREATE INDEX IF NOT EXISTS idx_main_analysis_distinct_id ON main_analysis (distinct_id);
