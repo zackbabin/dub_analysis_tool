@@ -306,7 +306,7 @@ body {
 
 /* Increase width for Crypto Analysis tab only */
 #crypto-tab {
-    max-width: 2800px !important;
+    max-width: 1800px !important;
     margin: 0 auto;
     width: 100% !important;
 }
@@ -318,7 +318,7 @@ body {
 
 /* Override main-wrapper constraint for crypto tab */
 .main-wrapper:has(#crypto-tab.active) {
-    max-width: 2800px !important;
+    max-width: 1800px !important;
 }
 
 /* Behavioral Tabs (Nested tabs within Portfolio Analysis) */
