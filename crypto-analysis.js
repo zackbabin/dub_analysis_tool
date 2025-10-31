@@ -455,8 +455,11 @@ class CryptoAnalysis {
     renderCryptoAssumptions() {
         return `
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto</h4>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                        <p style="font-size: 10px; color: #e65100; margin: 0;">Subscription + Fees</p>
+                    </div>
                     <input
                         type="checkbox"
                         id="cryptoToggle"
@@ -482,8 +485,11 @@ class CryptoAnalysis {
     renderCryptoNoSubscriptionsAssumptions() {
         return `
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - no subscriptions</h4>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                        <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on fees</p>
+                    </div>
                     <input
                         type="checkbox"
                         id="cryptoNoSubToggle"
@@ -510,8 +516,11 @@ class CryptoAnalysis {
     renderCryptoPerformanceFeesAssumptions() {
         return `
             <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0;">Crypto - performance fees</h4>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div>
+                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                        <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on perf fees</p>
+                    </div>
                     <input
                         type="checkbox"
                         id="cryptoPerfFeeToggle"
