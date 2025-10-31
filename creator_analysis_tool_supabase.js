@@ -246,6 +246,52 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Update timestamp and data scope after sync (matching user tool pattern)
+     */
+    updateTimestampAndDataScope() {
+        const resultsDiv = document.getElementById('creatorAnalysisResultsInline');
+        if (!resultsDiv) return;
+
+        // Remove existing timestamp and data scope
+        const existingTimestamp = resultsDiv.querySelector('.qda-timestamp');
+        const existingDataScope = resultsDiv.querySelector('.qda-data-scope');
+        if (existingTimestamp) existingTimestamp.remove();
+        if (existingDataScope) existingDataScope.remove();
+
+        // Get timestamp from unified cache (set by user tool during sync)
+        const cached = localStorage.getItem('dubAnalysisResults');
+        let timestampStr = null;
+        if (cached) {
+            const data = JSON.parse(cached);
+            timestampStr = data.timestamp;
+        }
+
+        if (timestampStr) {
+            // Format timestamp to match other tabs
+            const formattedTimestamp = new Date(timestampStr).toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            // Add timestamp first (will be inserted at position 0)
+            const timestamp = document.createElement('div');
+            timestamp.className = 'qda-timestamp';
+            timestamp.textContent = `Last updated: ${formattedTimestamp}`;
+            resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+
+            // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
+            const dataScope = document.createElement('div');
+            dataScope.className = 'qda-data-scope';
+            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
+            resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
+        }
+    }
+
+    /**
      * Load and display premium creator copy affinity section
      */
     async loadAndDisplayPremiumCreatorAffinity() {
@@ -259,6 +305,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 container.innerHTML = '<p style="color: #dc3545;">Failed to load premium creator copy affinity data.</p>';
             }
         }
+    }
+
+    /**
+     * Format a top N cell with line breaks between Regular and Premium
+     */
+    formatTopCell(cellValue) {
+        if (!cellValue || cellValue === '-') {
+            return '-';
+        }
+
+        // Split by the separator " | " to get Regular and Premium parts
+        const parts = cellValue.split(' | ').filter(p => p && p.trim());
+
+        if (parts.length === 0) {
+            return '-';
+        }
+
+        // Join with line breaks for display
+        return parts.join('<br>');
     }
 
     /**
@@ -297,7 +362,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85130412%22" target="_blank" style="color: #17a2b8;">Chart 85130412</a> (Creator User Profiles)
                     </li>
                     <li><strong>Analysis:</strong> Identifies co-copying patterns among Premium creator audiences</li>
-                    <li><strong>Format:</strong> Copy count - Creator username</li>
+                    <li><strong>Format:</strong> Shows both Premium and Regular creators copied by each Premium creator's audience</li>
                     <li><strong>Use Case:</strong> Understand creator affinity networks and cross-promotion opportunities</li>
                 </ul>
             </span>
@@ -309,7 +374,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
-        description.textContent = 'For each Premium creator, view the top 5 creators (Premium or Regular) most frequently copied by their audience';
+        description.textContent = 'For each Premium creator, view the top 5 creators most frequently copied by their audience';
         section.appendChild(description);
 
         // Create table
@@ -319,7 +384,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header - single row
+        // Table header
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
@@ -347,11 +412,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_liquidations || 0).toLocaleString()}</td>
-                <td>${row.top_1 || '-'}</td>
-                <td>${row.top_2 || '-'}</td>
-                <td>${row.top_3 || '-'}</td>
-                <td>${row.top_4 || '-'}</td>
-                <td>${row.top_5 || '-'}</td>
+                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_1)}</td>
+                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_2)}</td>
+                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_3)}</td>
+                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_4)}</td>
+                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_5)}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -927,11 +992,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Invalidate affinity cache to ensure fresh display
             console.log('Invalidating affinity cache...');
-            this.supabaseIntegration.invalidateCache('premium_creator_copy_affinity_pivoted');
+            this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
 
             // Reload and redisplay Premium Creator Copy Affinity table
-            console.log('Loading fresh affinity data from premium_creator_copy_affinity_pivoted...');
+            console.log('Loading fresh affinity data from premium_creator_affinity_display...');
             await this.loadAndDisplayPremiumCreatorAffinity();
+
+            // Update timestamp and data scope with current time (matching user tool pattern)
+            this.updateTimestampAndDataScope();
+
+            // Save updated HTML to unified cache
+            this.saveToUnifiedCache();
 
             this.updateProgress(100, 'Complete!');
             this.addStatusMessage('✅ Premium Creator Copy Affinity refreshed', 'success');
