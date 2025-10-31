@@ -423,17 +423,17 @@ function processPremiumCreatorsData(data: any): any[] {
     }
   }
 
-  // Deduplicate by creator_username (keep first occurrence)
-  const seenUsernames = new Set<string>()
+  // Deduplicate by creator_id (primary key)
+  const seenIds = new Set<string>()
   const deduplicatedRows = rows.filter(row => {
-    if (seenUsernames.has(row.creator_username)) {
+    if (seenIds.has(row.creator_id)) {
       return false
     }
-    seenUsernames.add(row.creator_username)
+    seenIds.add(row.creator_id)
     return true
   })
 
-  console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique)`)
+  console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by creator_id)`)
   return deduplicatedRows
 }
 
