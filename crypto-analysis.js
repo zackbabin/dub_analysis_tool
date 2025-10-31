@@ -31,6 +31,7 @@ class CryptoAnalysis {
             accountClosureRate: 5.00,
             kycFee: 1.00,
             plaidFeePerLink: 2.00,
+            bakktTransactionFee: 0.25,
 
             // Equities
             equities_avgMonthlyTrades: 1.50,
@@ -54,7 +55,6 @@ class CryptoAnalysis {
             crypto_rebalanceGrowth: 2.00,
             crypto_avgTradeValue: 50.00,
             crypto_bidAskSpread: 0.75,
-            crypto_bakktTransactionFee: 0.25,
 
             // Crypto - no subscriptions
             cryptoNoSub_avgMonthlyTrades: 0.40,
@@ -66,20 +66,18 @@ class CryptoAnalysis {
             cryptoNoSub_rebalanceGrowth: 3.00,
             cryptoNoSub_avgTradeValue: 50.00,
             cryptoNoSub_bidAskSpread: 0.75,
-            cryptoNoSub_bakktTransactionFee: 0.25,
             cryptoNoSub_dubRevenueShare: 50.00,
 
             // Crypto - performance fees
-            cryptoPerfFee_avgMonthlyTrades: 0.30,
-            cryptoPerfFee_assetsPerPortfolio: 2.50,
-            cryptoPerfFee_tradeVolumeGrowth: 2.50,
-            cryptoPerfFee_avgMonthlyPortfolioCreations: 0.015,
-            cryptoPerfFee_portfolioCreationGrowth: 2.50,
-            cryptoPerfFee_avgMonthlyRebalances: 3.00,
-            cryptoPerfFee_rebalanceGrowth: 2.50,
-            cryptoPerfFee_avgTradeValue: 50.00,
+            cryptoPerfFee_avgMonthlyTrades: 0.50,
+            cryptoPerfFee_assetsPerPortfolio: 3.00,
+            cryptoPerfFee_tradeVolumeGrowth: 5.00,
+            cryptoPerfFee_avgMonthlyPortfolioCreations: 0.40,
+            cryptoPerfFee_portfolioCreationGrowth: 3.00,
+            cryptoPerfFee_avgMonthlyRebalances: 5.00,
+            cryptoPerfFee_rebalanceGrowth: 4.00,
+            cryptoPerfFee_avgTradeValue: 75.00,
             cryptoPerfFee_bidAskSpread: 0.25,
-            cryptoPerfFee_bakktTransactionFee: 0.25,
             cryptoPerfFee_avgMonthlyReturns: 1.00,
             cryptoPerfFee_performanceFee: 10.00,
             cryptoPerfFee_dubRevenueShare: 50.00,
@@ -210,7 +208,7 @@ class CryptoAnalysis {
                 cryptoRevenue = bidAskRevenue + performanceFeeRevenue;
             }
 
-            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions[`${cryptoPrefix}_bakktTransactionFee`] / 100);
+            const crypto_bakktTransactionCost = crypto_totalTransactionValue * (this.assumptions.bakktTransactionFee / 100);
 
             const totalRevenue = pfofRevenue + maintenanceRevenue + subscriptionRevenue + cryptoRevenue;
 
@@ -414,6 +412,7 @@ class CryptoAnalysis {
                     ${this.renderInput('Account Closure Rate (% monthly)', 'accountClosureRate')}
                     ${this.renderInput('KYC/Alloy Fee ($)', 'kycFee')}
                     ${this.renderInput('Plaid Fees ($ per link)', 'plaidFeePerLink')}
+                    ${this.renderInput('Bakkt Transaction Fee (%)', 'bakktTransactionFee')}
                 </div>
             </div>
         `;
@@ -479,7 +478,6 @@ class CryptoAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'crypto_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'crypto_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'crypto_bidAskSpread')}
-                    ${this.renderInput('Bakkt Transaction Fee (%)', 'crypto_bakktTransactionFee')}
                 </div>
             </div>
         `;
@@ -507,7 +505,6 @@ class CryptoAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoNoSub_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoNoSub_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoNoSub_bidAskSpread')}
-                    ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoNoSub_bakktTransactionFee')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoNoSub_dubRevenueShare')}
                 </div>
             </div>
@@ -536,7 +533,6 @@ class CryptoAnalysis {
                     ${this.renderInput('Rebalance Growth (% monthly)', 'cryptoPerfFee_rebalanceGrowth')}
                     ${this.renderInput('Avg Trade Value ($ per asset)', 'cryptoPerfFee_avgTradeValue')}
                     ${this.renderInput('Bid-Ask Spread (%)', 'cryptoPerfFee_bidAskSpread')}
-                    ${this.renderInput('Bakkt Transaction Fee (%)', 'cryptoPerfFee_bakktTransactionFee')}
                     ${this.renderInput('Avg Monthly Returns (%)', 'cryptoPerfFee_avgMonthlyReturns')}
                     ${this.renderInput('Performance Fee (%)', 'cryptoPerfFee_performanceFee')}
                     ${this.renderInput('Dub Revenue Share (%)', 'cryptoPerfFee_dubRevenueShare')}
