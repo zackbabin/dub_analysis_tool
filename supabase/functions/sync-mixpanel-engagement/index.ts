@@ -273,6 +273,14 @@ serve(async (req) => {
             console.error('Error refreshing materialized view:', refreshError)
           } else {
             console.log('✓ Materialized view refreshed successfully')
+            // Refresh summary views that depend on main_analysis
+            console.log('Refreshing engagement summary views...')
+            Promise.all([
+              supabase.rpc('refresh_subscription_engagement_summary'),
+              supabase.rpc('refresh_copy_engagement_summary')
+            ]).then(() => {
+              console.log('✓ Engagement summary views refreshed')
+            }).catch(e => console.warn('Error refreshing summary views:', e))
           }
         })
         .catch(err => console.warn('Materialized view refresh failed:', err))

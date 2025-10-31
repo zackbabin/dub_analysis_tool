@@ -852,8 +852,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const subscribersData = summaryData.find(d => d.did_subscribe === true) || {};
-        const nonSubscribersData = summaryData.find(d => d.did_subscribe === false) || {};
+        const subscribersData = summaryData.find(d => d.did_subscribe === 1 || d.did_subscribe === true) || {};
+        const nonSubscribersData = summaryData.find(d => d.did_subscribe === 0 || d.did_subscribe === false) || {};
 
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
@@ -1085,8 +1085,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const copiersData = summaryData.find(d => d.did_copy === true) || {};
-        const nonCopiersData = summaryData.find(d => d.did_copy === false) || {};
+        const copiersData = summaryData.find(d => d.did_copy === 1 || d.did_copy === true) || {};
+        const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
