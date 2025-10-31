@@ -1311,19 +1311,20 @@ class SupabaseIntegration {
             }
 
             // Format top N entries (show top Premium and top Regular for each rank)
+            // Only show copies count, not liquidations (liquidations are at premium creator level only)
             for (let i = 1; i <= 5; i++) {
                 const parts = [];
 
                 // Add top premium creator for this rank
                 if (creatorData.premium.length >= i) {
                     const premiumRow = creatorData.premium[i - 1];
-                    parts.push(`${premiumRow.copied_creator} (Premium): ${premiumRow.total_copies} copies, ${premiumRow.total_liquidations} liquidations`);
+                    parts.push(`${premiumRow.copied_creator} (Premium): ${premiumRow.total_copies} copies`);
                 }
 
                 // Add top regular creator for this rank
                 if (creatorData.regular.length >= i) {
                     const regularRow = creatorData.regular[i - 1];
-                    parts.push(`${regularRow.copied_creator} (Regular): ${regularRow.total_copies} copies, ${regularRow.total_liquidations} liquidations`);
+                    parts.push(`${regularRow.copied_creator} (Regular): ${regularRow.total_copies} copies`);
                 }
 
                 if (parts.length > 0) {

@@ -463,7 +463,7 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
     // Get all creators these copiers also copied (excluding the premium creator itself)
     const { data: otherCopies, error: otherCopiesError } = await supabase
       .from('user_portfolio_creator_engagement')
-      .select('distinct_id, creator_id, copy_count, liquidation_count')
+      .select('distinct_id, creator_id, copy_count')
       .in('distinct_id', copierIds)
       .eq('did_copy', true)
       .neq('creator_id', premiumCreator.creator_id)
@@ -475,23 +475,20 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
     // Group by creator_id and aggregate
     const creatorStats = new Map<string, {
       uniqueCopiers: Set<string>,
-      totalCopies: number,
-      totalLiquidations: number
+      totalCopies: number
     }>()
 
     for (const copy of otherCopies) {
       if (!creatorStats.has(copy.creator_id)) {
         creatorStats.set(copy.creator_id, {
           uniqueCopiers: new Set(),
-          totalCopies: 0,
-          totalLiquidations: 0
+          totalCopies: 0
         })
       }
 
       const stats = creatorStats.get(copy.creator_id)!
       stats.uniqueCopiers.add(copy.distinct_id)
       stats.totalCopies += copy.copy_count || 0
-      stats.totalLiquidations += copy.liquidation_count || 0
     }
 
     // Get creator usernames and subscription counts for all copied creators
@@ -537,8 +534,7 @@ async function computePremiumCreatorAffinity(supabase: any, credentials: Mixpane
         copied_creator: copiedCreator.creator_username,
         copy_type: isPremium ? 'Premium' : 'Regular',
         unique_copiers: stats.uniqueCopiers.size,
-        total_copies: stats.totalCopies,
-        total_liquidations: stats.totalLiquidations
+        total_copies: stats.totalCopies
       }
 
       if (isPremium) {
