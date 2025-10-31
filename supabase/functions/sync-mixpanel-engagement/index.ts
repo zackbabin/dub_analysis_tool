@@ -183,31 +183,9 @@ serve(async (req) => {
       // Trigger all 3 analyses using the merged function
       // Note: We await Promise.allSettled to ensure fetch requests are initiated,
       // but the analysis functions themselves run in background and we don't wait for completion
-      console.log('Triggering all 3 pattern analysis functions...')
+      console.log('Triggering pattern analysis functions (copy and creator_copy)...')
 
       const analysisResults = await Promise.allSettled([
-        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ analysis_type: 'subscription' })
-        }).then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error('⚠️ Subscription analysis returned error:', response.status, errorText)
-            return { success: false, type: 'subscription', error: errorText }
-          } else {
-            console.log('✓ Subscription analysis invoked successfully')
-            return { success: true, type: 'subscription' }
-          }
-        }).catch((err) => {
-          console.error('⚠️ Subscription analysis failed to invoke:', err.message)
-          return { success: false, type: 'subscription', error: err.message }
-        }),
-
         fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
           method: 'POST',
           headers: {
@@ -255,7 +233,7 @@ serve(async (req) => {
 
       // Log results of analysis invocations
       const successfulAnalyses = analysisResults.filter(r => r.status === 'fulfilled' && r.value.success).length
-      console.log(`✓ Successfully invoked ${successfulAnalyses}/3 pattern analysis functions`)
+      console.log(`✓ Successfully invoked ${successfulAnalyses}/2 pattern analysis functions`)
 
       if (successfulAnalyses === 0) {
         console.warn('⚠️ WARNING: No analysis functions were successfully invoked')
