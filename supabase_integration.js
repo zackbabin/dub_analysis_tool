@@ -1227,115 +1227,30 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load premium creator copy affinity data
-     * Returns which creators are most frequently copied by users who copied each Premium creator
+     * Load premium creator copy affinity from database view
+     * The view already returns data in the correct pivoted format with separate Premium/Regular columns
      */
     async loadPremiumCreatorCopyAffinity() {
-        return this.cachedQuery('premium_creator_copy_affinity_computed', async () => {
-            console.log('Loading premium creator copy affinity from computed table...');
+        return this.cachedQuery('premium_creator_affinity_display', async () => {
+            console.log('Loading premium creator copy affinity from view...');
 
             try {
                 const { data, error } = await this.supabase
-                    .from('premium_creator_copy_affinity_computed')
-                    .select('*')
-                    .order('premium_creator', { ascending: true })
-                    .order('rank', { ascending: true });
+                    .from('premium_creator_affinity_display')
+                    .select('*');
 
                 if (error) {
                     console.error('Error loading premium creator copy affinity:', error);
                     throw error;
                 }
 
-                console.log(`✅ Loaded ${data.length} premium creator affinity records`);
-
-                // Pivot the data to match the expected format
-                const pivoted = this.pivotAffinityData(data);
-                console.log(`✅ Pivoted into ${pivoted.length} premium creator records`);
-
-                return pivoted;
+                console.log(`✅ Loaded ${data.length} premium creator affinity records from view`);
+                return data;
             } catch (error) {
                 console.error('Error loading premium creator copy affinity:', error);
                 throw error;
             }
         });
-    }
-
-    /**
-     * Pivot affinity data from rows to the expected column format
-     * Shows top Premium and top Regular creators separately in each top_N column
-     */
-    pivotAffinityData(data) {
-        const grouped = new Map();
-
-        // Group by premium creator
-        for (const row of data) {
-            if (!grouped.has(row.premium_creator)) {
-                grouped.set(row.premium_creator, {
-                    premium_creator: row.premium_creator,
-                    premium_creator_total_copies: 0,
-                    premium_creator_total_liquidations: 0,
-                    premium: [],  // Premium affinity rows
-                    regular: []   // Regular affinity rows
-                });
-            }
-
-            const creator = grouped.get(row.premium_creator);
-
-            // Separate premium and regular creators
-            if (row.category === 'premium') {
-                creator.premium.push(row);
-            } else if (row.category === 'regular') {
-                creator.regular.push(row);
-            }
-        }
-
-        // Format the output for display
-        const result = [];
-        for (const [creatorName, creatorData] of grouped) {
-            const formattedCreator = {
-                premium_creator: creatorName,
-                premium_creator_total_copies: 0,
-                premium_creator_total_liquidations: 0,
-                top_1: null,
-                top_2: null,
-                top_3: null,
-                top_4: null,
-                top_5: null
-            };
-
-            // Use stored totals from the first row (all rows for same premium creator have same totals)
-            const firstRow = creatorData.premium[0] || creatorData.regular[0];
-            if (firstRow) {
-                formattedCreator.premium_creator_total_copies = firstRow.premium_creator_total_copies || 0;
-                formattedCreator.premium_creator_total_liquidations = firstRow.premium_creator_total_liquidations || 0;
-            }
-
-            // Format top N entries (show top Premium and top Regular for each rank)
-            // Only show copies count, not liquidations (liquidations are at premium creator level only)
-            for (let i = 1; i <= 5; i++) {
-                const parts = [];
-
-                // Add top premium creator for this rank
-                if (creatorData.premium.length >= i) {
-                    const premiumRow = creatorData.premium[i - 1];
-                    parts.push(`${premiumRow.copied_creator} (Premium): ${premiumRow.total_copies} copies`);
-                }
-
-                // Add top regular creator for this rank
-                if (creatorData.regular.length >= i) {
-                    const regularRow = creatorData.regular[i - 1];
-                    parts.push(`${regularRow.copied_creator} (Regular): ${regularRow.total_copies} copies`);
-                }
-
-                if (parts.length > 0) {
-                    formattedCreator[`top_${i}`] = parts.join(' | ');
-                }
-            }
-
-            result.push(formattedCreator);
-        }
-
-        return result;
     }
 
     /**

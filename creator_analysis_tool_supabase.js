@@ -309,7 +309,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
-        description.textContent = 'For each Premium creator, view the top 5 creators most frequently copied by their audience';
+        description.textContent = 'For each Premium creator, view the top 5 creators (Premium or Regular) most frequently copied by their audience';
         section.appendChild(description);
 
         // Create table
@@ -319,7 +319,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header
+        // Table header - single row
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
