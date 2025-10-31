@@ -347,17 +347,7 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
-            <style>
-                .tooltip-content {
-                    visibility: hidden;
-                    opacity: 0;
-                }
-                tr:hover .tooltip-content {
-                    visibility: visible;
-                    opacity: 1;
-                }
-            </style>
-            <div style="width: 100%; max-width: 1800px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
+            <div style="width: 100%; max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
                 ${this.renderAssumptions()}
                 <div id="cryptoYearContainer">
                     ${this.renderYearComparison(yearlyProjections)}
@@ -767,12 +757,9 @@ class CryptoAnalysis {
         }
 
         const tooltipHtml = tooltip ? `
-            <span style="position: relative; display: inline-block; margin-left: 4px; cursor: help;">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="vertical-align: middle;">
-                    <circle cx="7" cy="7" r="6" stroke="#6c757d" stroke-width="1.5" fill="none"/>
-                    <text x="7" y="10" text-anchor="middle" font-size="10" fill="#6c757d" font-weight="bold">?</text>
-                </svg>
-                <span style="visibility: hidden; opacity: 0; position: absolute; left: 20px; top: -8px; background: #333; color: white; padding: 8px 12px; border-radius: 6px; font-size: 11px; white-space: normal; width: 300px; z-index: 1000; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: opacity 0.2s, visibility 0.2s; line-height: 1.4;" class="tooltip-content">${tooltip}</span>
+            <span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">${tooltip}</span>
             </span>
         ` : '';
 

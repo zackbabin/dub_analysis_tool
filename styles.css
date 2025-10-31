@@ -306,19 +306,19 @@ body {
 
 /* Increase width for Crypto Analysis tab only */
 #crypto-tab {
-    max-width: 1800px !important;
+    max-width: 1600px !important;
     margin: 0 auto;
     width: 100% !important;
 }
 
 #crypto-tab .tab-container {
-    max-width: none !important;
+    max-width: 1600px !important;
     width: 100% !important;
 }
 
 /* Override main-wrapper constraint for crypto tab */
 .main-wrapper:has(#crypto-tab.active) {
-    max-width: 1800px !important;
+    max-width: 1600px !important;
 }
 
 /* Behavioral Tabs (Nested tabs within Portfolio Analysis) */
@@ -457,6 +457,9 @@ body {
     margin-left: 6px;
     cursor: help;
     vertical-align: middle;
+    /* Add padding to create larger hoverable area */
+    padding: 8px;
+    margin: -8px 0 -8px 0;
 }
 
 .info-tooltip .info-icon {
@@ -492,6 +495,8 @@ body {
     font-size: 13px;
     line-height: 1.5;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    /* Add padding area to keep tooltip visible when moving to it */
+    padding-bottom: 20px;
 }
 
 .info-tooltip .tooltip-text::after {
@@ -505,7 +510,8 @@ body {
     border-color: #2d3748 transparent transparent transparent;
 }
 
-.info-tooltip:hover .tooltip-text {
+.info-tooltip:hover .tooltip-text,
+.info-tooltip .tooltip-text:hover {
     visibility: visible;
     opacity: 1;
 }
