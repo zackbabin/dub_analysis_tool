@@ -87,31 +87,63 @@ serve(async (req) => {
       const CONCURRENCY_LIMIT = 3
       const limit = pLimit(CONCURRENCY_LIMIT)
 
-      const [
-        profileViewsData,
-        pdpViewsData,
-        subscriptionsData,
-      ]: [any, any, any] = await Promise.all([
-        limit(() =>
-          fetchInsightsData(
-            credentials,
-            CHART_IDS.profileViewsByCreator,
-            'Profile Views by Creator'
-          )
-        ),
-        limit(() =>
-          fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio (with Copies & Liquidations)')
-        ),
-        limit(() =>
-          fetchInsightsData(
-            credentials,
-            CHART_IDS.subscriptionsByCreator,
-            'Subscriptions by Creator'
-          )
-        ),
-      ])
+      let profileViewsData, pdpViewsData, subscriptionsData
 
-      console.log('✓ Engagement data fetched successfully with controlled concurrency')
+      try {
+        [profileViewsData, pdpViewsData, subscriptionsData] = await Promise.all([
+          limit(() =>
+            fetchInsightsData(
+              credentials,
+              CHART_IDS.profileViewsByCreator,
+              'Profile Views by Creator'
+            )
+          ),
+          limit(() =>
+            fetchInsightsData(credentials, CHART_IDS.pdpViewsByPortfolio, 'PDP Views by Portfolio (with Copies & Liquidations)')
+          ),
+          limit(() =>
+            fetchInsightsData(
+              credentials,
+              CHART_IDS.subscriptionsByCreator,
+              'Subscriptions by Creator'
+            )
+          ),
+        ])
+        console.log('✓ Engagement data fetched successfully with controlled concurrency')
+      } catch (error: any) {
+        // Handle Mixpanel rate limit errors gracefully
+        if (error.isRateLimited || error.statusCode === 429) {
+          console.warn('⚠️ Mixpanel rate limit reached - continuing workflow with existing data')
+
+          // Update sync log to show rate limited
+          await supabase
+            .from('sync_logs')
+            .update({
+              sync_completed_at: new Date().toISOString(),
+              sync_status: 'rate_limited',
+              error_message: 'Mixpanel rate limit exceeded - using existing data',
+              error_details: { rateLimitError: error.message },
+            })
+            .eq('id', syncLogId)
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              rateLimited: true,
+              message: 'Mixpanel rate limit reached. Continuing with existing data in database.',
+              stats: {
+                engagementRecordsFetched: 0,
+                totalRecordsInserted: 0,
+              },
+            }),
+            {
+              headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          )
+        }
+        throw error
+      }
 
       // Process and insert data into database
       const stats: SyncStats = {

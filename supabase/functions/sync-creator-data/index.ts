@@ -70,15 +70,55 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
-      // Fetch premium creators list from Mixpanel
-      console.log(`Fetching premium creators from Mixpanel chart ${CHART_IDS.premiumCreators}...`)
-      const premiumCreatorsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreators, 'Premium Creators')
+      let premiumCreatorsData, userProfileData
 
-      // Fetch user profile data from Mixpanel
-      console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
-      const userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
+      try {
+        // Fetch premium creators list from Mixpanel
+        console.log(`Fetching premium creators from Mixpanel chart ${CHART_IDS.premiumCreators}...`)
+        premiumCreatorsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreators, 'Premium Creators')
 
-      console.log('User profile data fetched successfully')
+        // Fetch user profile data from Mixpanel
+        console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
+        userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
+
+        console.log('User profile data fetched successfully')
+      } catch (error: any) {
+        // Handle Mixpanel rate limit errors gracefully
+        if (error.isRateLimited || error.statusCode === 429) {
+          console.warn('⚠️ Mixpanel rate limit reached - continuing workflow with existing data')
+
+          // Update sync log to show rate limited
+          await supabase
+            .from('sync_logs')
+            .update({
+              sync_completed_at: new Date().toISOString(),
+              sync_status: 'rate_limited',
+              error_message: 'Mixpanel rate limit exceeded - using existing data',
+              error_details: { rateLimitError: error.message },
+            })
+            .eq('id', syncLog.id)
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              rateLimited: true,
+              message: 'Mixpanel rate limit reached. Continuing with existing data in database.',
+              stats: {
+                totalMixpanelUsers: 0,
+                matchedCreators: 0,
+                enrichedCreators: 0,
+                premiumCreatorsCount: 0,
+                premiumPortfolioMetricsCount: 0,
+              },
+            }),
+            {
+              headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          )
+        }
+        throw error
+      }
 
       // Process ALL Mixpanel data (no filtering)
       console.log('Processing all Mixpanel user profiles...')

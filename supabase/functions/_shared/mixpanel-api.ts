@@ -116,6 +116,14 @@ export async function fetchInsightsData(
       if (!response.ok) {
         const errorText = await response.text()
 
+        // Don't retry rate limit errors - fail fast so caller can handle gracefully
+        if (response.status === 429) {
+          const error: any = new Error(`Mixpanel API error (${response.status}): ${errorText}`)
+          error.isRateLimited = true
+          error.statusCode = 429
+          throw error
+        }
+
         // Retry on 502/503/504 errors (server issues)
         if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < retries) {
           console.warn(`⚠️ ${name} returned ${response.status}, retrying (attempt ${attempt + 1}/${retries})...`)

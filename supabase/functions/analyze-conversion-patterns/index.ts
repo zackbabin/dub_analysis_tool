@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { CORS_HEADERS } from '../_shared/mixpanel-api.ts'
 
 // Analysis type configurations
 // Supports two analysis types:
@@ -250,6 +251,11 @@ function getTopEntities(users: UserData[], minUsers = 5): string[] {
  * Main handler
  */
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: CORS_HEADERS })
+  }
+
   try {
     // Parse request body to get analysis type
     const body = await req.json()
@@ -261,7 +267,7 @@ serve(async (req) => {
           success: false,
           error: `Invalid analysis_type: ${analysisType}. Must be 'copy' or 'creator_copy'`
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 400 }
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
@@ -315,7 +321,7 @@ serve(async (req) => {
           warning: 'No engagement data found. Run sync-mixpanel first.',
           stats: { pairs_found: 0 }
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -344,7 +350,7 @@ serve(async (req) => {
           stats: { pairs_synced: pairRows.length },
           warning: 'Insufficient data for pattern analysis (need 50+ users)',
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -364,7 +370,7 @@ serve(async (req) => {
           stats: { pairs_synced: pairRows.length },
           warning: 'Insufficient entities for pattern analysis (need 2+ with engagement)',
         }),
-        { headers: { 'Content-Type': 'application/json' }, status: 200 }
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -532,7 +538,7 @@ serve(async (req) => {
           combinations_with_results: keptCount,
         },
       }),
-      { headers: { 'Content-Type': 'application/json' }, status: 200 }
+      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
     )
   } catch (error) {
     console.error('Error in pattern analysis:', error)
@@ -541,7 +547,7 @@ serve(async (req) => {
         success: false,
         error: error.message || 'Unknown error occurred',
       }),
-      { headers: { 'Content-Type': 'application/json' }, status: 500 }
+      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

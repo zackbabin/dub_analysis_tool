@@ -190,7 +190,10 @@ class SupabaseIntegration {
                     throw new Error(`${label} failed: ${data?.error || 'Unknown error'}`);
                 }
 
-                if (attempt > 0) {
+                // Log rate limit warnings
+                if (data.rateLimited) {
+                    console.warn(`⚠️ ${label} hit Mixpanel rate limit - using existing data from database`);
+                } else if (attempt > 0) {
                     console.log(`✅ ${label} succeeded on retry attempt ${attempt + 1}`);
                 }
 

@@ -73,11 +73,49 @@ serve(async (req) => {
       const chartId = '85247935'
       console.log(`Fetching event sequences from Insights API (Chart ${chartId})...`)
 
-      const eventSequencesData = await fetchInsightsData(
-        credentials,
-        chartId,
-        'User Event Sequences'
-      )
+      let eventSequencesData
+
+      try {
+        eventSequencesData = await fetchInsightsData(
+          credentials,
+          chartId,
+          'User Event Sequences'
+        )
+      } catch (error: any) {
+        // Handle Mixpanel rate limit errors gracefully
+        if (error.isRateLimited || error.statusCode === 429) {
+          console.warn('⚠️ Mixpanel rate limit reached - continuing workflow with existing data')
+
+          // Update sync log to show rate limited
+          await supabase
+            .from('sync_logs')
+            .update({
+              sync_completed_at: new Date().toISOString(),
+              sync_status: 'rate_limited',
+              error_message: 'Mixpanel rate limit exceeded - using existing data',
+              error_details: { rateLimitError: error.message },
+            })
+            .eq('id', syncLogId)
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              rateLimited: true,
+              message: 'Mixpanel rate limit reached. Continuing with existing data in database.',
+              stats: {
+                eventSequencesFetched: 0,
+                totalRawRecordsInserted: 0,
+                chartId,
+              },
+            }),
+            {
+              headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+              status: 200,
+            }
+          )
+        }
+        throw error
+      }
 
       console.log('✓ Event sequences fetched successfully')
 
