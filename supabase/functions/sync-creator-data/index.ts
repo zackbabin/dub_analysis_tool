@@ -70,7 +70,7 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
-      let premiumCreatorsData, userProfileData
+      let premiumCreatorsData, userProfileData, portfolioMetricsData
 
       try {
         // Fetch premium creators list from Mixpanel
@@ -81,7 +81,11 @@ serve(async (req) => {
         console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
         userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
 
-        console.log('User profile data fetched successfully')
+        // Fetch premium creator portfolio metrics from Mixpanel
+        console.log(`Fetching premium creator portfolio metrics from Mixpanel chart ${CHART_IDS.premiumCreatorPortfolioMetrics}...`)
+        portfolioMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorPortfolioMetrics, 'Premium Creator Portfolio Metrics')
+
+        console.log('All Mixpanel data fetched successfully')
       } catch (error: any) {
         // Handle Mixpanel rate limit errors gracefully
         if (error.isRateLimited || error.statusCode === 429) {
@@ -153,10 +157,7 @@ serve(async (req) => {
         console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
       }
 
-      // Fetch and process premium creator portfolio metrics
-      console.log(`Fetching premium creator portfolio metrics from Mixpanel chart ${CHART_IDS.premiumCreatorPortfolioMetrics}...`)
-      const portfolioMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorPortfolioMetrics, 'Premium Creator Portfolio Metrics')
-
+      // Process premium creator portfolio metrics (already fetched above in try-catch)
       const portfolioMetricsRows = processPremiumCreatorPortfolioMetrics(portfolioMetricsData)
       stats.premiumPortfolioMetricsCount = portfolioMetricsRows.length
       console.log(`Processed ${portfolioMetricsRows.length} premium creator portfolio metrics rows`)

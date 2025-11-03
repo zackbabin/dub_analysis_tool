@@ -40,8 +40,10 @@ serve(async (req) => {
 
     console.log('Starting Mixpanel sync...')
 
-    // Create sync log entry
+    // Create sync log entry and track execution time
     const syncStartTime = new Date()
+    const executionStartMs = Date.now()
+    const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
     const { data: syncLog, error: syncLogError } = await supabase
       .from('sync_logs')
       .insert({
@@ -89,15 +91,15 @@ serve(async (req) => {
       }
 
       // Process subscribers insights in batches to avoid memory issues
-      // Increased batch size for faster processing (trade memory for speed)
-      const batchSize = 1000
+      // Optimized for speed: larger batches + more concurrency
+      const batchSize = 2000  // Increased from 1000
       let totalProcessed = 0
 
       const allSubscribersRows = processInsightsData(subscribersData)
       console.log(`Processed ${allSubscribersRows.length} subscriber rows, inserting in batches of ${batchSize}...`)
 
-      // Process batches in parallel (max 3 concurrent) for faster upserts
-      const maxConcurrentBatches = 3
+      // Process batches in parallel (max 5 concurrent) for faster upserts
+      const maxConcurrentBatches = 5  // Increased from 3
       const batches: any[][] = []
 
       for (let i = 0; i < allSubscribersRows.length; i += batchSize) {
@@ -107,6 +109,14 @@ serve(async (req) => {
       console.log(`Split into ${batches.length} batches, processing ${maxConcurrentBatches} at a time...`)
 
       for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
+        // Check if we're approaching timeout
+        const elapsedMs = Date.now() - executionStartMs
+        if (elapsedMs > TIMEOUT_BUFFER_MS) {
+          console.warn(`⚠️ Approaching timeout (${Math.round(elapsedMs / 1000)}s elapsed). Processed ${totalProcessed}/${allSubscribersRows.length} records.`)
+          console.log('Exiting early to avoid timeout. Remaining data will be processed on next sync.')
+          break
+        }
+
         const batchGroup = batches.slice(i, i + maxConcurrentBatches)
 
         const results = await Promise.all(
@@ -116,7 +126,7 @@ serve(async (req) => {
                 .from('subscribers_insights')
                 .upsert(batch, {
                   onConflict: 'distinct_id',
-                  ignoreDuplicates: false
+                  ignoreDuplicates: false  // Keep false to update changed records
                 })
 
               if (insertError) {

@@ -287,9 +287,11 @@ serve(async (req) => {
             console.log('Refreshing engagement summary views...')
             Promise.all([
               supabase.rpc('refresh_subscription_engagement_summary'),
-              supabase.rpc('refresh_copy_engagement_summary')
+              supabase.rpc('refresh_copy_engagement_summary'),
+              supabase.rpc('refresh_portfolio_engagement_views')
             ]).then(() => {
               console.log('✓ Engagement summary views refreshed')
+              console.log('✓ Portfolio engagement views refreshed (includes hidden gems)')
             }).catch(e => console.warn('Error refreshing summary views:', e))
           }
         })
