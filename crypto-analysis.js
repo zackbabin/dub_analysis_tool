@@ -664,20 +664,6 @@ class CryptoAnalysis {
                         <div style="font-size: 20px; font-weight: bold; color: #b71c1c;">${this.formatCost(year3.totalCosts)}</div>
                     </div>
 
-                    <!-- Gross Profit Row -->
-                    <div style="display: flex; align-items: center; padding: 16px; background: #d4edda; border-radius: 6px; font-weight: 600; font-size: 12px; color: #1b5e20;">
-                        Gross Profit
-                    </div>
-                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
-                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year1.grossProfit)}</div>
-                    </div>
-                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
-                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year2.grossProfit)}</div>
-                    </div>
-                    <div style="padding: 16px; background: #d4edda; border-radius: 6px; border: 1px solid #81c784; text-align: center;">
-                        <div style="font-size: 20px; font-weight: bold; color: #1b5e20;">${this.formatCurrency(year3.grossProfit)}</div>
-                    </div>
-
                     <!-- Gross Margin Row -->
                     <div style="display: flex; align-items: center; padding: 16px; background: #d4edda; border-radius: 6px; font-weight: 600; font-size: 12px; color: #1b5e20;">
                         Gross Margin (%)
