@@ -211,9 +211,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Display creator summary statistics - Only show H1 title, hide metric cards
+     * Override: Display creator summary statistics - Show 4 averaged metric cards
      */
-    displayCreatorSummaryStats(stats) {
+    async displayCreatorSummaryStats(stats) {
         const container = document.getElementById('creatorSummaryStatsInline');
         if (!container) {
             console.error('❌ Container creatorSummaryStatsInline not found!');
@@ -229,20 +229,111 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Analysis</strong>
-                Premium creator affinity showing which creators are copied together.
+                Average engagement metrics per premium creator portfolio.
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copy Behavior)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85810770%22" target="_blank" style="color: #17a2b8;">Chart 85810770</a> (Portfolio Metrics)
                     </li>
-                    <li><strong>Metrics:</strong> Copy affinity analysis for premium creators</li>
+                    <li><strong>Metrics:</strong> Averaged across all premium creator portfolios</li>
                 </ul>
             </span>
         </span>`;
 
         section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Premium Creator Analysis</h1>${creatorH1Tooltip}`;
-
         container.appendChild(section);
+
+        // Fetch averaged metrics from Supabase
+        const metrics = await this.fetchPremiumCreatorMetrics();
+
+        if (metrics) {
+            const metricSummary = document.createElement('div');
+            metricSummary.className = 'qda-metric-summary';
+
+            // Create 4 metric cards with averages
+            const cards = [
+                ['Avg PDP Views', metrics.avg_pdp_views ? metrics.avg_pdp_views.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
+                ['Avg Profile Views', metrics.avg_profile_views ? metrics.avg_profile_views.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
+                ['Avg Copies', metrics.avg_copies ? metrics.avg_copies.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
+                ['Avg Subscriptions', metrics.avg_subscriptions ? metrics.avg_subscriptions.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0']
+            ];
+
+            cards.forEach(([title, content]) => {
+                const card = document.createElement('div');
+                card.className = 'qda-metric-card';
+                card.innerHTML = `
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${title}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
+                `;
+                metricSummary.appendChild(card);
+            });
+
+            section.appendChild(metricSummary);
+        }
+    }
+
+    /**
+     * Fetch premium creator portfolio metrics (averaged)
+     */
+    async fetchPremiumCreatorMetrics() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return null;
+            }
+
+            const { data, error } = await this.supabaseIntegration.client
+                .from('portfolio_creator_engagement_metrics')
+                .select(`
+                    total_pdp_views,
+                    total_profile_views,
+                    total_copies,
+                    total_subscriptions,
+                    creator_id
+                `)
+                .in('creator_id',
+                    this.supabaseIntegration.client
+                        .from('premium_creators')
+                        .select('creator_id')
+                );
+
+            if (error) {
+                console.error('Error fetching premium creator metrics:', error);
+                return null;
+            }
+
+            if (!data || data.length === 0) {
+                console.log('No premium creator metrics found');
+                return {
+                    avg_pdp_views: 0,
+                    avg_profile_views: 0,
+                    avg_copies: 0,
+                    avg_subscriptions: 0
+                };
+            }
+
+            // Calculate averages client-side
+            const totals = data.reduce((acc, row) => ({
+                pdp_views: acc.pdp_views + (row.total_pdp_views || 0),
+                profile_views: acc.profile_views + (row.total_profile_views || 0),
+                copies: acc.copies + (row.total_copies || 0),
+                subscriptions: acc.subscriptions + (row.total_subscriptions || 0)
+            }), { pdp_views: 0, profile_views: 0, copies: 0, subscriptions: 0 });
+
+            const count = data.length;
+
+            return {
+                avg_pdp_views: totals.pdp_views / count,
+                avg_profile_views: totals.profile_views / count,
+                avg_copies: totals.copies / count,
+                avg_subscriptions: totals.subscriptions / count,
+                total_portfolios: count
+            };
+
+        } catch (error) {
+            console.error('Error in fetchPremiumCreatorMetrics:', error);
+            return null;
+        }
     }
 
     /**
