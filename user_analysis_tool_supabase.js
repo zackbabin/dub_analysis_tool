@@ -303,6 +303,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue even if price analysis fails - it's supplementary data
         }
 
+        // Trigger copy pattern analysis (portfolio + creator combinations)
+        console.log('Triggering copy pattern analysis...');
+        try {
+            const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
+            if (copyResult && copyResult.success) {
+                console.log('✅ Copy pattern analysis completed:', copyResult.stats);
+            }
+        } catch (error) {
+            console.warn('⚠️ Copy pattern analysis failed:', error.message);
+            // Continue even if analysis fails - it's supplementary data
+        }
+
         return true;
     }
 
