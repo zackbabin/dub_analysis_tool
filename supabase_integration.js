@@ -119,6 +119,32 @@ class SupabaseIntegration {
     }
 
     /**
+     * Get last sync timestamp for a specific sync type
+     */
+    async getLastSyncTime(syncType) {
+        try {
+            const key = `lastSync_${syncType}`;
+            const timestamp = localStorage.getItem(key);
+            return timestamp ? parseInt(timestamp) : null;
+        } catch (error) {
+            console.warn('Failed to get last sync time:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Save last sync timestamp for a specific sync type
+     */
+    async saveLastSyncTime(syncType) {
+        try {
+            const key = `lastSync_${syncType}`;
+            localStorage.setItem(key, Date.now().toString());
+        } catch (error) {
+            console.warn('Failed to save last sync time:', error);
+        }
+    }
+
+    /**
      * Invoke Supabase Edge Function with retry logic for cold starts
      * @param {string} functionName - Name of the edge function to invoke
      * @param {object} body - Request body
@@ -192,19 +218,36 @@ class SupabaseIntegration {
         console.log('🔄 Starting Mixpanel sync (3-part process)...');
 
         try {
-            // Part 1: Sync users/subscribers data (with retry for cold starts)
-            // Note: sync-mixpanel-users can take 10-20s on cold start due to large dataset
-            console.log('📊 Step 1/3: Syncing user/subscriber data...');
-            const usersData = await this.invokeFunctionWithRetry(
-                'sync-mixpanel-users',
-                {},
-                'Users sync',
-                3,      // maxRetries: 3 attempts (increased from 2)
-                5000    // retryDelay: 5 seconds (increased from 3)
-            );
+            // Check if user data sync is needed (skip if synced within last hour due to timeout issues)
+            let usersData = null;
+            const lastUserSync = await this.getLastSyncTime('mixpanel_users');
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
 
-            console.log('✅ Step 1/3 complete: User data synced successfully');
-            console.log('   Stats:', usersData.stats);
+            if (lastUserSync && lastUserSync > oneHourAgo) {
+                console.log('⏭️ Step 1/3: Skipping user sync (data is recent, last synced:', new Date(lastUserSync).toLocaleTimeString(), ')');
+                usersData = { stats: { skipped: true, reason: 'Data synced within last hour' } };
+            } else {
+                // Part 1: Sync users/subscribers data (with retry for cold starts)
+                // Note: sync-mixpanel-users can take 10-20s on cold start due to large dataset
+                console.log('📊 Step 1/3: Syncing user/subscriber data...');
+                try {
+                    usersData = await this.invokeFunctionWithRetry(
+                        'sync-mixpanel-users',
+                        {},
+                        'Users sync',
+                        2,      // maxRetries: Only 2 attempts (function takes too long)
+                        5000    // retryDelay: 5 seconds
+                    );
+                    console.log('✅ Step 1/3 complete: User data synced successfully');
+                    console.log('   Stats:', usersData.stats);
+
+                    // Save sync timestamp
+                    await this.saveLastSyncTime('mixpanel_users');
+                } catch (error) {
+                    console.warn('⚠️ Step 1/3 failed: User sync timed out, continuing with existing data');
+                    usersData = { stats: { failed: true, error: error.message } };
+                }
+            }
 
             // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
             // Funnels uses 3 concurrent queries internally which can cause rate limits
