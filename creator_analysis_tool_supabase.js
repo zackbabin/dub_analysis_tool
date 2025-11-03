@@ -250,12 +250,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
 
-            // Create 4 metric cards with averages
+            // Create 4 metric cards with conversion rates
             const cards = [
-                ['Avg PDP Views', metrics.avg_pdp_views ? metrics.avg_pdp_views.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
-                ['Avg Profile Views', metrics.avg_profile_views ? metrics.avg_profile_views.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
-                ['Avg Copies', metrics.avg_copies ? metrics.avg_copies.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0'],
-                ['Avg Subscriptions', metrics.avg_subscriptions ? metrics.avg_subscriptions.toLocaleString(undefined, {maximumFractionDigits: 1}) : '0']
+                ['Avg Copy Conversion', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
+                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
+                ['Avg Liquidation Rate', metrics.avg_liquidation_rate ? metrics.avg_liquidation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
+                ['Avg Cancellation Rate', metrics.avg_cancellation_rate ? metrics.avg_cancellation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%']
             ];
 
             cards.forEach(([title, content]) => {
@@ -289,6 +289,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     total_profile_views,
                     total_copies,
                     total_subscriptions,
+                    total_paywall_views,
+                    total_liquidations,
+                    total_cancellations,
                     creator_id
                 `)
                 .in('creator_id',
@@ -305,28 +308,34 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (!data || data.length === 0) {
                 console.log('No premium creator metrics found');
                 return {
-                    avg_pdp_views: 0,
-                    avg_profile_views: 0,
-                    avg_copies: 0,
-                    avg_subscriptions: 0
+                    avg_copy_cvr: 0,
+                    avg_subscription_cvr: 0,
+                    avg_liquidation_rate: 0,
+                    avg_cancellation_rate: 0
                 };
             }
 
-            // Calculate averages client-side
-            const totals = data.reduce((acc, row) => ({
-                pdp_views: acc.pdp_views + (row.total_pdp_views || 0),
-                profile_views: acc.profile_views + (row.total_profile_views || 0),
-                copies: acc.copies + (row.total_copies || 0),
-                subscriptions: acc.subscriptions + (row.total_subscriptions || 0)
-            }), { pdp_views: 0, profile_views: 0, copies: 0, subscriptions: 0 });
+            // Calculate conversion rates client-side, then average them
+            const conversionRates = data.map(row => ({
+                copy_cvr: (row.total_pdp_views > 0) ? (row.total_copies / row.total_pdp_views * 100) : 0,
+                subscription_cvr: (row.total_paywall_views > 0) ? (row.total_subscriptions / row.total_paywall_views * 100) : 0,
+                liquidation_rate: (row.total_copies > 0) ? (row.total_liquidations / row.total_copies * 100) : 0,
+                cancellation_rate: (row.total_subscriptions > 0) ? (row.total_cancellations / row.total_subscriptions * 100) : 0
+            }));
 
-            const count = data.length;
+            const count = conversionRates.length;
+            const totals = conversionRates.reduce((acc, rates) => ({
+                copy_cvr: acc.copy_cvr + rates.copy_cvr,
+                subscription_cvr: acc.subscription_cvr + rates.subscription_cvr,
+                liquidation_rate: acc.liquidation_rate + rates.liquidation_rate,
+                cancellation_rate: acc.cancellation_rate + rates.cancellation_rate
+            }), { copy_cvr: 0, subscription_cvr: 0, liquidation_rate: 0, cancellation_rate: 0 });
 
             return {
-                avg_pdp_views: totals.pdp_views / count,
-                avg_profile_views: totals.profile_views / count,
-                avg_copies: totals.copies / count,
-                avg_subscriptions: totals.subscriptions / count,
+                avg_copy_cvr: totals.copy_cvr / count,
+                avg_subscription_cvr: totals.subscription_cvr / count,
+                avg_liquidation_rate: totals.liquidation_rate / count,
+                avg_cancellation_rate: totals.cancellation_rate / count,
                 total_portfolios: count
             };
 

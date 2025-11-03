@@ -540,14 +540,16 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
   console.log('Processing premium creator portfolio metrics from nested Mixpanel format...')
   console.log('Available metrics:', Object.keys(data.series))
 
-  // Extract all 6 metrics
+  // Extract all 8 metrics (A through H)
   const metrics = {
-    pdpViews: data.series['A. Total Events of Viewed Portfolio Details'] || {},
+    pdpViews: data.series['A. Total PDP Views'] || data.series['A. Total Events of Viewed Portfolio Details'] || {},
     profileViews: data.series['B. Total Profile Views'] || {},
     copies: data.series['C. Total Copies'] || {},
     subscriptions: data.series['D. Total Subscriptions'] || {},
     paywallViews: data.series['E. Total Paywall Views'] || {},
     stripeModalViews: data.series['F. Total Stripe Modal Views'] || {},
+    liquidations: data.series['G. Total Liquidations'] || {},
+    cancellations: data.series['H. Total Cancellations'] || {},
   }
 
   // Use PDP views as the primary metric to iterate (should have most data)
@@ -587,6 +589,8 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
           total_subscriptions: getMetricValue(metrics.subscriptions),
           total_paywall_views: getMetricValue(metrics.paywallViews),
           total_stripe_modal_views: getMetricValue(metrics.stripeModalViews),
+          total_liquidations: getMetricValue(metrics.liquidations),
+          total_cancellations: getMetricValue(metrics.cancellations),
           synced_at: now,
         })
       }
