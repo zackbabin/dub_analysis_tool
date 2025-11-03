@@ -11,6 +11,7 @@ import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_s
 const CHART_IDS = {
   creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
+  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (PDP views, profile views, copies, subscriptions, paywall, stripe)
 }
 
 interface SyncStats {
@@ -18,6 +19,7 @@ interface SyncStats {
   matchedCreators: number
   enrichedCreators: number
   premiumCreatorsCount: number
+  premiumPortfolioMetricsCount: number
 }
 
 serve(async (req) => {
@@ -86,6 +88,7 @@ serve(async (req) => {
         matchedCreators: 0,
         enrichedCreators: 0,
         premiumCreatorsCount: 0,
+        premiumPortfolioMetricsCount: 0,
       }
 
       // Process premium creators data
@@ -108,6 +111,31 @@ serve(async (req) => {
           throw premiumError
         }
         console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
+      }
+
+      // Fetch and process premium creator portfolio metrics
+      console.log(`Fetching premium creator portfolio metrics from Mixpanel chart ${CHART_IDS.premiumCreatorPortfolioMetrics}...`)
+      const portfolioMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorPortfolioMetrics, 'Premium Creator Portfolio Metrics')
+
+      const portfolioMetricsRows = processPremiumCreatorPortfolioMetrics(portfolioMetricsData)
+      stats.premiumPortfolioMetricsCount = portfolioMetricsRows.length
+      console.log(`Processed ${portfolioMetricsRows.length} premium creator portfolio metrics rows`)
+
+      // Store portfolio metrics in database
+      if (portfolioMetricsRows.length > 0) {
+        console.log('Upserting premium creator portfolio metrics...')
+        const { error: portfolioMetricsError } = await supabase
+          .from('premium_creator_portfolio_metrics')
+          .upsert(portfolioMetricsRows, {
+            onConflict: 'creator_id,portfolio_ticker,synced_at',
+            ignoreDuplicates: false,
+          })
+
+        if (portfolioMetricsError) {
+          console.error('Error upserting portfolio metrics:', portfolioMetricsError)
+          throw portfolioMetricsError
+        }
+        console.log(`✅ Upserted ${portfolioMetricsRows.length} portfolio metrics rows`)
       }
 
       const enrichmentRows = processUserProfileData(userProfileData, null, stats)
@@ -143,6 +171,18 @@ serve(async (req) => {
       }
 
       console.log('Creator enrichment sync completed successfully')
+
+      // Refresh materialized views to incorporate new portfolio metrics data
+      console.log('Refreshing materialized views...')
+      const { error: refreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
+
+      if (refreshError) {
+        console.error('Error refreshing materialized views:', refreshError)
+        // Don't throw - sync succeeded, just log the error
+        console.log('⚠️ Materialized views may need manual refresh')
+      } else {
+        console.log('✅ Materialized views refreshed successfully')
+      }
 
       // Note: Premium creator affinity is now computed via database views
       // See: premium_creator_affinity_display view
@@ -434,6 +474,96 @@ function processPremiumCreatorsData(data: any): any[] {
   })
 
   console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by creator_id)`)
+  return deduplicatedRows
+}
+
+/**
+ * Process premium creator portfolio metrics from Mixpanel chart 85810770
+ * Extracts metrics grouped by creatorUsername -> creatorId -> portfolioTicker
+ *
+ * Data structure:
+ * series -> metric -> creatorUsername -> creatorId -> portfolioTicker -> value
+ *
+ * Example:
+ * series["A. Total Events of Viewed Portfolio Details"]["@brettsimba"]["339489349854568448"]["$BRETTSIMBA"] = 84993
+ */
+function processPremiumCreatorPortfolioMetrics(data: any): any[] {
+  if (!data || !data.series) {
+    console.log('No premium creator portfolio metrics data')
+    return []
+  }
+
+  const rows: any[] = []
+  const now = new Date().toISOString()
+
+  console.log('Processing premium creator portfolio metrics from nested Mixpanel format...')
+  console.log('Available metrics:', Object.keys(data.series))
+
+  // Extract all 6 metrics
+  const metrics = {
+    pdpViews: data.series['A. Total Events of Viewed Portfolio Details'] || {},
+    profileViews: data.series['B. Total Profile Views'] || {},
+    copies: data.series['C. Total Copies'] || {},
+    subscriptions: data.series['D. Total Subscriptions'] || {},
+    paywallViews: data.series['E. Total Paywall Views'] || {},
+    stripeModalViews: data.series['F. Total Stripe Modal Views'] || {},
+  }
+
+  // Use PDP views as the primary metric to iterate (should have most data)
+  const primaryMetric = metrics.pdpViews
+
+  // Iterate through creator usernames
+  for (const [creatorUsername, usernameData] of Object.entries(primaryMetric)) {
+    if (creatorUsername === '$overall') continue
+    if (typeof usernameData !== 'object') continue
+
+    // Find the creator_id (18-digit number key)
+    for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
+      if (creatorId === '$overall') continue
+      if (!/^\d+$/.test(creatorId)) continue // Skip non-numeric keys
+      if (typeof creatorIdData !== 'object') continue
+
+      // Iterate through portfolios for this creator
+      for (const [portfolioTicker, _value] of Object.entries(creatorIdData as any)) {
+        if (portfolioTicker === '$overall') continue
+
+        // Extract metrics for this creator-portfolio combination
+        const getMetricValue = (metricData: any): number => {
+          try {
+            return metricData?.[creatorUsername]?.[creatorId]?.[portfolioTicker] || 0
+          } catch {
+            return 0
+          }
+        }
+
+        rows.push({
+          creator_id: String(creatorId),
+          creator_username: String(creatorUsername),
+          portfolio_ticker: String(portfolioTicker),
+          total_pdp_views: getMetricValue(metrics.pdpViews),
+          total_profile_views: getMetricValue(metrics.profileViews),
+          total_copies: getMetricValue(metrics.copies),
+          total_subscriptions: getMetricValue(metrics.subscriptions),
+          total_paywall_views: getMetricValue(metrics.paywallViews),
+          total_stripe_modal_views: getMetricValue(metrics.stripeModalViews),
+          synced_at: now,
+        })
+      }
+    }
+  }
+
+  // Deduplicate by creator_id + portfolio_ticker (since synced_at is the same for all)
+  const seenKeys = new Set<string>()
+  const deduplicatedRows = rows.filter(row => {
+    const key = `${row.creator_id}|${row.portfolio_ticker}`
+    if (seenKeys.has(key)) {
+      return false
+    }
+    seenKeys.add(key)
+    return true
+  })
+
+  console.log(`Processed ${rows.length} portfolio metrics rows (${deduplicatedRows.length} unique by creator+portfolio)`)
   return deduplicatedRows
 }
 
