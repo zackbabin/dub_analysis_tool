@@ -366,6 +366,35 @@ class CryptoAnalysis {
             <div style="background: white; border: 1px solid #dee2e6; border-radius: 10px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <h3 style="margin: 0; font-size: 18px; font-weight: bold;">Assumptions</h3>
+                    <div style="display: flex; gap: 24px; align-items: center;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input
+                                type="checkbox"
+                                id="cryptoToggle"
+                                ${this.activeScenario === 'crypto' ? 'checked' : ''}
+                                style="width: 18px; height: 18px; cursor: pointer;"
+                            />
+                            <span style="font-size: 14px; font-weight: 600; color: #e65100;">Subscription + Fees</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input
+                                type="checkbox"
+                                id="cryptoNoSubToggle"
+                                ${this.activeScenario === 'cryptoNoSub' ? 'checked' : ''}
+                                style="width: 18px; height: 18px; cursor: pointer;"
+                            />
+                            <span style="font-size: 14px; font-weight: 600; color: #e65100;">No Subs + Rev Share</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input
+                                type="checkbox"
+                                id="cryptoPerfFeeToggle"
+                                ${this.activeScenario === 'cryptoPerfFee' ? 'checked' : ''}
+                                style="width: 18px; height: 18px; cursor: pointer;"
+                            />
+                            <span style="font-size: 14px; font-weight: 600; color: #e65100;">Performance Fees</span>
+                        </label>
+                    </div>
                 </div>
                 <div style="display: grid; grid-template-columns: minmax(150px, auto) minmax(110px, auto) 1fr 1fr 1fr 1fr 1fr; gap: 16px;">
                     ${this.renderConversionRates()}
@@ -450,19 +479,12 @@ class CryptoAnalysis {
     }
 
     renderCryptoAssumptions() {
+        const isVisible = this.activeScenario === 'crypto';
         return `
-            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                    <div>
-                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
-                        <p style="font-size: 10px; color: #e65100; margin: 0;">Subscription + Fees</p>
-                    </div>
-                    <input
-                        type="checkbox"
-                        id="cryptoToggle"
-                        ${this.activeScenario === 'crypto' ? 'checked' : ''}
-                        style="width: 18px; height: 18px; cursor: pointer;"
-                    />
+            <div id="cryptoAssumptionsSection" style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative; display: ${isVisible ? 'block' : 'none'};">
+                <div style="margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                    <p style="font-size: 10px; color: #e65100; margin: 0;">Subscription + Fees</p>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'crypto_assetsPerPortfolio')}
@@ -477,19 +499,12 @@ class CryptoAnalysis {
     }
 
     renderCryptoNoSubscriptionsAssumptions() {
+        const isVisible = this.activeScenario === 'cryptoNoSub';
         return `
-            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                    <div>
-                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
-                        <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on fees</p>
-                    </div>
-                    <input
-                        type="checkbox"
-                        id="cryptoNoSubToggle"
-                        ${this.activeScenario === 'cryptoNoSub' ? 'checked' : ''}
-                        style="width: 18px; height: 18px; cursor: pointer;"
-                    />
+            <div id="cryptoNoSubAssumptionsSection" style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative; display: ${isVisible ? 'block' : 'none'};">
+                <div style="margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                    <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on fees</p>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'cryptoNoSub_assetsPerPortfolio')}
@@ -505,19 +520,12 @@ class CryptoAnalysis {
     }
 
     renderCryptoPerformanceFeesAssumptions() {
+        const isVisible = this.activeScenario === 'cryptoPerfFee';
         return `
-            <div style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                    <div>
-                        <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
-                        <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on perf fees</p>
-                    </div>
-                    <input
-                        type="checkbox"
-                        id="cryptoPerfFeeToggle"
-                        ${this.activeScenario === 'cryptoPerfFee' ? 'checked' : ''}
-                        style="width: 18px; height: 18px; cursor: pointer;"
-                    />
+            <div id="cryptoPerfFeeAssumptionsSection" style="background: #fff3e0; padding: 16px; border-radius: 8px; position: relative; display: ${isVisible ? 'block' : 'none'};">
+                <div style="margin-bottom: 12px;">
+                    <h4 style="font-size: 12px; font-weight: bold; color: #e65100; text-transform: uppercase; margin: 0 0 4px 0;">Crypto</h4>
+                    <p style="font-size: 10px; color: #e65100; margin: 0;">No subs + rev share on perf fees</p>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                     ${this.renderInput('Assets Per Portfolio', 'cryptoPerfFee_assetsPerPortfolio')}
@@ -851,6 +859,15 @@ class CryptoAnalysis {
         if (cryptoToggle) cryptoToggle.checked = (this.activeScenario === 'crypto');
         if (cryptoNoSubToggle) cryptoNoSubToggle.checked = (this.activeScenario === 'cryptoNoSub');
         if (cryptoPerfFeeToggle) cryptoPerfFeeToggle.checked = (this.activeScenario === 'cryptoPerfFee');
+
+        // Update section visibility
+        const cryptoSection = document.getElementById('cryptoAssumptionsSection');
+        const cryptoNoSubSection = document.getElementById('cryptoNoSubAssumptionsSection');
+        const cryptoPerfFeeSection = document.getElementById('cryptoPerfFeeAssumptionsSection');
+
+        if (cryptoSection) cryptoSection.style.display = (this.activeScenario === 'crypto') ? 'block' : 'none';
+        if (cryptoNoSubSection) cryptoNoSubSection.style.display = (this.activeScenario === 'cryptoNoSub') ? 'block' : 'none';
+        if (cryptoPerfFeeSection) cryptoPerfFeeSection.style.display = (this.activeScenario === 'cryptoPerfFee') ? 'block' : 'none';
     }
 }
 
