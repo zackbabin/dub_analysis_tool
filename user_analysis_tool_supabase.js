@@ -496,8 +496,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Build all HTML sections first
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+
+            // Debug: Log combinations data
+            console.log('🔍 High-Impact Combinations Debug:');
+            console.log('topCopyCombos:', topCopyCombos);
+            console.log('topCreatorCopyCombos:', topCreatorCopyCombos);
+
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
             const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
+
+            console.log('combinationsHTML length:', combinationsHTML?.length || 0);
+            console.log('creatorCombinationsHTML length:', creatorCombinationsHTML?.length || 0);
 
             const copySequenceHTML = copySequenceAnalysis ?
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
