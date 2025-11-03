@@ -219,6 +219,14 @@ function pairsToUserData(
         did_convert: pair[outcomeColumn],
         conversion_count: pair.copy_count || pair.subscription_count || 0,
       })
+    } else {
+      // Update did_convert to true if ANY row has did_copy = true (OR logic)
+      const userData = userMap.get(pair.distinct_id)!
+      if (pair[outcomeColumn]) {
+        userData.did_convert = true
+      }
+      // Accumulate conversion count
+      userData.conversion_count += (pair.copy_count || pair.subscription_count || 0)
     }
     userMap.get(pair.distinct_id)!.entity_ids.add(entityId)
   }

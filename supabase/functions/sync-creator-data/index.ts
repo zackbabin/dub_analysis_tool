@@ -573,7 +573,15 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
         // Extract metrics for this creator-portfolio combination
         const getMetricValue = (metricData: any): number => {
           try {
-            return metricData?.[creatorUsername]?.[creatorId]?.[portfolioTicker] || 0
+            const value = metricData?.[creatorUsername]?.[creatorId]?.[portfolioTicker]
+            if (!value) return 0
+
+            // Handle both object format {"all": 123} and direct number format
+            if (typeof value === 'object' && value !== null && 'all' in value) {
+              return parseInt(String(value.all)) || 0
+            }
+
+            return parseInt(String(value)) || 0
           } catch {
             return 0
           }

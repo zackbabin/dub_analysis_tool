@@ -282,7 +282,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return null;
             }
 
-            const { data, error } = await this.supabaseIntegration.client
+            const { data, error } = await this.supabaseIntegration.supabase
                 .from('portfolio_creator_engagement_metrics')
                 .select(`
                     total_pdp_views,
@@ -295,9 +295,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     creator_id
                 `)
                 .in('creator_id',
-                    this.supabaseIntegration.client
+                    await this.supabaseIntegration.supabase
                         .from('premium_creators')
                         .select('creator_id')
+                        .then(({ data }) => data.map(row => row.creator_id))
                 );
 
             if (error) {
