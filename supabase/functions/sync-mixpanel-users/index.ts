@@ -89,31 +89,49 @@ serve(async (req) => {
       }
 
       // Process subscribers insights in batches to avoid memory issues
-      const batchSize = 500
+      // Increased batch size for faster processing (trade memory for speed)
+      const batchSize = 1000
       let totalProcessed = 0
 
       const allSubscribersRows = processInsightsData(subscribersData)
-      console.log(`Processed ${allSubscribersRows.length} subscriber rows, inserting in batches...`)
+      console.log(`Processed ${allSubscribersRows.length} subscriber rows, inserting in batches of ${batchSize}...`)
+
+      // Process batches in parallel (max 3 concurrent) for faster upserts
+      const maxConcurrentBatches = 3
+      const batches: any[][] = []
 
       for (let i = 0; i < allSubscribersRows.length; i += batchSize) {
-        const batch = allSubscribersRows.slice(i, i + batchSize)
+        batches.push(allSubscribersRows.slice(i, i + batchSize))
+      }
 
-        if (batch.length > 0) {
-          const { error: insertError } = await supabase
-            .from('subscribers_insights')
-            .upsert(batch, {
-              onConflict: 'distinct_id',
-              ignoreDuplicates: false
-            })
+      console.log(`Split into ${batches.length} batches, processing ${maxConcurrentBatches} at a time...`)
 
-          if (insertError) {
-            console.error('Error upserting subscribers batch:', insertError)
-            throw insertError
-          }
+      for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
+        const batchGroup = batches.slice(i, i + maxConcurrentBatches)
 
-          totalProcessed += batch.length
-          console.log(`Upserted batch: ${totalProcessed}/${allSubscribersRows.length} records`)
-        }
+        const results = await Promise.all(
+          batchGroup.map(async (batch, idx) => {
+            if (batch.length > 0) {
+              const { error: insertError } = await supabase
+                .from('subscribers_insights')
+                .upsert(batch, {
+                  onConflict: 'distinct_id',
+                  ignoreDuplicates: false
+                })
+
+              if (insertError) {
+                console.error(`Error upserting batch ${i + idx}:`, insertError)
+                throw insertError
+              }
+
+              return batch.length
+            }
+            return 0
+          })
+        )
+
+        totalProcessed += results.reduce((sum, count) => sum + count, 0)
+        console.log(`Progress: ${totalProcessed}/${allSubscribersRows.length} records (${Math.round(totalProcessed / allSubscribersRows.length * 100)}%)`)
       }
 
       stats.subscribersFetched = totalProcessed
