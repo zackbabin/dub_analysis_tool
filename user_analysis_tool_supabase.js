@@ -216,8 +216,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         console.log('✅ User data sync completed:', userResult.stats);
 
         // Then sync creator data (now that engagement tables are populated)
-        const creatorResult = await this.supabaseIntegration.triggerCreatorSync();
-        console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
+        let creatorResult = null;
+        try {
+            creatorResult = await this.supabaseIntegration.triggerCreatorSync();
+            console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
+        } catch (error) {
+            console.warn('⚠️ Creator data sync failed, continuing with existing data:', error.message);
+            // Continue with workflow - creator sync failure is not fatal
+        }
 
         // Trigger event sequence sync (fetch raw data from Mixpanel)
         // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)

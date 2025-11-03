@@ -12,7 +12,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 // - 'creator_copy': Creator combinations that drive copies (uses creator_id/username)
 const ANALYSIS_CONFIGS = {
   copy: {
-    table: 'user_portfolio_creator_engagement',
+    table: 'user_portfolio_creator_copies',  // Use view instead of base table for correct did_copy values
     select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
     filterColumn: 'pdp_view_count',
     outcomeColumn: 'did_copy',
