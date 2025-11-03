@@ -396,7 +396,7 @@ class CryptoAnalysis {
                         </label>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: minmax(150px, 180px) minmax(110px, 140px) 1.2fr 1.2fr 1.2fr; gap: 16px;">
+                <div style="display: grid; grid-template-columns: minmax(150px, 180px) minmax(140px, 180px) 1.2fr 1.2fr 1.2fr; gap: 16px;">
                     ${this.renderConversionRates()}
                     ${this.renderOtherAssumptions()}
                     ${this.renderSubscriptionAssumptions()}
