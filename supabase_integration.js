@@ -275,16 +275,22 @@ class SupabaseIntegration {
             // Part 3: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
             console.log('📊 Step 3/3: Syncing engagement...');
-            const engagementData = await this.invokeFunctionWithRetry(
-                'sync-mixpanel-engagement',
-                {},
-                'Engagement sync',
-                3,      // maxRetries: 3 attempts (increased from 2)
-                5000    // retryDelay: 5 seconds (increased from 3)
-            );
+            let engagementData = null;
+            try {
+                engagementData = await this.invokeFunctionWithRetry(
+                    'sync-mixpanel-engagement',
+                    {},
+                    'Engagement sync',
+                    3,      // maxRetries: 3 attempts (increased from 2)
+                    5000    // retryDelay: 5 seconds (increased from 3)
+                );
 
-            console.log('✅ Step 3/3 complete: Engagement data synced successfully');
-            console.log('   Stats:', engagementData.stats);
+                console.log('✅ Step 3/3 complete: Engagement data synced successfully');
+                console.log('   Stats:', engagementData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 3/3 failed: Engagement sync timed out, continuing with existing data');
+                engagementData = { stats: { failed: true, error: error.message } };
+            }
 
             // REMOVED: Portfolio events sync (Step 4) - portfolio_view_events table was never read from
             // This step wrote to an unused table and made additional Mixpanel API calls
@@ -297,17 +303,28 @@ class SupabaseIntegration {
             // Invalidate all cached queries since data has been refreshed
             this.invalidateCache();
 
-            // Return combined stats
+            // Return combined stats (even if some steps failed)
+            const allSucceeded = !usersData.stats.failed && !engagementData.stats.failed;
             return {
-                success: true,
-                message: 'Full Mixpanel sync completed successfully',
+                success: allSucceeded,
+                message: allSucceeded
+                    ? 'Full Mixpanel sync completed successfully'
+                    : 'Mixpanel sync completed with some failures (using existing data)',
                 users: usersData.stats,
                 funnels: funnelsData.stats,
                 engagement: engagementData.stats
             };
         } catch (error) {
-            console.error('❌ Error during Mixpanel sync:', error);
-            throw error;
+            console.error('❌ Unexpected error during Mixpanel sync:', error);
+            // Return partial success instead of throwing
+            return {
+                success: false,
+                message: 'Mixpanel sync failed unexpectedly',
+                error: error.message,
+                users: { failed: true },
+                funnels: { skipped: true },
+                engagement: { failed: true }
+            };
         }
     }
 
