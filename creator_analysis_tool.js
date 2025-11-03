@@ -1008,46 +1008,10 @@ class CreatorAnalysisTool {
 
     /**
      * Calculate predictive strength
+     * Note: Implementation moved to analysis_utils.js for shared use across tools
      */
     calculatePredictiveStrength(correlation, tStat) {
-        const absCorr = Math.abs(correlation);
-        const absTStat = Math.abs(tStat);
-
-        if (absTStat < 1.96) {
-            return { strength: 'Very Weak', className: 'qda-strength-very-weak' };
-        }
-
-        let corrScore = 0;
-        if (absCorr >= 0.50) corrScore = 6;
-        else if (absCorr >= 0.30) corrScore = 5;
-        else if (absCorr >= 0.20) corrScore = 4;
-        else if (absCorr >= 0.10) corrScore = 3;
-        else if (absCorr >= 0.05) corrScore = 2;
-        else if (absCorr >= 0.02) corrScore = 1;
-        else corrScore = 0;
-
-        let tScore = 0;
-        if (absTStat >= 3.29) tScore = 6;
-        else if (absTStat >= 2.58) tScore = 5;
-        else if (absTStat >= 1.96) tScore = 4;
-
-        const combinedScore = (corrScore * 0.9) + (tScore * 0.1);
-
-        if (combinedScore >= 5.5) {
-            return { strength: 'Very Strong', className: 'qda-strength-very-strong' };
-        } else if (combinedScore >= 4.5) {
-            return { strength: 'Strong', className: 'qda-strength-strong' };
-        } else if (combinedScore >= 3.5) {
-            return { strength: 'Moderate - Strong', className: 'qda-strength-moderate-strong' };
-        } else if (combinedScore >= 2.5) {
-            return { strength: 'Moderate', className: 'qda-strength-moderate' };
-        } else if (combinedScore >= 1.5) {
-            return { strength: 'Weak - Moderate', className: 'qda-strength-weak-moderate' };
-        } else if (combinedScore >= 0.5) {
-            return { strength: 'Weak', className: 'qda-strength-weak' };
-        } else {
-            return { strength: 'Very Weak', className: 'qda-strength-very-weak' };
-        }
+        return window.calculatePredictiveStrength(correlation, tStat);
     }
 
 
