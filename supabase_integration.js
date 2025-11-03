@@ -1022,24 +1022,46 @@ class SupabaseIntegration {
 
     /**
      * Trigger copy pattern analysis via Edge Function
-     * Runs exhaustive search + logistic regression to find best creator combinations
+     * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
      */
     async triggerCopyAnalysis() {
         console.log('Triggering copy pattern analysis...');
 
         try {
-            const { data, error } = await this.supabase.functions.invoke('analyze-copy-patterns', {
-                body: {}
+            // Trigger portfolio copy analysis (analysis_type: 'copy')
+            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('analyze-conversion-patterns', {
+                body: { analysis_type: 'copy' }
             });
 
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Copy analysis failed: ${error.message}`);
+            if (portfolioError) {
+                console.error('Portfolio copy analysis error:', portfolioError);
+                throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
             }
 
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during copy analysis');
+            console.log('✅ Portfolio copy analysis completed:', portfolioData);
+
+            // Trigger creator copy analysis (analysis_type: 'creator_copy')
+            const { data: creatorData, error: creatorError } = await this.supabase.functions.invoke('analyze-conversion-patterns', {
+                body: { analysis_type: 'creator_copy' }
+            });
+
+            if (creatorError) {
+                console.error('Creator copy analysis error:', creatorError);
+                throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
             }
+
+            console.log('✅ Creator copy analysis completed:', creatorData);
+
+            // Return combined results
+            const data = {
+                success: true,
+                portfolio: portfolioData,
+                creator: creatorData,
+                stats: {
+                    portfolio: portfolioData?.stats,
+                    creator: creatorData?.stats
+                }
+            };
 
             console.log('✅ Copy analysis completed successfully:', data.stats);
             return data;
