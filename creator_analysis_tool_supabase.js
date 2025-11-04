@@ -686,6 +686,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             });
 
             console.log(`✅ Loaded ${portfolioData.length} portfolio records for breakdown`);
+
+            // Store data for filtering
+            this.portfolioBreakdownData = portfolioData;
+
             this.displayPremiumPortfolioBreakdown(portfolioData);
         } catch (error) {
             console.error('Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
