@@ -395,7 +395,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         this.outputContainers.subscription.innerHTML = data.subscription;
                         this.removeAnchorLinks(this.outputContainers.subscription);
                     }
-                    if (data.creator) this.outputContainers.creator.innerHTML = data.creator;
+                    if (data.creator && this.outputContainers.creator) {
+                        this.outputContainers.creator.innerHTML = data.creator;
+                    }
 
                     const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
                     console.log(`✅ Restored complete analysis from cache (${cacheAge} min ago)`);
@@ -842,7 +844,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Add timestamp (top right) and data scope (top left) to each container
         const tabConfigs = [
-            { container: summaryContainer, scopeText: 'All Freemium users that have been KYC approved' },
+            { container: summaryContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
             { container: portfolioContainer, scopeText: 'Data for KYC approved users from the last 30 days' },
             { container: subscriptionContainer, scopeText: 'Data for KYC approved users from the last 30 days' }
         ];
@@ -1428,7 +1430,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             min-width: 80px;
                         ">`,
                             `<div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">
-                                ${seq.lift.toFixed(1)}x
+                                ${seq.lift != null && !isNaN(seq.lift) ? parseFloat(seq.lift).toFixed(1) : '0.0'}x
                             </div>`,
                             '<div style="font-size: 0.75rem; color: #6c757d;">Lift</div>',
                         '</div>',
