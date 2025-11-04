@@ -731,16 +731,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Store selected creators (all selected by default)
         this.selectedPortfolioCreators = new Set(uniqueCreators);
 
-        // Create filter button with icon
+        // Create filter container with button and chips
         const filterContainer = document.createElement('div');
-        filterContainer.style.cssText = 'margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;';
+        filterContainer.style.cssText = 'margin-bottom: 1rem;';
+
+        // Top row: Filter label + button
+        const filterRow = document.createElement('div');
+        filterRow.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;';
 
         const filterLabel = document.createElement('span');
         filterLabel.style.cssText = 'font-size: 0.875rem; font-weight: 600;';
         filterLabel.textContent = 'Filter';
-        filterContainer.appendChild(filterLabel);
+        filterRow.appendChild(filterLabel);
 
         const filterButton = document.createElement('button');
+        filterButton.id = 'portfolioFilterButton';
         filterButton.style.cssText = 'background: #2563eb; color: white; border: none; border-radius: 4px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;';
         filterButton.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -751,7 +756,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         filterButton.addEventListener('click', () => {
             this.showPortfolioFilterModal(uniqueCreators);
         });
-        filterContainer.appendChild(filterButton);
+        filterRow.appendChild(filterButton);
+
+        filterContainer.appendChild(filterRow);
+
+        // Chips container (below the button)
+        const chipsContainer = document.createElement('div');
+        chipsContainer.id = 'portfolioFilterChips';
+        chipsContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
+        filterContainer.appendChild(chipsContainer);
 
         section.appendChild(filterContainer);
 
@@ -859,6 +872,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (badge) {
                 badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
             }
+            // Update chips display
+            this.updatePortfolioFilterChips();
             document.body.removeChild(overlay);
         });
         actions.appendChild(applyButton);
@@ -874,6 +889,65 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 document.body.removeChild(overlay);
             }
         });
+    }
+
+    /**
+     * Update portfolio filter chips display (show up to 5 selected creators)
+     */
+    updatePortfolioFilterChips() {
+        const chipsContainer = document.getElementById('portfolioFilterChips');
+        if (!chipsContainer) return;
+
+        chipsContainer.innerHTML = '';
+
+        // Get total creators available
+        const totalCreators = this.portfolioBreakdownData
+            ? [...new Set(this.portfolioBreakdownData.map(p => p.creator_username))].length
+            : 0;
+
+        // Only show chips if filtering is active (not all creators selected)
+        if (this.selectedPortfolioCreators.size === totalCreators) {
+            return; // All selected, no need to show chips
+        }
+
+        const selectedCreators = Array.from(this.selectedPortfolioCreators).sort();
+        const displayCreators = selectedCreators.slice(0, 5);
+        const remainingCount = selectedCreators.length - displayCreators.length;
+
+        displayCreators.forEach(creator => {
+            const chip = document.createElement('div');
+            chip.style.cssText = 'background: #e0e7ff; color: #3730a3; border-radius: 16px; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem;';
+
+            const label = document.createElement('span');
+            label.textContent = creator;
+            chip.appendChild(label);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.innerHTML = '×';
+            removeBtn.style.cssText = 'background: none; border: none; color: #3730a3; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; font-weight: bold;';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectedPortfolioCreators.delete(creator);
+                this.filterPortfolioBreakdownTable();
+                this.updatePortfolioFilterChips();
+                // Update badge
+                const badge = document.getElementById('filterCountBadge');
+                if (badge) {
+                    badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
+                }
+            });
+            chip.appendChild(removeBtn);
+
+            chipsContainer.appendChild(chip);
+        });
+
+        // Show "+N more" if there are more than 5
+        if (remainingCount > 0) {
+            const moreChip = document.createElement('div');
+            moreChip.style.cssText = 'background: #f3f4f6; color: #6b7280; border-radius: 16px; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 500;';
+            moreChip.textContent = `+${remainingCount} more`;
+            chipsContainer.appendChild(moreChip);
+        }
     }
 
     /**
