@@ -256,6 +256,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (metrics) {
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
+            // Override grid to use 4 columns instead of default 5
+            metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
             // Create 4 metric cards with conversion rates and tooltips
             const cards = [
@@ -513,7 +515,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     creator_username: row.creator_username,
                     total_copies: row.total_copies,
                     copy_cvr: copyCvr,
+                    total_subscriptions: row.total_subscriptions,
                     subscription_cvr: subscriptionCvr,
+                    total_liquidations: row.total_liquidations,
                     liquidation_rate: liquidationRate,
                     cancellation_rate: cancellationRate
                 };
@@ -567,8 +571,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         thead.innerHTML = `
             <tr>
                 <th style="text-align: left;">Premium Creator</th>
+                <th style="text-align: right;">Total Copies</th>
                 <th style="text-align: right;">Copy CVR</th>
+                <th style="text-align: right;">Total Subscriptions</th>
                 <th style="text-align: right;">Subscription CVR</th>
+                <th style="text-align: right;">Total Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
                 <th style="text-align: right;">Cancellation Rate</th>
             </tr>
@@ -585,8 +592,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
+                <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
             `;
