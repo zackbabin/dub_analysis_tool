@@ -724,42 +724,33 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         description.textContent = 'Portfolio-level conversion metrics for each premium creator';
         section.appendChild(description);
 
-        // Create multi-select filter for premium creators
-        const filterContainer = document.createElement('div');
-        filterContainer.style.cssText = 'margin-bottom: 1rem;';
-
-        const filterLabel = document.createElement('label');
-        filterLabel.style.cssText = 'font-size: 0.875rem; font-weight: 600; margin-right: 0.5rem;';
-        filterLabel.textContent = 'Filter by Creator:';
-        filterContainer.appendChild(filterLabel);
-
         // Get unique creators sorted alphabetically
         const uniqueCreators = [...new Set(portfolioData.map(p => p.creator_username))].sort();
 
-        const select = document.createElement('select');
-        select.id = 'portfolioCreatorFilter';
-        select.multiple = true;
-        select.style.cssText = 'padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 300px; max-height: 200px;';
+        // Store selected creators (all selected by default)
+        this.selectedPortfolioCreators = new Set(uniqueCreators);
 
-        uniqueCreators.forEach(creator => {
-            const option = document.createElement('option');
-            option.value = creator;
-            option.textContent = creator;
-            option.selected = true; // Select all by default
-            select.appendChild(option);
+        // Create filter button with icon
+        const filterContainer = document.createElement('div');
+        filterContainer.style.cssText = 'margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;';
+
+        const filterLabel = document.createElement('span');
+        filterLabel.style.cssText = 'font-size: 0.875rem; font-weight: 600;';
+        filterLabel.textContent = 'Filter';
+        filterContainer.appendChild(filterLabel);
+
+        const filterButton = document.createElement('button');
+        filterButton.style.cssText = 'background: #2563eb; color: white; border: none; border-radius: 4px; padding: 0.5rem 0.75rem; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.5rem;';
+        filterButton.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M2 3h12M4 6h8M6 9h4M7 12h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span id="filterCountBadge">${this.selectedPortfolioCreators.size} selected</span>
+        `;
+        filterButton.addEventListener('click', () => {
+            this.showPortfolioFilterModal(uniqueCreators);
         });
-
-        // Add change handler to filter table
-        select.addEventListener('change', () => {
-            this.filterPortfolioBreakdownTable();
-        });
-
-        filterContainer.appendChild(select);
-
-        const filterHint = document.createElement('p');
-        filterHint.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem; font-style: italic;';
-        filterHint.textContent = 'Hold Ctrl/Cmd to select multiple creators';
-        filterContainer.appendChild(filterHint);
+        filterContainer.appendChild(filterButton);
 
         section.appendChild(filterContainer);
 
@@ -776,13 +767,121 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Show portfolio filter modal with checkboxes
+     */
+    showPortfolioFilterModal(creators) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.style.cssText = 'background: white; border-radius: 8px; padding: 1.5rem; max-width: 400px; width: 90%; max-height: 80vh; display: flex; flex-direction: column;';
+
+        // Modal header
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;';
+
+        const title = document.createElement('h3');
+        title.style.cssText = 'margin: 0; font-size: 1.125rem;';
+        title.textContent = 'Filter by Creator';
+        header.appendChild(title);
+
+        const closeButton = document.createElement('button');
+        closeButton.innerHTML = '×';
+        closeButton.style.cssText = 'background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6c757d; padding: 0; line-height: 1;';
+        closeButton.addEventListener('click', () => document.body.removeChild(overlay));
+        header.appendChild(closeButton);
+
+        modal.appendChild(header);
+
+        // Scrollable creator list
+        const listContainer = document.createElement('div');
+        listContainer.style.cssText = 'flex: 1; overflow-y: auto; margin-bottom: 1rem; border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem;';
+
+        creators.forEach(creator => {
+            const checkboxWrapper = document.createElement('label');
+            checkboxWrapper.style.cssText = 'display: flex; align-items: center; padding: 0.5rem; cursor: pointer; border-radius: 4px;';
+            checkboxWrapper.addEventListener('mouseenter', () => {
+                checkboxWrapper.style.background = '#f8f9fa';
+            });
+            checkboxWrapper.addEventListener('mouseleave', () => {
+                checkboxWrapper.style.background = 'transparent';
+            });
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = creator;
+            checkbox.checked = this.selectedPortfolioCreators.has(creator);
+            checkbox.style.cssText = 'margin-right: 0.5rem; cursor: pointer;';
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    this.selectedPortfolioCreators.add(creator);
+                } else {
+                    this.selectedPortfolioCreators.delete(creator);
+                }
+            });
+            checkboxWrapper.appendChild(checkbox);
+
+            const label = document.createElement('span');
+            label.textContent = creator;
+            label.style.cssText = 'font-size: 0.875rem;';
+            checkboxWrapper.appendChild(label);
+
+            listContainer.appendChild(checkboxWrapper);
+        });
+
+        modal.appendChild(listContainer);
+
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end;';
+
+        const clearButton = document.createElement('button');
+        clearButton.textContent = 'Clear';
+        clearButton.style.cssText = 'background: #6c757d; color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.875rem;';
+        clearButton.addEventListener('click', () => {
+            // Uncheck all checkboxes
+            const checkboxes = listContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            this.selectedPortfolioCreators.clear();
+        });
+        actions.appendChild(clearButton);
+
+        const applyButton = document.createElement('button');
+        applyButton.textContent = 'Apply';
+        applyButton.style.cssText = 'background: #2563eb; color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.875rem;';
+        applyButton.addEventListener('click', () => {
+            this.filterPortfolioBreakdownTable();
+            // Update badge
+            const badge = document.getElementById('filterCountBadge');
+            if (badge) {
+                badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
+            }
+            document.body.removeChild(overlay);
+        });
+        actions.appendChild(applyButton);
+
+        modal.appendChild(actions);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        });
+    }
+
+    /**
      * Filter portfolio breakdown table based on selected creators
      */
     filterPortfolioBreakdownTable() {
-        const select = document.getElementById('portfolioCreatorFilter');
-        if (!select || !this.portfolioBreakdownData) return;
+        if (!this.portfolioBreakdownData) return;
 
-        const selectedCreators = Array.from(select.selectedOptions).map(opt => opt.value);
+        const selectedCreators = Array.from(this.selectedPortfolioCreators);
         const filteredData = this.portfolioBreakdownData.filter(p =>
             selectedCreators.includes(p.creator_username)
         );
