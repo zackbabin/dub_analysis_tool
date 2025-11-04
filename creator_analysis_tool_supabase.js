@@ -677,11 +677,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 };
             }) || [];
 
-            // Sort by creator username first, then by total_copies descending within each creator
+            // Sort by total_copies descending
             portfolioData.sort((a, b) => {
-                if (a.creator_username !== b.creator_username) {
-                    return a.creator_username.localeCompare(b.creator_username);
-                }
                 return (b.total_copies || 0) - (a.total_copies || 0);
             });
 
