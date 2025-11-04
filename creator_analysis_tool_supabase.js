@@ -224,11 +224,90 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     this.outputContainer.innerHTML = data.creator;
                     const cacheAge = data.timestamp ? Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000) : null;
                     console.log(`✅ Restored creator analysis from unified cache${cacheAge ? ` (${cacheAge} min ago)` : ''}`);
+
+                    // Reattach event listeners after cache restoration
+                    this.reattachEventListeners();
                 }
             }
         } catch (e) {
             console.warn('Failed to restore creator analysis from unified cache:', e);
         }
+    }
+
+    /**
+     * Reattach event listeners after cache restoration
+     */
+    reattachEventListeners() {
+        // Reattach portfolio filter button click handler
+        const filterButton = document.getElementById('portfolioFilterButton');
+        if (filterButton) {
+            // Get unique creators from the table
+            const table = document.querySelector('#premiumPortfolioBreakdownInline table');
+            if (table) {
+                const rows = table.querySelectorAll('tbody tr');
+                const creators = [...new Set(Array.from(rows).map(row => {
+                    const cells = row.querySelectorAll('td');
+                    return cells[0]?.textContent.trim();
+                }).filter(Boolean))];
+
+                // Initialize selected creators if not already set
+                if (!this.selectedPortfolioCreators || this.selectedPortfolioCreators.size === 0) {
+                    this.selectedPortfolioCreators = new Set(creators);
+                }
+
+                filterButton.addEventListener('click', () => {
+                    this.showPortfolioFilterModal(creators);
+                });
+            }
+        }
+
+        // Reattach Clear All button click handler
+        const clearAllButtons = document.querySelectorAll('button');
+        clearAllButtons.forEach(btn => {
+            if (btn.textContent === 'Clear All' && btn.parentElement?.id !== 'portfolioFilterButton') {
+                const filterButton = document.getElementById('portfolioFilterButton');
+                if (filterButton) {
+                    const table = document.querySelector('#premiumPortfolioBreakdownInline table');
+                    if (table) {
+                        const rows = table.querySelectorAll('tbody tr');
+                        const creators = [...new Set(Array.from(rows).map(row => {
+                            const cells = row.querySelectorAll('td');
+                            return cells[0]?.textContent.trim();
+                        }).filter(Boolean))];
+
+                        btn.addEventListener('click', () => {
+                            this.selectedPortfolioCreators = new Set(creators);
+                            // Would need to reload data here, but for cached view we just update the UI
+                            const badge = document.getElementById('filterCountBadge');
+                            if (badge) {
+                                badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
+                            }
+                            this.updatePortfolioFilterChips();
+                        });
+                    }
+                }
+            }
+        });
+
+        // Reattach chip remove buttons
+        const chips = document.querySelectorAll('#portfolioFilterChips > div');
+        chips.forEach(chip => {
+            const removeBtn = chip.querySelector('button');
+            if (removeBtn && removeBtn.innerHTML === '×') {
+                const creator = chip.querySelector('span')?.textContent;
+                if (creator) {
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.selectedPortfolioCreators.delete(creator);
+                        this.updatePortfolioFilterChips();
+                        const badge = document.getElementById('filterCountBadge');
+                        if (badge) {
+                            badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
+                        }
+                    });
+                }
+            }
+        });
     }
 
     /**
