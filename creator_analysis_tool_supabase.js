@@ -758,6 +758,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         });
         filterRow.appendChild(filterButton);
 
+        // Clear All button (text button)
+        const clearAllButton = document.createElement('button');
+        clearAllButton.textContent = 'Clear All';
+        clearAllButton.style.cssText = 'background: none; border: none; color: #dc3545; cursor: pointer; font-size: 0.875rem; text-decoration: underline; padding: 0.5rem;';
+        clearAllButton.addEventListener('click', () => {
+            // Select all creators (reset filter)
+            this.selectedPortfolioCreators = new Set(uniqueCreators);
+            this.filterPortfolioBreakdownTable();
+            this.updatePortfolioFilterChips();
+            // Update badge
+            const badge = document.getElementById('filterCountBadge');
+            if (badge) {
+                badge.textContent = `${this.selectedPortfolioCreators.size} selected`;
+            }
+        });
+        filterRow.appendChild(clearAllButton);
+
         filterContainer.appendChild(filterRow);
 
         // Chips container (below the button)
@@ -849,7 +866,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Action buttons
         const actions = document.createElement('div');
-        actions.style.cssText = 'display: flex; gap: 0.5rem; justify-content: flex-end;';
+        actions.style.cssText = 'display: flex; gap: 0.5rem; justify-content: space-between;';
+
+        // Left side: Select All button
+        const selectAllButton = document.createElement('button');
+        selectAllButton.textContent = 'Select All';
+        selectAllButton.style.cssText = 'background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.875rem;';
+        selectAllButton.addEventListener('click', () => {
+            // Check all checkboxes
+            const checkboxes = listContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = true;
+                this.selectedPortfolioCreators.add(cb.value);
+            });
+        });
+        actions.appendChild(selectAllButton);
+
+        // Right side: Clear and Apply buttons
+        const rightActions = document.createElement('div');
+        rightActions.style.cssText = 'display: flex; gap: 0.5rem;';
 
         const clearButton = document.createElement('button');
         clearButton.textContent = 'Clear';
@@ -860,7 +895,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             checkboxes.forEach(cb => cb.checked = false);
             this.selectedPortfolioCreators.clear();
         });
-        actions.appendChild(clearButton);
+        rightActions.appendChild(clearButton);
 
         const applyButton = document.createElement('button');
         applyButton.textContent = 'Apply';
@@ -876,7 +911,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.updatePortfolioFilterChips();
             document.body.removeChild(overlay);
         });
-        actions.appendChild(applyButton);
+        rightActions.appendChild(applyButton);
+
+        actions.appendChild(rightActions);
 
         modal.appendChild(actions);
 
