@@ -1112,10 +1112,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const chartContainer = document.createElement('div');
         chartContainer.style.cssText = 'overflow-x: auto;';
 
-        this.renderRetentionChart(chartContainer, retentionData);
         section.appendChild(chartContainer);
-
         container.appendChild(section);
+
+        // Render chart after DOM is updated
+        setTimeout(() => {
+            this.renderRetentionChart(chartContainer, retentionData);
+        }, 0);
     }
 
     /**
