@@ -11,7 +11,8 @@ import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_s
 const CHART_IDS = {
   creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
-  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (PDP views, profile views, copies, subscriptions, paywall, stripe)
+  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (portfolio-level: PDP views, profile views, copies, liquidations)
+  premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
 }
 
 interface SyncStats {
@@ -70,7 +71,7 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
-      let premiumCreatorsData, userProfileData, portfolioMetricsData
+      let premiumCreatorsData, userProfileData, portfolioMetricsData, subscriptionMetricsData
 
       try {
         // Fetch premium creators list from Mixpanel
@@ -81,9 +82,13 @@ serve(async (req) => {
         console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
         userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
 
-        // Fetch premium creator portfolio metrics from Mixpanel
+        // Fetch premium creator portfolio metrics from Mixpanel (portfolio-level)
         console.log(`Fetching premium creator portfolio metrics from Mixpanel chart ${CHART_IDS.premiumCreatorPortfolioMetrics}...`)
         portfolioMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorPortfolioMetrics, 'Premium Creator Portfolio Metrics')
+
+        // Fetch premium creator subscription metrics from Mixpanel (creator-level)
+        console.log(`Fetching premium creator subscription metrics from Mixpanel chart ${CHART_IDS.premiumCreatorSubscriptionMetrics}...`)
+        subscriptionMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorSubscriptionMetrics, 'Premium Creator Subscription Metrics')
 
         console.log('All Mixpanel data fetched successfully')
       } catch (error: any) {
@@ -157,17 +162,33 @@ serve(async (req) => {
         console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
       }
 
-      // Process premium creator portfolio metrics (already fetched above in try-catch)
+      // Process premium creator portfolio metrics (portfolio-level: PDP views, profile views, copies, liquidations)
       const portfolioMetricsRows = processPremiumCreatorPortfolioMetrics(portfolioMetricsData)
       stats.premiumPortfolioMetricsCount = portfolioMetricsRows.length
       console.log(`Processed ${portfolioMetricsRows.length} premium creator portfolio metrics rows`)
 
-      // Store portfolio metrics in database
-      if (portfolioMetricsRows.length > 0) {
-        console.log('Upserting premium creator portfolio metrics...')
+      // Process subscription metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
+      const subscriptionMetricsMap = processSubscriptionMetrics(subscriptionMetricsData)
+      console.log(`Processed subscription metrics for ${subscriptionMetricsMap.size} creators`)
+
+      // Merge subscription metrics into portfolio metrics rows
+      const mergedMetricsRows = portfolioMetricsRows.map(row => {
+        const creatorMetrics = subscriptionMetricsMap.get(row.creator_id) || {}
+        return {
+          ...row,
+          total_subscriptions: creatorMetrics.subscriptions || 0,
+          total_paywall_views: creatorMetrics.paywallViews || 0,
+          total_stripe_modal_views: creatorMetrics.stripeModalViews || 0,
+          total_cancellations: creatorMetrics.cancellations || 0,
+        }
+      })
+
+      // Store merged metrics in database
+      if (mergedMetricsRows.length > 0) {
+        console.log('Upserting premium creator portfolio metrics with subscription data...')
         const { error: portfolioMetricsError } = await supabase
           .from('premium_creator_portfolio_metrics')
-          .upsert(portfolioMetricsRows, {
+          .upsert(mergedMetricsRows, {
             onConflict: 'creator_id,portfolio_ticker,synced_at',
             ignoreDuplicates: false,
           })
@@ -176,7 +197,7 @@ serve(async (req) => {
           console.error('Error upserting portfolio metrics:', portfolioMetricsError)
           throw portfolioMetricsError
         }
-        console.log(`✅ Upserted ${portfolioMetricsRows.length} portfolio metrics rows`)
+        console.log(`✅ Upserted ${mergedMetricsRows.length} portfolio metrics rows with subscription data`)
       }
 
       const enrichmentRows = processUserProfileData(userProfileData, null, stats)
@@ -540,16 +561,13 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
   console.log('Processing premium creator portfolio metrics from nested Mixpanel format...')
   console.log('Available metrics:', Object.keys(data.series))
 
-  // Extract all 8 metrics (A through H)
+  // Extract portfolio-level metrics only (A through D)
+  // Subscription metrics (subscriptions, paywall views, stripe modal views, cancellations) come from chart 85821646
   const metrics = {
     pdpViews: data.series['A. Total PDP Views'] || data.series['A. Total Events of Viewed Portfolio Details'] || {},
     profileViews: data.series['B. Total Profile Views'] || {},
     copies: data.series['C. Total Copies'] || {},
-    subscriptions: data.series['D. Total Subscriptions'] || {},
-    paywallViews: data.series['E. Total Paywall Views'] || {},
-    stripeModalViews: data.series['F. Total Stripe Modal Views'] || {},
-    liquidations: data.series['G. Total Liquidations'] || {},
-    cancellations: data.series['H. Total Cancellations'] || {},
+    liquidations: data.series['D. Total Liquidations'] || {},
   }
 
   // Use PDP views as the primary metric to iterate (should have most data)
@@ -594,11 +612,8 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
           total_pdp_views: getMetricValue(metrics.pdpViews),
           total_profile_views: getMetricValue(metrics.profileViews),
           total_copies: getMetricValue(metrics.copies),
-          total_subscriptions: getMetricValue(metrics.subscriptions),
-          total_paywall_views: getMetricValue(metrics.paywallViews),
-          total_stripe_modal_views: getMetricValue(metrics.stripeModalViews),
           total_liquidations: getMetricValue(metrics.liquidations),
-          total_cancellations: getMetricValue(metrics.cancellations),
+          // Subscription metrics will be merged from processSubscriptionMetrics()
           synced_at: now,
         })
       }
@@ -618,6 +633,86 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
 
   console.log(`Processed ${rows.length} portfolio metrics rows (${deduplicatedRows.length} unique by creator+portfolio)`)
   return deduplicatedRows
+}
+
+/**
+ * Process premium creator subscription metrics from Mixpanel chart 85821646
+ * Extracts creator-level subscription metrics grouped by creatorUsername -> creatorId
+ *
+ * Data structure:
+ * series -> metric -> creatorUsername -> creatorId -> {"all": value}
+ *
+ * Example:
+ * series["A. Total Subscriptions"]["@brettsimba"]["339489349854568448"]["all"] = 121
+ *
+ * Returns Map<creator_id, metrics> for efficient lookup during merge
+ */
+function processSubscriptionMetrics(data: any): Map<string, {
+  subscriptions: number,
+  paywallViews: number,
+  stripeModalViews: number,
+  cancellations: number
+}> {
+  const metricsMap = new Map()
+
+  if (!data || !data.series) {
+    console.log('No subscription metrics data')
+    return metricsMap
+  }
+
+  console.log('Processing subscription metrics from nested Mixpanel format...')
+  console.log('Available metrics:', Object.keys(data.series))
+
+  // Extract subscription-level metrics (A through D)
+  const metrics = {
+    subscriptions: data.series['A. Total Subscriptions'] || {},
+    paywallViews: data.series['B. Total Paywall Views'] || {},
+    stripeModalViews: data.series['C. Total Stripe Modal Views'] || {},
+    cancellations: data.series['D. Total Cancellations'] || {},
+  }
+
+  // Use subscriptions as the primary metric to iterate
+  const primaryMetric = metrics.subscriptions
+
+  // Iterate through creator usernames
+  for (const [creatorUsername, usernameData] of Object.entries(primaryMetric)) {
+    if (creatorUsername === '$overall') continue
+    if (typeof usernameData !== 'object') continue
+
+    // Find the creator_id (18-digit number key)
+    for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
+      if (creatorId === '$overall') continue
+      if (!/^\d+$/.test(creatorId)) continue // Skip non-numeric keys
+      if (typeof creatorIdData !== 'object') continue
+
+      // Extract metrics for this creator
+      const getMetricValue = (metricData: any): number => {
+        try {
+          const value = metricData?.[creatorUsername]?.[creatorId]
+          if (!value) return 0
+
+          // Handle both object format {"all": 123} and direct number format
+          if (typeof value === 'object' && value !== null && 'all' in value) {
+            return parseInt(String(value.all)) || 0
+          }
+
+          return parseInt(String(value)) || 0
+        } catch {
+          return 0
+        }
+      }
+
+      metricsMap.set(String(creatorId), {
+        subscriptions: getMetricValue(metrics.subscriptions),
+        paywallViews: getMetricValue(metrics.paywallViews),
+        stripeModalViews: getMetricValue(metrics.stripeModalViews),
+        cancellations: getMetricValue(metrics.cancellations),
+      })
+    }
+  }
+
+  console.log(`Processed subscription metrics for ${metricsMap.size} creators`)
+  return metricsMap
 }
 
 // ============================================================================
