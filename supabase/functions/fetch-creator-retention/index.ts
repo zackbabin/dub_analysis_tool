@@ -22,10 +22,9 @@ serve(async (req) => {
     const credentials = btoa(`${mixpanelUsername}:${mixpanelSecret}`)
     const authHeader = `Basic ${credentials}`
 
-    // Calculate dates
+    // Calculate dates - from August 1, 2025 to today
     const toDate = new Date()
-    const fromDate = new Date(toDate)
-    fromDate.setMonth(fromDate.getMonth() - 6) // 6 months back
+    const fromDate = new Date('2025-08-01')
 
     const formatDate = (date: Date) => {
       return date.toISOString().split('T')[0] // YYYY-MM-DD

@@ -1144,8 +1144,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Fetch retention data from Mixpanel via edge function
             const retentionResponse = await this.supabaseIntegration.fetchCreatorRetention();
 
-            if (retentionResponse && retentionResponse.data) {
-                this.displayPremiumCreatorRetention(retentionResponse.data);
+            if (retentionResponse && retentionResponse.rawData) {
+                this.displayPremiumCreatorRetention(retentionResponse);
             } else {
                 throw new Error('No retention data returned');
             }
@@ -1168,7 +1168,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return;
         }
 
-        if (!retentionData || !retentionData.cohorts) {
+        if (!retentionData || !retentionData.rawData) {
             container.innerHTML = '';
             return;
         }
@@ -1201,248 +1201,249 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Render retention chart using Highcharts heatmap
+     * Render retention chart as expandable table
      */
     renderRetentionChart(container, retentionData) {
-        const maxPeriods = Math.max(...retentionData.cohorts.map(c => c.retentionByPeriod.length));
+        // Parse raw data to organize by creator
+        const creatorData = this.parseRetentionByCreator(retentionData.rawData);
 
-        // Sort cohorts by subscriber count and take top 6
-        const sortedCohorts = [...retentionData.cohorts]
-            .sort((a, b) => b.firstCount - a.firstCount)
-            .slice(0, 6);
+        // Create table wrapper with border
+        const tableWrapper = document.createElement('div');
+        tableWrapper.style.cssText = 'border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;';
 
-        // Create wrapper with left sidebar and chart
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display: flex; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; min-width: 800px;';
+        // Create table
+        const table = document.createElement('table');
+        table.style.cssText = 'width: 100%; border-collapse: collapse; font-size: 0.875rem;';
 
-        // Left sidebar - cohort names
-        const sidebar = document.createElement('div');
-        sidebar.style.cssText = 'background: #f8f9fa; border-right: 1px solid #e0e0e0; min-width: 180px;';
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                <th style="text-align: left; padding: 0.75rem; font-weight: 600;">Creator Username</th>
+                <th style="text-align: right; padding: 0.75rem; font-weight: 600; width: 80px;">Count</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">&lt; 1 Month</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 1</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 2</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 3</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 4</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 5</th>
+                <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 6</th>
+            </tr>
+        `;
+        table.appendChild(thead);
 
-        // Sidebar header
-        const sidebarHeader = document.createElement('div');
-        sidebarHeader.style.cssText = 'padding: 1rem; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: 0.875rem; background: white; height: 52px; box-sizing: border-box;';
-        sidebarHeader.textContent = 'creatorUsername';
-        sidebar.appendChild(sidebarHeader);
+        // Table body
+        const tbody = document.createElement('tbody');
 
-        // Top filter label
-        const topFilterLabel = document.createElement('div');
-        topFilterLabel.style.cssText = 'padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; font-size: 0.75rem; color: #6c757d; display: flex; align-items: center; gap: 0.5rem; height: 45px; box-sizing: border-box;';
-        topFilterLabel.innerHTML = 'Top 6 <span style="cursor: pointer;">▼</span>';
-        sidebar.appendChild(topFilterLabel);
+        creatorData.forEach((creator, creatorIndex) => {
+            // Creator summary row (collapsible)
+            const summaryRow = document.createElement('tr');
+            summaryRow.style.cssText = 'border-bottom: 1px solid #dee2e6; cursor: pointer; background: white; transition: background 0.2s;';
+            summaryRow.dataset.expanded = 'false';
+            summaryRow.dataset.creatorIndex = creatorIndex;
 
-        // Cohort rows
-        const colors = ['#ff6b6b', '#51cf66', '#ffd43b', '#845ef7', '#339af0', '#ff8787'];
-        sortedCohorts.forEach((cohort, index) => {
-            const row = document.createElement('div');
-            row.style.cssText = 'padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; height: 52px; box-sizing: border-box;';
-
-            // Color dot
-            const dot = document.createElement('span');
-            dot.style.cssText = `width: 12px; height: 12px; border-radius: 50%; background: ${colors[index % colors.length]}; flex-shrink: 0;`;
-            row.appendChild(dot);
-
-            // Arrow
-            const arrow = document.createElement('span');
-            arrow.textContent = '>';
-            arrow.style.cssText = 'color: #6c757d;';
-            row.appendChild(arrow);
-
-            // Cohort date
-            const cohortLabel = document.createElement('span');
-            cohortLabel.textContent = cohort.cohortDate;
-            cohortLabel.style.cssText = 'font-size: 0.875rem;';
-            row.appendChild(cohortLabel);
-
-            sidebar.appendChild(row);
-        });
-
-        wrapper.appendChild(sidebar);
-
-        // Right side - Highcharts container
-        const chartContainer = document.createElement('div');
-        chartContainer.id = 'retentionHeatmap';
-        chartContainer.style.cssText = 'flex: 1; height: ' + (97 + (sortedCohorts.length * 52)) + 'px;';
-        wrapper.appendChild(chartContainer);
-
-        container.appendChild(wrapper);
-
-        // Transform data for Highcharts heatmap
-        const heatmapData = [];
-
-        sortedCohorts.forEach((cohort, cohortIndex) => {
-            // Add "Total Pro..." column (100%)
-            heatmapData.push({
-                x: 0,
-                y: cohortIndex,
-                value: 100,
-                count: cohort.firstCount,
-                cohort: cohort.cohortDate,
-                period: 'Total Profiles',
-                color: '#ffffff'  // White for 100%
+            // Add hover effect
+            summaryRow.addEventListener('mouseenter', () => {
+                if (summaryRow.dataset.expanded === 'false') {
+                    summaryRow.style.background = '#f8f9fa';
+                }
+            });
+            summaryRow.addEventListener('mouseleave', () => {
+                if (summaryRow.dataset.expanded === 'false') {
+                    summaryRow.style.background = 'white';
+                }
             });
 
-            // Add "< 1 Month" column
-            const firstPeriod = cohort.retentionByPeriod.find(r => r.period === 1);
-            heatmapData.push({
-                x: 1,
-                y: cohortIndex,
-                value: firstPeriod?.rate || 0,
-                count: firstPeriod?.count || 0,
-                cohort: cohort.cohortDate,
-                period: '< 1 Month',
-                color: null  // Use color axis
-            });
+            const expandIcon = document.createElement('span');
+            expandIcon.textContent = '▶';
+            expandIcon.style.cssText = 'display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;';
 
-            // Add subsequent months
-            for (let i = 1; i <= maxPeriods; i++) {
-                const periodData = cohort.retentionByPeriod.find(r => r.period === i);
-                heatmapData.push({
-                    x: i + 1,
-                    y: cohortIndex,
-                    value: periodData?.rate || 0,
-                    count: periodData?.count || 0,
-                    cohort: cohort.cohortDate,
-                    period: `Month ${i}`,
-                    color: null  // Use color axis
+            const creatorCell = document.createElement('td');
+            creatorCell.style.cssText = 'padding: 0.75rem; font-weight: 600;';
+            creatorCell.appendChild(expandIcon);
+            creatorCell.appendChild(document.createTextNode(creator.username));
+            summaryRow.appendChild(creatorCell);
+
+            // Total count
+            const countCell = document.createElement('td');
+            countCell.style.cssText = 'text-align: right; padding: 0.75rem;';
+            countCell.textContent = creator.totalCount.toLocaleString();
+            summaryRow.appendChild(countCell);
+
+            // Retention rate columns (aggregated)
+            for (let month = 0; month <= 6; month++) {
+                const cell = document.createElement('td');
+                cell.style.cssText = 'text-align: center; padding: 0.75rem;';
+                const rate = creator.aggregatedRetention[month];
+                if (rate !== null) {
+                    cell.textContent = rate.toFixed(1) + '%';
+                    cell.style.background = this.getRetentionColor(rate);
+                } else {
+                    cell.textContent = '-';
+                }
+                summaryRow.appendChild(cell);
+            }
+
+            // Click handler to expand/collapse
+            summaryRow.addEventListener('click', () => {
+                const isExpanded = summaryRow.dataset.expanded === 'true';
+                summaryRow.dataset.expanded = isExpanded ? 'false' : 'true';
+                expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+
+                // Toggle cohort rows visibility
+                const cohortRows = tbody.querySelectorAll(`tr[data-parent="${creatorIndex}"]`);
+                cohortRows.forEach(row => {
+                    row.style.display = isExpanded ? 'none' : 'table-row';
                 });
-            }
-        });
+            });
 
-        // Build x-axis categories
-        const xCategories = ['Total Pro...', '< 1 Month'];
-        for (let i = 1; i <= maxPeriods; i++) {
-            xCategories.push(`Month ${i}`);
-        }
+            tbody.appendChild(summaryRow);
 
-        // Build y-axis categories (cohort dates, reversed for top-to-bottom display)
-        const yCategories = sortedCohorts.map(c => c.cohortDate).reverse();
+            // Cohort detail rows (initially hidden)
+            creator.cohorts.forEach(cohort => {
+                const cohortRow = document.createElement('tr');
+                cohortRow.style.cssText = 'border-bottom: 1px solid #f1f3f5; display: none; background: #f8f9fa;';
+                cohortRow.dataset.parent = creatorIndex;
 
-        // Create Highcharts heatmap
-        Highcharts.chart('retentionHeatmap', {
-            chart: {
-                type: 'heatmap',
-                marginTop: 60,
-                marginBottom: 40,
-                plotBorderWidth: 1,
-                backgroundColor: 'white'
-            },
+                // Cohort date (formatted)
+                const dateCell = document.createElement('td');
+                dateCell.style.cssText = 'padding: 0.5rem 0.75rem 0.5rem 3rem; color: #6c757d;';
+                dateCell.textContent = this.formatCohortDate(cohort.cohortDate);
+                cohortRow.appendChild(dateCell);
 
-            title: {
-                text: null
-            },
+                // Cohort count
+                const cohortCountCell = document.createElement('td');
+                cohortCountCell.style.cssText = 'text-align: right; padding: 0.5rem 0.75rem; color: #6c757d;';
+                cohortCountCell.textContent = cohort.first.toLocaleString();
+                cohortRow.appendChild(cohortCountCell);
 
-            xAxis: {
-                categories: xCategories,
-                opposite: true,
-                lineWidth: 0,
-                tickWidth: 0,
-                labels: {
-                    style: {
-                        fontSize: '0.875rem',
-                        fontWeight: '600',
-                        color: '#000'
-                    }
-                }
-            },
+                // Retention rates by month
+                for (let month = 0; month <= 6; month++) {
+                    const cell = document.createElement('td');
+                    cell.style.cssText = 'text-align: center; padding: 0.5rem 0.75rem;';
 
-            yAxis: {
-                categories: yCategories,
-                title: null,
-                reversed: true,
-                lineWidth: 0,
-                tickWidth: 0,
-                labels: {
-                    enabled: false  // We show labels in left sidebar
-                }
-            },
-
-            colorAxis: {
-                min: 0,
-                max: 100,
-                stops: [
-                    [0, '#ede9fe'],      // <10%
-                    [0.1, '#ddd6fe'],    // 10%
-                    [0.3, '#c4b5fd'],    // 30%
-                    [0.5, '#a78bfa'],    // 50%
-                    [0.7, '#8b5cf6'],    // 70%
-                    [0.9, '#7c3aed'],    // 90%
-                    [1, '#6d28d9']       // 100%
-                ],
-                labels: {
-                    format: '{value}%'
-                }
-            },
-
-            legend: {
-                align: 'right',
-                layout: 'vertical',
-                margin: 0,
-                verticalAlign: 'middle',
-                symbolHeight: 200
-            },
-
-            tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                style: {
-                    color: '#ffffff'
-                },
-                borderWidth: 0,
-                formatter: function() {
-                    const point = this.point;
-                    if (point.period === 'Total Profiles') {
-                        return `<b>${point.cohort}</b><br/>` +
-                               `Period: ${point.period}<br/>` +
-                               `<b>100%</b> (${point.count.toLocaleString()} subscribers)`;
-                    }
-                    return `<b>${point.cohort}</b><br/>` +
-                           `Period: ${point.period}<br/>` +
-                           `Retention: <b>${point.value.toFixed(2)}%</b><br/>` +
-                           `Count: ${point.count.toFixed(0)}`;
-                }
-            },
-
-            series: [{
-                name: 'Retention Rate',
-                borderWidth: 1,
-                borderColor: '#e0e0e0',
-                data: heatmapData,
-                dataLabels: {
-                    enabled: true,
-                    color: '#000000',
-                    style: {
-                        textOutline: 'none',
-                        fontWeight: '600',
-                        fontSize: '0.875rem'
-                    },
-                    formatter: function() {
-                        if (this.point.period === 'Total Profiles') {
-                            return '100%';
+                    if (month === 0) {
+                        // < 1 Month column - show first renewal rate if available
+                        if (cohort.counts.length > 0) {
+                            const rate = (cohort.counts[0] / cohort.first) * 100;
+                            cell.textContent = rate.toFixed(1) + '%';
+                            cell.style.background = this.getRetentionColor(rate);
+                        } else {
+                            cell.textContent = '-';
                         }
-                        return this.point.value > 0 ? this.point.value.toFixed(1) + '%' : '-';
+                    } else {
+                        // Month 1-6
+                        const countIndex = month - 1;
+                        if (cohort.counts.length > countIndex && cohort.counts[countIndex] !== undefined) {
+                            const rate = (cohort.counts[countIndex] / cohort.first) * 100;
+                            cell.textContent = rate.toFixed(1) + '%';
+                            cell.style.background = this.getRetentionColor(rate);
+                        } else {
+                            cell.textContent = '-';
+                        }
                     }
-                },
-                nullColor: '#f8f9fa'
-            }],
 
-            credits: {
-                enabled: false
-            }
+                    cohortRow.appendChild(cell);
+                }
+
+                tbody.appendChild(cohortRow);
+            });
         });
+
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        container.appendChild(tableWrapper);
     }
 
     /**
-     * Create a retention summary card
+     * Parse retention data by creator
      */
-    createRetentionCard(label, value) {
-        const card = document.createElement('div');
-        card.style.cssText = 'background: #f8f9fa; border-radius: 8px; padding: 1rem;';
-        card.innerHTML = `
-            <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${label}</div>
-            <div style="font-size: 1.5rem; font-weight: bold;">${value}</div>
-        `;
-        return card;
+    parseRetentionByCreator(rawData) {
+        const creatorMap = new Map();
+
+        // Iterate through cohort dates
+        for (const [cohortDate, cohortData] of Object.entries(rawData)) {
+            // Iterate through creators in this cohort
+            for (const [username, data] of Object.entries(cohortData)) {
+                // Skip $overall and undefined
+                if (username === '$overall' || username === 'undefined') continue;
+
+                if (!creatorMap.has(username)) {
+                    creatorMap.set(username, {
+                        username: username,
+                        cohorts: [],
+                        totalCount: 0,
+                        aggregatedRetention: {}
+                    });
+                }
+
+                const creator = creatorMap.get(username);
+                creator.cohorts.push({
+                    cohortDate: cohortDate,
+                    first: data.first,
+                    counts: data.counts
+                });
+                creator.totalCount += data.first;
+            }
+        }
+
+        // Calculate aggregated retention rates for each creator
+        creatorMap.forEach(creator => {
+            const maxMonths = 7; // < 1 Month + Month 1-6
+
+            for (let month = 0; month < maxMonths; month++) {
+                let totalFirst = 0;
+                let totalRetained = 0;
+
+                creator.cohorts.forEach(cohort => {
+                    if (month === 0) {
+                        // < 1 Month
+                        if (cohort.counts.length > 0) {
+                            totalFirst += cohort.first;
+                            totalRetained += cohort.counts[0];
+                        }
+                    } else {
+                        // Month 1-6
+                        const countIndex = month - 1;
+                        if (cohort.counts.length > countIndex) {
+                            totalFirst += cohort.first;
+                            totalRetained += cohort.counts[countIndex];
+                        }
+                    }
+                });
+
+                creator.aggregatedRetention[month] = totalFirst > 0
+                    ? (totalRetained / totalFirst) * 100
+                    : null;
+            }
+        });
+
+        // Sort by total count descending
+        return Array.from(creatorMap.values()).sort((a, b) => b.totalCount - a.totalCount);
     }
+
+    /**
+     * Format cohort date to readable format
+     */
+    formatCohortDate(dateStr) {
+        const date = new Date(dateStr);
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+    }
+
+    /**
+     * Get background color for retention rate
+     */
+    getRetentionColor(rate) {
+        if (rate >= 80) return '#d4edda'; // Green - excellent retention
+        if (rate >= 60) return '#d1ecf1'; // Blue - good retention
+        if (rate >= 40) return '#fff3cd'; // Yellow - moderate retention
+        if (rate >= 20) return '#f8d7da'; // Light red - poor retention
+        if (rate > 0) return '#f5c6cb';   // Red - very poor retention
+        return '#ffffff';                  // White - no data
+    }
+
 
     /**
      * Load and display premium creator copy affinity section
