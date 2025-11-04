@@ -11,8 +11,8 @@ import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_s
 const CHART_IDS = {
   creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
-  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (portfolio-level: PDP views, liquidations only - copies aggregated from user data)
   premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
+  // Note: Chart 85810770 (Portfolio Metrics) is no longer used - all portfolio metrics aggregated from user_portfolio_creator_engagement
 }
 
 interface SyncStats {
@@ -71,7 +71,7 @@ serve(async (req) => {
     console.log(`Created sync log with ID: ${syncLog.id}`)
 
     try {
-      let premiumCreatorsData, userProfileData, portfolioMetricsData, subscriptionMetricsData
+      let premiumCreatorsData, userProfileData, subscriptionMetricsData
 
       try {
         // Fetch premium creators list from Mixpanel
@@ -82,9 +82,8 @@ serve(async (req) => {
         console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
         userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
 
-        // Fetch premium creator portfolio metrics from Mixpanel (portfolio-level)
-        console.log(`Fetching premium creator portfolio metrics from Mixpanel chart ${CHART_IDS.premiumCreatorPortfolioMetrics}...`)
-        portfolioMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorPortfolioMetrics, 'Premium Creator Portfolio Metrics')
+        // Note: Portfolio metrics (PDP views, copies, liquidations) are now aggregated from user-level data
+        // No need to fetch chart 85810770 - premium_creator_portfolio_metrics table is deprecated
 
         // Fetch premium creator subscription metrics from Mixpanel (creator-level)
         console.log(`Fetching premium creator subscription metrics from Mixpanel chart ${CHART_IDS.premiumCreatorSubscriptionMetrics}...`)
@@ -137,7 +136,7 @@ serve(async (req) => {
         matchedCreators: 0,
         enrichedCreators: 0,
         premiumCreatorsCount: 0,
-        premiumPortfolioMetricsCount: 0,
+        premiumPortfolioMetricsCount: 0, // Deprecated but keeping for backwards compatibility
       }
 
       // Process premium creators data
@@ -162,27 +161,9 @@ serve(async (req) => {
         console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
       }
 
-      // Process premium creator portfolio metrics (portfolio-level: PDP views, profile views, copies, liquidations)
-      const portfolioMetricsRows = processPremiumCreatorPortfolioMetrics(portfolioMetricsData)
-      stats.premiumPortfolioMetricsCount = portfolioMetricsRows.length
-      console.log(`Processed ${portfolioMetricsRows.length} premium creator portfolio metrics rows`)
-
-      // Store portfolio metrics in database
-      if (portfolioMetricsRows.length > 0) {
-        console.log('Upserting premium creator portfolio metrics...')
-        const { error: portfolioMetricsError } = await supabase
-          .from('premium_creator_portfolio_metrics')
-          .upsert(portfolioMetricsRows, {
-            onConflict: 'creator_id,portfolio_ticker,synced_at',
-            ignoreDuplicates: false,
-          })
-
-        if (portfolioMetricsError) {
-          console.error('Error upserting portfolio metrics:', portfolioMetricsError)
-          throw portfolioMetricsError
-        }
-        console.log(`✅ Upserted ${portfolioMetricsRows.length} portfolio metrics rows`)
-      }
+      // Portfolio metrics are now aggregated from user_portfolio_creator_engagement
+      // No longer syncing premium_creator_portfolio_metrics table
+      console.log('ℹ️ Portfolio metrics (PDP views, copies, liquidations) aggregated from user-level data')
 
       // Process subscription metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
       const creatorMetricsRows = processSubscriptionMetrics(subscriptionMetricsData)
@@ -565,7 +546,8 @@ function processPremiumCreatorsData(data: any): any[] {
 }
 
 /**
- * Process premium creator portfolio metrics from Mixpanel chart 85810770
+ * DEPRECATED: Process premium creator portfolio metrics from Mixpanel chart 85810770
+ * This function is no longer used - portfolio metrics are aggregated from user_portfolio_creator_engagement
  * Extracts metrics grouped by creatorUsername -> creatorId -> portfolioTicker
  *
  * Data structure:
