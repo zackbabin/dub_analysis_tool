@@ -257,19 +257,25 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
 
-            // Create 4 metric cards with conversion rates
+            // Create 4 metric cards with conversion rates and tooltips
             const cards = [
-                ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
-                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
-                ['Avg Liquidation Rate', metrics.avg_liquidation_rate ? metrics.avg_liquidation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%'],
-                ['Avg Cancellation Rate', metrics.avg_cancellation_rate ? metrics.avg_cancellation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%']
+                ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed PDP → Copied Portfolio'],
+                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
+                ['Avg Liquidation Rate', metrics.avg_liquidation_rate ? metrics.avg_liquidation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Copied Portfolio → Liquidate Portfolio'],
+                ['Avg Cancellation Rate', metrics.avg_cancellation_rate ? metrics.avg_cancellation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Subscribed to Creator → Cancelled Subscription']
             ];
 
-            cards.forEach(([title, content]) => {
+            cards.forEach(([title, content, tooltip]) => {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${title}</div>
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
+                        ${title}
+                        <span class="info-tooltip" style="display: inline-flex; align-items: center;">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">${tooltip}</span>
+                        </span>
+                    </div>
                     <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
                 `;
                 metricSummary.appendChild(card);
@@ -447,7 +453,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             // Aggregate metrics by creator (sum across all portfolios)
-            const breakdownData = premiumCreators.map(pc => {
+            const breakdownByCreator = premiumCreators.map(pc => {
                 const creatorPortfolios = portfolioEngagement?.filter(pe => pe.creator_id === pc.creator_id) || [];
                 const creatorMetric = creatorMetrics?.find(cm => cm.creator_id === pc.creator_id);
 
@@ -461,15 +467,51 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const totalPaywallViews = creatorMetric?.total_paywall_views || 0;
                 const totalCancellations = creatorMetric?.total_cancellations || 0;
 
-                // Calculate conversion rates (same formulas as metric cards)
-                const copyCvr = totalPdpViews > 0 ? (totalCopies / totalPdpViews) * 100 : 0;
-                const subscriptionCvr = totalPaywallViews > 0 ? (totalSubscriptions / totalPaywallViews) * 100 : 0;
-                const liquidationRate = totalCopies > 0 ? (totalLiquidations / totalCopies) * 100 : 0;
-                const cancellationRate = totalSubscriptions > 0 ? (totalCancellations / totalSubscriptions) * 100 : 0;
-
                 return {
                     creator_username: pc.creator_username,
                     total_copies: totalCopies,
+                    total_pdp_views: totalPdpViews,
+                    total_liquidations: totalLiquidations,
+                    total_subscriptions: totalSubscriptions,
+                    total_paywall_views: totalPaywallViews,
+                    total_cancellations: totalCancellations
+                };
+            });
+
+            // Merge @dubadvisors rows by username (group by creator_username)
+            const usernameMap = new Map();
+            breakdownByCreator.forEach(row => {
+                const username = row.creator_username;
+                if (!usernameMap.has(username)) {
+                    usernameMap.set(username, {
+                        creator_username: username,
+                        total_copies: 0,
+                        total_pdp_views: 0,
+                        total_liquidations: 0,
+                        total_subscriptions: 0,
+                        total_paywall_views: 0,
+                        total_cancellations: 0
+                    });
+                }
+                const existing = usernameMap.get(username);
+                existing.total_copies += row.total_copies;
+                existing.total_pdp_views += row.total_pdp_views;
+                existing.total_liquidations += row.total_liquidations;
+                existing.total_subscriptions += row.total_subscriptions;
+                existing.total_paywall_views += row.total_paywall_views;
+                existing.total_cancellations += row.total_cancellations;
+            });
+
+            // Calculate conversion rates after merging
+            const breakdownData = Array.from(usernameMap.values()).map(row => {
+                const copyCvr = row.total_pdp_views > 0 ? (row.total_copies / row.total_pdp_views) * 100 : 0;
+                const subscriptionCvr = row.total_paywall_views > 0 ? (row.total_subscriptions / row.total_paywall_views) * 100 : 0;
+                const liquidationRate = row.total_copies > 0 ? (row.total_liquidations / row.total_copies) * 100 : 0;
+                const cancellationRate = row.total_subscriptions > 0 ? (row.total_cancellations / row.total_subscriptions) * 100 : 0;
+
+                return {
+                    creator_username: row.creator_username,
+                    total_copies: row.total_copies,
                     copy_cvr: copyCvr,
                     subscription_cvr: subscriptionCvr,
                     liquidation_rate: liquidationRate,
