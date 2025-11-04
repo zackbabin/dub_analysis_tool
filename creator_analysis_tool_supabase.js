@@ -131,6 +131,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         portfolioBreakdownContainer.id = 'premiumPortfolioBreakdownInline';
         resultsDiv.appendChild(portfolioBreakdownContainer);
 
+        const retentionContainer = document.createElement('div');
+        retentionContainer.id = 'premiumCreatorRetentionInline';
+        resultsDiv.appendChild(retentionContainer);
+
         const affinityContainer = document.createElement('div');
         affinityContainer.id = 'premiumCreatorAffinityInline';
         resultsDiv.appendChild(affinityContainer);
@@ -143,6 +147,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Load and display premium portfolio breakdown
         await this.loadAndDisplayPremiumPortfolioBreakdown();
+
+        // Load and display premium creator retention
+        await this.loadAndDisplayPremiumCreatorRetention();
 
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
@@ -830,6 +837,147 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         table.appendChild(tbody);
 
         tableWrapper.appendChild(table);
+    }
+
+    /**
+     * Load and display premium creator retention analysis
+     */
+    async loadAndDisplayPremiumCreatorRetention() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            console.log('Loading premium creator retention...');
+
+            // Fetch retention data from Mixpanel via edge function
+            const retentionResponse = await this.supabaseIntegration.fetchCreatorRetention();
+
+            if (retentionResponse && retentionResponse.data) {
+                this.displayPremiumCreatorRetention(retentionResponse.data);
+            } else {
+                throw new Error('No retention data returned');
+            }
+        } catch (error) {
+            console.error('Error in loadAndDisplayPremiumCreatorRetention:', error);
+            const container = document.getElementById('premiumCreatorRetentionInline');
+            if (container) {
+                container.innerHTML = '<p style="color: #dc3545;">Failed to load creator retention data.</p>';
+            }
+        }
+    }
+
+    /**
+     * Display premium creator retention analysis
+     */
+    displayPremiumCreatorRetention(retentionData) {
+        const container = document.getElementById('premiumCreatorRetentionInline');
+        if (!container) {
+            console.error('❌ Container premiumCreatorRetentionInline not found!');
+            return;
+        }
+
+        if (!retentionData || !retentionData.cohorts) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '3rem';
+
+        const title = document.createElement('h1');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem;';
+        title.textContent = 'Premium Creator Retention';
+        section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
+        description.textContent = 'Monthly subscription renewal rates by creator cohort (SubscriptionCreated → SubscriptionRenewed)';
+        section.appendChild(description);
+
+        // Display summary statistics
+        if (retentionData.summary) {
+            const summaryDiv = document.createElement('div');
+            summaryDiv.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;';
+
+            const totalCard = this.createRetentionCard('Total Subscribers', retentionData.summary.totalFirstEvents.toLocaleString());
+            summaryDiv.appendChild(totalCard);
+
+            // Add average retention rates for each period
+            retentionData.summary.retentionByPeriod.forEach(periodData => {
+                const card = this.createRetentionCard(
+                    `Month ${periodData.period} Retention`,
+                    `${periodData.avgRate.toFixed(1)}%`
+                );
+                summaryDiv.appendChild(card);
+            });
+
+            section.appendChild(summaryDiv);
+        }
+
+        // Create retention cohort table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        // Calculate max periods across all cohorts
+        const maxPeriods = Math.max(...retentionData.cohorts.map(c => c.retentionByPeriod.length));
+
+        // Table header
+        const thead = document.createElement('thead');
+        let headerHtml = '<tr><th style="text-align: left;">Cohort Month</th><th style="text-align: right;">Subscribers</th>';
+        for (let i = 1; i <= maxPeriods; i++) {
+            headerHtml += `<th style="text-align: right;">Month ${i}</th>`;
+        }
+        headerHtml += '</tr>';
+        thead.innerHTML = headerHtml;
+        table.appendChild(thead);
+
+        // Table body
+        const tbody = document.createElement('tbody');
+
+        retentionData.cohorts.forEach(cohort => {
+            const tr = document.createElement('tr');
+            let rowHtml = `
+                <td style="font-weight: 600;">${cohort.cohortDate}</td>
+                <td style="text-align: right;">${cohort.firstCount.toLocaleString()}</td>
+            `;
+
+            // Add retention data for each period
+            for (let i = 1; i <= maxPeriods; i++) {
+                const periodData = cohort.retentionByPeriod.find(r => r.period === i);
+                if (periodData) {
+                    rowHtml += `<td style="text-align: right;">${periodData.rate.toFixed(1)}%<br><span style="font-size: 0.75rem; color: #6c757d;">(${periodData.count})</span></td>`;
+                } else {
+                    rowHtml += `<td style="text-align: right; color: #6c757d;">-</td>`;
+                }
+            }
+
+            tr.innerHTML = rowHtml;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        section.appendChild(tableWrapper);
+        container.appendChild(section);
+    }
+
+    /**
+     * Create a retention summary card
+     */
+    createRetentionCard(label, value) {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #f8f9fa; border-radius: 8px; padding: 1rem;';
+        card.innerHTML = `
+            <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${label}</div>
+            <div style="font-size: 1.5rem; font-weight: bold;">${value}</div>
+        `;
+        return card;
     }
 
     /**

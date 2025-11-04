@@ -795,6 +795,35 @@ class SupabaseIntegration {
     // Removed as part of performance optimization (saves 30-60s + 2 Mixpanel API calls)
 
     /**
+     * Fetch creator retention data from Mixpanel Retention API
+     * Returns subscription retention rates by creator cohort
+     */
+    async fetchCreatorRetention() {
+        console.log('Fetching creator retention data from Mixpanel...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('fetch-creator-retention', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Creator retention fetch failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error fetching creator retention');
+            }
+
+            console.log('✅ Creator retention data fetched successfully');
+            return data;
+        } catch (error) {
+            console.error('Error calling fetch-creator-retention Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Trigger event sequence processing via Supabase Edge Function
      * Processes raw event sequences and joins with conversion outcomes
      */
