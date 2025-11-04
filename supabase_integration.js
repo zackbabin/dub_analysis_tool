@@ -746,11 +746,25 @@ class SupabaseIntegration {
     /**
      * Trigger event sequence sync via Supabase Edge Function
      * Fetches user event sequences from Mixpanel and joins with conversion outcomes
+     * Skips sync if data was synced within the last hour
      */
     async triggerEventSequenceSync() {
         console.log('Triggering event sequence sync via Supabase Edge Function...');
 
         try {
+            // Check if event sequence sync is needed (skip if synced within last hour)
+            const lastEventSeqSync = await this.getLastSyncTime('event_sequences');
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+
+            if (lastEventSeqSync && lastEventSeqSync > oneHourAgo) {
+                console.log('⏭️ Skipping event sequence sync (data is recent, last synced:', new Date(lastEventSeqSync).toLocaleTimeString(), ')');
+                return {
+                    success: true,
+                    skipped: true,
+                    stats: { skipped: true, reason: 'Data synced within last hour' }
+                };
+            }
+
             const { data, error } = await this.supabase.functions.invoke('sync-event-sequences', {
                 body: {}
             });
@@ -765,6 +779,10 @@ class SupabaseIntegration {
             }
 
             console.log('✅ Event sequence sync completed successfully:', data.stats);
+
+            // Save sync timestamp
+            await this.saveLastSyncTime('event_sequences');
+
             return data;
         } catch (error) {
             console.error('Error calling event sequence sync Edge Function:', error);
