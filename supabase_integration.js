@@ -243,12 +243,12 @@ class SupabaseIntegration {
                     );
                     console.log('✅ Step 1/3 complete: User data synced successfully');
                     console.log('   Stats:', usersData.stats);
-
-                    // Save sync timestamp
-                    await this.saveLastSyncTime('mixpanel_users');
                 } catch (error) {
                     console.warn('⚠️ Step 1/3 failed: User sync timed out, continuing with existing data');
                     usersData = { stats: { failed: true, error: error.message } };
+                } finally {
+                    // Save sync timestamp even on failure to prevent repeated failed attempts
+                    await this.saveLastSyncTime('mixpanel_users');
                 }
             }
 
