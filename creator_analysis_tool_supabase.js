@@ -1345,15 +1345,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             credits: {
                 enabled: false
-            },
-
-            exporting: {
-                enabled: true,
-                buttons: {
-                    contextButton: {
-                        menuItems: ['downloadPNG', 'downloadSVG', 'downloadPDF']
-                    }
-                }
             }
         });
     }
