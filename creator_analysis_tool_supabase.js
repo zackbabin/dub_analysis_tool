@@ -127,6 +127,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         breakdownContainer.id = 'premiumCreatorBreakdownInline';
         resultsDiv.appendChild(breakdownContainer);
 
+        const portfolioBreakdownContainer = document.createElement('div');
+        portfolioBreakdownContainer.id = 'premiumPortfolioBreakdownInline';
+        resultsDiv.appendChild(portfolioBreakdownContainer);
+
         const affinityContainer = document.createElement('div');
         affinityContainer.id = 'premiumCreatorAffinityInline';
         resultsDiv.appendChild(affinityContainer);
@@ -136,6 +140,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
+
+        // Load and display premium portfolio breakdown
+        await this.loadAndDisplayPremiumPortfolioBreakdown();
 
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
@@ -599,6 +606,151 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        section.appendChild(tableWrapper);
+        container.appendChild(section);
+    }
+
+    /**
+     * Load and display premium portfolio breakdown (portfolio-level metrics)
+     */
+    async loadAndDisplayPremiumPortfolioBreakdown() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            console.log('Loading premium portfolio breakdown...');
+
+            // Get premium creator list
+            const { data: premiumCreators, error: pcError } = await this.supabaseIntegration.supabase
+                .from('premium_creators')
+                .select('creator_id, creator_username');
+
+            if (pcError || !premiumCreators) {
+                console.error('Error loading premium creators:', pcError);
+                return;
+            }
+
+            const creatorIds = premiumCreators.map(pc => pc.creator_id);
+
+            // Get portfolio-level engagement metrics (directly from the view, no aggregation needed)
+            const { data: portfolioEngagement, error: peError } = await this.supabaseIntegration.supabase
+                .from('portfolio_creator_engagement_metrics')
+                .select('*')
+                .in('creator_id', creatorIds);
+
+            if (peError) {
+                console.error('Error loading portfolio engagement metrics:', peError);
+                return;
+            }
+
+            // Create portfolio-level breakdown data
+            const portfolioData = portfolioEngagement?.map(p => {
+                // Find the creator username
+                const creator = premiumCreators.find(pc => pc.creator_id === p.creator_id);
+
+                // Calculate conversion rates at portfolio level
+                const copyCvr = p.total_pdp_views > 0 ? (p.total_copies / p.total_pdp_views) * 100 : 0;
+                const liquidationRate = p.total_copies > 0 ? (p.total_liquidations / p.total_copies) * 100 : 0;
+
+                return {
+                    creator_username: creator?.creator_username || 'Unknown',
+                    portfolio_ticker: p.portfolio_ticker,
+                    total_copies: p.total_copies || 0,
+                    copy_cvr: copyCvr,
+                    total_liquidations: p.total_liquidations || 0,
+                    liquidation_rate: liquidationRate
+                };
+            }) || [];
+
+            // Sort by creator username first, then by total_copies descending within each creator
+            portfolioData.sort((a, b) => {
+                if (a.creator_username !== b.creator_username) {
+                    return a.creator_username.localeCompare(b.creator_username);
+                }
+                return (b.total_copies || 0) - (a.total_copies || 0);
+            });
+
+            console.log(`✅ Loaded ${portfolioData.length} portfolio records for breakdown`);
+            this.displayPremiumPortfolioBreakdown(portfolioData);
+        } catch (error) {
+            console.error('Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
+        }
+    }
+
+    /**
+     * Display premium portfolio breakdown table
+     */
+    displayPremiumPortfolioBreakdown(portfolioData) {
+        const container = document.getElementById('premiumPortfolioBreakdownInline');
+        if (!container) {
+            console.error('❌ Container premiumPortfolioBreakdownInline not found!');
+            return;
+        }
+
+        if (!portfolioData || portfolioData.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '3rem';
+
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+        title.textContent = 'Premium Portfolio Breakdown';
+        section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
+        description.textContent = 'Portfolio-level conversion metrics for each premium creator';
+        section.appendChild(description);
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Premium Creator</th>
+                <th style="text-align: left;">Portfolio</th>
+                <th style="text-align: right;">Total Copies</th>
+                <th style="text-align: right;">Copy CVR</th>
+                <th style="text-align: right;">Total Liquidations</th>
+                <th style="text-align: right;">Liquidation Rate</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        // Table body - show creator name only once per creator
+        const tbody = document.createElement('tbody');
+        let lastCreator = null;
+
+        portfolioData.forEach(row => {
+            const tr = document.createElement('tr');
+            const showCreator = row.creator_username !== lastCreator;
+            lastCreator = row.creator_username;
+
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${showCreator ? row.creator_username : ''}</td>
+                <td>${row.portfolio_ticker || 'N/A'}</td>
+                <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
             `;
             tbody.appendChild(tr);
         });
