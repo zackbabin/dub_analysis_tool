@@ -167,28 +167,12 @@ serve(async (req) => {
       stats.premiumPortfolioMetricsCount = portfolioMetricsRows.length
       console.log(`Processed ${portfolioMetricsRows.length} premium creator portfolio metrics rows`)
 
-      // Process subscription metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
-      const subscriptionMetricsMap = processSubscriptionMetrics(subscriptionMetricsData)
-      console.log(`Processed subscription metrics for ${subscriptionMetricsMap.size} creators`)
-
-      // Merge subscription metrics into portfolio metrics rows
-      const mergedMetricsRows = portfolioMetricsRows.map(row => {
-        const creatorMetrics = subscriptionMetricsMap.get(row.creator_id) || {}
-        return {
-          ...row,
-          total_subscriptions: creatorMetrics.subscriptions || 0,
-          total_paywall_views: creatorMetrics.paywallViews || 0,
-          total_stripe_modal_views: creatorMetrics.stripeModalViews || 0,
-          total_cancellations: creatorMetrics.cancellations || 0,
-        }
-      })
-
-      // Store merged metrics in database
-      if (mergedMetricsRows.length > 0) {
-        console.log('Upserting premium creator portfolio metrics with subscription data...')
+      // Store portfolio metrics in database
+      if (portfolioMetricsRows.length > 0) {
+        console.log('Upserting premium creator portfolio metrics...')
         const { error: portfolioMetricsError } = await supabase
           .from('premium_creator_portfolio_metrics')
-          .upsert(mergedMetricsRows, {
+          .upsert(portfolioMetricsRows, {
             onConflict: 'creator_id,portfolio_ticker,synced_at',
             ignoreDuplicates: false,
           })
@@ -197,7 +181,28 @@ serve(async (req) => {
           console.error('Error upserting portfolio metrics:', portfolioMetricsError)
           throw portfolioMetricsError
         }
-        console.log(`✅ Upserted ${mergedMetricsRows.length} portfolio metrics rows with subscription data`)
+        console.log(`✅ Upserted ${portfolioMetricsRows.length} portfolio metrics rows`)
+      }
+
+      // Process subscription metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
+      const creatorMetricsRows = processSubscriptionMetrics(subscriptionMetricsData)
+      console.log(`Processed subscription metrics for ${creatorMetricsRows.length} creators`)
+
+      // Store creator-level metrics in separate table
+      if (creatorMetricsRows.length > 0) {
+        console.log('Upserting premium creator-level metrics...')
+        const { error: creatorMetricsError } = await supabase
+          .from('premium_creator_metrics')
+          .upsert(creatorMetricsRows, {
+            onConflict: 'creator_id,synced_at',
+            ignoreDuplicates: false,
+          })
+
+        if (creatorMetricsError) {
+          console.error('Error upserting creator metrics:', creatorMetricsError)
+          throw creatorMetricsError
+        }
+        console.log(`✅ Upserted ${creatorMetricsRows.length} creator-level metrics rows`)
       }
 
       const enrichmentRows = processUserProfileData(userProfileData, null, stats)
@@ -506,12 +511,24 @@ function processPremiumCreatorsData(data: any): any[] {
   const metricData = data.series[metricKeys[0]]
   console.log(`Found metric: ${metricKeys[0]}`)
 
+  // DEBUG: Log all creator usernames found in the data
+  const allUsernames = Object.keys(metricData).filter(k => k !== '$overall')
+  console.log(`Found ${allUsernames.length} creator usernames in Mixpanel data:`, allUsernames)
+
   // Iterate through creator usernames (skip $overall)
   for (const [creatorUsername, usernameData] of Object.entries(metricData)) {
     if (creatorUsername === '$overall') continue
-    if (typeof usernameData !== 'object') continue
+    if (typeof usernameData !== 'object') {
+      console.log(`⚠️ Skipping ${creatorUsername}: usernameData is not an object`)
+      continue
+    }
+
+    // DEBUG: Log the structure for this username
+    const keys = Object.keys(usernameData as any)
+    console.log(`Processing ${creatorUsername}, found keys:`, keys)
 
     // Find the creator_id (the 18-digit number key)
+    let foundCreatorId = false
     for (const [key, value] of Object.entries(usernameData as any)) {
       // Creator IDs are 18-digit numbers, skip $overall and other keys
       if (key !== '$overall' && /^\d+$/.test(key)) {
@@ -520,8 +537,14 @@ function processPremiumCreatorsData(data: any): any[] {
           creator_username: String(creatorUsername),
           synced_at: now,
         })
+        console.log(`✅ Added ${creatorUsername} with creator_id ${key}`)
+        foundCreatorId = true
         break // Only take the first creator_id per username
       }
+    }
+
+    if (!foundCreatorId) {
+      console.log(`⚠️ No creator_id found for ${creatorUsername}`)
     }
   }
 
@@ -529,6 +552,7 @@ function processPremiumCreatorsData(data: any): any[] {
   const seenIds = new Set<string>()
   const deduplicatedRows = rows.filter(row => {
     if (seenIds.has(row.creator_id)) {
+      console.log(`⚠️ Duplicate creator_id found: ${row.creator_id} for ${row.creator_username}`)
       return false
     }
     seenIds.add(row.creator_id)
@@ -536,6 +560,7 @@ function processPremiumCreatorsData(data: any): any[] {
   })
 
   console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by creator_id)`)
+  console.log('Final premium creators:', deduplicatedRows.map(r => r.creator_username).join(', '))
   return deduplicatedRows
 }
 
@@ -645,19 +670,15 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
  * Example:
  * series["A. Total Subscriptions"]["@brettsimba"]["339489349854568448"]["all"] = 121
  *
- * Returns Map<creator_id, metrics> for efficient lookup during merge
+ * Returns array of creator-level metric rows for premium_creator_metrics table
  */
-function processSubscriptionMetrics(data: any): Map<string, {
-  subscriptions: number,
-  paywallViews: number,
-  stripeModalViews: number,
-  cancellations: number
-}> {
-  const metricsMap = new Map()
+function processSubscriptionMetrics(data: any): any[] {
+  const rows: any[] = []
+  const now = new Date().toISOString()
 
   if (!data || !data.series) {
     console.log('No subscription metrics data')
-    return metricsMap
+    return rows
   }
 
   console.log('Processing subscription metrics from nested Mixpanel format...')
@@ -702,17 +723,20 @@ function processSubscriptionMetrics(data: any): Map<string, {
         }
       }
 
-      metricsMap.set(String(creatorId), {
-        subscriptions: getMetricValue(metrics.subscriptions),
-        paywallViews: getMetricValue(metrics.paywallViews),
-        stripeModalViews: getMetricValue(metrics.stripeModalViews),
-        cancellations: getMetricValue(metrics.cancellations),
+      rows.push({
+        creator_id: String(creatorId),
+        creator_username: String(creatorUsername),
+        total_subscriptions: getMetricValue(metrics.subscriptions),
+        total_paywall_views: getMetricValue(metrics.paywallViews),
+        total_stripe_modal_views: getMetricValue(metrics.stripeModalViews),
+        total_cancellations: getMetricValue(metrics.cancellations),
+        synced_at: now,
       })
     }
   }
 
-  console.log(`Processed subscription metrics for ${metricsMap.size} creators`)
-  return metricsMap
+  console.log(`Processed subscription metrics for ${rows.length} creators`)
+  return rows
 }
 
 // ============================================================================
