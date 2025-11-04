@@ -41,7 +41,7 @@ serve(async (req) => {
       interval_count: '6',
       unit: 'month',
       unbounded_retention: 'false',
-      on: '"properties[\'creatorUsername\']"'
+      on: 'properties["creatorUsername"]'
     })
 
     const url = `https://mixpanel.com/api/query/retention?${params.toString()}`

@@ -996,74 +996,164 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         description.textContent = 'Monthly subscription renewal rates by creator cohort (SubscriptionCreated → SubscriptionRenewed)';
         section.appendChild(description);
 
-        // Display summary statistics
-        if (retentionData.summary) {
-            const summaryDiv = document.createElement('div');
-            summaryDiv.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;';
+        // Create retention chart (Mixpanel-style visualization)
+        const chartContainer = document.createElement('div');
+        chartContainer.style.cssText = 'overflow-x: auto;';
 
-            const totalCard = this.createRetentionCard('Total Subscribers', retentionData.summary.totalFirstEvents.toLocaleString());
-            summaryDiv.appendChild(totalCard);
+        this.renderRetentionChart(chartContainer, retentionData);
+        section.appendChild(chartContainer);
 
-            // Add average retention rates for each period
-            retentionData.summary.retentionByPeriod.forEach(periodData => {
-                const card = this.createRetentionCard(
-                    `Month ${periodData.period} Retention`,
-                    `${periodData.avgRate.toFixed(1)}%`
-                );
-                summaryDiv.appendChild(card);
-            });
+        container.appendChild(section);
+    }
 
-            section.appendChild(summaryDiv);
-        }
-
-        // Create retention cohort table
-        const tableWrapper = document.createElement('div');
-        tableWrapper.className = 'table-wrapper';
-
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-
-        // Calculate max periods across all cohorts
+    /**
+     * Render retention chart in Mixpanel style
+     */
+    renderRetentionChart(container, retentionData) {
         const maxPeriods = Math.max(...retentionData.cohorts.map(c => c.retentionByPeriod.length));
 
-        // Table header
-        const thead = document.createElement('thead');
-        let headerHtml = '<tr><th style="text-align: left;">Cohort Month</th><th style="text-align: right;">Subscribers</th>';
+        // Create chart wrapper
+        const chart = document.createElement('div');
+        chart.style.cssText = 'display: flex; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; min-width: 800px;';
+
+        // Left sidebar - cohort names
+        const sidebar = document.createElement('div');
+        sidebar.style.cssText = 'background: #f8f9fa; border-right: 1px solid #e0e0e0; min-width: 180px;';
+
+        // Sidebar header
+        const sidebarHeader = document.createElement('div');
+        sidebarHeader.style.cssText = 'padding: 1rem; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: 0.875rem; background: white;';
+        sidebarHeader.textContent = 'creatorUsername';
+        sidebar.appendChild(sidebarHeader);
+
+        // Top filter label
+        const topFilterLabel = document.createElement('div');
+        topFilterLabel.style.cssText = 'padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; font-size: 0.75rem; color: #6c757d; display: flex; align-items: center; gap: 0.5rem;';
+        topFilterLabel.innerHTML = 'Top 6 <span style="cursor: pointer;">▼</span>';
+        sidebar.appendChild(topFilterLabel);
+
+        // Cohort rows - show top 6 by total subscribers
+        const sortedCohorts = [...retentionData.cohorts]
+            .sort((a, b) => b.firstCount - a.firstCount)
+            .slice(0, 6);
+
+        sortedCohorts.forEach((cohort, index) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer;';
+
+            // Color dot
+            const colors = ['#ff6b6b', '#51cf66', '#ffd43b', '#845ef7', '#339af0', '#ff8787'];
+            const dot = document.createElement('span');
+            dot.style.cssText = `width: 12px; height: 12px; border-radius: 50%; background: ${colors[index % colors.length]}; flex-shrink: 0;`;
+            row.appendChild(dot);
+
+            // Arrow
+            const arrow = document.createElement('span');
+            arrow.textContent = '>';
+            arrow.style.cssText = 'color: #6c757d;';
+            row.appendChild(arrow);
+
+            // Username
+            const username = document.createElement('span');
+            username.textContent = cohort.cohortDate;
+            username.style.cssText = 'font-size: 0.875rem;';
+            row.appendChild(username);
+
+            sidebar.appendChild(row);
+        });
+
+        chart.appendChild(sidebar);
+
+        // Right side - retention data grid
+        const dataGrid = document.createElement('div');
+        dataGrid.style.cssText = 'flex: 1; overflow-x: auto;';
+
+        // Header row with column names
+        const headerRow = document.createElement('div');
+        headerRow.style.cssText = 'display: flex; background: white; border-bottom: 1px solid #e0e0e0;';
+
+        const totalProfileColumn = document.createElement('div');
+        totalProfileColumn.style.cssText = 'padding: 1rem; border-right: 1px solid #e0e0e0; font-weight: 600; font-size: 0.875rem; min-width: 140px; display: flex; align-items: center; gap: 0.5rem;';
+        totalProfileColumn.innerHTML = 'Total Pro... <span style="cursor: pointer;">↓</span>';
+        headerRow.appendChild(totalProfileColumn);
+
+        const ltOneMonth = document.createElement('div');
+        ltOneMonth.style.cssText = 'padding: 1rem; border-right: 1px solid #e0e0e0; font-weight: 600; font-size: 0.875rem; min-width: 120px;';
+        ltOneMonth.textContent = '< 1 Month';
+        headerRow.appendChild(ltOneMonth);
+
         for (let i = 1; i <= maxPeriods; i++) {
-            headerHtml += `<th style="text-align: right;">Month ${i}</th>`;
+            const monthCol = document.createElement('div');
+            monthCol.style.cssText = 'padding: 1rem; border-right: 1px solid #e0e0e0; font-weight: 600; font-size: 0.875rem; min-width: 120px;';
+            monthCol.textContent = `Month ${i}`;
+            headerRow.appendChild(monthCol);
         }
-        headerHtml += '</tr>';
-        thead.innerHTML = headerHtml;
-        table.appendChild(thead);
 
-        // Table body
-        const tbody = document.createElement('tbody');
+        dataGrid.appendChild(headerRow);
 
-        retentionData.cohorts.forEach(cohort => {
-            const tr = document.createElement('tr');
-            let rowHtml = `
-                <td style="font-weight: 600;">${cohort.cohortDate}</td>
-                <td style="text-align: right;">${cohort.firstCount.toLocaleString()}</td>
-            `;
+        // Second header row (empty for spacing)
+        const subHeaderRow = document.createElement('div');
+        subHeaderRow.style.cssText = 'display: flex; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; height: 45px;';
+        dataGrid.appendChild(subHeaderRow);
 
-            // Add retention data for each period
+        // Data rows
+        sortedCohorts.forEach(cohort => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display: flex; border-bottom: 1px solid #e0e0e0;';
+
+            // Total column - always 100%
+            const totalCell = document.createElement('div');
+            totalCell.style.cssText = 'padding: 0.75rem 1rem; border-right: 1px solid #e0e0e0; min-width: 140px; text-align: center;';
+            totalCell.textContent = '100%';
+            row.appendChild(totalCell);
+
+            // < 1 Month column - first period data
+            const firstPeriod = cohort.retentionByPeriod.find(r => r.period === 1);
+            const ltOneMonthCell = document.createElement('div');
+            ltOneMonthCell.style.cssText = `padding: 0.75rem 1rem; border-right: 1px solid #e0e0e0; min-width: 120px; text-align: center; background: ${this.getRetentionColor(firstPeriod?.rate || 0)}; color: white; font-weight: 600;`;
+            ltOneMonthCell.textContent = firstPeriod ? `${firstPeriod.rate.toFixed(2)}%` : '-';
+            row.appendChild(ltOneMonthCell);
+
+            // Subsequent months
             for (let i = 1; i <= maxPeriods; i++) {
                 const periodData = cohort.retentionByPeriod.find(r => r.period === i);
-                if (periodData) {
-                    rowHtml += `<td style="text-align: right;">${periodData.rate.toFixed(1)}%<br><span style="font-size: 0.75rem; color: #6c757d;">(${periodData.count})</span></td>`;
+                const cell = document.createElement('div');
+
+                if (periodData && periodData.rate > 0) {
+                    const bgColor = i === 1 ? this.getRetentionColor(periodData.rate, 0.3) : this.getRetentionColor(periodData.rate, 0.5);
+                    cell.style.cssText = `padding: 0.75rem 1rem; border-right: 1px solid #e0e0e0; min-width: 120px; text-align: center; background: ${bgColor}; font-weight: 600;`;
+                    cell.innerHTML = `${periodData.rate.toFixed(2)}%`;
+
+                    // Add count below percentage if significant
+                    if (periodData.count > 0) {
+                        cell.innerHTML += `<br><span style="font-size: 0.7rem; opacity: 0.8;">${periodData.count > 0 ? periodData.count.toFixed(2) + '%*' : ''}</span>`;
+                    }
                 } else {
-                    rowHtml += `<td style="text-align: right; color: #6c757d;">-</td>`;
+                    cell.style.cssText = 'padding: 0.75rem 1rem; border-right: 1px solid #e0e0e0; min-width: 120px; text-align: center; color: #6c757d;';
+                    cell.textContent = periodData ? '0%*' : '-';
                 }
+
+                row.appendChild(cell);
             }
 
-            tr.innerHTML = rowHtml;
-            tbody.appendChild(tr);
+            dataGrid.appendChild(row);
         });
-        table.appendChild(tbody);
 
-        tableWrapper.appendChild(table);
-        section.appendChild(tableWrapper);
-        container.appendChild(section);
+        chart.appendChild(dataGrid);
+        container.appendChild(chart);
+    }
+
+    /**
+     * Get retention color based on rate (Mixpanel-style gradient)
+     */
+    getRetentionColor(rate, opacity = 1) {
+        // Purple gradient based on retention rate
+        if (rate >= 90) return `rgba(124, 58, 237, ${opacity})`;
+        if (rate >= 70) return `rgba(139, 92, 246, ${opacity})`;
+        if (rate >= 50) return `rgba(167, 139, 250, ${opacity})`;
+        if (rate >= 30) return `rgba(196, 181, 253, ${opacity})`;
+        if (rate >= 10) return `rgba(221, 214, 254, ${opacity})`;
+        return `rgba(237, 233, 254, ${opacity})`;
     }
 
     /**
