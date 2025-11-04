@@ -221,14 +221,14 @@ class SupabaseIntegration {
         console.log('🔄 Starting Mixpanel sync (3-part process)...');
 
         try {
-            // Check if user data sync is needed (skip if synced within last hour due to timeout issues)
+            // Check if user data sync is needed (skip if synced within last 6 hours due to cold start/timeout issues)
             let usersData = null;
             const lastUserSync = await this.getLastSyncTime('mixpanel_users');
-            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
 
-            if (lastUserSync && lastUserSync > oneHourAgo) {
+            if (lastUserSync && lastUserSync > sixHoursAgo) {
                 console.log('⏭️ Step 1/3: Skipping user sync (data is recent, last synced:', new Date(lastUserSync).toLocaleTimeString(), ')');
-                usersData = { stats: { skipped: true, reason: 'Data synced within last hour' } };
+                usersData = { stats: { skipped: true, reason: 'Data synced within last 6 hours' } };
             } else {
                 // Part 1: Sync users/subscribers data (with retry for cold starts)
                 // Note: sync-mixpanel-users can take 10-20s on cold start due to large dataset
