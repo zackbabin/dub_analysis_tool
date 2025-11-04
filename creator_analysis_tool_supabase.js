@@ -686,7 +686,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Display premium portfolio breakdown table
+     * Display premium portfolio breakdown table with creator filter
      */
     displayPremiumPortfolioBreakdown(portfolioData) {
         const container = document.getElementById('premiumPortfolioBreakdownInline');
@@ -700,6 +700,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return;
         }
 
+        // Store full data for filtering
+        this.portfolioBreakdownData = portfolioData;
+
         const section = document.createElement('div');
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
@@ -710,22 +713,97 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.appendChild(title);
 
         const description = document.createElement('p');
-        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 0.5rem;';
         description.textContent = 'Portfolio-level conversion metrics for each premium creator';
         section.appendChild(description);
 
-        // Create table
+        // Create multi-select filter for premium creators
+        const filterContainer = document.createElement('div');
+        filterContainer.style.cssText = 'margin-bottom: 1rem;';
+
+        const filterLabel = document.createElement('label');
+        filterLabel.style.cssText = 'font-size: 0.875rem; font-weight: 600; margin-right: 0.5rem;';
+        filterLabel.textContent = 'Filter by Creator:';
+        filterContainer.appendChild(filterLabel);
+
+        // Get unique creators sorted alphabetically
+        const uniqueCreators = [...new Set(portfolioData.map(p => p.creator_username))].sort();
+
+        const select = document.createElement('select');
+        select.id = 'portfolioCreatorFilter';
+        select.multiple = true;
+        select.style.cssText = 'padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-width: 300px; max-height: 200px;';
+
+        uniqueCreators.forEach(creator => {
+            const option = document.createElement('option');
+            option.value = creator;
+            option.textContent = creator;
+            option.selected = true; // Select all by default
+            select.appendChild(option);
+        });
+
+        // Add change handler to filter table
+        select.addEventListener('change', () => {
+            this.filterPortfolioBreakdownTable();
+        });
+
+        filterContainer.appendChild(select);
+
+        const filterHint = document.createElement('p');
+        filterHint.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem; font-style: italic;';
+        filterHint.textContent = 'Hold Ctrl/Cmd to select multiple creators';
+        filterContainer.appendChild(filterHint);
+
+        section.appendChild(filterContainer);
+
+        // Create table wrapper and table
         const tableWrapper = document.createElement('div');
         tableWrapper.className = 'table-wrapper';
+        tableWrapper.id = 'portfolioBreakdownTableWrapper';
+
+        section.appendChild(tableWrapper);
+        container.appendChild(section);
+
+        // Render initial table with all creators selected
+        this.renderPortfolioBreakdownTable(portfolioData);
+    }
+
+    /**
+     * Filter portfolio breakdown table based on selected creators
+     */
+    filterPortfolioBreakdownTable() {
+        const select = document.getElementById('portfolioCreatorFilter');
+        if (!select || !this.portfolioBreakdownData) return;
+
+        const selectedCreators = Array.from(select.selectedOptions).map(opt => opt.value);
+        const filteredData = this.portfolioBreakdownData.filter(p =>
+            selectedCreators.includes(p.creator_username)
+        );
+
+        this.renderPortfolioBreakdownTable(filteredData);
+    }
+
+    /**
+     * Render portfolio breakdown table with given data
+     */
+    renderPortfolioBreakdownTable(portfolioData) {
+        const tableWrapper = document.getElementById('portfolioBreakdownTableWrapper');
+        if (!tableWrapper) return;
+
+        tableWrapper.innerHTML = '';
+
+        if (portfolioData.length === 0) {
+            tableWrapper.innerHTML = '<p style="color: #6c757d; font-style: italic;">No portfolios match the selected creators.</p>';
+            return;
+        }
 
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header
+        // Table header (removed Premium Creator column)
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
-                <th style="text-align: left;">Premium Creator</th>
                 <th style="text-align: left;">Portfolio</th>
                 <th style="text-align: right;">Total Copies</th>
                 <th style="text-align: right;">Copy CVR</th>
@@ -735,18 +813,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         `;
         table.appendChild(thead);
 
-        // Table body - show creator name only once per creator
+        // Table body
         const tbody = document.createElement('tbody');
-        let lastCreator = null;
 
         portfolioData.forEach(row => {
             const tr = document.createElement('tr');
-            const showCreator = row.creator_username !== lastCreator;
-            lastCreator = row.creator_username;
-
             tr.innerHTML = `
-                <td style="font-weight: 600;">${showCreator ? row.creator_username : ''}</td>
-                <td>${row.portfolio_ticker || 'N/A'}</td>
+                <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
@@ -757,8 +830,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         table.appendChild(tbody);
 
         tableWrapper.appendChild(table);
-        section.appendChild(tableWrapper);
-        container.appendChild(section);
     }
 
     /**
