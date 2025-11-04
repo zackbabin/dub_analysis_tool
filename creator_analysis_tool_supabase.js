@@ -580,10 +580,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: left;">Premium Creator</th>
                 <th style="text-align: right;">Total Copies</th>
                 <th style="text-align: right;">Copy CVR</th>
-                <th style="text-align: right;">Total Subscriptions</th>
-                <th style="text-align: right;">Subscription CVR</th>
                 <th style="text-align: right;">Total Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
+                <th style="text-align: right;">Total Subscriptions</th>
+                <th style="text-align: right;">Subscription CVR</th>
                 <th style="text-align: right;">Cancellation Rate</th>
             </tr>
         `;
@@ -601,10 +601,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
-                <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
+                <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
             `;
             tbody.appendChild(tr);
