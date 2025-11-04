@@ -229,12 +229,13 @@ export function processPortfolioCreatorPairs(
 
   // Now process each unique combination
   allCombinations.forEach(combinationKey => {
-    const [distinctId, portfolioTicker, creatorId] = combinationKey.split('|')
+    const [distinctId, rawPortfolioTicker, creatorId] = combinationKey.split('|')
 
     // Get the username data from any metric that has it (prefer PDP metric)
-    let usernameData = pdpMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    // Use rawPortfolioTicker (as it appears in Mixpanel) for lookup
+    let usernameData = pdpMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = copiesMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = liquidationsMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
 
     if (!usernameData || typeof usernameData !== 'object') return
 
@@ -255,9 +256,12 @@ export function processPortfolioCreatorPairs(
       return
     }
 
+    // Normalize portfolio ticker: ensure it always has $ prefix
+    const portfolioTicker = rawPortfolioTicker.startsWith('$') ? rawPortfolioTicker : '$' + rawPortfolioTicker
+
     // Extract PDP view count
     let pdpCount = 0
-    const pdpData = pdpMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    const pdpData = pdpMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
     if (pdpData) {
       if (pdpData['$overall']) {
         const overallData = pdpData['$overall']
@@ -275,7 +279,7 @@ export function processPortfolioCreatorPairs(
     // Extract copy count
     let copyCount = 0
     let didCopy = false
-    const copyData = copiesMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    const copyData = copiesMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
     if (copyData) {
       if (copyData['$overall']) {
         const overallCopyData = copyData['$overall']
@@ -293,7 +297,7 @@ export function processPortfolioCreatorPairs(
 
     // Extract liquidation count
     let liquidationCount = 0
-    const liqData = liquidationsMetric?.[distinctId]?.[portfolioTicker]?.[creatorId]
+    const liqData = liquidationsMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
     if (liqData) {
       if (liqData['$overall']) {
         const overallLiqData = liqData['$overall']

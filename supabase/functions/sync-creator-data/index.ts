@@ -11,7 +11,7 @@ import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_s
 const CHART_IDS = {
   creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
-  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (portfolio-level: PDP views, profile views, copies, liquidations)
+  premiumCreatorPortfolioMetrics: '85810770',  // Premium Creator Portfolio Metrics (portfolio-level: PDP views, liquidations only - copies aggregated from user data)
   premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
 }
 
@@ -586,14 +586,19 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
   console.log('Processing premium creator portfolio metrics from nested Mixpanel format...')
   console.log('Available metrics:', Object.keys(data.series))
 
-  // Extract portfolio-level metrics only (A through D)
+  // Extract portfolio-level metrics only (A and D)
+  // Note: Profile views and copies are NOT used from this table - they are aggregated from user-level data
   // Subscription metrics (subscriptions, paywall views, stripe modal views, cancellations) come from chart 85821646
   const metrics = {
     pdpViews: data.series['A. Total PDP Views'] || data.series['A. Total Events of Viewed Portfolio Details'] || {},
-    profileViews: data.series['B. Total Profile Views'] || {},
-    copies: data.series['C. Total Copies'] || {},
     liquidations: data.series['D. Total Liquidations'] || {},
   }
+
+  // DEBUG: Log which metrics are available
+  console.log('Metrics availability:', {
+    pdpViews: Object.keys(metrics.pdpViews).length > 0,
+    liquidations: Object.keys(metrics.liquidations).length > 0
+  })
 
   // Use PDP views as the primary metric to iterate (should have most data)
   const primaryMetric = metrics.pdpViews
@@ -635,10 +640,7 @@ function processPremiumCreatorPortfolioMetrics(data: any): any[] {
           creator_username: String(creatorUsername),
           portfolio_ticker: String(portfolioTicker),
           total_pdp_views: getMetricValue(metrics.pdpViews),
-          total_profile_views: getMetricValue(metrics.profileViews),
-          total_copies: getMetricValue(metrics.copies),
           total_liquidations: getMetricValue(metrics.liquidations),
-          // Subscription metrics will be merged from processSubscriptionMetrics()
           synced_at: now,
         })
       }

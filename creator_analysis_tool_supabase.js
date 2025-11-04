@@ -123,12 +123,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         summaryContainer.id = 'creatorSummaryStatsInline';
         resultsDiv.appendChild(summaryContainer);
 
+        const breakdownContainer = document.createElement('div');
+        breakdownContainer.id = 'premiumCreatorBreakdownInline';
+        resultsDiv.appendChild(breakdownContainer);
+
         const affinityContainer = document.createElement('div');
         affinityContainer.id = 'premiumCreatorAffinityInline';
         resultsDiv.appendChild(affinityContainer);
 
         // Display results - SKIP behavioral analysis
         this.displayCreatorSummaryStats(results.summaryStats);
+
+        // Load and display premium creator breakdown
+        await this.loadAndDisplayPremiumCreatorBreakdown();
 
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
@@ -390,6 +397,150 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             dataScope.textContent = 'Data for KYC approved users from the last 30 days';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
+    }
+
+    /**
+     * Load and display premium creator breakdown table
+     */
+    async loadAndDisplayPremiumCreatorBreakdown() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            console.log('Loading premium creator breakdown...');
+
+            // Get premium creator list
+            const { data: premiumCreators, error: pcError } = await this.supabaseIntegration.supabase
+                .from('premium_creators')
+                .select('creator_id, creator_username');
+
+            if (pcError || !premiumCreators) {
+                console.error('Error loading premium creators:', pcError);
+                return;
+            }
+
+            const creatorIds = premiumCreators.map(pc => pc.creator_id);
+
+            // Get portfolio-level engagement metrics (same source as metric cards)
+            // This aggregates from user-level data in user_portfolio_creator_engagement
+            const { data: portfolioEngagement, error: peError } = await this.supabaseIntegration.supabase
+                .from('portfolio_creator_engagement_metrics')
+                .select('*')
+                .in('creator_id', creatorIds);
+
+            if (peError) {
+                console.error('Error loading portfolio engagement metrics:', peError);
+                return;
+            }
+
+            // Aggregate metrics by creator (sum across all portfolios)
+            const breakdownData = premiumCreators.map(pc => {
+                const creatorPortfolios = portfolioEngagement?.filter(pe => pe.creator_id === pc.creator_id) || [];
+
+                // Sum portfolio-level metrics (same as metric cards calculation)
+                const totalCopies = creatorPortfolios.reduce((sum, p) => sum + (p.total_copies || 0), 0);
+                const totalPdpViews = creatorPortfolios.reduce((sum, p) => sum + (p.total_pdp_views || 0), 0);
+                const totalLiquidations = creatorPortfolios.reduce((sum, p) => sum + (p.total_liquidations || 0), 0);
+                const totalSubscriptions = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_subscriptions || 0) : 0;
+                const totalPaywallViews = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_paywall_views || 0) : 0;
+                const totalCancellations = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_cancellations || 0) : 0;
+
+                // Calculate conversion rates (same formulas as metric cards)
+                const copyCvr = totalPdpViews > 0 ? (totalCopies / totalPdpViews) * 100 : 0;
+                const subscriptionCvr = totalPaywallViews > 0 ? (totalSubscriptions / totalPaywallViews) * 100 : 0;
+                const liquidationRate = totalCopies > 0 ? (totalLiquidations / totalCopies) * 100 : 0;
+                const cancellationRate = totalSubscriptions > 0 ? (totalCancellations / totalSubscriptions) * 100 : 0;
+
+                return {
+                    creator_username: pc.creator_username,
+                    total_copies: totalCopies,
+                    copy_cvr: copyCvr,
+                    subscription_cvr: subscriptionCvr,
+                    liquidation_rate: liquidationRate,
+                    cancellation_rate: cancellationRate
+                };
+            });
+
+            console.log(`✅ Loaded ${breakdownData.length} premium creators for breakdown`);
+            this.displayPremiumCreatorBreakdown(breakdownData);
+        } catch (error) {
+            console.error('Error in loadAndDisplayPremiumCreatorBreakdown:', error);
+        }
+    }
+
+    /**
+     * Display premium creator breakdown table
+     */
+    displayPremiumCreatorBreakdown(breakdownData) {
+        const container = document.getElementById('premiumCreatorBreakdownInline');
+        if (!container) {
+            console.error('❌ Container premiumCreatorBreakdownInline not found!');
+            return;
+        }
+
+        if (!breakdownData || breakdownData.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '3rem';
+
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+        title.textContent = 'Premium Creator Breakdown';
+        section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
+        description.textContent = 'Conversion metrics breakdown for each premium creator';
+        section.appendChild(description);
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Premium Creator</th>
+                <th style="text-align: right;">Copy CVR</th>
+                <th style="text-align: right;">Subscription CVR</th>
+                <th style="text-align: right;">Liquidation Rate</th>
+                <th style="text-align: right;">Cancellation Rate</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        // Table body - sort by total_copies descending
+        const tbody = document.createElement('tbody');
+        const sortedData = [...breakdownData].sort((a, b) =>
+            (b.total_copies || 0) - (a.total_copies || 0)
+        );
+
+        sortedData.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
+                <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        section.appendChild(tableWrapper);
+        container.appendChild(section);
     }
 
     /**
