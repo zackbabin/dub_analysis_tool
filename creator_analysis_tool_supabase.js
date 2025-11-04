@@ -435,17 +435,31 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
+            // Get subscription metrics from premium_creator_metrics (creator-level)
+            const { data: creatorMetrics, error: cmError } = await this.supabaseIntegration.supabase
+                .from('premium_creator_metrics')
+                .select('*')
+                .in('creator_id', creatorIds);
+
+            if (cmError) {
+                console.error('Error loading creator metrics:', cmError);
+                return;
+            }
+
             // Aggregate metrics by creator (sum across all portfolios)
             const breakdownData = premiumCreators.map(pc => {
                 const creatorPortfolios = portfolioEngagement?.filter(pe => pe.creator_id === pc.creator_id) || [];
+                const creatorMetric = creatorMetrics?.find(cm => cm.creator_id === pc.creator_id);
 
                 // Sum portfolio-level metrics (same as metric cards calculation)
                 const totalCopies = creatorPortfolios.reduce((sum, p) => sum + (p.total_copies || 0), 0);
                 const totalPdpViews = creatorPortfolios.reduce((sum, p) => sum + (p.total_pdp_views || 0), 0);
                 const totalLiquidations = creatorPortfolios.reduce((sum, p) => sum + (p.total_liquidations || 0), 0);
-                const totalSubscriptions = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_subscriptions || 0) : 0;
-                const totalPaywallViews = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_paywall_views || 0) : 0;
-                const totalCancellations = creatorPortfolios.length > 0 ? (creatorPortfolios[0].total_cancellations || 0) : 0;
+
+                // Get subscription metrics from creator-level table
+                const totalSubscriptions = creatorMetric?.total_subscriptions || 0;
+                const totalPaywallViews = creatorMetric?.total_paywall_views || 0;
+                const totalCancellations = creatorMetric?.total_cancellations || 0;
 
                 // Calculate conversion rates (same formulas as metric cards)
                 const copyCvr = totalPdpViews > 0 ? (totalCopies / totalPdpViews) * 100 : 0;
