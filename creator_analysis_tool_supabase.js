@@ -780,7 +780,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const formattedData = portfolioData?.map(p => ({
                 creator_username: p.creator_username || 'Unknown',
                 portfolio_ticker: p.portfolio_ticker,
-                created_at: p.created_at || null,
+                inception_date: p.inception_date || null,
                 total_copies: p.total_copies || 0,
                 copy_cvr: p.copy_cvr || 0,
                 total_liquidations: p.total_liquidations || 0,
@@ -1194,17 +1194,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 capitalDisplay = `$${row.total_copy_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
 
-            // Format creation date as "Jul 14, 2025"
-            let creationDateDisplay = '—';
-            if (row.created_at) {
-                const date = new Date(row.created_at);
+            // Format inception date as "Jul 14, 2025"
+            let inceptionDateDisplay = '—';
+            if (row.inception_date) {
+                const date = new Date(row.inception_date);
                 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                creationDateDisplay = `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+                inceptionDateDisplay = `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
             }
 
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
-                <td style="text-align: left;">${creationDateDisplay}</td>
+                <td style="text-align: left;">${inceptionDateDisplay}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>

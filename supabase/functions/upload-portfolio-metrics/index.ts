@@ -57,7 +57,7 @@ serve(async (req) => {
       if (!aggregationMap.has(ticker)) {
         aggregationMap.set(ticker, {
           portfolio_ticker: ticker,
-          created_at: record.created_at,
+          inception_date: record.inception_date,
           total_returns_percentages: [],
           total_positions: [],
           uploaded_at: record.uploaded_at
@@ -75,7 +75,7 @@ serve(async (req) => {
     // Calculate aggregated values
     const aggregatedRecords = Array.from(aggregationMap.values()).map(agg => ({
       portfolio_ticker: agg.portfolio_ticker,
-      created_at: agg.created_at,
+      inception_date: agg.inception_date,
       total_returns_percentage: agg.total_returns_percentages.length > 0
         ? agg.total_returns_percentages.reduce((a, b) => a + b, 0) / agg.total_returns_percentages.length
         : null,
@@ -174,7 +174,7 @@ serve(async (req) => {
 
 /**
  * Parse portfolio metrics CSV
- * Expected columns: id, createdat, createdby, accountid, strategyid, strategyticker, totalreturnspercentage,
+ * Expected columns: id, inceptiondate, createdby, accountid, strategyid, strategyticker, totalreturnspercentage,
  *                   totalreturnsvalue, dailyreturnspercentage, dailyreturnsvalue, totalposition, rank
  */
 function parsePortfolioMetricsCSV(csvContent: string): any[] {
@@ -189,7 +189,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
   // Parse header
   const header = lines[0].split(',').map(h => h.trim().toLowerCase())
   const strategyTickerIdx = header.indexOf('strategyticker')
-  const createdAtIdx = header.indexOf('createdat')
+  const inceptionDateIdx = header.indexOf('inceptiondate')
   const totalReturnsPctIdx = header.indexOf('totalreturnspercentage')
   const totalReturnsValIdx = header.indexOf('totalreturnsvalue')
   const dailyReturnsPctIdx = header.indexOf('dailyreturnspercentage')
@@ -200,7 +200,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
     throw new Error('CSV missing required columns: strategyticker, totalreturnspercentage, totalposition')
   }
 
-  console.log(`Found columns at indices: strategyticker=${strategyTickerIdx}, createdat=${createdAtIdx}, totalreturns%=${totalReturnsPctIdx}, totalposition=${totalPositionIdx}`)
+  console.log(`Found columns at indices: strategyticker=${strategyTickerIdx}, inceptiondate=${inceptionDateIdx}, totalreturns%=${totalReturnsPctIdx}, totalposition=${totalPositionIdx}`)
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -210,7 +210,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
     const cols = line.split(',').map(c => c.trim())
 
     const strategyTicker = cols[strategyTickerIdx]
-    const createdAt = createdAtIdx !== -1 ? cols[createdAtIdx] : null
+    const inceptionDate = inceptionDateIdx !== -1 ? cols[inceptionDateIdx] : null
     const totalReturnsPct = cols[totalReturnsPctIdx]
     const totalReturnsVal = cols[totalReturnsValIdx]
     const dailyReturnsPct = cols[dailyReturnsPctIdx]
@@ -222,14 +222,14 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
       continue
     }
 
-    // Parse createdat timestamp (format: "2025-11-04 22:01:17")
-    let parsedCreatedAt = null
-    if (createdAt) {
+    // Parse inceptiondate timestamp (format: "2025-11-04 22:01:17")
+    let parsedInceptionDate = null
+    if (inceptionDate) {
       try {
         // Parse the timestamp and convert to ISO format
-        parsedCreatedAt = new Date(createdAt).toISOString()
+        parsedInceptionDate = new Date(inceptionDate).toISOString()
       } catch (error) {
-        console.warn(`Row ${i}: invalid createdat format: ${createdAt}`)
+        console.warn(`Row ${i}: invalid inceptiondate format: ${inceptionDate}`)
       }
     }
 
@@ -238,7 +238,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
 
     records.push({
       portfolio_ticker: portfolioTicker,
-      created_at: parsedCreatedAt,
+      inception_date: parsedInceptionDate,
       total_returns_percentage: totalReturnsPct ? parseFloat(totalReturnsPct) : null,
       total_returns_value: totalReturnsVal ? parseFloat(totalReturnsVal) : null,
       daily_returns_percentage: dailyReturnsPct ? parseFloat(dailyReturnsPct) : null,
