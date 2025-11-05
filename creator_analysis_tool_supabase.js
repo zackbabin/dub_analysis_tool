@@ -2362,20 +2362,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         this.showProgress(0);
 
         try {
-            this.updateProgress(20, `Uploading ${file.name}...`);
+            this.updateProgress(10, `Uploading ${file.name}...`);
             console.log(`📁 Reading portfolio metrics CSV file: ${file.name}`);
 
             // Read file as text
             const csvContent = await file.text();
             console.log(`✅ Read ${csvContent.length} characters from CSV`);
 
-            this.updateProgress(40, 'Processing CSV data...');
+            // Add small delay to ensure progress bar is visible
+            await new Promise(resolve => setTimeout(resolve, 400));
+            this.updateProgress(30, 'Uploading to database...');
             console.log('📤 Uploading portfolio metrics to database...');
 
             // Call edge function to process and store CSV
             const { data: uploadResponse, error: uploadError } = await this.supabaseIntegration.supabase.functions.invoke('upload-portfolio-metrics', {
                 body: csvContent
             });
+
+            // Add delay to show progress
+            await new Promise(resolve => setTimeout(resolve, 300));
+            this.updateProgress(50, 'Processing records...');
 
             if (uploadError) {
                 console.error('Edge function error:', uploadError);
@@ -2433,7 +2439,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} records)`, 'success');
             }
 
-            this.updateProgress(60, 'Fetching portfolio mapping from Mixpanel...');
+            this.updateProgress(65, 'Syncing portfolio mapping...');
             console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
 
             // Fetch portfolio mapping from Mixpanel
@@ -2451,7 +2457,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             console.log('✅ Portfolio mapping synced');
 
-            this.updateProgress(80, 'Refreshing Portfolio Breakdown table...');
+            // Add delay before final step
+            await new Promise(resolve => setTimeout(resolve, 300));
+            this.updateProgress(85, 'Refreshing table...');
 
             // Only refresh the Portfolio Breakdown table, not all sections
             await this.loadAndDisplayPremiumPortfolioBreakdown();
@@ -2459,6 +2467,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Save updated HTML to cache
             this.saveToUnifiedCache();
 
+            // Final delay to show completion
+            await new Promise(resolve => setTimeout(resolve, 300));
             this.updateProgress(100, 'Complete!');
 
             // Show success message with details
@@ -2467,13 +2477,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 : '';
             this.addStatusMessage(`✅ Portfolio metrics refreshed with latest data${duplicatesMsg}`, 'success');
 
-            // Hide progress bar after 2 seconds
+            // Hide progress bar after 1.5 seconds
             setTimeout(() => {
                 const progressSection = document.getElementById('unifiedProgressSection');
                 if (progressSection) {
                     progressSection.style.display = 'none';
                 }
-            }, 2000);
+            }, 1500);
         } catch (error) {
             console.error('Portfolio metrics upload error:', error);
             this.addStatusMessage(`❌ Upload failed: ${error.message}`, 'error');
