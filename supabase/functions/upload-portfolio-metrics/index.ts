@@ -50,35 +50,57 @@ serve(async (req) => {
       throw new Error('No valid records found in CSV')
     }
 
-    // Clear existing data and insert new data
-    console.log('Clearing existing portfolio performance metrics data...')
-    const { error: deleteError } = await supabase
-      .from('portfolio_performance_metrics')
-      .delete()
-      .neq('strategy_id', '__never_match__') // Delete all rows
+    // Use upsert instead of delete+insert to ensure data persists even if function times out
+    // This way, partial data is still saved if the function doesn't complete
+    console.log('Upserting portfolio performance metrics data...')
+    const batchSize = 1000
+    let totalInserted = 0
+    let errors = []
 
-    if (deleteError) {
-      console.error('Error clearing portfolio performance metrics:', deleteError)
-      throw deleteError
+    for (let i = 0; i < metricsRecords.length; i += batchSize) {
+      const batch = metricsRecords.slice(i, i + batchSize)
+      const batchNum = Math.floor(i / batchSize) + 1
+      const totalBatches = Math.ceil(metricsRecords.length / batchSize)
+
+      console.log(`Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`)
+
+      try {
+        const { error: upsertError } = await supabase
+          .from('portfolio_performance_metrics')
+          .upsert(batch, {
+            onConflict: 'strategy_id',
+            ignoreDuplicates: false
+          })
+
+        if (upsertError) {
+          console.error(`Error upserting batch ${batchNum}:`, upsertError)
+          errors.push({ batch: batchNum, error: upsertError.message })
+          // Continue with next batch instead of throwing
+        } else {
+          totalInserted += batch.length
+          console.log(`✅ Batch ${batchNum} completed`)
+        }
+      } catch (error) {
+        console.error(`Exception in batch ${batchNum}:`, error)
+        errors.push({ batch: batchNum, error: error.message })
+        // Continue with next batch
+      }
     }
 
-    console.log('Inserting new portfolio performance metrics data...')
-    const { error: insertError } = await supabase
-      .from('portfolio_performance_metrics')
-      .insert(metricsRecords)
+    console.log(`✅ Uploaded ${totalInserted} of ${metricsRecords.length} portfolio metrics records`)
 
-    if (insertError) {
-      console.error('Error inserting portfolio metrics:', insertError)
-      throw insertError
+    if (errors.length > 0) {
+      console.warn(`⚠️ ${errors.length} batch(es) had errors:`, errors)
     }
-
-    console.log(`✅ Uploaded ${metricsRecords.length} portfolio metrics records`)
 
     return new Response(
       JSON.stringify({
         success: true,
         stats: {
-          recordsUploaded: metricsRecords.length
+          recordsUploaded: totalInserted,
+          totalRecords: metricsRecords.length,
+          errors: errors.length,
+          partialUpload: errors.length > 0
         }
       }),
       {

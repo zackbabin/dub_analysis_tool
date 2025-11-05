@@ -2418,6 +2418,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         this.clearStatus();
+
+        // Show the unified progress bar
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+
         this.showProgress(0);
 
         try {
@@ -2437,7 +2444,49 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             });
 
             if (uploadError) {
-                throw new Error(uploadError.message || 'Failed to upload portfolio metrics');
+                console.error('Edge function error:', uploadError);
+                const errorMsg = uploadError.message || 'Failed to upload portfolio metrics';
+                throw new Error(`Upload failed: ${errorMsg}`);
+            }
+
+            if (!uploadResponse) {
+                // Function timed out, but data might still be in DB
+                console.warn('Upload function timed out, but data may have been partially saved');
+                this.addStatusMessage('⚠️ Upload timed out - checking for saved data...', 'warning');
+
+                // Continue to refresh display to show whatever data was saved
+                this.updateProgress(60, 'Fetching portfolio mapping from Mixpanel...');
+                console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
+
+                // Fetch portfolio mapping from Mixpanel
+                const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
+                    body: {}
+                });
+
+                if (mappingError) {
+                    console.warn('Warning fetching portfolio mapping:', mappingError);
+                }
+
+                this.updateProgress(80, 'Refreshing display with saved data...');
+
+                // Refresh display to show whatever data was saved
+                this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
+                this.outputContainer.innerHTML = '';
+                await this.displayResults({ summaryStats: {} });
+                this.updateTimestampAndDataScope();
+                this.saveToUnifiedCache();
+
+                this.updateProgress(100, 'Complete!');
+                this.addStatusMessage('⚠️ Upload timed out, but saved data has been loaded. You may need to re-upload to complete.', 'warning');
+
+                setTimeout(() => {
+                    const progressSection = document.getElementById('unifiedProgressSection');
+                    if (progressSection) {
+                        progressSection.style.display = 'none';
+                    }
+                }, 3000);
+
+                return; // Exit early
             }
 
             if (!uploadResponse.success) {
@@ -2445,7 +2494,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             console.log(`✅ Uploaded ${uploadResponse.stats.recordsUploaded} portfolio metrics records`);
-            this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} records)`, 'success');
+
+            // Show appropriate message based on upload status
+            if (uploadResponse.stats.partialUpload) {
+                this.addStatusMessage(`⚠️ Partial upload: ${uploadResponse.stats.recordsUploaded} of ${uploadResponse.stats.totalRecords} records saved (${uploadResponse.stats.errors} batches failed)`, 'warning');
+            } else {
+                this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} records)`, 'success');
+            }
 
             this.updateProgress(60, 'Fetching portfolio mapping from Mixpanel...');
             console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
