@@ -14,6 +14,31 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Override: Use unified progress bar instead of creator-specific one
+     */
+    showProgress(percent) {
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+        this.updateProgress(percent);
+    }
+
+    /**
+     * Override: Use unified progress bar for updates
+     */
+    updateProgress(percent, message = null) {
+        const progressBar = document.getElementById('unifiedProgressBar');
+        if (progressBar) {
+            progressBar.style.width = `${percent}%`;
+            const label = progressBar.querySelector('div');
+            if (label) {
+                label.textContent = message || `${percent}%`;
+            }
+        }
+    }
+
+    /**
      * Override: Create UI with Supabase-specific configuration
      */
     createUI(container, outputContainer) {
@@ -184,7 +209,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data for KYC approved users since 8/27/2025';
+            dataScope.textContent = 'User and Creator data from last 6 months';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
 
@@ -499,7 +524,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data for KYC approved users since 8/27/2025';
+            dataScope.textContent = 'User and Creator data from last 6 months';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
     }
