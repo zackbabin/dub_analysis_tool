@@ -1,17 +1,25 @@
 -- Add portfolio_ticker column as the new primary key
 -- Remove strategy_id column (no longer needed)
 
--- Drop existing primary key constraint
-ALTER TABLE portfolio_performance_metrics DROP CONSTRAINT IF EXISTS portfolio_performance_metrics_pkey;
+-- Step 1: Drop the materialized view that depends on strategy_id
+DROP MATERIALIZED VIEW IF EXISTS portfolio_breakdown_with_metrics CASCADE;
 
--- Add portfolio_ticker column if it doesn't exist
+-- Step 2: Add portfolio_ticker column if it doesn't exist
 ALTER TABLE portfolio_performance_metrics ADD COLUMN IF NOT EXISTS portfolio_ticker TEXT;
 
--- Set portfolio_ticker as primary key
-ALTER TABLE portfolio_performance_metrics ADD PRIMARY KEY (portfolio_ticker);
+-- Step 3: Since we're switching from strategy_id to portfolio_ticker,
+-- and existing data uses strategy_id which doesn't map to portfolio_ticker,
+-- we need to clear the table (data will be re-uploaded with new CSV)
+TRUNCATE TABLE portfolio_performance_metrics;
 
--- Drop strategy_id column (no longer needed since we're using portfolio_ticker directly)
+-- Step 4: Drop existing primary key constraint
+ALTER TABLE portfolio_performance_metrics DROP CONSTRAINT IF EXISTS portfolio_performance_metrics_pkey;
+
+-- Step 5: Drop strategy_id column (no longer needed)
 ALTER TABLE portfolio_performance_metrics DROP COLUMN IF EXISTS strategy_id;
 
--- Add index on portfolio_ticker for fast lookups
+-- Step 6: Set portfolio_ticker as primary key (NOT NULL is enforced by PRIMARY KEY)
+ALTER TABLE portfolio_performance_metrics ADD PRIMARY KEY (portfolio_ticker);
+
+-- Step 7: Add index on portfolio_ticker for fast lookups
 CREATE INDEX IF NOT EXISTS idx_portfolio_metrics_ticker ON portfolio_performance_metrics(portfolio_ticker);
