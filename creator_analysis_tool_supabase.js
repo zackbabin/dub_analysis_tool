@@ -576,10 +576,22 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
+            // Get portfolio performance metrics (for all-time returns and copy capital)
+            const { data: portfolioPerformance, error: ppError } = await this.supabaseIntegration.supabase
+                .from('portfolio_breakdown_with_metrics')
+                .select('creator_id, total_returns_percentage, total_position')
+                .in('creator_id', creatorIds);
+
+            if (ppError) {
+                console.error('Error loading portfolio performance metrics:', ppError);
+                return;
+            }
+
             // Aggregate metrics by creator (sum across all portfolios)
             const breakdownByCreator = premiumCreators.map(pc => {
                 const creatorPortfolios = portfolioEngagement?.filter(pe => pe.creator_id === pc.creator_id) || [];
                 const creatorMetric = creatorMetrics?.find(cm => cm.creator_id === pc.creator_id);
+                const creatorPerformance = portfolioPerformance?.filter(pp => pp.creator_id === pc.creator_id) || [];
 
                 // Sum portfolio-level metrics (same as metric cards calculation)
                 const totalCopies = creatorPortfolios.reduce((sum, p) => sum + (p.total_copies || 0), 0);
@@ -591,6 +603,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const totalPaywallViews = creatorMetric?.total_paywall_views || 0;
                 const totalCancellations = creatorMetric?.total_cancellations || 0;
 
+                // Calculate performance metrics: average returns, sum capital
+                const portfoliosWithReturns = creatorPerformance.filter(p => p.total_returns_percentage !== null);
+                const avgReturns = portfoliosWithReturns.length > 0
+                    ? portfoliosWithReturns.reduce((sum, p) => sum + p.total_returns_percentage, 0) / portfoliosWithReturns.length
+                    : null;
+                const totalCopyCapital = creatorPerformance.reduce((sum, p) => sum + (p.total_position || 0), 0);
+
                 return {
                     creator_username: pc.creator_username,
                     total_copies: totalCopies,
@@ -598,7 +617,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     total_liquidations: totalLiquidations,
                     total_subscriptions: totalSubscriptions,
                     total_paywall_views: totalPaywallViews,
-                    total_cancellations: totalCancellations
+                    total_cancellations: totalCancellations,
+                    avg_all_time_returns: avgReturns,
+                    total_copy_capital: totalCopyCapital > 0 ? totalCopyCapital : null
                 };
             });
 
@@ -614,7 +635,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         total_liquidations: 0,
                         total_subscriptions: 0,
                         total_paywall_views: 0,
-                        total_cancellations: 0
+                        total_cancellations: 0,
+                        returns_values: [],
+                        total_copy_capital: 0
                     });
                 }
                 const existing = usernameMap.get(username);
@@ -624,14 +647,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 existing.total_subscriptions += row.total_subscriptions;
                 existing.total_paywall_views += row.total_paywall_views;
                 existing.total_cancellations += row.total_cancellations;
+                if (row.avg_all_time_returns !== null) {
+                    existing.returns_values.push(row.avg_all_time_returns);
+                }
+                existing.total_copy_capital += (row.total_copy_capital || 0);
             });
 
-            // Calculate conversion rates after merging
+            // Calculate conversion rates and performance metrics after merging
             const breakdownData = Array.from(usernameMap.values()).map(row => {
                 const copyCvr = row.total_pdp_views > 0 ? (row.total_copies / row.total_pdp_views) * 100 : 0;
                 const subscriptionCvr = row.total_paywall_views > 0 ? (row.total_subscriptions / row.total_paywall_views) * 100 : 0;
                 const liquidationRate = row.total_copies > 0 ? (row.total_liquidations / row.total_copies) * 100 : 0;
                 const cancellationRate = row.total_subscriptions > 0 ? (row.total_cancellations / row.total_subscriptions) * 100 : 0;
+
+                // Average all-time returns across all portfolios for this creator
+                const avgAllTimeReturns = row.returns_values.length > 0
+                    ? row.returns_values.reduce((sum, val) => sum + val, 0) / row.returns_values.length
+                    : null;
 
                 return {
                     creator_username: row.creator_username,
@@ -641,7 +673,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     subscription_cvr: subscriptionCvr,
                     total_liquidations: row.total_liquidations,
                     liquidation_rate: liquidationRate,
-                    cancellation_rate: cancellationRate
+                    cancellation_rate: cancellationRate,
+                    avg_all_time_returns: avgAllTimeReturns,
+                    total_copy_capital: row.total_copy_capital > 0 ? row.total_copy_capital : null
                 };
             });
 
@@ -714,13 +748,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         thead.innerHTML = `
             <tr>
                 <th style="text-align: left;">Premium Creator</th>
-                <th style="text-align: right;">Total Copies</th>
+                <th style="text-align: right;">Copies</th>
                 <th style="text-align: right;">Copy CVR</th>
-                <th style="text-align: right;">Total Liquidations</th>
+                <th style="text-align: right;">Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
-                <th style="text-align: right;">Total Subscriptions</th>
+                <th style="text-align: right;">Subscriptions</th>
                 <th style="text-align: right;">Subscription CVR</th>
                 <th style="text-align: right;">Cancellation Rate</th>
+                <th style="text-align: right;">All-Time Returns</th>
+                <th style="text-align: right;">Copy Capital</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -733,6 +769,23 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         sortedData.forEach(row => {
             const tr = document.createElement('tr');
+
+            // Format all-time returns as percentage with color
+            let returnsDisplay = '—';
+            let returnsStyle = 'text-align: right;';
+            if (row.avg_all_time_returns !== null && row.avg_all_time_returns !== undefined) {
+                const returns = row.avg_all_time_returns * 100; // Convert from decimal to percentage
+                const color = returns >= 0 ? '#28a745' : '#dc3545';
+                returnsDisplay = `${returns >= 0 ? '+' : ''}${returns.toFixed(2)}%`;
+                returnsStyle = `text-align: right; color: ${color}; font-weight: 600;`;
+            }
+
+            // Format copy capital with currency
+            let capitalDisplay = '—';
+            if (row.total_copy_capital !== null && row.total_copy_capital !== undefined) {
+                capitalDisplay = `$${row.total_copy_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
@@ -742,6 +795,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
+                <td style="${returnsStyle}">${returnsDisplay}</td>
+                <td style="text-align: right;">${capitalDisplay}</td>
             `;
             tbody.appendChild(tr);
         });
