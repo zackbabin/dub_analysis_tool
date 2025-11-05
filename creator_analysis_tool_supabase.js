@@ -1519,6 +1519,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
         }
 
+        // Sort cohorts within each creator from oldest to newest
+        creatorMap.forEach(creator => {
+            creator.cohorts.sort((a, b) => new Date(a.cohortDate) - new Date(b.cohortDate));
+        });
+
         // Calculate aggregated retention rates for each creator
         creatorMap.forEach(creator => {
             const maxMonths = 7; // < 1 Month + Month 1-6
@@ -1555,13 +1560,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Format cohort date to readable format
+     * Format cohort date to readable format (always shows 1st of month)
      */
     formatCohortDate(dateStr) {
         const date = new Date(dateStr);
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+        return `${monthNames[date.getMonth()]} 1, ${date.getFullYear()}`;
     }
 
     /**
