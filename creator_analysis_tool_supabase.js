@@ -184,7 +184,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
+            dataScope.textContent = 'Data for KYC approved users since 8/27/2025';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
 
@@ -495,7 +495,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data for KYC approved users from the last 30 days';
+            dataScope.textContent = 'Data for KYC approved users since 8/27/2025';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
     }
@@ -646,6 +646,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
         title.textContent = 'Premium Creator Breakdown';
         section.appendChild(title);
+
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Premium Creator Breakdown</strong>
+                Conversion metrics for each premium creator, aggregated across all their portfolios.
+            </span>
+        </span>`;
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.innerHTML = tooltipHTML;
+        section.appendChild(tooltipSpan);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
@@ -798,6 +811,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
         title.textContent = 'Premium Portfolio Breakdown';
         section.appendChild(title);
+
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Premium Portfolio Breakdown</strong>
+                Portfolio-level conversion metrics for each premium creator's individual portfolios.
+            </span>
+        </span>`;
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.innerHTML = tooltipHTML;
+        section.appendChild(tooltipSpan);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 0.5rem;';
@@ -1112,9 +1138,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Table body
         const tbody = document.createElement('tbody');
+        tbody.id = 'portfolio-breakdown-tbody';
 
-        portfolioData.forEach(row => {
+        portfolioData.forEach((row, index) => {
             const tr = document.createElement('tr');
+
+            // Add visibility classes (show first 10, hide rest)
+            if (index >= 10) {
+                tr.className = 'portfolio-breakdown-row-extra';
+                tr.style.display = 'none';
+            } else {
+                tr.className = 'portfolio-breakdown-row-initial';
+            }
+
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
@@ -1127,6 +1163,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         table.appendChild(tbody);
 
         tableWrapper.appendChild(table);
+
+        // Add Show More/Show Less button if there are more than 10 items
+        if (portfolioData.length > 10) {
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.cssText = 'text-align: left; margin-top: 1rem;';
+
+            const button = document.createElement('button');
+            button.id = 'portfolio-breakdown-toggle-btn';
+            button.className = 'show-more-btn';
+            button.textContent = 'Show More';
+            button.onclick = () => window.togglePortfolioBreakdown();
+
+            buttonContainer.appendChild(button);
+            tableWrapper.appendChild(buttonContainer);
+        }
     }
 
     /**
@@ -2188,5 +2239,37 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
 // Export to window
 window.CreatorAnalysisToolSupabase = CreatorAnalysisToolSupabase;
+
+// Global toggle function for Portfolio Breakdown
+window.togglePortfolioBreakdown = function() {
+    const extraRows = document.querySelectorAll('.portfolio-breakdown-row-extra');
+    const button = document.getElementById('portfolio-breakdown-toggle-btn');
+
+    if (!extraRows.length || !button) return;
+
+    // Check if any rows are currently hidden
+    const anyHidden = Array.from(extraRows).some(row => row.style.display === 'none');
+
+    if (anyHidden) {
+        // Show next 10 hidden rows
+        let shown = 0;
+        extraRows.forEach((row) => {
+            if (row.style.display === 'none' && shown < 10) {
+                row.style.display = '';
+                shown++;
+            }
+        });
+
+        // Check if there are still hidden rows
+        const stillHidden = Array.from(extraRows).some(row => row.style.display === 'none');
+        button.textContent = stillHidden ? 'Show More' : 'Show Less';
+    } else {
+        // Hide all extra rows
+        extraRows.forEach((row) => {
+            row.style.display = 'none';
+        });
+        button.textContent = 'Show More';
+    }
+};
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');
