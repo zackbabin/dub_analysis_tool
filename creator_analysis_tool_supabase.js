@@ -308,6 +308,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 }
             }
         });
+
+        // Reattach retention table event listeners
+        this.reattachRetentionEventListeners();
     }
 
     /**
@@ -1282,7 +1285,51 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Render chart after DOM is updated
         setTimeout(() => {
             this.renderRetentionChart(chartContainer, retentionData);
+            // Save to cache after rendering
+            this.saveToUnifiedCache();
         }, 0);
+    }
+
+    /**
+     * Re-attach event listeners to retention table after cache restore
+     */
+    reattachRetentionEventListeners() {
+        const tbody = document.querySelector('#premiumCreatorRetentionInline tbody');
+        if (!tbody) return;
+
+        // Find all summary rows and re-attach click handlers
+        const summaryRows = tbody.querySelectorAll('tr[data-creator-index]');
+        summaryRows.forEach(summaryRow => {
+            const creatorIndex = summaryRow.dataset.creatorIndex;
+            const expandIcon = summaryRow.querySelector('span:first-child');
+
+            // Re-attach hover effects
+            summaryRow.addEventListener('mouseenter', () => {
+                if (summaryRow.dataset.expanded === 'false') {
+                    summaryRow.style.background = '#f8f9fa';
+                }
+            });
+            summaryRow.addEventListener('mouseleave', () => {
+                if (summaryRow.dataset.expanded === 'false') {
+                    summaryRow.style.background = 'white';
+                }
+            });
+
+            // Re-attach click handler
+            summaryRow.addEventListener('click', () => {
+                const isExpanded = summaryRow.dataset.expanded === 'true';
+                summaryRow.dataset.expanded = isExpanded ? 'false' : 'true';
+                if (expandIcon) {
+                    expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+                }
+
+                // Toggle cohort rows visibility
+                const cohortRows = tbody.querySelectorAll(`tr[data-parent="${creatorIndex}"]`);
+                cohortRows.forEach(row => {
+                    row.style.display = isExpanded ? 'none' : 'table-row';
+                });
+            });
+        });
     }
 
     /**
@@ -1304,7 +1351,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                <th style="text-align: left; padding: 0.75rem; font-weight: 600; min-width: 200px; white-space: nowrap;">Creator Username</th>
+                <th style="text-align: left; padding: 0.75rem; font-weight: 600; min-width: 250px; width: 250px; white-space: nowrap;">Creator Username</th>
                 <th style="text-align: right; padding: 0.75rem; font-weight: 600; width: 80px;">Count</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">&lt; 1 Month</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 1</th>
