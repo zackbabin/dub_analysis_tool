@@ -12,6 +12,7 @@ import {
   type MixpanelCredentials,
   pLimit,
   fetchInsightsData,
+  shouldSkipSync,
 } from '../_shared/mixpanel-api.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
 
@@ -50,6 +51,25 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     console.log('Starting Mixpanel sync...')
+
+    // Check if sync should be skipped (within 6-hour window)
+    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_engagement', 6)
+
+    if (shouldSkip) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          message: 'Sync skipped - data refreshed within last 6 hours',
+          lastSyncTime: lastSyncTime?.toISOString(),
+          stats: { skipped: true, reason: 'Data synced within last 6 hours' }
+        }),
+        {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
 
     // Create sync log entry
     const syncStartTime = new Date()

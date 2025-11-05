@@ -10,6 +10,7 @@ import {
   CORS_HEADERS,
   type MixpanelCredentials,
   fetchInsightsData,
+  shouldSkipSync,
 } from '../_shared/mixpanel-api.ts'
 
 interface SyncStats {
@@ -41,6 +42,25 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     console.log('Starting event sequences sync...')
+
+    // Check if sync should be skipped (within 1-hour window for event sequences)
+    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_event_sequences', 1)
+
+    if (shouldSkip) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          message: 'Sync skipped - data refreshed within last hour',
+          lastSyncTime: lastSyncTime?.toISOString(),
+          stats: { skipped: true, reason: 'Data synced within last hour' }
+        }),
+        {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
 
     // Create sync log entry
     const syncStartTime = new Date()

@@ -290,3 +290,54 @@ export async function fetchPortfolioViewEvents(
   console.log(`✓ Fetched ${events.length} portfolio view events from Insights API`)
   return events
 }
+
+// ============================================================================
+// Skip Sync Logic
+// ============================================================================
+
+/**
+ * Check if sync should be skipped based on last sync timestamp
+ * Uses Supabase sync_logs table to track last successful sync per source
+ * @param supabase - Supabase client
+ * @param source - Sync source identifier (e.g., 'mixpanel_users', 'mixpanel_engagement')
+ * @param lookbackHours - Hours to look back (default: 6)
+ * @returns Promise<{ shouldSkip: boolean, lastSyncTime: Date | null }>
+ */
+export async function shouldSkipSync(
+  supabase: any,
+  source: string,
+  lookbackHours = 6
+): Promise<{ shouldSkip: boolean; lastSyncTime: Date | null }> {
+  try {
+    // Query sync_logs for most recent successful sync
+    const { data, error } = await supabase
+      .from('sync_logs')
+      .select('sync_completed_at')
+      .eq('source', source)
+      .eq('sync_status', 'completed')
+      .order('sync_completed_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error || !data || !data.sync_completed_at) {
+      // No previous sync found, proceed with sync
+      return { shouldSkip: false, lastSyncTime: null }
+    }
+
+    const lastSyncTime = new Date(data.sync_completed_at)
+    const lookbackMs = lookbackHours * 60 * 60 * 1000
+    const cutoffTime = new Date(Date.now() - lookbackMs)
+
+    const shouldSkip = lastSyncTime > cutoffTime
+
+    if (shouldSkip) {
+      console.log(`⏭️ Skipping ${source} sync (last synced: ${lastSyncTime.toISOString()}, within ${lookbackHours}h window)`)
+    }
+
+    return { shouldSkip, lastSyncTime }
+  } catch (error) {
+    console.warn(`Failed to check skip sync for ${source}:`, error)
+    // On error, don't skip - proceed with sync
+    return { shouldSkip: false, lastSyncTime: null }
+  }
+}

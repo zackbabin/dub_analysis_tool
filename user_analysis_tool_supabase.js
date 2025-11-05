@@ -828,9 +828,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Add timestamp and data scope to first 3 tabs (creator tab handled separately)
-        // Use current time as the sync timestamp (this is when fresh data was fetched)
-        const now = new Date();
-        const timestampStr = now.toLocaleString('en-US', {
+        // Get the actual Mixpanel data refresh time from sync_logs
+        const mixpanelSyncTime = await window.supabaseIntegration.getMostRecentMixpanelSyncTime();
+        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+
+        const timestampStr = displayTime.toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
             year: 'numeric',
@@ -840,7 +842,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         // Store both the display string and ISO timestamp for consistency
-        const timestampISO = now.toISOString();
+        const timestampISO = displayTime.toISOString();
         localStorage.setItem('qdaLastUpdated', timestampStr);
 
         // Add timestamp (top right) and data scope (top left) to each container
@@ -856,7 +858,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Add timestamp (top right)
                 const timestamp = document.createElement('div');
                 timestamp.className = 'qda-timestamp';
-                timestamp.textContent = `Last updated: ${timestampStr}`;
+                timestamp.textContent = `Data as of: ${timestampStr}`;
                 resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
                 // Add data scope text (top left)

@@ -119,28 +119,54 @@ class SupabaseIntegration {
     }
 
     /**
-     * Get last sync timestamp for a specific sync type
+     * Get last successful Mixpanel sync timestamp from sync_logs table
+     * @param {string} source - Source identifier (e.g., 'mixpanel_users', 'mixpanel_engagement')
+     * @returns {Promise<Date|null>} - Last sync time or null if no sync found
      */
-    async getLastSyncTime(syncType) {
+    async getLastMixpanelSyncTime(source) {
         try {
-            const key = `lastSync_${syncType}`;
-            const timestamp = localStorage.getItem(key);
-            return timestamp ? parseInt(timestamp) : null;
+            const { data, error } = await this.supabase
+                .from('sync_logs')
+                .select('sync_completed_at')
+                .eq('source', source)
+                .eq('sync_status', 'completed')
+                .order('sync_completed_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (error || !data || !data.sync_completed_at) {
+                return null;
+            }
+
+            return new Date(data.sync_completed_at);
         } catch (error) {
-            console.warn('Failed to get last sync time:', error);
+            console.warn(`Failed to get last sync time for ${source}:`, error);
             return null;
         }
     }
 
     /**
-     * Save last sync timestamp for a specific sync type
+     * Get the most recent Mixpanel data refresh time across all sources
+     * Used for displaying "Data as of:" timestamp
+     * @returns {Promise<Date|null>}
      */
-    async saveLastSyncTime(syncType) {
+    async getMostRecentMixpanelSyncTime() {
         try {
-            const key = `lastSync_${syncType}`;
-            localStorage.setItem(key, Date.now().toString());
+            const sources = ['mixpanel_users', 'mixpanel_engagement', 'mixpanel_user_profiles'];
+            const syncTimes = await Promise.all(
+                sources.map(source => this.getLastMixpanelSyncTime(source))
+            );
+
+            // Filter out nulls and find the most recent
+            const validTimes = syncTimes.filter(time => time !== null);
+            if (validTimes.length === 0) return null;
+
+            return validTimes.reduce((latest, current) =>
+                current > latest ? current : latest
+            );
         } catch (error) {
-            console.warn('Failed to save last sync time:', error);
+            console.warn('Failed to get most recent sync time:', error);
+            return null;
         }
     }
 
@@ -221,35 +247,27 @@ class SupabaseIntegration {
         console.log('🔄 Starting Mixpanel sync (3-part process)...');
 
         try {
-            // Check if user data sync is needed (skip if synced within last 6 hours due to cold start/timeout issues)
+            // Part 1: Sync users/subscribers data (with retry for cold starts)
+            // Note: Skip logic is now handled in the edge function itself
+            console.log('📊 Step 1/3: Syncing user/subscriber data...');
             let usersData = null;
-            const lastUserSync = await this.getLastSyncTime('mixpanel_users');
-            const sixHoursAgo = Date.now() - (6 * 60 * 60 * 1000);
-
-            if (lastUserSync && lastUserSync > sixHoursAgo) {
-                console.log('⏭️ Step 1/3: Skipping user sync (data is recent, last synced:', new Date(lastUserSync).toLocaleTimeString(), ')');
-                usersData = { stats: { skipped: true, reason: 'Data synced within last 6 hours' } };
-            } else {
-                // Part 1: Sync users/subscribers data (with retry for cold starts)
-                // Note: sync-mixpanel-users can take 10-20s on cold start due to large dataset
-                console.log('📊 Step 1/3: Syncing user/subscriber data...');
-                try {
-                    usersData = await this.invokeFunctionWithRetry(
-                        'sync-mixpanel-users',
-                        {},
-                        'Users sync',
-                        2,      // maxRetries: Only 2 attempts (function takes too long)
-                        5000    // retryDelay: 5 seconds
-                    );
+            try {
+                usersData = await this.invokeFunctionWithRetry(
+                    'sync-mixpanel-users',
+                    {},
+                    'Users sync',
+                    2,      // maxRetries: Only 2 attempts (function takes too long)
+                    5000    // retryDelay: 5 seconds
+                );
+                if (usersData.skipped) {
+                    console.log('⏭️ Step 1/3: User sync skipped (data refreshed within last 6 hours)');
+                } else {
                     console.log('✅ Step 1/3 complete: User data synced successfully');
-                    console.log('   Stats:', usersData.stats);
-                } catch (error) {
-                    console.warn('⚠️ Step 1/3 failed: User sync timed out, continuing with existing data');
-                    usersData = { stats: { failed: true, error: error.message } };
-                } finally {
-                    // Save sync timestamp even on failure to prevent repeated failed attempts
-                    await this.saveLastSyncTime('mixpanel_users');
                 }
+                console.log('   Stats:', usersData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 1/3 failed: User sync timed out, continuing with existing data');
+                usersData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
@@ -752,19 +770,6 @@ class SupabaseIntegration {
         console.log('Triggering event sequence sync via Supabase Edge Function...');
 
         try {
-            // Check if event sequence sync is needed (skip if synced within last hour)
-            const lastEventSeqSync = await this.getLastSyncTime('event_sequences');
-            const oneHourAgo = Date.now() - (60 * 60 * 1000);
-
-            if (lastEventSeqSync && lastEventSeqSync > oneHourAgo) {
-                console.log('⏭️ Skipping event sequence sync (data is recent, last synced:', new Date(lastEventSeqSync).toLocaleTimeString(), ')');
-                return {
-                    success: true,
-                    skipped: true,
-                    stats: { skipped: true, reason: 'Data synced within last hour' }
-                };
-            }
-
             const { data, error } = await this.supabase.functions.invoke('sync-event-sequences', {
                 body: {}
             });
@@ -778,10 +783,11 @@ class SupabaseIntegration {
                 throw new Error(data.error || 'Unknown error during event sequence sync');
             }
 
-            console.log('✅ Event sequence sync completed successfully:', data.stats);
-
-            // Save sync timestamp
-            await this.saveLastSyncTime('event_sequences');
+            if (data.skipped) {
+                console.log('⏭️ Event sequence sync skipped (data refreshed within last hour)');
+            } else {
+                console.log('✅ Event sequence sync completed successfully:', data.stats);
+            }
 
             return data;
         } catch (error) {

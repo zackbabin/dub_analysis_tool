@@ -5,7 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from '../_shared/mixpanel-api.ts'
 
 const CHART_IDS = {
   subscribersInsights: '85713544',
@@ -40,6 +40,25 @@ serve(async (req) => {
 
     console.log('Starting Mixpanel sync...')
 
+    // Check if sync should be skipped (within 6-hour window)
+    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_users', 6)
+
+    if (shouldSkip) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          message: 'Sync skipped - data refreshed within last 6 hours',
+          lastSyncTime: lastSyncTime?.toISOString(),
+          stats: { skipped: true, reason: 'Data synced within last 6 hours' }
+        }),
+        {
+          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
+
     // Create sync log entry and track execution time
     const syncStartTime = new Date()
     const executionStartMs = Date.now()
@@ -63,7 +82,7 @@ serve(async (req) => {
 
     const syncLogId = syncLog.id
 
-    try {
+    try{
       // Date range configured in Mixpanel chart settings
       console.log(`Fetching data from Mixpanel chart (date range configured in chart)`)
       console.log(`Mixpanel username: ${mixpanelUsername?.substring(0, 10)}...`)

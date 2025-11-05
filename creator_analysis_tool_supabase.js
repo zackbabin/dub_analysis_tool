@@ -178,7 +178,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add timestamp first (will be inserted at position 0)
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${formattedTimestamp}`;
+            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
             resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
@@ -489,7 +489,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add timestamp first (will be inserted at position 0)
             const timestamp = document.createElement('div');
             timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Last updated: ${formattedTimestamp}`;
+            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
             resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
