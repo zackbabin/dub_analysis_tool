@@ -2292,26 +2292,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         try {
             // Note: User tool sync has already completed (runs sequentially before this)
-            // This workflow syncs portfolio mapping and reloads creator displays
+            // This workflow reloads creator displays
 
-            // Step 1: Fetch portfolio mapping from Mixpanel
-            this.updateProgress(30, 'Syncing portfolio mapping...');
-            console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
-
-            const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
-                body: {}
-            });
-
-            if (mappingError) {
-                console.warn('Warning fetching portfolio mapping:', mappingError);
-            } else if (mappingResponse?.skipped) {
-                console.log('⏭️ Portfolio mapping skipped (using cached data)');
-            } else {
-                console.log('✅ Portfolio mapping synced');
-            }
-
-            // Step 2: Reload and redisplay the Premium Creator Copy Affinity
-            this.updateProgress(70, 'Loading Premium Creator Copy Affinity...');
+            // Reload and redisplay the Premium Creator Copy Affinity
+            this.updateProgress(50, 'Loading Premium Creator Copy Affinity...');
 
             // Invalidate affinity cache to ensure fresh display
             console.log('Invalidating affinity cache...');
@@ -2406,19 +2390,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.addStatusMessage('⚠️ Upload timed out - checking for saved data...', 'warning');
 
                 // Continue to refresh display to show whatever data was saved
-                this.updateProgress(60, 'Fetching portfolio mapping from Mixpanel...');
-                console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
-
-                // Fetch portfolio mapping from Mixpanel
-                const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
-                    body: {}
-                });
-
-                if (mappingError) {
-                    console.warn('Warning fetching portfolio mapping:', mappingError);
-                }
-
-                this.updateProgress(80, 'Refreshing Portfolio Breakdown table...');
+                this.updateProgress(70, 'Refreshing Portfolio Breakdown table...');
 
                 // Only refresh the Portfolio Breakdown table to show saved data
                 await this.loadAndDisplayPremiumPortfolioBreakdown();
@@ -2447,30 +2419,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (uploadResponse.stats.partialUpload) {
                 this.addStatusMessage(`⚠️ Partial upload: ${uploadResponse.stats.recordsUploaded} of ${uploadResponse.stats.totalRecords} records saved (${uploadResponse.stats.errors} batches failed)`, 'warning');
             } else {
-                this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} records)`, 'success');
+                this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} portfolios from ${uploadResponse.stats.rawRecords} records)`, 'success');
             }
-
-            this.updateProgress(65, 'Syncing portfolio mapping...');
-            console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
-
-            // Fetch portfolio mapping from Mixpanel
-            const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
-                body: {}
-            });
-
-            if (mappingError) {
-                console.warn('Warning fetching portfolio mapping:', mappingError);
-            }
-
-            if (mappingResponse && !mappingResponse.success && !mappingResponse.skipped) {
-                console.warn('Portfolio mapping fetch returned error:', mappingResponse.error);
-            }
-
-            console.log('✅ Portfolio mapping synced');
 
             // Add delay before final step
             await new Promise(resolve => setTimeout(resolve, 300));
-            this.updateProgress(85, 'Refreshing table...');
+            this.updateProgress(70, 'Refreshing table...');
 
             // Only refresh the Portfolio Breakdown table, not all sections
             await this.loadAndDisplayPremiumPortfolioBreakdown();

@@ -50,18 +50,42 @@ serve(async (req) => {
       throw new Error('No valid records found in CSV')
     }
 
-    // Deduplicate by strategy_id (keep last occurrence for each strategy_id)
-    const deduplicatedMap = new Map()
+    // Aggregate by portfolio_ticker: average totalreturnspercentage, sum totalposition
+    const aggregationMap = new Map()
     metricsRecords.forEach(record => {
-      deduplicatedMap.set(record.strategy_id, record)
+      const ticker = record.portfolio_ticker
+      if (!aggregationMap.has(ticker)) {
+        aggregationMap.set(ticker, {
+          portfolio_ticker: ticker,
+          created_at: record.created_at,
+          total_returns_percentages: [],
+          total_positions: [],
+          uploaded_at: record.uploaded_at
+        })
+      }
+      const agg = aggregationMap.get(ticker)
+      if (record.total_returns_percentage !== null) {
+        agg.total_returns_percentages.push(record.total_returns_percentage)
+      }
+      if (record.total_position !== null) {
+        agg.total_positions.push(record.total_position)
+      }
     })
-    const deduplicatedRecords = Array.from(deduplicatedMap.values())
 
-    if (deduplicatedRecords.length < metricsRecords.length) {
-      console.log(`⚠️ Removed ${metricsRecords.length - deduplicatedRecords.length} duplicate strategy_id entries`)
-    }
+    // Calculate aggregated values
+    const aggregatedRecords = Array.from(aggregationMap.values()).map(agg => ({
+      portfolio_ticker: agg.portfolio_ticker,
+      created_at: agg.created_at,
+      total_returns_percentage: agg.total_returns_percentages.length > 0
+        ? agg.total_returns_percentages.reduce((a, b) => a + b, 0) / agg.total_returns_percentages.length
+        : null,
+      total_position: agg.total_positions.length > 0
+        ? agg.total_positions.reduce((a, b) => a + b, 0)
+        : null,
+      uploaded_at: agg.uploaded_at
+    }))
 
-    console.log(`Processing ${deduplicatedRecords.length} unique portfolio metrics records`)
+    console.log(`Aggregated ${metricsRecords.length} records into ${aggregatedRecords.length} unique portfolio tickers`)
 
     // Use upsert instead of delete+insert to ensure data persists even if function times out
     // This way, partial data is still saved if the function doesn't complete
@@ -70,10 +94,10 @@ serve(async (req) => {
     let totalInserted = 0
     let errors = []
 
-    for (let i = 0; i < deduplicatedRecords.length; i += batchSize) {
-      const batch = deduplicatedRecords.slice(i, i + batchSize)
+    for (let i = 0; i < aggregatedRecords.length; i += batchSize) {
+      const batch = aggregatedRecords.slice(i, i + batchSize)
       const batchNum = Math.floor(i / batchSize) + 1
-      const totalBatches = Math.ceil(deduplicatedRecords.length / batchSize)
+      const totalBatches = Math.ceil(aggregatedRecords.length / batchSize)
 
       console.log(`Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`)
 
@@ -81,7 +105,7 @@ serve(async (req) => {
         const { error: upsertError } = await supabase
           .from('portfolio_performance_metrics')
           .upsert(batch, {
-            onConflict: 'strategy_id',
+            onConflict: 'portfolio_ticker',
             ignoreDuplicates: false
           })
 
@@ -100,7 +124,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ Uploaded ${totalInserted} of ${metricsRecords.length} portfolio metrics records`)
+    console.log(`✅ Uploaded ${totalInserted} of ${aggregatedRecords.length} portfolio metrics records`)
 
     if (errors.length > 0) {
       console.warn(`⚠️ ${errors.length} batch(es) had errors:`, errors)
@@ -121,8 +145,8 @@ serve(async (req) => {
         success: true,
         stats: {
           recordsUploaded: totalInserted,
-          totalRecords: deduplicatedRecords.length,
-          duplicatesRemoved: metricsRecords.length - deduplicatedRecords.length,
+          totalRecords: aggregatedRecords.length,
+          rawRecords: metricsRecords.length,
           errors: errors.length,
           partialUpload: errors.length > 0
         }
@@ -150,7 +174,7 @@ serve(async (req) => {
 
 /**
  * Parse portfolio metrics CSV
- * Expected columns: id, createdat, createdby, accountid, strategyid, totalreturnspercentage,
+ * Expected columns: id, createdat, createdby, accountid, strategyid, strategyticker, totalreturnspercentage,
  *                   totalreturnsvalue, dailyreturnspercentage, dailyreturnsvalue, totalposition, rank
  */
 function parsePortfolioMetricsCSV(csvContent: string): any[] {
@@ -164,7 +188,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
 
   // Parse header
   const header = lines[0].split(',').map(h => h.trim().toLowerCase())
-  const strategyIdIdx = header.indexOf('strategyid')
+  const strategyTickerIdx = header.indexOf('strategyticker')
   const createdAtIdx = header.indexOf('createdat')
   const totalReturnsPctIdx = header.indexOf('totalreturnspercentage')
   const totalReturnsValIdx = header.indexOf('totalreturnsvalue')
@@ -172,11 +196,11 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
   const dailyReturnsValIdx = header.indexOf('dailyreturnsvalue')
   const totalPositionIdx = header.indexOf('totalposition')
 
-  if (strategyIdIdx === -1 || totalReturnsPctIdx === -1 || totalPositionIdx === -1) {
-    throw new Error('CSV missing required columns: strategyid, totalreturnspercentage, totalposition')
+  if (strategyTickerIdx === -1 || totalReturnsPctIdx === -1 || totalPositionIdx === -1) {
+    throw new Error('CSV missing required columns: strategyticker, totalreturnspercentage, totalposition')
   }
 
-  console.log(`Found columns at indices: strategyid=${strategyIdIdx}, createdat=${createdAtIdx}, totalreturns%=${totalReturnsPctIdx}, totalposition=${totalPositionIdx}`)
+  console.log(`Found columns at indices: strategyticker=${strategyTickerIdx}, createdat=${createdAtIdx}, totalreturns%=${totalReturnsPctIdx}, totalposition=${totalPositionIdx}`)
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -185,7 +209,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
 
     const cols = line.split(',').map(c => c.trim())
 
-    const strategyId = cols[strategyIdIdx]
+    const strategyTicker = cols[strategyTickerIdx]
     const createdAt = createdAtIdx !== -1 ? cols[createdAtIdx] : null
     const totalReturnsPct = cols[totalReturnsPctIdx]
     const totalReturnsVal = cols[totalReturnsValIdx]
@@ -193,8 +217,8 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
     const dailyReturnsVal = cols[dailyReturnsValIdx]
     const totalPosition = cols[totalPositionIdx]
 
-    if (!strategyId) {
-      console.warn(`Row ${i}: missing strategyId, skipping`)
+    if (!strategyTicker) {
+      console.warn(`Row ${i}: missing strategyTicker, skipping`)
       continue
     }
 
@@ -209,8 +233,11 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
       }
     }
 
+    // Prepend "$" to portfolio ticker
+    const portfolioTicker = strategyTicker.startsWith('$') ? strategyTicker : `$${strategyTicker}`
+
     records.push({
-      strategy_id: String(strategyId),
+      portfolio_ticker: portfolioTicker,
       created_at: parsedCreatedAt,
       total_returns_percentage: totalReturnsPct ? parseFloat(totalReturnsPct) : null,
       total_returns_value: totalReturnsVal ? parseFloat(totalReturnsVal) : null,
