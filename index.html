@@ -262,16 +262,45 @@
                 }
             };
 
-            // Manually Upload Data button is always DISABLED on user tabs
-            uploadBtn.disabled = true;
-            uploadBtn.style.background = '#f8f9fa';
-            uploadBtn.style.borderColor = '#e9ecef';
-            uploadBtn.style.cursor = 'not-allowed';
-            uploadBtn.style.pointerEvents = 'none';
-            uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
-            uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
-            uploadBtn.onmouseover = null;
-            uploadBtn.onmouseout = null;
+            // Manually Upload Data button behavior depends on active tab
+            if (activeTab === 'creator') {
+                // On creator tab: ENABLE upload button for portfolio metrics CSV
+                uploadBtn.disabled = false;
+                uploadBtn.style.background = 'white';
+                uploadBtn.style.borderColor = '#28a745';
+                uploadBtn.style.cursor = 'pointer';
+                uploadBtn.style.pointerEvents = 'auto';
+                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                uploadBtn.querySelector('div:first-child').textContent = 'Upload Portfolio Metrics';
+                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
+                uploadBtn.querySelector('div:last-child').textContent = 'Upload CSV file with portfolio returns & capital';
+                uploadBtn.onmouseover = uploadHoverIn;
+                uploadBtn.onmouseout = uploadHoverOut;
+                uploadBtn.onclick = () => {
+                    // Create file input for CSV upload
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.csv';
+                    fileInput.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            await creatorTool.uploadPortfolioMetricsCSV(file);
+                        }
+                    };
+                    fileInput.click();
+                };
+            } else {
+                // On user tabs: DISABLED
+                uploadBtn.disabled = true;
+                uploadBtn.style.background = '#f8f9fa';
+                uploadBtn.style.borderColor = '#e9ecef';
+                uploadBtn.style.cursor = 'not-allowed';
+                uploadBtn.style.pointerEvents = 'none';
+                uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
+                uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
+                uploadBtn.onmouseover = null;
+                uploadBtn.onmouseout = null;
+            }
         }
 
         // Switch to a specific tab

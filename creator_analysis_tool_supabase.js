@@ -740,7 +740,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Loading premium portfolio breakdown...');
 
             // Get premium creator list
-            const { data: premiumCreators, error: pcError } = await this.supabaseIntegration.supabase
+            const { data: premiumCreators, error: pcError} = await this.supabaseIntegration.supabase
                 .from('premium_creators')
                 .select('creator_id, creator_username');
 
@@ -762,6 +762,43 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
+            // Fetch portfolio ticker mapping (ticker -> portfolioId)
+            const { data: portfolioMapping, error: pmError } = await this.supabaseIntegration.supabase
+                .from('portfolio_ticker_mapping')
+                .select('portfolio_ticker, portfolio_id');
+
+            if (pmError) {
+                console.warn('Error loading portfolio mapping:', pmError);
+            }
+
+            // Create a map of ticker -> portfolioId for quick lookup
+            const tickerToIdMap = new Map();
+            if (portfolioMapping) {
+                portfolioMapping.forEach(m => {
+                    tickerToIdMap.set(m.portfolio_ticker, m.portfolio_id);
+                });
+            }
+
+            // Fetch portfolio metrics (portfolioId/strategyId -> returns, capital)
+            const { data: portfolioMetrics, error: metricsError } = await this.supabaseIntegration.supabase
+                .from('portfolio_metrics')
+                .select('strategy_id, total_returns_percentage, total_position');
+
+            if (metricsError) {
+                console.warn('Error loading portfolio metrics:', metricsError);
+            }
+
+            // Create a map of strategyId -> metrics for quick lookup
+            const metricsMap = new Map();
+            if (portfolioMetrics) {
+                portfolioMetrics.forEach(m => {
+                    metricsMap.set(m.strategy_id, {
+                        allTimeReturns: m.total_returns_percentage,
+                        totalCopyCapital: m.total_position
+                    });
+                });
+            }
+
             // Create portfolio-level breakdown data
             const portfolioData = portfolioEngagement?.map(p => {
                 // Find the creator username
@@ -771,13 +808,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const copyCvr = p.total_pdp_views > 0 ? (p.total_copies / p.total_pdp_views) * 100 : 0;
                 const liquidationRate = p.total_copies > 0 ? (p.total_liquidations / p.total_copies) * 100 : 0;
 
+                // Map ticker to portfolio_id, then get metrics
+                const portfolioId = tickerToIdMap.get(p.portfolio_ticker);
+                const metrics = portfolioId ? metricsMap.get(portfolioId) : null;
+
                 return {
                     creator_username: creator?.creator_username || 'Unknown',
                     portfolio_ticker: p.portfolio_ticker,
                     total_copies: p.total_copies || 0,
                     copy_cvr: copyCvr,
                     total_liquidations: p.total_liquidations || 0,
-                    liquidation_rate: liquidationRate
+                    liquidation_rate: liquidationRate,
+                    all_time_returns: metrics?.allTimeReturns || null,
+                    total_copy_capital: metrics?.totalCopyCapital || null
                 };
             }) || [];
 
@@ -833,9 +876,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85877922%22" target="_blank" style="color: #17a2b8;">Chart 85877922</a> (Portfolio Mapping),
+                        Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Copy CVR, Liquidation Rate per portfolio</li>
+                    <li><strong>Metrics:</strong> Copy CVR, Liquidation Rate, All-Time Returns, Total Copy Capital per portfolio</li>
                 </ul>
             </span>
         </span>`;
@@ -1142,7 +1187,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header (removed Premium Creator column)
+        // Table header with new columns
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
@@ -1151,6 +1196,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right;">Copy CVR</th>
                 <th style="text-align: right;">Total Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
+                <th style="text-align: right;">All-Time Returns</th>
+                <th style="text-align: right;">Total Copy Capital</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -1170,12 +1217,30 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 tr.className = 'portfolio-breakdown-row-initial';
             }
 
+            // Format all-time returns as percentage with color
+            let returnsDisplay = '—';
+            let returnsStyle = 'text-align: right;';
+            if (row.all_time_returns !== null && row.all_time_returns !== undefined) {
+                const returns = row.all_time_returns * 100; // Convert from decimal to percentage
+                const color = returns >= 0 ? '#28a745' : '#dc3545';
+                returnsDisplay = `${returns >= 0 ? '+' : ''}${returns.toFixed(2)}%`;
+                returnsStyle = `text-align: right; color: ${color}; font-weight: 600;`;
+            }
+
+            // Format total copy capital with currency
+            let capitalDisplay = '—';
+            if (row.total_copy_capital !== null && row.total_copy_capital !== undefined) {
+                capitalDisplay = `$${row.total_copy_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
+                <td style="${returnsStyle}">${returnsDisplay}</td>
+                <td style="text-align: right;">${capitalDisplay}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -2321,6 +2386,83 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         } catch (error) {
             console.error('Sync workflow error:', error);
             this.addStatusMessage(`❌ Sync failed: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    /**
+     * Upload portfolio metrics CSV file
+     * Called when user uploads CSV on Premium Creator Analysis tab
+     */
+    async uploadPortfolioMetricsCSV(file) {
+        if (!this.supabaseIntegration) {
+            throw new Error('Supabase not configured. Please check your configuration.');
+        }
+
+        this.clearStatus();
+        this.showProgress(0);
+
+        try {
+            this.updateProgress(30, 'Reading CSV file...');
+            console.log('📁 Reading portfolio metrics CSV file...');
+
+            // Read file as text
+            const csvContent = await file.text();
+            console.log(`✅ Read ${csvContent.length} characters from CSV`);
+
+            this.updateProgress(50, 'Uploading to database...');
+            console.log('📤 Uploading portfolio metrics to database...');
+
+            // Call edge function to process and store CSV
+            const response = await this.supabaseIntegration.callEdgeFunction('upload-portfolio-metrics', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/csv'
+                },
+                body: csvContent
+            });
+
+            if (!response.success) {
+                throw new Error(response.error || 'Failed to upload portfolio metrics');
+            }
+
+            console.log(`✅ Uploaded ${response.stats.recordsUploaded} portfolio metrics records`);
+
+            this.updateProgress(70, 'Fetching portfolio mapping from Mixpanel...');
+            console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
+
+            // Fetch portfolio mapping from Mixpanel
+            const mappingResponse = await this.supabaseIntegration.callEdgeFunction('fetch-portfolio-mapping');
+
+            if (!mappingResponse.success && !mappingResponse.skipped) {
+                throw new Error(mappingResponse.error || 'Failed to fetch portfolio mapping');
+            }
+
+            console.log('✅ Portfolio mapping synced');
+
+            this.updateProgress(90, 'Refreshing display...');
+
+            // Invalidate cache and refresh display
+            this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
+            this.outputContainer.innerHTML = '';
+            await this.displayResults({ summaryStats: {} });
+            this.updateTimestampAndDataScope();
+            this.saveToUnifiedCache();
+
+            this.updateProgress(100, 'Complete!');
+            this.addStatusMessage(`✅ Portfolio metrics uploaded successfully (${response.stats.recordsUploaded} records)`, 'success');
+
+            // Hide progress bar after 2 seconds
+            setTimeout(() => {
+                const progressSection = document.getElementById('unifiedProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Portfolio metrics upload error:', error);
+            this.addStatusMessage(`❌ Upload failed: ${error.message}`, 'error');
+            this.updateProgress(0, '');
             throw error;
         }
     }
