@@ -51,20 +51,20 @@ serve(async (req) => {
     }
 
     // Clear existing data and insert new data
-    console.log('Clearing existing portfolio metrics data...')
+    console.log('Clearing existing portfolio performance metrics data...')
     const { error: deleteError } = await supabase
-      .from('portfolio_metrics')
+      .from('portfolio_performance_metrics')
       .delete()
       .neq('strategy_id', '__never_match__') // Delete all rows
 
     if (deleteError) {
-      console.error('Error clearing portfolio metrics:', deleteError)
+      console.error('Error clearing portfolio performance metrics:', deleteError)
       throw deleteError
     }
 
-    console.log('Inserting new portfolio metrics data...')
+    console.log('Inserting new portfolio performance metrics data...')
     const { error: insertError } = await supabase
-      .from('portfolio_metrics')
+      .from('portfolio_performance_metrics')
       .insert(metricsRecords)
 
     if (insertError) {

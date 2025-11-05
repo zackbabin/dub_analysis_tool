@@ -779,9 +779,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 });
             }
 
-            // Fetch portfolio metrics (portfolioId/strategyId -> returns, capital)
+            // Fetch portfolio performance metrics (portfolioId/strategyId -> returns, capital)
             const { data: portfolioMetrics, error: metricsError } = await this.supabaseIntegration.supabase
-                .from('portfolio_metrics')
+                .from('portfolio_performance_metrics')
                 .select('strategy_id, total_returns_percentage, total_position');
 
             if (metricsError) {
@@ -2403,44 +2403,51 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         this.showProgress(0);
 
         try {
-            this.updateProgress(30, 'Reading CSV file...');
-            console.log('📁 Reading portfolio metrics CSV file...');
+            this.updateProgress(20, `Uploading ${file.name}...`);
+            console.log(`📁 Reading portfolio metrics CSV file: ${file.name}`);
 
             // Read file as text
             const csvContent = await file.text();
             console.log(`✅ Read ${csvContent.length} characters from CSV`);
 
-            this.updateProgress(50, 'Uploading to database...');
+            this.updateProgress(40, 'Processing CSV data...');
             console.log('📤 Uploading portfolio metrics to database...');
 
             // Call edge function to process and store CSV
-            const response = await this.supabaseIntegration.callEdgeFunction('upload-portfolio-metrics', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'text/csv'
-                },
+            const { data: uploadResponse, error: uploadError } = await this.supabaseIntegration.supabase.functions.invoke('upload-portfolio-metrics', {
                 body: csvContent
             });
 
-            if (!response.success) {
-                throw new Error(response.error || 'Failed to upload portfolio metrics');
+            if (uploadError) {
+                throw new Error(uploadError.message || 'Failed to upload portfolio metrics');
             }
 
-            console.log(`✅ Uploaded ${response.stats.recordsUploaded} portfolio metrics records`);
+            if (!uploadResponse.success) {
+                throw new Error(uploadResponse.error || 'Failed to upload portfolio metrics');
+            }
 
-            this.updateProgress(70, 'Fetching portfolio mapping from Mixpanel...');
+            console.log(`✅ Uploaded ${uploadResponse.stats.recordsUploaded} portfolio metrics records`);
+            this.addStatusMessage(`✅ Uploaded ${file.name} (${uploadResponse.stats.recordsUploaded} records)`, 'success');
+
+            this.updateProgress(60, 'Fetching portfolio mapping from Mixpanel...');
             console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
 
             // Fetch portfolio mapping from Mixpanel
-            const mappingResponse = await this.supabaseIntegration.callEdgeFunction('fetch-portfolio-mapping');
+            const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
+                body: {}
+            });
 
-            if (!mappingResponse.success && !mappingResponse.skipped) {
-                throw new Error(mappingResponse.error || 'Failed to fetch portfolio mapping');
+            if (mappingError) {
+                console.warn('Warning fetching portfolio mapping:', mappingError);
+            }
+
+            if (mappingResponse && !mappingResponse.success && !mappingResponse.skipped) {
+                console.warn('Portfolio mapping fetch returned error:', mappingResponse.error);
             }
 
             console.log('✅ Portfolio mapping synced');
 
-            this.updateProgress(90, 'Refreshing display...');
+            this.updateProgress(80, 'Refreshing display...');
 
             // Invalidate cache and refresh display
             this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
@@ -2450,7 +2457,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.saveToUnifiedCache();
 
             this.updateProgress(100, 'Complete!');
-            this.addStatusMessage(`✅ Portfolio metrics uploaded successfully (${response.stats.recordsUploaded} records)`, 'success');
+            this.addStatusMessage(`✅ Portfolio metrics refreshed with latest data`, 'success');
 
             // Hide progress bar after 2 seconds
             setTimeout(() => {
@@ -2463,6 +2470,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.error('Portfolio metrics upload error:', error);
             this.addStatusMessage(`❌ Upload failed: ${error.message}`, 'error');
             this.updateProgress(0, '');
+
+            // Hide progress bar after error
+            setTimeout(() => {
+                const progressSection = document.getElementById('unifiedProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 3000);
+
             throw error;
         }
     }
