@@ -539,145 +539,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading premium creator breakdown...');
+            console.log('Loading premium creator breakdown from materialized view...');
 
-            // Get premium creator list
-            const { data: premiumCreators, error: pcError } = await this.supabaseIntegration.supabase
-                .from('premium_creators')
-                .select('creator_id, creator_username');
-
-            if (pcError || !premiumCreators) {
-                console.error('Error loading premium creators:', pcError);
-                return;
-            }
-
-            const creatorIds = premiumCreators.map(pc => pc.creator_id);
-
-            // Get portfolio-level engagement metrics (same source as metric cards)
-            // This aggregates from user-level data in user_portfolio_creator_engagement
-            const { data: portfolioEngagement, error: peError } = await this.supabaseIntegration.supabase
-                .from('portfolio_creator_engagement_metrics')
+            // Query the materialized view - all aggregation done in database
+            const { data: breakdownData, error } = await this.supabaseIntegration.supabase
+                .from('premium_creator_breakdown')
                 .select('*')
-                .in('creator_id', creatorIds);
+                .order('total_copies', { ascending: false });
 
-            if (peError) {
-                console.error('Error loading portfolio engagement metrics:', peError);
+            if (error) {
+                console.error('Error loading premium creator breakdown:', error);
                 return;
             }
-
-            // Get subscription metrics from premium_creator_metrics (creator-level)
-            const { data: creatorMetrics, error: cmError } = await this.supabaseIntegration.supabase
-                .from('premium_creator_metrics')
-                .select('*')
-                .in('creator_id', creatorIds);
-
-            if (cmError) {
-                console.error('Error loading creator metrics:', cmError);
-                return;
-            }
-
-            // Get portfolio performance metrics (for all-time returns and copy capital)
-            const { data: portfolioPerformance, error: ppError } = await this.supabaseIntegration.supabase
-                .from('portfolio_breakdown_with_metrics')
-                .select('creator_id, total_returns_percentage, total_position')
-                .in('creator_id', creatorIds);
-
-            if (ppError) {
-                console.error('Error loading portfolio performance metrics:', ppError);
-                return;
-            }
-
-            // Aggregate metrics by creator (sum across all portfolios)
-            const breakdownByCreator = premiumCreators.map(pc => {
-                const creatorPortfolios = portfolioEngagement?.filter(pe => pe.creator_id === pc.creator_id) || [];
-                const creatorMetric = creatorMetrics?.find(cm => cm.creator_id === pc.creator_id);
-                const creatorPerformance = portfolioPerformance?.filter(pp => pp.creator_id === pc.creator_id) || [];
-
-                // Sum portfolio-level metrics (same as metric cards calculation)
-                const totalCopies = creatorPortfolios.reduce((sum, p) => sum + (p.total_copies || 0), 0);
-                const totalPdpViews = creatorPortfolios.reduce((sum, p) => sum + (p.total_pdp_views || 0), 0);
-                const totalLiquidations = creatorPortfolios.reduce((sum, p) => sum + (p.total_liquidations || 0), 0);
-
-                // Get subscription metrics from creator-level table
-                const totalSubscriptions = creatorMetric?.total_subscriptions || 0;
-                const totalPaywallViews = creatorMetric?.total_paywall_views || 0;
-                const totalCancellations = creatorMetric?.total_cancellations || 0;
-
-                // Calculate performance metrics: average returns, sum capital
-                const portfoliosWithReturns = creatorPerformance.filter(p => p.total_returns_percentage !== null);
-                const avgReturns = portfoliosWithReturns.length > 0
-                    ? portfoliosWithReturns.reduce((sum, p) => sum + p.total_returns_percentage, 0) / portfoliosWithReturns.length
-                    : null;
-                const totalCopyCapital = creatorPerformance.reduce((sum, p) => sum + (p.total_position || 0), 0);
-
-                return {
-                    creator_username: pc.creator_username,
-                    total_copies: totalCopies,
-                    total_pdp_views: totalPdpViews,
-                    total_liquidations: totalLiquidations,
-                    total_subscriptions: totalSubscriptions,
-                    total_paywall_views: totalPaywallViews,
-                    total_cancellations: totalCancellations,
-                    avg_all_time_returns: avgReturns,
-                    total_copy_capital: totalCopyCapital > 0 ? totalCopyCapital : null
-                };
-            });
-
-            // Merge @dubadvisors rows by username (group by creator_username)
-            const usernameMap = new Map();
-            breakdownByCreator.forEach(row => {
-                const username = row.creator_username;
-                if (!usernameMap.has(username)) {
-                    usernameMap.set(username, {
-                        creator_username: username,
-                        total_copies: 0,
-                        total_pdp_views: 0,
-                        total_liquidations: 0,
-                        total_subscriptions: 0,
-                        total_paywall_views: 0,
-                        total_cancellations: 0,
-                        returns_values: [],
-                        total_copy_capital: 0
-                    });
-                }
-                const existing = usernameMap.get(username);
-                existing.total_copies += row.total_copies;
-                existing.total_pdp_views += row.total_pdp_views;
-                existing.total_liquidations += row.total_liquidations;
-                existing.total_subscriptions += row.total_subscriptions;
-                existing.total_paywall_views += row.total_paywall_views;
-                existing.total_cancellations += row.total_cancellations;
-                if (row.avg_all_time_returns !== null) {
-                    existing.returns_values.push(row.avg_all_time_returns);
-                }
-                existing.total_copy_capital += (row.total_copy_capital || 0);
-            });
-
-            // Calculate conversion rates and performance metrics after merging
-            const breakdownData = Array.from(usernameMap.values()).map(row => {
-                const copyCvr = row.total_pdp_views > 0 ? (row.total_copies / row.total_pdp_views) * 100 : 0;
-                const subscriptionCvr = row.total_paywall_views > 0 ? (row.total_subscriptions / row.total_paywall_views) * 100 : 0;
-                const liquidationRate = row.total_copies > 0 ? (row.total_liquidations / row.total_copies) * 100 : 0;
-                const cancellationRate = row.total_subscriptions > 0 ? (row.total_cancellations / row.total_subscriptions) * 100 : 0;
-
-                // Average all-time returns across all portfolios for this creator
-                const avgAllTimeReturns = row.returns_values.length > 0
-                    ? row.returns_values.reduce((sum, val) => sum + val, 0) / row.returns_values.length
-                    : null;
-
-                return {
-                    creator_username: row.creator_username,
-                    total_copies: row.total_copies,
-                    copy_cvr: copyCvr,
-                    total_subscriptions: row.total_subscriptions,
-                    subscription_cvr: subscriptionCvr,
-                    total_liquidations: row.total_liquidations,
-                    liquidation_rate: liquidationRate,
-                    cancellation_rate: cancellationRate,
-                    avg_all_time_returns: avgAllTimeReturns,
-                    total_copy_capital: row.total_copy_capital > 0 ? row.total_copy_capital : null
-                };
-            });
 
             console.log(`✅ Loaded ${breakdownData.length} premium creators for breakdown`);
             this.displayPremiumCreatorBreakdown(breakdownData);
