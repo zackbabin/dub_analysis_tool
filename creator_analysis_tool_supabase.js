@@ -333,9 +333,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85810770%22" target="_blank" style="color: #17a2b8;">Chart 85810770</a> (Portfolio Metrics)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
                     </li>
-                    <li><strong>Metrics:</strong> Averaged across all premium creator portfolios</li>
+                    <li><strong>Metrics:</strong> Averaged across all premium creator portfolios, aggregated from user-level engagement data</li>
                 </ul>
             </span>
         </span>`;

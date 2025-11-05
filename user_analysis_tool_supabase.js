@@ -928,7 +928,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 Identifies 2-creator pairs that drive subscriptions:
                 <ul>
                     <li><strong>Method:</strong> Logistic regression with Newton-Raphson optimization</li>
-                    <li><strong>Filters:</strong> Min 1 user exposed per combination, max 200 creators analyzed</li>
+                    <li><strong>Filters:</strong> Min 3 users exposed per combination, max 200 creators analyzed</li>
                     <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and volume</li>
                     <li><strong>Metrics:</strong> Lift (impact multiplier), odds ratio, precision, recall</li>
                 </ul>
