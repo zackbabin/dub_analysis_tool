@@ -654,6 +654,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <span class="tooltip-text">
                 <strong>Premium Creator Breakdown</strong>
                 Conversion metrics for each premium creator, aggregated across all their portfolios.
+                <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
+                    </li>
+                    <li><strong>Metrics:</strong> Copy CVR, Subscription CVR, Liquidation Rate, Cancellation Rate</li>
+                </ul>
             </span>
         </span>`;
 
@@ -819,6 +827,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <span class="tooltip-text">
                 <strong>Premium Portfolio Breakdown</strong>
                 Portfolio-level conversion metrics for each premium creator's individual portfolios.
+                <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
+                    </li>
+                    <li><strong>Metrics:</strong> Copy CVR, Liquidation Rate per portfolio</li>
+                </ul>
             </span>
         </span>`;
 
@@ -1230,9 +1245,27 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.style.marginTop = '3rem';
 
         const title = document.createElement('h1');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem;';
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem; display: inline;';
         title.textContent = 'Premium Creator Retention';
         section.appendChild(title);
+
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Premium Creator Retention</strong>
+                Monthly subscription renewal rates tracking user retention from initial subscription through 6 months.
+                <ul>
+                    <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85857452%22" target="_blank" style="color: #17a2b8;">Chart 85857452</a> (Subscription and Renewal Events)</li>
+                    <li><strong>Metrics:</strong> Initial subscribers per cohort, renewal counts at months 0-6</li>
+                    <li><strong>Calculation:</strong> Tracks distinct users from subscription cohort through renewal events</li>
+                </ul>
+            </span>
+        </span>`;
+
+        const tooltipSpan = document.createElement('span');
+        tooltipSpan.innerHTML = tooltipHTML;
+        section.appendChild(tooltipSpan);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
@@ -1271,7 +1304,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                <th style="text-align: left; padding: 0.75rem; font-weight: 600;">Creator Username</th>
+                <th style="text-align: left; padding: 0.75rem; font-weight: 600; min-width: 200px; white-space: nowrap;">Creator Username</th>
                 <th style="text-align: right; padding: 0.75rem; font-weight: 600; width: 80px;">Count</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">&lt; 1 Month</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 1</th>
@@ -1311,7 +1344,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             expandIcon.style.cssText = 'display: inline-block; margin-right: 0.5rem; transition: transform 0.2s;';
 
             const creatorCell = document.createElement('td');
-            creatorCell.style.cssText = 'padding: 0.75rem; font-weight: 600;';
+            creatorCell.style.cssText = 'padding: 0.75rem; font-weight: 600; white-space: nowrap;';
             creatorCell.appendChild(expandIcon);
             creatorCell.appendChild(document.createTextNode(creator.username));
             summaryRow.appendChild(creatorCell);
