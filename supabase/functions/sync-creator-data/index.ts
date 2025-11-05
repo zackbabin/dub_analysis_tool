@@ -527,10 +527,10 @@ function processPremiumCreatorsData(data: any): any[] {
     const keys = Object.keys(usernameData as any)
     console.log(`Processing ${creatorUsername}, found keys:`, keys)
 
-    // Find the creator_id (the 18-digit number key)
+    // Find the creator_id (any numeric key, not just 18-digit)
     let foundCreatorId = false
     for (const [key, value] of Object.entries(usernameData as any)) {
-      // Creator IDs are 18-digit numbers, skip $overall and other keys
+      // Creator IDs are numeric strings, skip $overall and other non-numeric keys
       if (key !== '$overall' && /^\d+$/.test(key)) {
         rows.push({
           creator_id: String(key),
@@ -548,14 +548,20 @@ function processPremiumCreatorsData(data: any): any[] {
     }
   }
 
-  // Deduplicate by creator_id (primary key)
+  // Deduplicate by creator_id (primary key), but aggregate duplicate usernames
   const seenIds = new Set<string>()
+  const seenUsernames = new Set<string>()
   const deduplicatedRows = rows.filter(row => {
     if (seenIds.has(row.creator_id)) {
       console.log(`⚠️ Duplicate creator_id found: ${row.creator_id} for ${row.creator_username}`)
       return false
     }
+    if (seenUsernames.has(row.creator_username)) {
+      console.log(`⚠️ Duplicate username found: ${row.creator_username} with different creator_id ${row.creator_id}`)
+      // Keep the row - same username with different creator_id is valid
+    }
     seenIds.add(row.creator_id)
+    seenUsernames.add(row.creator_username)
     return true
   })
 
