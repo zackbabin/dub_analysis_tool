@@ -1743,9 +1743,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Clear cleanData reference to free memory
             results.cleanData = null;
 
-            // Save results to localStorage
-            const now = new Date();
-            const timestamp = now.toLocaleString('en-US', {
+            // Get the actual Mixpanel data refresh time from sync_logs
+            const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+            const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+
+            const timestamp = displayTime.toLocaleString('en-US', {
                 month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
@@ -1881,9 +1883,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Clear cleanData reference to free memory
             results.cleanData = null;
 
-            // Save results to localStorage
-            const now = new Date();
-            const timestamp = now.toLocaleString('en-US', {
+            // Get the actual Mixpanel data refresh time from sync_logs
+            const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+            const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+
+            const timestamp = displayTime.toLocaleString('en-US', {
                 month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
