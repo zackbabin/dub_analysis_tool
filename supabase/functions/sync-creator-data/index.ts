@@ -44,17 +44,17 @@ serve(async (req) => {
 
     console.log('Starting Creator enrichment sync...')
 
-    // Check if sync should be skipped (within 6-hour window)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_user_profiles', 6)
+    // Check if sync should be skipped (within 1-hour window)
+    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_user_profiles', 1)
 
     if (shouldSkip) {
       return new Response(
         JSON.stringify({
           success: true,
           skipped: true,
-          message: 'Sync skipped - data refreshed within last 6 hours',
+          message: 'Sync skipped - data refreshed within last hour',
           lastSyncTime: lastSyncTime?.toISOString(),
-          stats: { skipped: true, reason: 'Data synced within last 6 hours' }
+          stats: { skipped: true, reason: 'Data synced within last hour' }
         }),
         {
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

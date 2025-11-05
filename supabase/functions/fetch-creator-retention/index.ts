@@ -29,8 +29,8 @@ serve(async (req) => {
 
     console.log('Starting creator retention sync...')
 
-    // Check if sync should be skipped (within 6-hour window)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'creator_retention', 6)
+    // Check if sync should be skipped (within 1-hour window)
+    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'creator_retention', 1)
 
     if (shouldSkip) {
       console.log('⏭️ Skipping retention sync, using cached data')
