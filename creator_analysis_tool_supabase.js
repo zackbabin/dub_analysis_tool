@@ -2347,8 +2347,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         try {
             // Note: User tool sync has already completed (runs sequentially before this)
-            // This workflow just needs to reload and redisplay the Premium Creator Copy Affinity
-            this.updateProgress(50, 'Loading Premium Creator Copy Affinity...');
+            // This workflow syncs portfolio mapping and reloads creator displays
+
+            // Step 1: Fetch portfolio mapping from Mixpanel
+            this.updateProgress(30, 'Syncing portfolio mapping...');
+            console.log('📊 Fetching portfolio ticker mapping from Mixpanel...');
+
+            const { data: mappingResponse, error: mappingError } = await this.supabaseIntegration.supabase.functions.invoke('fetch-portfolio-mapping', {
+                body: {}
+            });
+
+            if (mappingError) {
+                console.warn('Warning fetching portfolio mapping:', mappingError);
+            } else if (mappingResponse?.skipped) {
+                console.log('⏭️ Portfolio mapping skipped (using cached data)');
+            } else {
+                console.log('✅ Portfolio mapping synced');
+            }
+
+            // Step 2: Reload and redisplay the Premium Creator Copy Affinity
+            this.updateProgress(70, 'Loading Premium Creator Copy Affinity...');
 
             // Invalidate affinity cache to ensure fresh display
             console.log('Invalidating affinity cache...');
@@ -2368,8 +2386,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.saveToUnifiedCache();
 
             this.updateProgress(100, 'Complete!');
-            this.addStatusMessage('✅ Premium Creator Copy Affinity refreshed', 'success');
-            console.log('✅ Premium Creator Copy Affinity table refreshed with latest data');
+            this.addStatusMessage('✅ Creator data refreshed', 'success');
+            console.log('✅ Creator analysis refreshed with latest data');
 
             // Ensure progress bar is visible for at least 1.5 seconds
             const elapsedTime = Date.now() - workflowStartTime;
