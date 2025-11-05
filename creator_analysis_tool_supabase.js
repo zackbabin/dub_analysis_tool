@@ -729,6 +729,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Load and display premium portfolio breakdown (portfolio-level metrics)
+     * Uses materialized view for optimized performance
      */
     async loadAndDisplayPremiumPortfolioBreakdown() {
         try {
@@ -737,104 +738,37 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading premium portfolio breakdown...');
+            console.log('Loading premium portfolio breakdown from materialized view...');
 
-            // Get premium creator list
-            const { data: premiumCreators, error: pcError} = await this.supabaseIntegration.supabase
-                .from('premium_creators')
-                .select('creator_id, creator_username');
-
-            if (pcError || !premiumCreators) {
-                console.error('Error loading premium creators:', pcError);
-                return;
-            }
-
-            const creatorIds = premiumCreators.map(pc => pc.creator_id);
-
-            // Get portfolio-level engagement metrics (directly from the view, no aggregation needed)
-            const { data: portfolioEngagement, error: peError } = await this.supabaseIntegration.supabase
-                .from('portfolio_creator_engagement_metrics')
+            // Query the materialized view - single query with all data pre-joined
+            const { data: portfolioData, error } = await this.supabaseIntegration.supabase
+                .from('portfolio_breakdown_with_metrics')
                 .select('*')
-                .in('creator_id', creatorIds);
+                .order('total_copies', { ascending: false });
 
-            if (peError) {
-                console.error('Error loading portfolio engagement metrics:', peError);
+            if (error) {
+                console.error('Error loading portfolio breakdown:', error);
                 return;
             }
 
-            // Fetch portfolio ticker mapping (ticker -> portfolioId)
-            const { data: portfolioMapping, error: pmError } = await this.supabaseIntegration.supabase
-                .from('portfolio_ticker_mapping')
-                .select('portfolio_ticker, portfolio_id');
+            // Transform to match expected format
+            const formattedData = portfolioData?.map(p => ({
+                creator_username: p.creator_username || 'Unknown',
+                portfolio_ticker: p.portfolio_ticker,
+                total_copies: p.total_copies || 0,
+                copy_cvr: p.copy_cvr || 0,
+                total_liquidations: p.total_liquidations || 0,
+                liquidation_rate: p.liquidation_rate || 0,
+                all_time_returns: p.total_returns_percentage || null,
+                total_copy_capital: p.total_position || null
+            })) || [];
 
-            if (pmError) {
-                console.warn('Error loading portfolio mapping:', pmError);
-            }
-
-            // Create a map of ticker -> portfolioId for quick lookup
-            const tickerToIdMap = new Map();
-            if (portfolioMapping) {
-                portfolioMapping.forEach(m => {
-                    tickerToIdMap.set(m.portfolio_ticker, m.portfolio_id);
-                });
-            }
-
-            // Fetch portfolio performance metrics (portfolioId/strategyId -> returns, capital)
-            const { data: portfolioMetrics, error: metricsError } = await this.supabaseIntegration.supabase
-                .from('portfolio_performance_metrics')
-                .select('strategy_id, total_returns_percentage, total_position');
-
-            if (metricsError) {
-                console.warn('Error loading portfolio metrics:', metricsError);
-            }
-
-            // Create a map of strategyId -> metrics for quick lookup
-            const metricsMap = new Map();
-            if (portfolioMetrics) {
-                portfolioMetrics.forEach(m => {
-                    metricsMap.set(m.strategy_id, {
-                        allTimeReturns: m.total_returns_percentage,
-                        totalCopyCapital: m.total_position
-                    });
-                });
-            }
-
-            // Create portfolio-level breakdown data
-            const portfolioData = portfolioEngagement?.map(p => {
-                // Find the creator username
-                const creator = premiumCreators.find(pc => pc.creator_id === p.creator_id);
-
-                // Calculate conversion rates at portfolio level
-                const copyCvr = p.total_pdp_views > 0 ? (p.total_copies / p.total_pdp_views) * 100 : 0;
-                const liquidationRate = p.total_copies > 0 ? (p.total_liquidations / p.total_copies) * 100 : 0;
-
-                // Map ticker to portfolio_id, then get metrics
-                const portfolioId = tickerToIdMap.get(p.portfolio_ticker);
-                const metrics = portfolioId ? metricsMap.get(portfolioId) : null;
-
-                return {
-                    creator_username: creator?.creator_username || 'Unknown',
-                    portfolio_ticker: p.portfolio_ticker,
-                    total_copies: p.total_copies || 0,
-                    copy_cvr: copyCvr,
-                    total_liquidations: p.total_liquidations || 0,
-                    liquidation_rate: liquidationRate,
-                    all_time_returns: metrics?.allTimeReturns || null,
-                    total_copy_capital: metrics?.totalCopyCapital || null
-                };
-            }) || [];
-
-            // Sort by total_copies descending
-            portfolioData.sort((a, b) => {
-                return (b.total_copies || 0) - (a.total_copies || 0);
-            });
-
-            console.log(`✅ Loaded ${portfolioData.length} portfolio records for breakdown`);
+            console.log(`✅ Loaded ${formattedData.length} portfolio records from materialized view`);
 
             // Store data for filtering
-            this.portfolioBreakdownData = portfolioData;
+            this.portfolioBreakdownData = formattedData;
 
-            this.displayPremiumPortfolioBreakdown(portfolioData);
+            this.displayPremiumPortfolioBreakdown(formattedData);
         } catch (error) {
             console.error('Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
         }
@@ -2467,13 +2401,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     console.warn('Warning fetching portfolio mapping:', mappingError);
                 }
 
-                this.updateProgress(80, 'Refreshing display with saved data...');
+                this.updateProgress(80, 'Refreshing Portfolio Breakdown table...');
 
-                // Refresh display to show whatever data was saved
-                this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
-                this.outputContainer.innerHTML = '';
-                await this.displayResults({ summaryStats: {} });
-                this.updateTimestampAndDataScope();
+                // Only refresh the Portfolio Breakdown table to show saved data
+                await this.loadAndDisplayPremiumPortfolioBreakdown();
                 this.saveToUnifiedCache();
 
                 this.updateProgress(100, 'Complete!');
@@ -2520,17 +2451,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             console.log('✅ Portfolio mapping synced');
 
-            this.updateProgress(80, 'Refreshing display...');
+            this.updateProgress(80, 'Refreshing Portfolio Breakdown table...');
 
-            // Invalidate cache and refresh display
-            this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
-            this.outputContainer.innerHTML = '';
-            await this.displayResults({ summaryStats: {} });
-            this.updateTimestampAndDataScope();
+            // Only refresh the Portfolio Breakdown table, not all sections
+            await this.loadAndDisplayPremiumPortfolioBreakdown();
+
+            // Save updated HTML to cache
             this.saveToUnifiedCache();
 
             this.updateProgress(100, 'Complete!');
-            this.addStatusMessage(`✅ Portfolio metrics refreshed with latest data`, 'success');
+
+            // Show success message with details
+            const duplicatesMsg = uploadResponse.stats.duplicatesRemoved > 0
+                ? ` (${uploadResponse.stats.duplicatesRemoved} duplicates removed)`
+                : '';
+            this.addStatusMessage(`✅ Portfolio metrics refreshed with latest data${duplicatesMsg}`, 'success');
 
             // Hide progress bar after 2 seconds
             setTimeout(() => {

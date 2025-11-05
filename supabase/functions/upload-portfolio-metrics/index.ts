@@ -50,6 +50,19 @@ serve(async (req) => {
       throw new Error('No valid records found in CSV')
     }
 
+    // Deduplicate by strategy_id (keep last occurrence for each strategy_id)
+    const deduplicatedMap = new Map()
+    metricsRecords.forEach(record => {
+      deduplicatedMap.set(record.strategy_id, record)
+    })
+    const deduplicatedRecords = Array.from(deduplicatedMap.values())
+
+    if (deduplicatedRecords.length < metricsRecords.length) {
+      console.log(`⚠️ Removed ${metricsRecords.length - deduplicatedRecords.length} duplicate strategy_id entries`)
+    }
+
+    console.log(`Processing ${deduplicatedRecords.length} unique portfolio metrics records`)
+
     // Use upsert instead of delete+insert to ensure data persists even if function times out
     // This way, partial data is still saved if the function doesn't complete
     console.log('Upserting portfolio performance metrics data...')
@@ -57,10 +70,10 @@ serve(async (req) => {
     let totalInserted = 0
     let errors = []
 
-    for (let i = 0; i < metricsRecords.length; i += batchSize) {
-      const batch = metricsRecords.slice(i, i + batchSize)
+    for (let i = 0; i < deduplicatedRecords.length; i += batchSize) {
+      const batch = deduplicatedRecords.slice(i, i + batchSize)
       const batchNum = Math.floor(i / batchSize) + 1
-      const totalBatches = Math.ceil(metricsRecords.length / batchSize)
+      const totalBatches = Math.ceil(deduplicatedRecords.length / batchSize)
 
       console.log(`Upserting batch ${batchNum}/${totalBatches} (${batch.length} records)`)
 
@@ -93,12 +106,23 @@ serve(async (req) => {
       console.warn(`⚠️ ${errors.length} batch(es) had errors:`, errors)
     }
 
+    // Refresh the materialized view to include new metrics
+    console.log('Refreshing portfolio breakdown materialized view...')
+    try {
+      await supabase.rpc('refresh_portfolio_breakdown_view')
+      console.log('✅ Materialized view refreshed')
+    } catch (error) {
+      console.warn('⚠️ Failed to refresh materialized view:', error)
+      // Don't fail the whole upload if view refresh fails
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         stats: {
           recordsUploaded: totalInserted,
-          totalRecords: metricsRecords.length,
+          totalRecords: deduplicatedRecords.length,
+          duplicatesRemoved: metricsRecords.length - deduplicatedRecords.length,
           errors: errors.length,
           partialUpload: errors.length > 0
         }
