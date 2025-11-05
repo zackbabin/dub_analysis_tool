@@ -195,14 +195,17 @@ function processPortfolioMappingData(chartData: any): any[] {
       const key = `${portfolioTicker}|${portfolioId}`
       if (mappingSet.has(key)) continue
 
+      // Prepend "$" to portfolio ticker to match format in portfolio_creator_engagement_metrics
+      const formattedTicker = portfolioTicker.startsWith('$') ? portfolioTicker : `$${portfolioTicker}`
+
       mappings.push({
-        portfolio_ticker: portfolioTicker,
+        portfolio_ticker: formattedTicker,
         portfolio_id: String(portfolioId),
         synced_at: new Date().toISOString()
       })
 
       mappingSet.add(key)
-      console.log(`✅ Mapped ${portfolioTicker} -> ${portfolioId}`)
+      console.log(`✅ Mapped ${formattedTicker} -> ${portfolioId}`)
     }
   }
 
