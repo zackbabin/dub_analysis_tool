@@ -392,8 +392,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const cards = [
                 ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed PDP → Copied Portfolio'],
                 ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
-                ['Avg All-Time Performance', avgPerformanceDisplay, 'Average portfolio returns across all Premium Creators'],
-                ['Avg Copy Capital', avgCopyCapitalDisplay, 'Average capital deployed to copy portfolios across all Premium Creators']
+                ['Median All-Time Returns', avgPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
+                ['Median Copy Capital', avgCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
             ];
 
             cards.forEach(([title, content, tooltip]) => {
@@ -592,29 +592,35 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const tableWrapper = document.createElement('div');
         tableWrapper.className = 'table-wrapper';
 
+        // Create scrollable container for table
+        const tableContainer = document.createElement('div');
+        tableContainer.style.overflowX = 'auto';
+        tableContainer.style.marginBottom = '20px';
+
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
+        table.style.minWidth = '1400px'; // Ensure table is wide enough to prevent wrapping
 
-        // Table header
+        // Table header with fixed column widths
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
-                <th style="text-align: left;">Premium Creator</th>
-                <th style="text-align: right;">Copies</th>
-                <th style="text-align: right;">Copy CVR</th>
-                <th style="text-align: right;">Liquidations</th>
-                <th style="text-align: right;">Liquidation Rate</th>
-                <th style="text-align: right;">Subscriptions</th>
-                <th style="text-align: right;">Subscription CVR</th>
-                <th style="text-align: right;">Cancellation Rate</th>
-                <th style="text-align: right;">
+                <th style="text-align: left; min-width: 180px;">Premium Creator</th>
+                <th style="text-align: right; min-width: 100px;">Copies</th>
+                <th style="text-align: right; min-width: 100px;">Copy CVR</th>
+                <th style="text-align: right; min-width: 120px;">Liquidations</th>
+                <th style="text-align: right; min-width: 140px;">Liquidation Rate</th>
+                <th style="text-align: right; min-width: 130px;">Subscriptions</th>
+                <th style="text-align: right; min-width: 150px;">Subscription CVR</th>
+                <th style="text-align: right; min-width: 160px;">Cancellation Rate</th>
+                <th style="text-align: right; min-width: 160px;">
                     All-Time Returns
                     <span class="info-tooltip" style="display: inline-flex; align-items: center; margin-left: 4px;">
                         <span class="info-icon">i</span>
                         <span class="tooltip-text">Average all-time returns across all portfolios created after 9/30/2024</span>
                     </span>
                 </th>
-                <th style="text-align: right;">Copy Capital</th>
+                <th style="text-align: right; min-width: 130px;">Copy Capital</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -660,7 +666,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         });
         table.appendChild(tbody);
 
-        tableWrapper.appendChild(table);
+        tableContainer.appendChild(table);
+        tableWrapper.appendChild(tableContainer);
         section.appendChild(tableWrapper);
         container.appendChild(section);
     }
@@ -1066,9 +1073,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <tr>
                 <th style="text-align: left;">Portfolio</th>
                 <th style="text-align: left;">Creation Date</th>
-                <th style="text-align: right;">Total Copies</th>
+                <th style="text-align: right; min-width: 100px;">Copies</th>
                 <th style="text-align: right;">Copy CVR</th>
-                <th style="text-align: right;">Total Liquidations</th>
+                <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
                 <th style="text-align: right;">
                     All-Time Returns
@@ -1636,8 +1643,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         thead.innerHTML = `
             <tr>
                 <th style="text-align: left;">Premium Creator</th>
-                <th style="text-align: right;">Total Copies</th>
-                <th style="text-align: right;">Total Liquidations</th>
+                <th style="text-align: right; min-width: 100px;">Copies</th>
+                <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: left; min-width: 200px;">Top 1</th>
                 <th style="text-align: left; min-width: 200px;">Top 2</th>
                 <th style="text-align: left; min-width: 200px;">Top 3</th>
