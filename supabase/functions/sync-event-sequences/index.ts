@@ -5,13 +5,19 @@
 // Triggered manually alongside other sync functions
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { fetchInsightsData } from '../_shared/mixpanel-api.ts'
 import {
-  CORS_HEADERS,
-  type MixpanelCredentials,
-  fetchInsightsData,
-  shouldSkipSync,
-} from '../_shared/mixpanel-api.ts'
+  initializeMixpanelCredentials,
+  initializeSupabaseClient,
+  handleCorsRequest,
+  checkAndHandleSkipSync,
+  createSyncLog,
+  updateSyncLogSuccess,
+  updateSyncLogFailure,
+  handleRateLimitError,
+  createSuccessResponse,
+  createErrorResponse,
+} from '../_shared/sync-helpers.ts'
 
 interface SyncStats {
   eventSequencesFetched: number
@@ -21,73 +27,25 @@ interface SyncStats {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
+  const corsResponse = handleCorsRequest(req)
+  if (corsResponse) return corsResponse
 
   try {
-    // Get Mixpanel credentials from Supabase secrets
-    const mixpanelUsername = Deno.env.get('MIXPANEL_SERVICE_USERNAME')
-    const mixpanelSecret = Deno.env.get('MIXPANEL_SERVICE_SECRET')
-
-    if (!mixpanelUsername || !mixpanelSecret) {
-      throw new Error('Mixpanel credentials not configured in Supabase secrets')
-    }
-
-    console.log('Mixpanel credentials loaded from secrets')
-
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Initialize Mixpanel credentials and Supabase client
+    const credentials = initializeMixpanelCredentials()
+    const supabase = initializeSupabaseClient()
 
     console.log('Starting event sequences sync...')
 
     // Check if sync should be skipped (within 1-hour window for event sequences)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_event_sequences', 1)
-
-    if (shouldSkip) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          skipped: true,
-          message: 'Sync skipped - data refreshed within last hour',
-          lastSyncTime: lastSyncTime?.toISOString(),
-          stats: { skipped: true, reason: 'Data synced within last hour' }
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_event_sequences', 1)
+    if (skipResponse) return skipResponse
 
     // Create sync log entry
-    const syncStartTime = new Date()
-    const { data: syncLog, error: syncLogError } = await supabase
-      .from('sync_logs')
-      .insert({
-        tool_type: 'user',
-        sync_started_at: syncStartTime.toISOString(),
-        sync_status: 'in_progress',
-        source: 'mixpanel_event_sequences',
-        triggered_by: 'manual',
-      })
-      .select()
-      .single()
-
-    if (syncLogError) {
-      console.error('Failed to create sync log:', syncLogError)
-      throw syncLogError
-    }
-
+    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_event_sequences')
     const syncLogId = syncLog.id
 
     try {
-      const credentials: MixpanelCredentials = {
-        username: mixpanelUsername,
-        secret: mixpanelSecret,
-      }
 
       // Fetch event sequences from Insights API (chart 85247935)
       const chartId = '85247935'
@@ -103,37 +61,12 @@ serve(async (req) => {
         )
       } catch (error: any) {
         // Handle Mixpanel rate limit errors gracefully
-        if (error.isRateLimited || error.statusCode === 429) {
-          console.warn('⚠️ Mixpanel rate limit reached - continuing workflow with existing data')
-
-          // Update sync log to show rate limited
-          await supabase
-            .from('sync_logs')
-            .update({
-              sync_completed_at: new Date().toISOString(),
-              sync_status: 'rate_limited',
-              error_message: 'Mixpanel rate limit exceeded - using existing data',
-              error_details: { rateLimitError: error.message },
-            })
-            .eq('id', syncLogId)
-
-          return new Response(
-            JSON.stringify({
-              success: true,
-              rateLimited: true,
-              message: 'Mixpanel rate limit reached. Continuing with existing data in database.',
-              stats: {
-                eventSequencesFetched: 0,
-                totalRawRecordsInserted: 0,
-                chartId,
-              },
-            }),
-            {
-              headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-              status: 200,
-            }
-          )
-        }
+        const rateLimitResponse = await handleRateLimitError(supabase, syncLogId, error, {
+          eventSequencesFetched: 0,
+          totalRawRecordsInserted: 0,
+          chartId,
+        })
+        if (rateLimitResponse) return rateLimitResponse
         throw error
       }
 
@@ -231,28 +164,16 @@ serve(async (req) => {
       if (userEventsMap.size === 0) {
         console.log('No new users to process - sync complete')
 
-        await supabase
-          .from('sync_logs')
-          .update({
-            sync_completed_at: new Date().toISOString(),
-            sync_status: 'completed',
-            total_records_inserted: 0,
-          })
-          .eq('id', syncLogId)
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
+        })
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Event sequences sync completed - no new users to process',
-            stats: {
-              eventSequencesFetched: 0,
-              totalRawRecordsInserted: 0,
-              chartId,
-            },
-          }),
+        return createSuccessResponse(
+          'Event sequences sync completed - no new users to process',
           {
-            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-            status: 200,
+            eventSequencesFetched: 0,
+            totalRawRecordsInserted: 0,
+            chartId,
           }
         )
       }
@@ -323,58 +244,24 @@ serve(async (req) => {
       stats.totalRawRecordsInserted = totalInserted
 
       // Update sync log with success
-      const syncEndTime = new Date()
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: syncEndTime.toISOString(),
-          sync_status: 'completed',
-          total_records_inserted: stats.totalRawRecordsInserted,
-        })
-        .eq('id', syncLogId)
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: stats.totalRawRecordsInserted,
+      })
 
       console.log('Event sequences sync completed successfully (raw data stored)')
       console.log('Call enrich-event-sequences then process-event-sequences to complete workflow')
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Event sequences sync completed successfully - raw data stored',
-          note: 'Call enrich-event-sequences then process-event-sequences to complete workflow',
-          stats,
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+      return createSuccessResponse(
+        'Event sequences sync completed successfully - raw data stored',
+        stats,
+        { note: 'Call enrich-event-sequences then process-event-sequences to complete workflow' }
       )
     } catch (error) {
       // Update sync log with failure
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: new Date().toISOString(),
-          sync_status: 'failed',
-          error_message: error.message,
-          error_details: { stack: error.stack },
-        })
-        .eq('id', syncLogId)
-
+      await updateSyncLogFailure(supabase, syncLogId, error)
       throw error
     }
   } catch (error) {
-    console.error('Error in sync-event-sequences function:', error)
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error?.message || 'Unknown error occurred',
-        details: error?.stack || String(error)
-      }),
-      {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    return createErrorResponse(error, 'sync-event-sequences')
   }
 })
