@@ -209,7 +209,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'User and Creator data from last 6 months';
+            dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
 
@@ -503,7 +503,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
             const dataScope = document.createElement('div');
             dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'User and Creator data from last 6 months';
+            dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
             resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
         }
     }
@@ -607,7 +607,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right;">Subscriptions</th>
                 <th style="text-align: right;">Subscription CVR</th>
                 <th style="text-align: right;">Cancellation Rate</th>
-                <th style="text-align: right;">All-Time Returns</th>
+                <th style="text-align: right;">
+                    All-Time Returns
+                    <span class="info-tooltip" style="display: inline-flex; align-items: center; margin-left: 4px;">
+                        <span class="info-icon">i</span>
+                        <span class="tooltip-text">Average all-time returns across all portfolios created after 9/30/2024</span>
+                    </span>
+                </th>
                 <th style="text-align: right;">Copy Capital</th>
             </tr>
         `;
@@ -1064,7 +1070,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right;">Copy CVR</th>
                 <th style="text-align: right;">Total Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
-                <th style="text-align: right;">All-Time Returns</th>
+                <th style="text-align: right;">
+                    All-Time Returns
+                    <span class="info-tooltip" style="display: inline-flex; align-items: center; margin-left: 4px;">
+                        <span class="info-icon">i</span>
+                        <span class="tooltip-text">All-time returns since 9/30/2024</span>
+                    </span>
+                </th>
                 <th style="text-align: right;">Total Copy Capital</th>
             </tr>
         `;
