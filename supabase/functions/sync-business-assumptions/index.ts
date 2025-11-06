@@ -43,76 +43,70 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    console.log('Starting Business Assumptions sync...')
+    console.log('Business Assumptions sync - Mixpanel API calls disabled')
 
-    const syncStartTime = new Date()
-    const credentials: MixpanelCredentials = {
-      username: mixpanelUsername,
-      secret: mixpanelSecret,
-    }
+    // NOTE: Mixpanel API calls commented out - business assumptions are manually maintained in database
+    // const syncStartTime = new Date()
+    // const credentials: MixpanelCredentials = {
+    //   username: mixpanelUsername,
+    //   secret: mixpanelSecret,
+    // }
 
-    // Fetch data from Mixpanel in parallel
-    const [data, funnelData] = await Promise.all([
-      fetchBusinessAssumptionsData(credentials),
-      fetchConversionFunnelData(credentials)
-    ])
+    // // Fetch data from Mixpanel in parallel
+    // const [data, funnelData] = await Promise.all([
+    //   fetchBusinessAssumptionsData(credentials),
+    //   fetchConversionFunnelData(credentials)
+    // ])
 
-    // Log available series keys for debugging
-    console.log('Available series keys:', Object.keys(data.series || {}))
+    // // Log available series keys for debugging
+    // console.log('Available series keys:', Object.keys(data.series || {}))
 
-    // Calculate averages with fallback
-    const totalRebalances = calculateAverage(
-      data.series['A. Total Rebalances'] || data.series['Rebalances per user']
-    )
+    // // Calculate averages with fallback
+    // const totalRebalances = calculateAverage(
+    //   data.series['A. Total Rebalances'] || data.series['Rebalances per user']
+    // )
 
-    const tradesPerUser = calculateAverage(data.series['Trades per user'])
+    // const tradesPerUser = calculateAverage(data.series['Trades per user'])
 
-    const portfoliosCreatedPerUser = calculateAverage(data.series['Portfolios Created per user'])
+    // const portfoliosCreatedPerUser = calculateAverage(data.series['Portfolios Created per user'])
 
-    console.log('Calculated averages:', {
-      totalRebalances,
-      tradesPerUser,
-      portfoliosCreatedPerUser,
-    })
+    // console.log('Calculated averages:', {
+    //   totalRebalances,
+    //   tradesPerUser,
+    //   portfoliosCreatedPerUser,
+    // })
 
-    // Extract conversion rates from funnel
-    const conversionRates = extractConversionRates(funnelData)
+    // // Extract conversion rates from funnel
+    // const conversionRates = extractConversionRates(funnelData)
 
-    console.log('Extracted conversion rates:', conversionRates)
+    // console.log('Extracted conversion rates:', conversionRates)
 
-    // Store in database
-    const { error: upsertError } = await supabase
-      .from('business_assumptions')
-      .upsert({
-        id: 1, // Single row for current values
-        total_rebalances: totalRebalances,
-        trades_per_user: tradesPerUser,
-        portfolios_created_per_user: portfoliosCreatedPerUser,
-        kyc_to_linked_bank: conversionRates.kycToLinkedBank,
-        linked_bank_to_ach: conversionRates.linkedBankToAch,
-        ach_to_copy: conversionRates.achToCopy,
-        synced_at: new Date().toISOString(),
-      })
+    // // Store in database
+    // const { error: upsertError } = await supabase
+    //   .from('business_assumptions')
+    //   .upsert({
+    //     id: 1, // Single row for current values
+    //     total_rebalances: totalRebalances,
+    //     trades_per_user: tradesPerUser,
+    //     portfolios_created_per_user: portfoliosCreatedPerUser,
+    //     kyc_to_linked_bank: conversionRates.kycToLinkedBank,
+    //     linked_bank_to_ach: conversionRates.linkedBankToAch,
+    //     ach_to_copy: conversionRates.achToCopy,
+    //     synced_at: new Date().toISOString(),
+    //   })
 
-    if (upsertError) {
-      console.error('Error upserting business assumptions:', upsertError)
-      throw upsertError
-    }
+    // if (upsertError) {
+    //   console.error('Error upserting business assumptions:', upsertError)
+    //   throw upsertError
+    // }
 
-    console.log('Business Assumptions sync completed successfully')
+    console.log('Business Assumptions sync completed (no Mixpanel fetch)')
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Business assumptions synced successfully',
-        data: {
-          totalRebalances,
-          tradesPerUser,
-          portfoliosCreatedPerUser,
-          kycToLinkedBank: conversionRates.kycToLinkedBank,
-          linkedBankToAch: conversionRates.linkedBankToAch,
-          achToCopy: conversionRates.achToCopy,
-        },
+        message: 'Business assumptions sync disabled - values manually maintained in database',
+        disabled: true,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
