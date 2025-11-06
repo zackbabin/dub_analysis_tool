@@ -2,7 +2,10 @@
 -- Aggregates metrics across all premium creators for the metric cards
 -- Queries from premium_creator_breakdown materialized view
 
-CREATE OR REPLACE VIEW premium_creator_summary_stats AS
+-- Drop existing view first to allow data type changes
+DROP VIEW IF EXISTS premium_creator_summary_stats;
+
+CREATE VIEW premium_creator_summary_stats AS
 SELECT
     -- Average CVRs across all premium creators
     AVG(copy_cvr) AS avg_copy_cvr,
