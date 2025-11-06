@@ -382,18 +382,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
             // Create 4 metric cards with conversion rates and performance metrics
-            const avgPerformanceDisplay = metrics.avg_all_time_performance !== null && metrics.avg_all_time_performance !== undefined
-                ? `${metrics.avg_all_time_performance >= 0 ? '+' : ''}${metrics.avg_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+            const medianPerformanceDisplay = metrics.median_all_time_performance !== null && metrics.median_all_time_performance !== undefined
+                ? `${metrics.median_all_time_performance >= 0 ? '+' : ''}${metrics.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
                 : '—';
-            const avgCopyCapitalDisplay = metrics.avg_copy_capital !== null && metrics.avg_copy_capital !== undefined
-                ? `$${metrics.avg_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+            const medianCopyCapitalDisplay = metrics.median_copy_capital !== null && metrics.median_copy_capital !== undefined
+                ? `$${metrics.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
                 : '—';
 
             const cards = [
                 ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed PDP → Copied Portfolio'],
                 ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
-                ['Median All-Time Returns', avgPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
-                ['Median Copy Capital', avgCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
+                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
+                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
             ];
 
             cards.forEach(([title, content, tooltip]) => {
@@ -442,8 +442,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return {
                     avg_copy_cvr: 0,
                     avg_subscription_cvr: 0,
-                    avg_all_time_performance: null,
-                    avg_copy_capital: null
+                    median_all_time_performance: null,
+                    median_copy_capital: null
                 };
             }
 
@@ -451,8 +451,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return {
                 avg_copy_cvr: data.avg_copy_cvr || 0,
                 avg_subscription_cvr: data.avg_subscription_cvr || 0,
-                avg_all_time_performance: data.avg_all_time_performance || null,
-                avg_copy_capital: data.avg_copy_capital || null,
+                median_all_time_performance: data.median_all_time_performance || null,
+                median_copy_capital: data.median_copy_capital || null,
                 total_creators: data.total_creators || 0
             };
 

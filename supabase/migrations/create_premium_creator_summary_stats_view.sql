@@ -11,8 +11,8 @@ SELECT
     AVG(copy_cvr) AS avg_copy_cvr,
     AVG(subscription_cvr) AS avg_subscription_cvr,
     -- Median performance metrics across all premium creators (excluding nulls)
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY avg_all_time_returns) AS avg_all_time_performance,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_copy_capital) AS avg_copy_capital,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY avg_all_time_returns) AS median_all_time_performance,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_copy_capital) AS median_copy_capital,
     -- Include count of creators for reference
     COUNT(*) AS total_creators
 FROM premium_creator_breakdown;
