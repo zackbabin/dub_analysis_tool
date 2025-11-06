@@ -4,8 +4,18 @@
 // Triggered manually by user clicking "Sync Live Data" button
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from '../_shared/mixpanel-api.ts'
+import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import {
+  initializeMixpanelCredentials,
+  initializeSupabaseClient,
+  handleCorsRequest,
+  checkAndHandleSkipSync,
+  createSyncLog,
+  updateSyncLogSuccess,
+  updateSyncLogFailure,
+  createSuccessResponse,
+  createErrorResponse,
+} from '../_shared/sync-helpers.ts'
 
 const CHART_IDS = {
   subscribersInsights: '85713544',
@@ -18,79 +28,29 @@ interface SyncStats {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
+  const corsResponse = handleCorsRequest(req)
+  if (corsResponse) return corsResponse
 
   try {
-    // Get Mixpanel credentials from Supabase secrets
-    const mixpanelUsername = Deno.env.get('MIXPANEL_SERVICE_USERNAME')
-    const mixpanelSecret = Deno.env.get('MIXPANEL_SERVICE_SECRET')
-
-    if (!mixpanelUsername || !mixpanelSecret) {
-      throw new Error('Mixpanel credentials not configured in Supabase secrets')
-    }
-
-    console.log('Mixpanel credentials loaded from secrets')
-
-    // Initialize Supabase client with service role key
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Initialize Mixpanel credentials and Supabase client
+    const credentials = initializeMixpanelCredentials()
+    const supabase = initializeSupabaseClient()
 
     console.log('Starting Mixpanel sync...')
 
     // Check if sync should be skipped (within 1-hour window)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_users', 1)
-
-    if (shouldSkip) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          skipped: true,
-          message: 'Sync skipped - data refreshed within last hour',
-          lastSyncTime: lastSyncTime?.toISOString(),
-          stats: { skipped: true, reason: 'Data synced within last hour' }
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_users', 1)
+    if (skipResponse) return skipResponse
 
     // Create sync log entry and track execution time
-    const syncStartTime = new Date()
     const executionStartMs = Date.now()
     const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
-    const { data: syncLog, error: syncLogError } = await supabase
-      .from('sync_logs')
-      .insert({
-        tool_type: 'user',
-        sync_started_at: syncStartTime.toISOString(),
-        sync_status: 'in_progress',
-        source: 'mixpanel_users',
-        triggered_by: 'manual',
-      })
-      .select()
-      .single()
-
-    if (syncLogError) {
-      console.error('Failed to create sync log:', syncLogError)
-      throw syncLogError
-    }
-
+    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_users')
     const syncLogId = syncLog.id
 
     try{
       // Date range configured in Mixpanel chart settings
       console.log(`Fetching data from Mixpanel chart (date range configured in chart)`)
-      console.log(`Mixpanel username: ${mixpanelUsername?.substring(0, 10)}...`)
-
-      const credentials: MixpanelCredentials = {
-        username: mixpanelUsername,
-        secret: mixpanelSecret,
-      }
 
       // Fetch subscribers data only
       console.log('Fetching Subscribers Insights data...')
@@ -167,58 +127,24 @@ serve(async (req) => {
       stats.totalRecordsInserted += totalProcessed
 
       // Update sync log with success
-      const syncEndTime = new Date()
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: syncEndTime.toISOString(),
-          sync_status: 'completed',
-          subscribers_fetched: stats.subscribersFetched,
-          total_records_inserted: stats.totalRecordsInserted,
-        })
-        .eq('id', syncLogId)
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        subscribers_fetched: stats.subscribersFetched,
+        total_records_inserted: stats.totalRecordsInserted,
+      })
 
       console.log('Users sync completed successfully')
 
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Mixpanel sync completed successfully',
-          stats,
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+      return createSuccessResponse(
+        'Mixpanel sync completed successfully',
+        stats
       )
     } catch (error) {
       // Update sync log with failure
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: new Date().toISOString(),
-          sync_status: 'failed',
-          error_message: error.message,
-          error_details: { stack: error.stack },
-        })
-        .eq('id', syncLogId)
-
+      await updateSyncLogFailure(supabase, syncLogId, error)
       throw error
     }
   } catch (error) {
-    console.error('Error in sync-mixpanel function:', error)
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error?.message || 'Unknown error occurred',
-        details: error?.stack || String(error)
-      }),
-      {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    return createErrorResponse(error, 'sync-mixpanel-users')
   }
 })
 

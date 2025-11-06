@@ -4,8 +4,19 @@
 // Stores data in creators_insights table
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from '../_shared/mixpanel-api.ts'
+import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import {
+  initializeMixpanelCredentials,
+  initializeSupabaseClient,
+  handleCorsRequest,
+  checkAndHandleSkipSync,
+  createSyncLog,
+  updateSyncLogSuccess,
+  updateSyncLogFailure,
+  handleRateLimitError,
+  createSuccessResponse,
+  createErrorResponse,
+} from '../_shared/sync-helpers.ts'
 
 // Mixpanel Chart IDs
 const CHART_IDS = {
@@ -24,70 +35,24 @@ interface SyncStats {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
+  // Handle CORS preflight requests
+  const corsResponse = handleCorsRequest(req)
+  if (corsResponse) return corsResponse
 
   try {
-    const mixpanelUsername = Deno.env.get('MIXPANEL_SERVICE_USERNAME')
-    const mixpanelSecret = Deno.env.get('MIXPANEL_SERVICE_SECRET')
-
-    if (!mixpanelUsername || !mixpanelSecret) {
-      throw new Error('Mixpanel credentials not configured in Supabase secrets')
-    }
-
-    console.log('Mixpanel credentials loaded from secrets')
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Initialize Mixpanel credentials and Supabase client
+    const credentials = initializeMixpanelCredentials()
+    const supabase = initializeSupabaseClient()
 
     console.log('Starting Creator enrichment sync...')
 
     // Check if sync should be skipped (within 1-hour window)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'mixpanel_user_profiles', 1)
-
-    if (shouldSkip) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          skipped: true,
-          message: 'Sync skipped - data refreshed within last hour',
-          lastSyncTime: lastSyncTime?.toISOString(),
-          stats: { skipped: true, reason: 'Data synced within last hour' }
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
-    }
-
-    const syncStartTime = new Date()
-    const credentials: MixpanelCredentials = {
-      username: mixpanelUsername,
-      secret: mixpanelSecret,
-    }
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_profiles', 1)
+    if (skipResponse) return skipResponse
 
     // Create sync log entry
-    const { data: syncLog, error: syncLogError } = await supabase
-      .from('sync_logs')
-      .insert({
-        tool_type: 'creator',
-        sync_started_at: syncStartTime.toISOString(),
-        sync_status: 'in_progress',
-        source: 'mixpanel_user_profiles',
-        triggered_by: 'manual',
-      })
-      .select()
-      .single()
-
-    if (syncLogError) {
-      console.error('Failed to create sync log:', syncLogError)
-      throw syncLogError
-    }
-
-    console.log(`Created sync log with ID: ${syncLog.id}`)
+    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'creator', 'mixpanel_user_profiles')
+    const syncLogId = syncLog.id
 
     try {
       let premiumCreatorsData, userProfileData, subscriptionMetricsData
@@ -111,39 +76,14 @@ serve(async (req) => {
         console.log('All Mixpanel data fetched successfully')
       } catch (error: any) {
         // Handle Mixpanel rate limit errors gracefully
-        if (error.isRateLimited || error.statusCode === 429) {
-          console.warn('⚠️ Mixpanel rate limit reached - continuing workflow with existing data')
-
-          // Update sync log to show rate limited
-          await supabase
-            .from('sync_logs')
-            .update({
-              sync_completed_at: new Date().toISOString(),
-              sync_status: 'rate_limited',
-              error_message: 'Mixpanel rate limit exceeded - using existing data',
-              error_details: { rateLimitError: error.message },
-            })
-            .eq('id', syncLog.id)
-
-          return new Response(
-            JSON.stringify({
-              success: true,
-              rateLimited: true,
-              message: 'Mixpanel rate limit reached. Continuing with existing data in database.',
-              stats: {
-                totalMixpanelUsers: 0,
-                matchedCreators: 0,
-                enrichedCreators: 0,
-                premiumCreatorsCount: 0,
-                premiumPortfolioMetricsCount: 0,
-              },
-            }),
-            {
-              headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-              status: 200,
-            }
-          )
-        }
+        const rateLimitResponse = await handleRateLimitError(supabase, syncLogId, error, {
+          totalMixpanelUsers: 0,
+          matchedCreators: 0,
+          enrichedCreators: 0,
+          premiumCreatorsCount: 0,
+          premiumPortfolioMetricsCount: 0,
+        })
+        if (rateLimitResponse) return rateLimitResponse
         throw error
       }
 
@@ -256,59 +196,22 @@ serve(async (req) => {
       console.log('✅ Premium creator affinity available via views')
 
       // Update sync log with success
-      const syncEndTime = new Date()
-      const durationSeconds = Math.round((syncEndTime.getTime() - syncStartTime.getTime()) / 1000)
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        subscribers_fetched: stats.enrichedCreators,
+        total_records_inserted: stats.enrichedCreators,
+      }, syncStartTime)
 
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: syncEndTime.toISOString(),
-          sync_status: 'completed',
-          subscribers_fetched: stats.enrichedCreators,
-          total_records_inserted: stats.enrichedCreators,
-          duration_seconds: durationSeconds,
-        })
-        .eq('id', syncLog.id)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Creator enrichment sync completed successfully',
-          stats,
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200,
-        }
+      return createSuccessResponse(
+        'Creator enrichment sync completed successfully',
+        stats
       )
     } catch (error) {
-      console.error('Error during creator enrichment sync:', error)
-
       // Update sync log with failure
-      await supabase
-        .from('sync_logs')
-        .update({
-          sync_completed_at: new Date().toISOString(),
-          sync_status: 'failed',
-          error_message: error instanceof Error ? error.message : String(error),
-        })
-        .eq('id', syncLog.id)
-
+      await updateSyncLogFailure(supabase, syncLogId, error)
       throw error
     }
   } catch (error) {
-    console.error('Error in sync-creator-data function:', error)
-
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-      {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    return createErrorResponse(error, 'sync-creator-data')
   }
 })
 
