@@ -132,7 +132,7 @@ class SupabaseIntegration {
                 .eq('sync_status', 'completed')
                 .order('sync_completed_at', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (error || !data || !data.sync_completed_at) {
                 return null;

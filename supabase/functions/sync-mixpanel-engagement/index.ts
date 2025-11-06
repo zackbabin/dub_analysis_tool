@@ -232,64 +232,35 @@ serve(async (req) => {
       // Fire and forget - don't wait for completion to avoid timeout
       console.log('Triggering pattern analysis (using stored data)...')
 
-      // Trigger all 3 analyses using the merged function
-      // Note: We await Promise.allSettled to ensure fetch requests are initiated,
-      // but the analysis functions themselves run in background and we don't wait for completion
+      // Trigger all analyses in background without waiting for completion
       console.log('Triggering pattern analysis functions (copy and creator_copy)...')
 
-      const analysisResults = await Promise.allSettled([
-        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ analysis_type: 'copy' })
-        }).then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error('⚠️ Copy analysis returned error:', response.status, errorText)
-            return { success: false, type: 'copy', error: errorText }
-          } else {
-            console.log('✓ Copy analysis invoked successfully')
-            return { success: true, type: 'copy' }
-          }
-        }).catch((err) => {
-          console.error('⚠️ Copy analysis failed to invoke:', err.message)
-          return { success: false, type: 'copy', error: err.message }
-        }),
+      // Fire requests without awaiting - true fire-and-forget to avoid timeout
+      fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ analysis_type: 'copy' })
+      }).catch((err) => {
+        console.error('⚠️ Copy analysis failed to invoke:', err.message)
+      })
 
-        fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ analysis_type: 'creator_copy' })
-        }).then(async (response) => {
-          if (!response.ok) {
-            const errorText = await response.text()
-            console.error('⚠️ Creator copy analysis returned error:', response.status, errorText)
-            return { success: false, type: 'creator_copy', error: errorText }
-          } else {
-            console.log('✓ Creator copy analysis invoked successfully')
-            return { success: true, type: 'creator_copy' }
-          }
-        }).catch((err) => {
-          console.error('⚠️ Creator copy analysis failed to invoke:', err.message)
-          return { success: false, type: 'creator_copy', error: err.message }
-        })
-      ])
+      fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'apikey': supabaseServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ analysis_type: 'creator_copy' })
+      }).catch((err) => {
+        console.error('⚠️ Creator copy analysis failed to invoke:', err.message)
+      })
 
-      // Log results of analysis invocations
-      const successfulAnalyses = analysisResults.filter(r => r.status === 'fulfilled' && r.value.success).length
-      console.log(`✓ Successfully invoked ${successfulAnalyses}/2 pattern analysis functions`)
-
-      if (successfulAnalyses === 0) {
-        console.warn('⚠️ WARNING: No analysis functions were successfully invoked')
-      }
+      console.log('✓ Pattern analysis functions triggered in background')
 
       // Note: Pattern analysis uses exhaustive search + logistic regression
       // Results stored in conversion_pattern_combinations table

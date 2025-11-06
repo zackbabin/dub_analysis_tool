@@ -154,6 +154,20 @@ serve(async (req) => {
         throw new Error('No event sequence data available')
       }
 
+      // Fetch existing user IDs from database for incremental sync
+      console.log('Fetching existing users for incremental sync...')
+      const { data: existingUsers, error: fetchError } = await supabase
+        .from('event_sequences_raw')
+        .select('distinct_id')
+
+      if (fetchError) {
+        console.error('Error fetching existing users:', fetchError)
+        throw fetchError
+      }
+
+      const existingUserIds = new Set(existingUsers?.map(u => u.distinct_id) || [])
+      console.log(`Found ${existingUserIds.size} existing users in database - will only process new users`)
+
       console.log('Processing event sequences...')
 
       // Parse Mixpanel Insights response structure:
@@ -163,7 +177,6 @@ serve(async (req) => {
       const userEventsMap = new Map<string, Array<{event: string, time: string, count: number}>>()
       const seriesEntries = Object.entries(eventSequencesData.series)
 
-      // Pre-calculate total iterations to log progress
       const totalMetrics = seriesEntries.length
       console.log(`Processing ${totalMetrics} metrics...`)
 
@@ -181,6 +194,9 @@ serve(async (req) => {
 
           // Skip $overall aggregates and focus on actual distinct_ids
           if (distinctId === '$overall') continue
+
+          // Skip users that already exist in database (incremental sync)
+          if (existingUserIds.has(distinctId)) continue
 
           // Get or create event array for this user
           let userEvents = userEventsMap.get(distinctId)
@@ -207,14 +223,39 @@ serve(async (req) => {
             }
           }
         }
-
-        // Log progress every 5 metrics to avoid excessive logging
-        if (metricIdx % 5 === 0 || metricIdx === totalMetrics - 1) {
-          console.log(`Processed ${metricIdx + 1}/${totalMetrics} metrics...`)
-        }
       }
 
-      console.log(`Found ${userEventsMap.size} users with event sequences`)
+      console.log(`Found ${userEventsMap.size} NEW users with event sequences (${existingUserIds.size} existing users skipped)`)
+
+      // If no new users, return early
+      if (userEventsMap.size === 0) {
+        console.log('No new users to process - sync complete')
+
+        await supabase
+          .from('sync_logs')
+          .update({
+            sync_completed_at: new Date().toISOString(),
+            sync_status: 'completed',
+            total_records_inserted: 0,
+          })
+          .eq('id', syncLogId)
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Event sequences sync completed - no new users to process',
+            stats: {
+              eventSequencesFetched: 0,
+              totalRawRecordsInserted: 0,
+              chartId,
+            },
+          }),
+          {
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        )
+      }
 
       // Convert to raw rows for database insertion (no enrichment - done separately)
       console.log('Preparing event sequences for storage...')
@@ -224,7 +265,18 @@ serve(async (req) => {
 
       console.log(`Sorting events for ${totalUsers} users...`)
 
+      // Early return after 120 seconds (leave 30s buffer for final operations)
+      const TIMEOUT_MS = 120000
+      const startTime = Date.now()
+      let processedUsers = 0
+
       for (let i = 0; i < totalUsers; i++) {
+        // Check timeout every 1000 users to avoid excessive Date.now() calls
+        if (i > 0 && i % 1000 === 0 && (Date.now() - startTime) > TIMEOUT_MS) {
+          console.warn(`⚠️ Timeout approaching after processing ${i}/${totalUsers} users. Saving progress and will resume next sync.`)
+          break
+        }
+
         const [distinctId, events] = userEntries[i]
 
         // Sort events by timestamp (optimized: use getTime() once)
@@ -240,17 +292,14 @@ serve(async (req) => {
           synced_at: syncStartTime.toISOString()
         })
 
-        // Log progress every 2000 users
-        if (i % 2000 === 0 && i > 0) {
-          console.log(`Prepared ${i}/${totalUsers} users...`)
-        }
+        processedUsers++
       }
 
-      console.log(`Prepared ${rawEventRows.length} raw event sequences`)
+      console.log(`Prepared ${rawEventRows.length} raw event sequences (${processedUsers}/${totalUsers} users)`)
       stats.eventSequencesFetched = rawEventRows.length
 
       // Upsert raw data in batches to event_sequences_raw table
-      const batchSize = 500 // Optimized nested loops allow larger batches
+      const batchSize = 1000 // Increased from 500 for better performance
       let totalInserted = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
@@ -268,9 +317,9 @@ serve(async (req) => {
         }
 
         totalInserted += batch.length
-        console.log(`Upserted batch: ${totalInserted}/${rawEventRows.length} raw records`)
       }
 
+      console.log(`Upserted ${totalInserted} raw records in ${Math.ceil(totalInserted / batchSize)} batches`)
       stats.totalRawRecordsInserted = totalInserted
 
       // Update sync log with success
