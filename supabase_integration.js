@@ -1077,14 +1077,6 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load top subscription combinations (wrapper for backwards compatibility)
-     * DEPRECATED: Subscription combinations removed - use creator_copy analysis instead
-     */
-    async loadTopSubscriptionCombinations(metric = 'lift', limit = 20, minExposure = 1) {
-        return this.loadTopCombinations('subscription', metric, limit, true, minExposure);
-    }
-
-    /**
      * Load copy conversion analysis data
      * Returns conversion rates by profile views and PDP views buckets
      */
@@ -1237,14 +1229,6 @@ class SupabaseIntegration {
     // Function and edge function deleted
 
     /**
-     * Load top portfolio sequence combinations (wrapper for backwards compatibility)
-     */
-    async loadTopPortfolioSequenceCombinations(metric = 'lift', limit = 20, minExposure = 20) {
-        return this.loadTopCombinations('portfolio_sequence', metric, limit, false, minExposure);
-    }
-
-
-    /**
      * Convert Supabase creator JSON data to CSV format
      * This maintains compatibility with the creator analysis functions
      */
@@ -1390,99 +1374,6 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * DEPRECATED: Old single-file upload method
-     * Kept for backward compatibility
-     */
-    async uploadAndEnrichCreatorData(creatorData) {
-        console.warn('uploadAndEnrichCreatorData is deprecated. Use uploadAndMergeCreatorFiles instead.');
-
-        if (!creatorData || creatorData.length === 0) {
-            throw new Error('No creator data to upload');
-        }
-
-        try {
-            console.log(`Uploading ${creatorData.length} creator records...`);
-
-            // Step 1: Call RPC function to enrich data with existing metrics
-            const { data: enrichedData, error: rpcError } = await this.supabase
-                .rpc('upload_creator_data', {
-                    creator_data: creatorData.map(c => ({
-                        creator_id: c.creator_id,
-                        creator_username: c.creator_username,
-                        raw_data: c.raw_data
-                    }))
-                });
-
-            if (rpcError) {
-                console.error('RPC error:', rpcError);
-                throw new Error(`Failed to enrich creator data: ${rpcError.message}`);
-            }
-
-            console.log(`Enriched ${enrichedData.length} creator records`);
-
-            // Step 2: Insert enriched data into uploaded_creators table
-            // Keep it simple: raw_data + total_copies + total_subscriptions
-            const upsertData = enrichedData.map(row => ({
-                creator_id: row.creator_id,
-                creator_username: row.creator_username,
-                raw_data: row.raw_data,
-                total_copies: row.total_copies || 0,
-                total_subscriptions: row.total_subscriptions || 0
-            }));
-
-            const { error: insertError } = await this.supabase
-                .from('uploaded_creators')
-                .insert(upsertData);
-
-            if (insertError) {
-                console.error('Insert error:', insertError);
-                throw new Error(`Failed to upload creator data: ${insertError.message}`);
-            }
-
-            console.log(`✅ Uploaded ${upsertData.length} creator records to uploaded_creators table`);
-
-            return {
-                success: true,
-                stats: {
-                    uploaded: upsertData.length,
-                    enriched: enrichedData.length
-                }
-            };
-        } catch (error) {
-            console.error('Upload and enrich error:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    }
-
-    // ========================================================================
-    // DEPRECATED METHODS
-    // ========================================================================
-
-    /**
-     * DEPRECATED: Credentials are now stored in Supabase secrets
-     * These methods are kept for backward compatibility but are no longer used
-     */
-    hasMixpanelCredentials() {
-        console.warn('Credentials are now stored in Supabase secrets, not localStorage');
-        return true; // Always return true since they're in Supabase
-    }
-
-    getMixpanelCredentials() {
-        console.warn('Credentials are now stored in Supabase secrets, not localStorage');
-        return { username: '', secret: '' };
-    }
-
-    saveMixpanelCredentials(username, secret) {
-        console.warn('Credentials should be set via Supabase CLI: supabase secrets set MIXPANEL_SERVICE_USERNAME=xxx');
-    }
-
-    clearMixpanelCredentials() {
-        console.warn('Credentials are stored in Supabase secrets and cannot be cleared from frontend');
-    }
 }
 
 // Export to window for global access

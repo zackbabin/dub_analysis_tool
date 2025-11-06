@@ -51,8 +51,11 @@ serve(async (req) => {
       secret: mixpanelSecret,
     }
 
-    // Fetch data from Mixpanel
-    const data = await fetchBusinessAssumptionsData(credentials)
+    // Fetch data from Mixpanel in parallel
+    const [data, funnelData] = await Promise.all([
+      fetchBusinessAssumptionsData(credentials),
+      fetchConversionFunnelData(credentials)
+    ])
 
     // Log available series keys for debugging
     console.log('Available series keys:', Object.keys(data.series || {}))
@@ -71,9 +74,6 @@ serve(async (req) => {
       tradesPerUser,
       portfoliosCreatedPerUser,
     })
-
-    // Fetch conversion funnel data
-    const funnelData = await fetchConversionFunnelData(credentials)
 
     // Extract conversion rates from funnel
     const conversionRates = extractConversionRates(funnelData)
