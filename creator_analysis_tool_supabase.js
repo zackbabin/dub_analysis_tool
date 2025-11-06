@@ -381,12 +381,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Override grid to use 4 columns instead of default 5
             metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
-            // Create 4 metric cards with conversion rates and tooltips
+            // Create 4 metric cards with conversion rates and performance metrics
+            const avgPerformanceDisplay = metrics.avg_all_time_performance !== null && metrics.avg_all_time_performance !== undefined
+                ? `${metrics.avg_all_time_performance >= 0 ? '+' : ''}${metrics.avg_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                : '—';
+            const avgCopyCapitalDisplay = metrics.avg_copy_capital !== null && metrics.avg_copy_capital !== undefined
+                ? `$${metrics.avg_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                : '—';
+
             const cards = [
                 ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed PDP → Copied Portfolio'],
                 ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
-                ['Avg Liquidation Rate', metrics.avg_liquidation_rate ? metrics.avg_liquidation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Copied Portfolio → Liquidate Portfolio'],
-                ['Avg Cancellation Rate', metrics.avg_cancellation_rate ? metrics.avg_cancellation_rate.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Subscribed to Creator → Cancelled Subscription']
+                ['Avg All-Time Performance', avgPerformanceDisplay, 'Average portfolio returns across all Premium Creators'],
+                ['Avg Copy Capital', avgCopyCapitalDisplay, 'Average capital deployed to copy portfolios across all Premium Creators']
             ];
 
             cards.forEach(([title, content, tooltip]) => {
@@ -419,62 +426,34 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return null;
             }
 
+            // Query premium_creator_summary_stats view - all aggregation done in database
             const { data, error } = await this.supabaseIntegration.supabase
-                .from('portfolio_creator_engagement_metrics')
-                .select(`
-                    total_pdp_views,
-                    total_profile_views,
-                    total_copies,
-                    total_subscriptions,
-                    total_paywall_views,
-                    total_liquidations,
-                    total_cancellations,
-                    creator_id
-                `)
-                .in('creator_id',
-                    await this.supabaseIntegration.supabase
-                        .from('premium_creators')
-                        .select('creator_id')
-                        .then(({ data }) => data.map(row => row.creator_id))
-                );
+                .from('premium_creator_summary_stats')
+                .select('*')
+                .single();
 
             if (error) {
                 console.error('Error fetching premium creator metrics:', error);
                 return null;
             }
 
-            if (!data || data.length === 0) {
+            if (!data) {
                 console.log('No premium creator metrics found');
                 return {
                     avg_copy_cvr: 0,
                     avg_subscription_cvr: 0,
-                    avg_liquidation_rate: 0,
-                    avg_cancellation_rate: 0
+                    avg_all_time_performance: null,
+                    avg_copy_capital: null
                 };
             }
 
-            // Calculate conversion rates client-side, then average them
-            const conversionRates = data.map(row => ({
-                copy_cvr: (row.total_pdp_views > 0) ? (row.total_copies / row.total_pdp_views * 100) : 0,
-                subscription_cvr: (row.total_paywall_views > 0) ? (row.total_subscriptions / row.total_paywall_views * 100) : 0,
-                liquidation_rate: (row.total_copies > 0) ? (row.total_liquidations / row.total_copies * 100) : 0,
-                cancellation_rate: (row.total_subscriptions > 0) ? (row.total_cancellations / row.total_subscriptions * 100) : 0
-            }));
-
-            const count = conversionRates.length;
-            const totals = conversionRates.reduce((acc, rates) => ({
-                copy_cvr: acc.copy_cvr + rates.copy_cvr,
-                subscription_cvr: acc.subscription_cvr + rates.subscription_cvr,
-                liquidation_rate: acc.liquidation_rate + rates.liquidation_rate,
-                cancellation_rate: acc.cancellation_rate + rates.cancellation_rate
-            }), { copy_cvr: 0, subscription_cvr: 0, liquidation_rate: 0, cancellation_rate: 0 });
-
+            // Return the pre-calculated metrics from the view
             return {
-                avg_copy_cvr: totals.copy_cvr / count,
-                avg_subscription_cvr: totals.subscription_cvr / count,
-                avg_liquidation_rate: totals.liquidation_rate / count,
-                avg_cancellation_rate: totals.cancellation_rate / count,
-                total_portfolios: count
+                avg_copy_cvr: data.avg_copy_cvr || 0,
+                avg_subscription_cvr: data.avg_subscription_cvr || 0,
+                avg_all_time_performance: data.avg_all_time_performance || null,
+                avg_copy_capital: data.avg_copy_capital || null,
+                total_creators: data.total_creators || 0
             };
 
         } catch (error) {
@@ -1634,22 +1613,24 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Create table
         const tableWrapper = document.createElement('div');
         tableWrapper.className = 'table-wrapper';
+        // Enable horizontal scroll for this specific table
+        tableWrapper.style.cssText = 'overflow-x: auto;';
 
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header
+        // Table header with wider Top 1-5 columns
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
                 <th style="text-align: left;">Premium Creator</th>
                 <th style="text-align: right;">Total Copies</th>
                 <th style="text-align: right;">Total Liquidations</th>
-                <th style="text-align: left;">Top 1</th>
-                <th style="text-align: left;">Top 2</th>
-                <th style="text-align: left;">Top 3</th>
-                <th style="text-align: left;">Top 4</th>
-                <th style="text-align: left;">Top 5</th>
+                <th style="text-align: left; min-width: 200px;">Top 1</th>
+                <th style="text-align: left; min-width: 200px;">Top 2</th>
+                <th style="text-align: left; min-width: 200px;">Top 3</th>
+                <th style="text-align: left; min-width: 200px;">Top 4</th>
+                <th style="text-align: left; min-width: 200px;">Top 5</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -1666,11 +1647,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_liquidations || 0).toLocaleString()}</td>
-                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_1)}</td>
-                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_2)}</td>
-                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_3)}</td>
-                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_4)}</td>
-                <td style="vertical-align: top; line-height: 1.6;">${this.formatTopCell(row.top_5)}</td>
+                <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_1)}</td>
+                <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_2)}</td>
+                <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_3)}</td>
+                <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_4)}</td>
+                <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_5)}</td>
             `;
             tbody.appendChild(tr);
         });
