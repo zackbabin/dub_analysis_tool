@@ -1,9 +1,48 @@
--- Create materialized view for Premium Creator Breakdown
--- Aggregates portfolio-level metrics to creator level
--- Includes engagement metrics and portfolio performance metrics
+-- Exclude duplicate dubAdvisors creator_id (118) from portfolio_breakdown_with_metrics
+-- This prevents duplicate portfolio rows when the same portfolio is associated with multiple creator_ids
 
-DROP MATERIALIZED VIEW IF EXISTS premium_creator_breakdown CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS portfolio_breakdown_with_metrics CASCADE;
 
+CREATE MATERIALIZED VIEW portfolio_breakdown_with_metrics AS
+SELECT
+    pcem.portfolio_ticker,
+    pcem.creator_id,
+    pc.creator_username,
+    pcem.total_copies,
+    pcem.total_pdp_views,
+    pcem.total_liquidations,
+    -- Calculate conversion rates
+    CASE
+        WHEN pcem.total_pdp_views > 0
+        THEN (pcem.total_copies::numeric / pcem.total_pdp_views::numeric) * 100
+        ELSE 0
+    END as copy_cvr,
+    CASE
+        WHEN pcem.total_copies > 0
+        THEN (pcem.total_liquidations::numeric / pcem.total_copies::numeric) * 100
+        ELSE 0
+    END as liquidation_rate,
+    -- Join performance metrics directly on portfolio_ticker
+    ppm.total_returns_percentage,
+    ppm.total_position,
+    ppm.inception_date,
+    ppm.uploaded_at as metrics_updated_at
+FROM portfolio_creator_engagement_metrics pcem
+JOIN premium_creators pc ON pcem.creator_id = pc.creator_id
+LEFT JOIN portfolio_performance_metrics ppm ON pcem.portfolio_ticker = ppm.portfolio_ticker
+WHERE pcem.creator_id != '118';
+
+-- Recreate indexes
+CREATE INDEX IF NOT EXISTS idx_portfolio_breakdown_creator ON portfolio_breakdown_with_metrics(creator_id);
+CREATE INDEX IF NOT EXISTS idx_portfolio_breakdown_ticker ON portfolio_breakdown_with_metrics(portfolio_ticker);
+
+-- Grant permissions
+GRANT SELECT ON portfolio_breakdown_with_metrics TO anon, authenticated;
+
+COMMENT ON MATERIALIZED VIEW portfolio_breakdown_with_metrics IS
+'Portfolio-level breakdown with engagement metrics and performance data. Excludes creator_id 118 (duplicate dubAdvisors account) to prevent duplicate portfolio rows.';
+
+-- Recreate premium_creator_breakdown materialized view (depends on portfolio_breakdown_with_metrics)
 CREATE MATERIALIZED VIEW premium_creator_breakdown AS
 WITH engagement_by_username AS (
     -- Aggregate engagement metrics at username level
@@ -93,19 +132,30 @@ GROUP BY
     sub.total_paywall_views,
     sub.total_cancellations;
 
--- Create index for fast lookups
+-- Create index for premium_creator_breakdown
 CREATE INDEX IF NOT EXISTS idx_premium_creator_breakdown_username ON premium_creator_breakdown(creator_username);
 
 -- Grant permissions
 GRANT SELECT ON premium_creator_breakdown TO anon, authenticated;
 
--- Create function to refresh the view
-CREATE OR REPLACE FUNCTION refresh_premium_creator_breakdown_view()
-RETURNS void AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW premium_creator_breakdown;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 COMMENT ON MATERIALIZED VIEW premium_creator_breakdown IS
-'Creator-level aggregated metrics for Premium Creator Breakdown. Combines engagement metrics from portfolio_creator_engagement_metrics, subscription metrics from premium_creator_metrics, and performance metrics from portfolio_breakdown_with_metrics. Refresh after syncing creator data or uploading portfolio performance metrics.';
+'Creator-level aggregated metrics for Premium Creator Breakdown. Combines engagement metrics from portfolio_creator_engagement_metrics, subscription metrics from premium_creator_metrics, and performance metrics from portfolio_performance_metrics.';
+
+-- Recreate premium_creator_summary_stats view (depends on premium_creator_breakdown)
+CREATE OR REPLACE VIEW premium_creator_summary_stats AS
+SELECT
+    -- Average CVRs across all premium creators
+    AVG(copy_cvr) AS avg_copy_cvr,
+    AVG(subscription_cvr) AS avg_subscription_cvr,
+    -- Average performance metrics across all premium creators (excluding nulls)
+    AVG(avg_all_time_returns) AS avg_all_time_performance,
+    AVG(total_copy_capital) AS avg_copy_capital,
+    -- Include count of creators for reference
+    COUNT(*) AS total_creators
+FROM premium_creator_breakdown;
+
+-- Grant permissions
+GRANT SELECT ON premium_creator_summary_stats TO anon, authenticated;
+
+COMMENT ON VIEW premium_creator_summary_stats IS
+'Summary statistics aggregated across all premium creators. Used for metric cards on Premium Creator Analysis tab. Calculates averages from premium_creator_breakdown materialized view.';
