@@ -484,6 +484,11 @@ function processPremiumCreatorsData(data: any): any[] {
  * Example:
  * series["A. Total Subscriptions"]["@brettsimba"]["339489349854568448"]["all"] = 121
  *
+ * NOTE: Subscriptions are at the creator USERNAME level, not creator_id level.
+ * When a creator has multiple creator_ids (e.g., @dubAdvisors), we take the max value
+ * across all creator_ids to avoid double-counting, and store one row per creator_id
+ * with the same subscription values (since they represent the same creator account).
+ *
  * Returns array of creator-level metric rows for premium_creator_metrics table
  */
 function processSubscriptionMetrics(data: any): any[] {
@@ -509,18 +514,35 @@ function processSubscriptionMetrics(data: any): any[] {
   // Use subscriptions as the primary metric to iterate
   const primaryMetric = metrics.subscriptions
 
+  // First pass: aggregate metrics at username level (take max across creator_ids)
+  const usernameMetrics = new Map<string, {
+    creator_ids: string[],
+    total_subscriptions: number,
+    total_paywall_views: number,
+    total_stripe_modal_views: number,
+    total_cancellations: number
+  }>()
+
   // Iterate through creator usernames
   for (const [creatorUsername, usernameData] of Object.entries(primaryMetric)) {
     if (creatorUsername === '$overall') continue
     if (typeof usernameData !== 'object') continue
 
-    // Find the creator_id (18-digit number key)
+    const creatorIds: string[] = []
+    let maxSubscriptions = 0
+    let maxPaywallViews = 0
+    let maxStripeModalViews = 0
+    let maxCancellations = 0
+
+    // Find all creator_ids for this username and take max value
     for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
       if (creatorId === '$overall') continue
       if (!/^\d+$/.test(creatorId)) continue // Skip non-numeric keys
       if (typeof creatorIdData !== 'object') continue
 
-      // Extract metrics for this creator
+      creatorIds.push(creatorId)
+
+      // Extract metrics for this creator_id
       const getMetricValue = (metricData: any): number => {
         try {
           const value = metricData?.[creatorUsername]?.[creatorId]
@@ -537,19 +559,44 @@ function processSubscriptionMetrics(data: any): any[] {
         }
       }
 
+      // Take maximum value across creator_ids (they should be the same, but handle edge cases)
+      maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions))
+      maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews))
+      maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews))
+      maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations))
+    }
+
+    if (creatorIds.length > 0) {
+      usernameMetrics.set(creatorUsername, {
+        creator_ids: creatorIds,
+        total_subscriptions: maxSubscriptions,
+        total_paywall_views: maxPaywallViews,
+        total_stripe_modal_views: maxStripeModalViews,
+        total_cancellations: maxCancellations
+      })
+
+      if (creatorIds.length > 1) {
+        console.log(`⚠️ Creator ${creatorUsername} has ${creatorIds.length} creator_ids - using max values to avoid double-counting`)
+      }
+    }
+  }
+
+  // Second pass: create one row per creator_id with the aggregated username-level metrics
+  for (const [creatorUsername, metrics] of usernameMetrics.entries()) {
+    for (const creatorId of metrics.creator_ids) {
       rows.push({
         creator_id: String(creatorId),
         creator_username: String(creatorUsername),
-        total_subscriptions: getMetricValue(metrics.subscriptions),
-        total_paywall_views: getMetricValue(metrics.paywallViews),
-        total_stripe_modal_views: getMetricValue(metrics.stripeModalViews),
-        total_cancellations: getMetricValue(metrics.cancellations),
+        total_subscriptions: metrics.total_subscriptions,
+        total_paywall_views: metrics.total_paywall_views,
+        total_stripe_modal_views: metrics.total_stripe_modal_views,
+        total_cancellations: metrics.total_cancellations,
         synced_at: now,
       })
     }
   }
 
-  console.log(`Processed subscription metrics for ${rows.length} creators`)
+  console.log(`Processed subscription metrics for ${rows.length} creator_id rows (${usernameMetrics.size} unique usernames)`)
   return rows
 }
 
