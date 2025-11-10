@@ -704,11 +704,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 console.error('Error loading top stocks:', topError);
             }
 
-            // Load per-creator top 5 stocks
+            // Load per-creator top 5 stocks, sorted by total copies
             const { data: creatorStocksData, error: creatorError } = await this.supabaseIntegration.supabase
                 .from('premium_creator_top_5_stocks')
-                .select('*')
-                .order('creator_username', { ascending: true });
+                .select('creator_username, top_stocks, top_quantities, premium_creator_breakdown!inner(total_copies)')
+                .order('premium_creator_breakdown(total_copies)', { ascending: false });
 
             if (creatorError) {
                 console.error('Error loading creator stocks:', creatorError);
@@ -759,7 +759,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (topStocks && topStocks.length > 0) {
             const metricsTitle = document.createElement('h3');
             metricsTitle.style.cssText = 'margin: 0 0 1rem 0; font-size: 1rem; color: #333;';
-            metricsTitle.textContent = 'Top 5 Stocks (All Premium Creators)';
+            metricsTitle.textContent = 'Top 5 Stocks';
             section.appendChild(metricsTitle);
 
             const metricSummary = document.createElement('div');
@@ -774,6 +774,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     </div>
                     <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
                         ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
+                        Total Shares
                     </div>
                     <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
                         ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
