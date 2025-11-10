@@ -759,7 +759,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (topStocks && topStocks.length > 0) {
             const metricsTitle = document.createElement('h3');
             metricsTitle.style.cssText = 'margin: 0 0 1rem 0; font-size: 1rem; color: #333;';
-            metricsTitle.textContent = 'Top 5 Stocks';
+            metricsTitle.textContent = 'Top 5 Stocks by Total Shares';
             section.appendChild(metricsTitle);
 
             const metricSummary = document.createElement('div');
@@ -773,7 +773,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         #${stock.rank} ${stock.stock_ticker}
                     </div>
                     <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
-                        ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
                         Total Shares
