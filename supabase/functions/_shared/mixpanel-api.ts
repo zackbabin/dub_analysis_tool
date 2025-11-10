@@ -317,10 +317,11 @@ export async function shouldSkipSync(
       .eq('sync_status', 'completed')
       .order('sync_completed_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (error || !data || !data.sync_completed_at) {
       // No previous sync found, proceed with sync
+      console.log(`No previous ${source} sync found, proceeding with sync`)
       return { shouldSkip: false, lastSyncTime: null }
     }
 
