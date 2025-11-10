@@ -25,7 +25,7 @@ SELECT
     -- Join performance metrics directly on portfolio_ticker
     ppm.total_returns_percentage,
     ppm.total_position,
-    ppm.created_at,
+    ppm.inception_date,
     ppm.uploaded_at as metrics_updated_at
 FROM portfolio_creator_engagement_metrics pcem
 JOIN premium_creators pc ON pcem.creator_id = pc.creator_id

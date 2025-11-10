@@ -231,6 +231,99 @@
             }
         }
 
+        // Show modal with two upload options for creator tab
+        function showCreatorUploadModal(creatorTool) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+            // Create modal content
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = 'background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2);';
+
+            modalContent.innerHTML = `
+                <h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">Select Upload Type</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div id="uploadPerformanceBtn" style="padding: 20px; background: white; border: 2px solid #17a2b8; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <div style="font-weight: bold; color: #17a2b8; font-size: 16px; margin-bottom: 8px;">📊 Portfolio Performance Metrics</div>
+                        <div style="font-size: 13px; color: #6c757d;">Upload CSV with portfolio returns & capital data</div>
+                    </div>
+                    <div id="uploadHoldingsBtn" style="padding: 20px; background: white; border: 2px solid #17a2b8; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <div style="font-weight: bold; color: #17a2b8; font-size: 16px; margin-bottom: 8px;">📈 Stock Holdings</div>
+                        <div style="font-size: 13px; color: #6c757d;">Upload CSV with stock ticker holdings by portfolio</div>
+                    </div>
+                </div>
+                <button id="cancelModalBtn" style="width: 100%; margin-top: 20px; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Cancel</button>
+            `;
+
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+
+            // Add hover effects
+            const performanceBtn = modalContent.querySelector('#uploadPerformanceBtn');
+            const holdingsBtn = modalContent.querySelector('#uploadHoldingsBtn');
+
+            performanceBtn.onmouseover = () => {
+                performanceBtn.style.background = '#e7f6f8';
+                performanceBtn.style.transform = 'translateY(-2px)';
+            };
+            performanceBtn.onmouseout = () => {
+                performanceBtn.style.background = 'white';
+                performanceBtn.style.transform = 'translateY(0)';
+            };
+
+            holdingsBtn.onmouseover = () => {
+                holdingsBtn.style.background = '#e7f6f8';
+                holdingsBtn.style.transform = 'translateY(-2px)';
+            };
+            holdingsBtn.onmouseout = () => {
+                holdingsBtn.style.background = 'white';
+                holdingsBtn.style.transform = 'translateY(0)';
+            };
+
+            // Handle performance metrics upload
+            performanceBtn.onclick = () => {
+                document.body.removeChild(modal);
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.csv';
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await creatorTool.uploadPortfolioMetricsCSV(file);
+                    }
+                };
+                fileInput.click();
+            };
+
+            // Handle stock holdings upload
+            holdingsBtn.onclick = () => {
+                document.body.removeChild(modal);
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.csv';
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await creatorTool.uploadStockHoldingsCSV(file);
+                    }
+                };
+                fileInput.click();
+            };
+
+            // Handle cancel
+            modalContent.querySelector('#cancelModalBtn').onclick = () => {
+                document.body.removeChild(modal);
+            };
+
+            // Close modal on overlay click
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            };
+        }
+
         // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
@@ -267,30 +360,20 @@
 
             // Manually Upload Data button behavior depends on active tab
             if (activeTab === 'creator') {
-                // On creator tab: ENABLE upload button for portfolio metrics CSV
+                // On creator tab: Show two upload options
                 uploadBtn.disabled = false;
                 uploadBtn.style.background = 'white';
                 uploadBtn.style.borderColor = '#28a745';
                 uploadBtn.style.cursor = 'pointer';
                 uploadBtn.style.pointerEvents = 'auto';
                 uploadBtn.querySelector('div:first-child').style.color = '#28a745';
-                uploadBtn.querySelector('div:first-child').textContent = 'Upload Portfolio Metrics';
+                uploadBtn.querySelector('div:first-child').textContent = 'Upload Manual Data';
                 uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
-                uploadBtn.querySelector('div:last-child').textContent = 'Upload CSV file with portfolio returns & capital';
+                uploadBtn.querySelector('div:last-child').textContent = 'Upload CSV files (portfolio metrics or stock holdings)';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
-                    // Create file input for CSV upload
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = '.csv';
-                    fileInput.onchange = async (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            await creatorTool.uploadPortfolioMetricsCSV(file);
-                        }
-                    };
-                    fileInput.click();
+                    showCreatorUploadModal(creatorTool);
                 };
             } else {
                 // On user tabs: DISABLED

@@ -148,6 +148,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         summaryContainer.id = 'creatorSummaryStatsInline';
         resultsDiv.appendChild(summaryContainer);
 
+        const topStocksContainer = document.createElement('div');
+        topStocksContainer.id = 'topStocksOverview';
+        resultsDiv.appendChild(topStocksContainer);
+
         const breakdownContainer = document.createElement('div');
         breakdownContainer.id = 'premiumCreatorBreakdownInline';
         resultsDiv.appendChild(breakdownContainer);
@@ -166,6 +170,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Display results - SKIP behavioral analysis
         this.displayCreatorSummaryStats(results.summaryStats);
+
+        // Load and display top 5 stocks traded by premium creators
+        await this.loadAndDisplayTopStocks();
 
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
@@ -541,7 +548,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     /**
      * Display premium creator breakdown table
      */
-    displayPremiumCreatorBreakdown(breakdownData) {
+    async displayPremiumCreatorBreakdown(breakdownData) {
         const container = document.getElementById('premiumCreatorBreakdownInline');
         if (!container) {
             console.error('❌ Container premiumCreatorBreakdownInline not found!');
@@ -551,6 +558,20 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (!breakdownData || breakdownData.length === 0) {
             container.innerHTML = '';
             return;
+        }
+
+        // Fetch top 5 stocks per creator
+        let creatorTopStocks = [];
+        try {
+            const { data, error } = await this.supabaseIntegration.supabase
+                .from('premium_creator_top_5_stocks')
+                .select('*');
+
+            if (!error && data) {
+                creatorTopStocks = data;
+            }
+        } catch (error) {
+            console.warn('Could not load creator top stocks:', error);
         }
 
         const section = document.createElement('div');
@@ -621,6 +642,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     </span>
                 </th>
                 <th style="text-align: right; min-width: 130px;">Copy Capital</th>
+                <th style="text-align: left; min-width: 200px;">Top 5 Stocks</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -650,6 +672,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 capitalDisplay = `$${row.total_copy_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
 
+            // Get top 5 stocks for this creator
+            const topStocks = creatorTopStocks.find(c => c.creator_username === row.creator_username);
+            const stocksDisplay = topStocks?.top_stocks?.join(', ') || '—';
+
             tr.innerHTML = `
                 <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
@@ -661,6 +687,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
                 <td style="${returnsStyle}">${returnsDisplay}</td>
                 <td style="text-align: right;">${capitalDisplay}</td>
+                <td style="text-align: left; font-size: 0.875rem; color: #495057;">${stocksDisplay}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -669,6 +696,90 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         tableContainer.appendChild(table);
         tableWrapper.appendChild(tableContainer);
         section.appendChild(tableWrapper);
+        container.appendChild(section);
+    }
+
+    /**
+     * Load and display top 5 stocks traded by all premium creators
+     */
+    async loadAndDisplayTopStocks() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            console.log('Loading top stocks from materialized view...');
+
+            const { data: topStocksData, error } = await this.supabaseIntegration.supabase
+                .from('top_stocks_all_premium_creators')
+                .select('*')
+                .order('rank', { ascending: true })
+                .limit(5);
+
+            if (error) {
+                console.error('Error loading top stocks:', error);
+                return;
+            }
+
+            console.log(`✅ Loaded ${topStocksData?.length || 0} top stocks`);
+            this.displayTopStocksMetricCards(topStocksData);
+        } catch (error) {
+            console.error('Error in loadAndDisplayTopStocks:', error);
+        }
+    }
+
+    /**
+     * Display top 5 stocks as metric cards
+     */
+    displayTopStocksMetricCards(stocks) {
+        const container = document.getElementById('topStocksOverview');
+        if (!container) {
+            console.error('❌ Container topStocksOverview not found!');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        if (!stocks || stocks.length === 0) {
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '2rem';
+
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+        title.textContent = 'Top 5 Stocks Traded by Premium Creators';
+        section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
+        description.textContent = 'Most traded stocks across all premium creator portfolios';
+        section.appendChild(description);
+
+        const metricSummary = document.createElement('div');
+        metricSummary.className = 'qda-metric-summary';
+
+        stocks.forEach(stock => {
+            const card = document.createElement('div');
+            card.className = 'qda-metric-card';
+            card.innerHTML = `
+                <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
+                    #${stock.rank} ${stock.stock_ticker}
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
+                    ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                </div>
+                <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
+                    ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
+                </div>
+            `;
+            metricSummary.appendChild(card);
+        });
+
+        section.appendChild(metricSummary);
         container.appendChild(section);
     }
 
@@ -2322,22 +2433,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.updateProgress(30, 'Uploading to database...');
             console.log('📤 Uploading portfolio metrics to database...');
 
-            // Call edge function to process and store CSV
-            const { data: uploadResponse, error: uploadError } = await this.supabaseIntegration.supabase.functions.invoke('upload-portfolio-metrics', {
+            // Call edge function to process and store CSV with dataType=performance (default)
+            const supabaseUrl = this.supabaseIntegration.supabase.supabaseUrl;
+            const supabaseKey = this.supabaseIntegration.supabase.supabaseKey;
+
+            const response = await fetch(`${supabaseUrl}/functions/v1/upload-portfolio-metrics?dataType=performance`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'text/csv'
+                },
                 body: csvContent
             });
+
+            const uploadResponse = await response.json();
 
             // Add delay to show progress
             await new Promise(resolve => setTimeout(resolve, 300));
             this.updateProgress(50, 'Processing records...');
 
-            if (uploadError) {
-                console.error('Edge function error:', uploadError);
-                const errorMsg = uploadError.message || 'Failed to upload portfolio metrics';
-                throw new Error(`Upload failed: ${errorMsg}`);
-            }
-
-            if (!uploadResponse) {
+            if (!response.ok || !uploadResponse) {
                 // Function timed out, but data might still be in DB
                 console.warn('Upload function timed out, but data may have been partially saved');
                 this.addStatusMessage('⚠️ Upload timed out - checking for saved data...', 'warning');
@@ -2404,6 +2519,122 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }, 1500);
         } catch (error) {
             console.error('Portfolio metrics upload error:', error);
+            this.addStatusMessage(`❌ Upload failed: ${error.message}`, 'error');
+            this.updateProgress(0, '');
+
+            // Hide progress bar after error
+            setTimeout(() => {
+                const progressSection = document.getElementById('unifiedProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 3000);
+
+            throw error;
+        }
+    }
+
+    /**
+     * Upload stock holdings CSV file
+     * Called when user uploads holdings CSV on Premium Creator Analysis tab
+     */
+    async uploadStockHoldingsCSV(file) {
+        if (!this.supabaseIntegration) {
+            throw new Error('Supabase not configured. Please check your configuration.');
+        }
+
+        this.clearStatus();
+
+        // Show the unified progress bar
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+
+        this.showProgress(0);
+
+        try {
+            this.updateProgress(10, `Uploading ${file.name}...`);
+            console.log(`📁 Reading stock holdings CSV file: ${file.name}`);
+
+            // Read file as text
+            const csvContent = await file.text();
+            console.log(`✅ Read ${csvContent.length} characters from CSV`);
+
+            // Add small delay to ensure progress bar is visible
+            await new Promise(resolve => setTimeout(resolve, 400));
+            this.updateProgress(30, 'Uploading to database...');
+            console.log('📤 Uploading stock holdings to database...');
+
+            // Call edge function with dataType=holdings parameter
+            const { data: uploadResponse, error: uploadError } = await this.supabaseIntegration.supabase.functions.invoke('upload-portfolio-metrics', {
+                body: csvContent,
+                headers: {
+                    'Content-Type': 'text/csv'
+                }
+            });
+
+            // Note: We need to pass the dataType as a query parameter
+            // Let's use a different approach with fetch
+            const supabaseUrl = this.supabaseIntegration.supabase.supabaseUrl;
+            const supabaseKey = this.supabaseIntegration.supabase.supabaseKey;
+
+            const response = await fetch(`${supabaseUrl}/functions/v1/upload-portfolio-metrics?dataType=holdings`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${supabaseKey}`,
+                    'Content-Type': 'text/csv'
+                },
+                body: csvContent
+            });
+
+            const result = await response.json();
+
+            // Add delay to show progress
+            await new Promise(resolve => setTimeout(resolve, 300));
+            this.updateProgress(50, 'Processing records...');
+
+            if (!response.ok || !result.success) {
+                const errorMsg = result.error || 'Failed to upload stock holdings';
+                throw new Error(`Upload failed: ${errorMsg}`);
+            }
+
+            console.log(`✅ Uploaded ${result.stats.recordsUploaded} stock holdings records`);
+
+            // Show appropriate message based on upload status
+            if (result.stats.partialUpload) {
+                this.addStatusMessage(`⚠️ Partial upload: ${result.stats.recordsUploaded} of ${result.stats.totalRecords} records saved (${result.stats.errors} batches failed)`, 'warning');
+            } else {
+                this.addStatusMessage(`✅ Uploaded ${file.name} (${result.stats.recordsUploaded} stock holdings)`, 'success');
+            }
+
+            // Add delay before final step
+            await new Promise(resolve => setTimeout(resolve, 300));
+            this.updateProgress(70, 'Refreshing displays...');
+
+            // Refresh top stocks and creator breakdown table
+            await this.loadAndDisplayTopStocks();
+            await this.loadAndDisplayPremiumCreatorBreakdown();
+
+            // Save updated HTML to cache
+            this.saveToUnifiedCache();
+
+            // Final delay to show completion
+            await new Promise(resolve => setTimeout(resolve, 300));
+            this.updateProgress(100, 'Complete!');
+
+            // Show success message
+            this.addStatusMessage(`✅ Stock holdings data refreshed successfully`, 'success');
+
+            // Hide progress bar after 1.5 seconds
+            setTimeout(() => {
+                const progressSection = document.getElementById('unifiedProgressSection');
+                if (progressSection) {
+                    progressSection.style.display = 'none';
+                }
+            }, 1500);
+        } catch (error) {
+            console.error('Stock holdings upload error:', error);
             this.addStatusMessage(`❌ Upload failed: ${error.message}`, 'error');
             this.updateProgress(0, '');
 
