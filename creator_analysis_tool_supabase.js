@@ -707,8 +707,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Load per-creator top 5 stocks, sorted by total copies
             const { data: creatorStocksData, error: creatorError } = await this.supabaseIntegration.supabase
                 .from('premium_creator_top_5_stocks')
-                .select('creator_username, top_stocks, top_quantities, premium_creator_breakdown!inner(total_copies)')
-                .order('premium_creator_breakdown(total_copies)', { ascending: false });
+                .select('*')
+                .order('total_copies', { ascending: false });
 
             if (creatorError) {
                 console.error('Error loading creator stocks:', creatorError);
