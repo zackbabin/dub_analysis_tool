@@ -599,13 +599,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
-        table.style.minWidth = '1400px'; // Ensure table is wide enough to prevent wrapping
+        // Remove fixed minWidth - let it size naturally
 
-        // Table header with fixed column widths
+        // Table header with fixed column widths and sticky first column
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
-                <th style="text-align: left; min-width: 180px;">Premium Creator</th>
+                <th style="text-align: left; min-width: 180px; position: sticky; left: 0; background: white; z-index: 10; box-shadow: 2px 0 4px rgba(0,0,0,0.1);">Premium Creator</th>
                 <th style="text-align: right; min-width: 100px;">Copies</th>
                 <th style="text-align: right; min-width: 100px;">Copy CVR</th>
                 <th style="text-align: right; min-width: 120px;">Liquidations</th>
@@ -651,7 +651,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
 
             tr.innerHTML = `
-                <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
+                <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
@@ -1638,11 +1638,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
 
-        // Table header with wider Top 1-5 columns
+        // Table header with wider Top 1-5 columns and sticky first column
         const thead = document.createElement('thead');
         thead.innerHTML = `
             <tr>
-                <th style="text-align: left;">Premium Creator</th>
+                <th style="text-align: left; position: sticky; left: 0; background: white; z-index: 10; box-shadow: 2px 0 4px rgba(0,0,0,0.1);">Premium Creator</th>
                 <th style="text-align: right; min-width: 100px;">Copies</th>
                 <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: left; min-width: 200px;">Top 1</th>
@@ -1663,7 +1663,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         sortedData.forEach(row => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-weight: 600;">${row.premium_creator || 'N/A'}</td>
+                <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.premium_creator || 'N/A'}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.premium_creator_total_liquidations || 0).toLocaleString()}</td>
                 <td style="vertical-align: top; line-height: 1.6; min-width: 200px;">${this.formatTopCell(row.top_1)}</td>

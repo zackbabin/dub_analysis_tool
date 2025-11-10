@@ -1,6 +1,10 @@
--- Create materialized view for Premium Creator Breakdown
--- Aggregates portfolio-level metrics to creator level
--- Includes engagement metrics and portfolio performance metrics
+-- Fix premium_creator_breakdown to include ALL premium creators
+-- Changes INNER JOINs to LEFT JOINs in CTEs to prevent filtering out creators without data
+-- Then recreates dependent views
+
+-- =============================================================================
+-- Step 1: Drop and recreate premium_creator_breakdown with LEFT JOINs
+-- =============================================================================
 
 DROP MATERIALIZED VIEW IF EXISTS premium_creator_breakdown CASCADE;
 
@@ -102,13 +106,35 @@ CREATE INDEX IF NOT EXISTS idx_premium_creator_breakdown_username ON premium_cre
 -- Grant permissions
 GRANT SELECT ON premium_creator_breakdown TO anon, authenticated;
 
--- Create function to refresh the view
-CREATE OR REPLACE FUNCTION refresh_premium_creator_breakdown_view()
-RETURNS void AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW premium_creator_breakdown;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 COMMENT ON MATERIALIZED VIEW premium_creator_breakdown IS
-'Creator-level aggregated metrics for Premium Creator Breakdown. Combines engagement metrics from portfolio_creator_engagement_metrics, subscription metrics from premium_creator_metrics, and performance metrics from portfolio_breakdown_with_metrics. Refresh after syncing creator data or uploading portfolio performance metrics.';
+'Creator-level aggregated metrics for Premium Creator Breakdown. Combines engagement metrics from portfolio_creator_engagement_metrics, subscription metrics from premium_creator_metrics, and performance metrics from portfolio_breakdown_with_metrics. Uses LEFT JOINs to include ALL premium creators even without data. Refresh after syncing creator data or uploading portfolio performance metrics.';
+
+-- =============================================================================
+-- Step 2: Recreate premium_creator_summary_stats view (dropped by CASCADE)
+-- =============================================================================
+
+DROP VIEW IF EXISTS premium_creator_summary_stats;
+
+CREATE VIEW premium_creator_summary_stats AS
+SELECT
+    -- Average CVRs across all premium creators
+    AVG(copy_cvr) AS avg_copy_cvr,
+    AVG(subscription_cvr) AS avg_subscription_cvr,
+    -- Median performance metrics across all premium creators (excluding nulls)
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY avg_all_time_returns) AS median_all_time_performance,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_copy_capital) AS median_copy_capital,
+    -- Include count of creators for reference
+    COUNT(*) AS total_creators
+FROM premium_creator_breakdown;
+
+-- Grant permissions
+GRANT SELECT ON premium_creator_summary_stats TO anon, authenticated;
+
+COMMENT ON VIEW premium_creator_summary_stats IS
+'Summary statistics aggregated across all premium creators. Used for metric cards on Premium Creator Analysis tab. Calculates averages for CVRs and medians for All-Time Returns and Copy Capital from premium_creator_breakdown materialized view.';
+
+-- =============================================================================
+-- Step 3: Refresh the materialized view to populate with current data
+-- =============================================================================
+
+REFRESH MATERIALIZED VIEW premium_creator_breakdown;
