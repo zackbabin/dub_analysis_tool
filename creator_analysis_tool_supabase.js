@@ -148,13 +148,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         summaryContainer.id = 'creatorSummaryStatsInline';
         resultsDiv.appendChild(summaryContainer);
 
-        const topStocksContainer = document.createElement('div');
-        topStocksContainer.id = 'topStocksOverview';
-        resultsDiv.appendChild(topStocksContainer);
-
         const breakdownContainer = document.createElement('div');
         breakdownContainer.id = 'premiumCreatorBreakdownInline';
         resultsDiv.appendChild(breakdownContainer);
+
+        const portfolioAssetsContainer = document.createElement('div');
+        portfolioAssetsContainer.id = 'portfolioAssetsBreakdownInline';
+        resultsDiv.appendChild(portfolioAssetsContainer);
 
         const portfolioBreakdownContainer = document.createElement('div');
         portfolioBreakdownContainer.id = 'premiumPortfolioBreakdownInline';
@@ -171,11 +171,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Display results - SKIP behavioral analysis
         this.displayCreatorSummaryStats(results.summaryStats);
 
-        // Load and display top 5 stocks traded by premium creators
-        await this.loadAndDisplayTopStocks();
-
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
+
+        // Load and display portfolio assets breakdown (top stocks)
+        await this.loadAndDisplayPortfolioAssetsBreakdown();
 
         // Load and display premium portfolio breakdown
         await this.loadAndDisplayPremiumPortfolioBreakdown();
@@ -560,20 +560,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return;
         }
 
-        // Fetch top 5 stocks per creator
-        let creatorTopStocks = [];
-        try {
-            const { data, error } = await this.supabaseIntegration.supabase
-                .from('premium_creator_top_5_stocks')
-                .select('*');
-
-            if (!error && data) {
-                creatorTopStocks = data;
-            }
-        } catch (error) {
-            console.warn('Could not load creator top stocks:', error);
-        }
-
         const section = document.createElement('div');
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
@@ -642,7 +628,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     </span>
                 </th>
                 <th style="text-align: right; min-width: 130px;">Copy Capital</th>
-                <th style="text-align: left; min-width: 200px;">Top 5 Stocks</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -672,10 +657,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 capitalDisplay = `$${row.total_copy_capital.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
 
-            // Get top 5 stocks for this creator
-            const topStocks = creatorTopStocks.find(c => c.creator_username === row.creator_username);
-            const stocksDisplay = topStocks?.top_stocks?.join(', ') || '—';
-
             tr.innerHTML = `
                 <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
@@ -687,7 +668,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
                 <td style="${returnsStyle}">${returnsDisplay}</td>
                 <td style="text-align: right;">${capitalDisplay}</td>
-                <td style="text-align: left; font-size: 0.875rem; color: #495057;">${stocksDisplay}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -700,86 +680,155 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Load and display top 5 stocks traded by all premium creators
+     * Load and display portfolio assets breakdown
+     * Shows top 5 stocks across all premium creators (metric cards)
+     * and top 5 stocks per creator (table)
      */
-    async loadAndDisplayTopStocks() {
+    async loadAndDisplayPortfolioAssetsBreakdown() {
         try {
             if (!this.supabaseIntegration) {
                 console.error('Supabase not configured');
                 return;
             }
 
-            console.log('Loading top stocks from materialized view...');
+            console.log('Loading portfolio assets breakdown...');
 
-            const { data: topStocksData, error } = await this.supabaseIntegration.supabase
+            // Load overall top 5 stocks
+            const { data: topStocksData, error: topError } = await this.supabaseIntegration.supabase
                 .from('top_stocks_all_premium_creators')
                 .select('*')
                 .order('rank', { ascending: true })
                 .limit(5);
 
-            if (error) {
-                console.error('Error loading top stocks:', error);
-                return;
+            if (topError) {
+                console.error('Error loading top stocks:', topError);
             }
 
-            console.log(`✅ Loaded ${topStocksData?.length || 0} top stocks`);
-            this.displayTopStocksMetricCards(topStocksData);
+            // Load per-creator top 5 stocks
+            const { data: creatorStocksData, error: creatorError } = await this.supabaseIntegration.supabase
+                .from('premium_creator_top_5_stocks')
+                .select('*')
+                .order('creator_username', { ascending: true });
+
+            if (creatorError) {
+                console.error('Error loading creator stocks:', creatorError);
+            }
+
+            console.log(`✅ Loaded ${topStocksData?.length || 0} top stocks and ${creatorStocksData?.length || 0} creator breakdowns`);
+
+            // Display both in the Portfolio Assets Breakdown section
+            this.displayPortfolioAssetsBreakdown(topStocksData, creatorStocksData);
         } catch (error) {
-            console.error('Error in loadAndDisplayTopStocks:', error);
+            console.error('Error in loadAndDisplayPortfolioAssetsBreakdown:', error);
         }
     }
 
     /**
-     * Display top 5 stocks as metric cards
+     * Display portfolio assets breakdown
+     * Shows metric cards for overall top 5 stocks and table for per-creator breakdown
      */
-    displayTopStocksMetricCards(stocks) {
-        const container = document.getElementById('topStocksOverview');
+    displayPortfolioAssetsBreakdown(topStocks, creatorStocks) {
+        const container = document.getElementById('portfolioAssetsBreakdownInline');
         if (!container) {
-            console.error('❌ Container topStocksOverview not found!');
+            console.warn('⚠️ Container portfolioAssetsBreakdownInline not found, skipping display');
             return;
         }
 
         container.innerHTML = '';
 
-        if (!stocks || stocks.length === 0) {
+        if ((!topStocks || topStocks.length === 0) && (!creatorStocks || creatorStocks.length === 0)) {
             return;
         }
 
         const section = document.createElement('div');
         section.className = 'qda-result-section';
-        section.style.marginTop = '2rem';
+        section.style.marginTop = '3rem';
 
+        // Section title
         const title = document.createElement('h2');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-        title.textContent = 'Top 5 Stocks Traded by Premium Creators';
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+        title.textContent = 'Portfolio Assets Breakdown';
         section.appendChild(title);
 
         const description = document.createElement('p');
-        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
-        description.textContent = 'Most traded stocks across all premium creator portfolios';
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
+        description.textContent = 'Top stocks traded by premium creators across their portfolios';
         section.appendChild(description);
 
-        const metricSummary = document.createElement('div');
-        metricSummary.className = 'qda-metric-summary';
+        // Metric cards for overall top 5 stocks
+        if (topStocks && topStocks.length > 0) {
+            const metricsTitle = document.createElement('h3');
+            metricsTitle.style.cssText = 'margin: 0 0 1rem 0; font-size: 1rem; color: #333;';
+            metricsTitle.textContent = 'Top 5 Stocks (All Premium Creators)';
+            section.appendChild(metricsTitle);
 
-        stocks.forEach(stock => {
-            const card = document.createElement('div');
-            card.className = 'qda-metric-card';
-            card.innerHTML = `
-                <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
-                    #${stock.rank} ${stock.stock_ticker}
-                </div>
-                <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
-                    ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                </div>
-                <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
-                    ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
-                </div>
+            const metricSummary = document.createElement('div');
+            metricSummary.className = 'qda-metric-summary';
+
+            topStocks.forEach(stock => {
+                const card = document.createElement('div');
+                card.className = 'qda-metric-card';
+                card.innerHTML = `
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
+                        #${stock.rank} ${stock.stock_ticker}
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
+                        ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </div>
+                    <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
+                        ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
+                    </div>
+                `;
+                metricSummary.appendChild(card);
+            });
+
+            section.appendChild(metricSummary);
+        }
+
+        // Table for per-creator breakdown
+        if (creatorStocks && creatorStocks.length > 0) {
+            const tableTitle = document.createElement('h3');
+            tableTitle.style.cssText = 'margin: 2rem 0 1rem 0; font-size: 1rem; color: #333;';
+            tableTitle.textContent = 'Top 5 Stocks by Premium Creator';
+            section.appendChild(tableTitle);
+
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'qda-table-wrapper';
+            tableWrapper.style.cssText = 'overflow-x: auto; margin-top: 1rem;';
+
+            const tableContainer = document.createElement('div');
+            tableContainer.style.minWidth = '600px';
+
+            const table = document.createElement('table');
+            table.className = 'qda-regression-table';
+
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="text-align: left; min-width: 180px;">Premium Creator</th>
+                    <th style="text-align: left; min-width: 300px;">Top 5 Stocks</th>
+                </tr>
             `;
-            metricSummary.appendChild(card);
-        });
+            table.appendChild(thead);
 
-        section.appendChild(metricSummary);
+            const tbody = document.createElement('tbody');
+            creatorStocks.forEach(row => {
+                const tr = document.createElement('tr');
+                const stocksDisplay = row.top_stocks?.join(', ') || '—';
+
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocksDisplay}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+
+            tableContainer.appendChild(table);
+            tableWrapper.appendChild(tableContainer);
+            section.appendChild(tableWrapper);
+        }
+
         container.appendChild(section);
     }
 
@@ -2588,13 +2637,24 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 body: csvContent
             });
 
-            const result = await response.json();
-
             // Add delay to show progress
             await new Promise(resolve => setTimeout(resolve, 300));
             this.updateProgress(50, 'Processing records...');
 
-            if (!response.ok || !result.success) {
+            let result;
+            try {
+                result = await response.json();
+            } catch (jsonError) {
+                console.error('Failed to parse response:', jsonError);
+                throw new Error(`Upload failed: Invalid response from server (status ${response.status})`);
+            }
+
+            if (!response.ok) {
+                const errorMsg = result?.error || `Server error (status ${response.status})`;
+                throw new Error(`Upload failed: ${errorMsg}`);
+            }
+
+            if (!result.success) {
                 const errorMsg = result.error || 'Failed to upload stock holdings';
                 throw new Error(`Upload failed: ${errorMsg}`);
             }
@@ -2612,9 +2672,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             await new Promise(resolve => setTimeout(resolve, 300));
             this.updateProgress(70, 'Refreshing displays...');
 
-            // Refresh top stocks and creator breakdown table
-            await this.loadAndDisplayTopStocks();
-            await this.loadAndDisplayPremiumCreatorBreakdown();
+            // Refresh portfolio assets breakdown (only if container exists)
+            const portfolioAssetsContainer = document.getElementById('portfolioAssetsBreakdownInline');
+
+            if (portfolioAssetsContainer) {
+                await this.loadAndDisplayPortfolioAssetsBreakdown();
+            } else {
+                console.warn('⚠️ Skipping portfolio assets refresh - container not found (likely loaded from cache)');
+            }
 
             // Save updated HTML to cache
             this.saveToUnifiedCache();
