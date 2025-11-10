@@ -5,42 +5,38 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-import { CORS_HEADERS, fetchInsightsData, type MixpanelCredentials, shouldSkipSync } from '../_shared/mixpanel-api.ts'
+import { CORS_HEADERS, fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import {
+  initializeMixpanelCredentials,
+  initializeSupabaseClient,
+  handleCorsRequest,
+  checkAndHandleSkipSync,
+} from '../_shared/sync-helpers.ts'
 
 const RETENTION_CHART_ID = '85857452'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS })
-  }
+  // Handle CORS preflight requests
+  const corsResponse = handleCorsRequest(req)
+  if (corsResponse) return corsResponse
 
   try {
-    const mixpanelUsername = Deno.env.get('MIXPANEL_SERVICE_USERNAME')
-    const mixpanelSecret = Deno.env.get('MIXPANEL_SERVICE_SECRET')
-
-    if (!mixpanelUsername || !mixpanelSecret) {
-      throw new Error('Mixpanel credentials not configured in Supabase secrets')
-    }
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    // Initialize Mixpanel credentials and Supabase client
+    const credentials = initializeMixpanelCredentials()
+    const supabase = initializeSupabaseClient()
 
     console.log('Starting creator retention sync...')
 
     // Check if sync should be skipped (within 1-hour window)
-    const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, 'creator_retention', 1)
-
-    if (shouldSkip) {
-      console.log('⏭️ Skipping retention sync, using cached data')
-      // Return data from database
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'creator_retention', 1)
+    if (skipResponse) {
+      // Return cached data when skipped
       const retentionData = await queryRetentionData(supabase)
+      // Parse the skip response and add cached data
+      const skipData = await skipResponse.json()
       return new Response(
         JSON.stringify({
-          success: true,
-          skipped: true,
-          lastSyncTime: lastSyncTime?.toISOString(),
+          ...skipData,
           rawData: retentionData
         }),
         {
@@ -72,11 +68,6 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      const credentials: MixpanelCredentials = {
-        username: mixpanelUsername,
-        secret: mixpanelSecret
-      }
-
       // Fetch retention data from Mixpanel Insights Chart
       console.log(`Fetching retention data from Mixpanel Chart ${RETENTION_CHART_ID}...`)
       const chartData = await fetchInsightsData(
