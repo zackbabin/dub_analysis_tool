@@ -769,14 +769,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
+                    <div style="font-size: 1rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
                         #${stock.rank} ${stock.stock_ticker}
                     </div>
                     <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
                         ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
-                        Total Shares
                     </div>
                     <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
                         ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
