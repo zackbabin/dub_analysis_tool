@@ -11,6 +11,51 @@ class VersionChecker {
     constructor() {
         this.storageKey = 'dubAnalyticsVersion';
         this.toastShown = false;
+        this.checkIntervalMs = 30000; // Check every 30 seconds
+    }
+
+    /**
+     * Start periodic version checking
+     */
+    startPeriodicCheck() {
+        // Initial check
+        this.checkVersion();
+
+        // Check periodically
+        this.intervalId = setInterval(() => {
+            this.checkVersionFromServer();
+        }, this.checkIntervalMs);
+
+        console.log(`🔄 Version checker started (checking every ${this.checkIntervalMs / 1000}s)`);
+    }
+
+    /**
+     * Check version by fetching the version-checker.js file from server
+     * This detects changes even while the page is open
+     */
+    async checkVersionFromServer() {
+        if (this.toastShown) return; // Already notified
+
+        try {
+            // Fetch version-checker.js with cache-busting timestamp
+            const response = await fetch(`version-checker.js?t=${Date.now()}`);
+            const content = await response.text();
+
+            // Extract CURRENT_VERSION from the file
+            const match = content.match(/const CURRENT_VERSION = ['"]([^'"]+)['"]/);
+            if (match && match[1]) {
+                const serverVersion = match[1];
+                const cachedVersion = localStorage.getItem(this.storageKey);
+
+                if (cachedVersion && cachedVersion !== serverVersion) {
+                    console.log(`📦 Version update detected: cached=${cachedVersion}, server=${serverVersion}`);
+                    this.showUpdateNotification();
+                    clearInterval(this.intervalId); // Stop checking once notified
+                }
+            }
+        } catch (error) {
+            console.error('Error checking version from server:', error);
+        }
     }
 
     /**
@@ -220,11 +265,11 @@ class VersionChecker {
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         const checker = new VersionChecker();
-        checker.checkVersion();
+        checker.startPeriodicCheck();
     });
 } else {
     const checker = new VersionChecker();
-    checker.checkVersion();
+    checker.startPeriodicCheck();
 }
 
 console.log('✅ Version Checker loaded successfully!');
