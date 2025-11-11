@@ -239,7 +239,8 @@ class SupabaseIntegration {
      * Trigger Mixpanel sync via Supabase Edge Functions (three-part process)
      * Part 1: sync-mixpanel-users (subscribers data - large dataset)
      * Part 2: sync-mixpanel-funnels (time funnels only) - CURRENTLY DISABLED
-     * Part 3: sync-mixpanel-engagement (views, subscriptions, copies + trigger analyses)
+     * Part 3: sync-mixpanel-engagement (views, subscriptions, copies)
+     *         → Automatically triggers refresh-engagement-views (materialized views + pattern analysis)
      * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */

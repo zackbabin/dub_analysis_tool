@@ -163,65 +163,29 @@ serve(async (req) => {
         stats.totalRecordsInserted += creatorPairs.length
       }
 
-      // Trigger pattern analysis (NOW USES STORED DATA - no Mixpanel calls)
-      // Fire and forget - don't wait for completion to avoid timeout
-      console.log('Triggering pattern analysis (using stored data)...')
+      // Trigger refresh-engagement-views function to handle aggregation work
+      // This prevents timeout by splitting the work into two functions
+      console.log('Triggering refresh-engagement-views function for aggregation...')
 
-      // Trigger all analyses in background without waiting for completion
-      console.log('Triggering pattern analysis functions (copy and creator_copy)...')
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-      // Fire requests without awaiting - true fire-and-forget to avoid timeout
-      fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ analysis_type: 'copy' })
-      }).catch((err) => {
-        console.error('⚠️ Copy analysis failed to invoke:', err.message)
-      })
-
-      fetch(`${supabaseUrl}/functions/v1/analyze-conversion-patterns`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseServiceKey}`,
-          'apikey': supabaseServiceKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ analysis_type: 'creator_copy' })
-      }).catch((err) => {
-        console.error('⚠️ Creator copy analysis failed to invoke:', err.message)
-      })
-
-      console.log('✓ Pattern analysis functions triggered in background')
-
-      // Note: Pattern analysis uses exhaustive search + logistic regression
-      // Results stored in conversion_pattern_combinations table
-      console.log('Pattern analysis functions use stored engagement data (no duplicate Mixpanel calls)')
-
-      // Refresh materialized view asynchronously (don't block Edge Function completion)
-      console.log('Triggering main_analysis materialized view refresh (async)...')
-      supabase.rpc('refresh_main_analysis')
-        .then(({ error: refreshError }) => {
-          if (refreshError) {
-            console.error('Error refreshing materialized view:', refreshError)
-          } else {
-            console.log('✓ Materialized view refreshed successfully')
-            // Refresh summary views that depend on main_analysis
-            console.log('Refreshing engagement summary views...')
-            Promise.all([
-              supabase.rpc('refresh_subscription_engagement_summary'),
-              supabase.rpc('refresh_copy_engagement_summary'),
-              supabase.rpc('refresh_portfolio_engagement_views')
-            ]).then(() => {
-              console.log('✓ Engagement summary views refreshed')
-              console.log('✓ Portfolio engagement views refreshed (includes hidden gems)')
-            }).catch(e => console.warn('Error refreshing summary views:', e))
-          }
+      if (supabaseUrl && supabaseServiceKey) {
+        // Fire and forget - don't wait for completion
+        fetch(`${supabaseUrl}/functions/v1/refresh-engagement-views`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+        }).catch((err) => {
+          console.error('⚠️ Failed to trigger refresh-engagement-views:', err.message)
         })
-        .catch(err => console.warn('Materialized view refresh failed:', err))
+        console.log('✓ Refresh function triggered in background')
+      } else {
+        console.warn('⚠️ Cannot trigger refresh function: Supabase credentials not available')
+      }
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
@@ -229,7 +193,7 @@ serve(async (req) => {
       })
 
       console.log('Engagement sync completed successfully')
-      console.log('Note: engagement summaries will be refreshed by analyze-conversion-patterns after pattern analysis completes')
+      console.log('Note: Materialized views and pattern analysis will be refreshed by refresh-engagement-views function')
 
       return createSuccessResponse(
         'Mixpanel engagement sync completed successfully',
