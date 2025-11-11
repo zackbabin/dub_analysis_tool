@@ -5,7 +5,7 @@
 
 // Update this version number whenever you make UI changes that require a refresh
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-10-17'; // Increment this after each UI update
+const CURRENT_VERSION = '2025-11-10-18'; // Increment this after each UI update
 
 class VersionChecker {
     constructor() {
