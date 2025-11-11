@@ -106,7 +106,10 @@ serve(async (req) => {
         totalRecordsInserted: 0,
       }
 
-      const batchSize = 500
+      // Parallel batch processing configuration
+      // Larger batches + concurrent processing to prevent timeout
+      const BATCH_SIZE = 1000  // Increased from 500
+      const MAX_CONCURRENT_BATCHES = 5  // Process 5 batches in parallel
 
       // Process and store engagement data (two tables: portfolio-creator and creator-level)
       console.log('Processing engagement pairs...')
@@ -117,51 +120,77 @@ serve(async (req) => {
         syncStartTime.toISOString()
       )
 
-      // Upsert portfolio-creator engagement pairs to user_portfolio_creator_engagement
-      if (portfolioCreatorPairs.length > 0) {
-        console.log(`Upserting ${portfolioCreatorPairs.length} portfolio-creator pairs...`)
-        for (let i = 0; i < portfolioCreatorPairs.length; i += batchSize) {
-          const batch = portfolioCreatorPairs.slice(i, i + batchSize)
-          const { error: insertError } = await supabase
-            .from('user_portfolio_creator_engagement')
-            .upsert(batch, {
-              onConflict: 'distinct_id,portfolio_ticker,creator_id',
-              ignoreDuplicates: false
-            })
+      // Helper function to upsert batches in parallel
+      async function upsertInParallelBatches(
+        data: any[],
+        tableName: string,
+        onConflictColumns: string,
+        description: string
+      ): Promise<number> {
+        if (data.length === 0) return 0
 
-          if (insertError) {
-            console.error('Error upserting portfolio-creator pairs batch:', insertError)
-            throw insertError
-          }
-          console.log(`Upserted batch: ${i + batch.length}/${portfolioCreatorPairs.length} portfolio-creator pairs`)
+        console.log(`Upserting ${data.length} ${description} in batches of ${BATCH_SIZE} (${MAX_CONCURRENT_BATCHES} concurrent)...`)
+
+        // Split data into batches
+        const batches: any[][] = []
+        for (let i = 0; i < data.length; i += BATCH_SIZE) {
+          batches.push(data.slice(i, i + BATCH_SIZE))
         }
-        console.log('✓ Portfolio-creator pairs upserted successfully')
-        stats.engagementRecordsFetched += portfolioCreatorPairs.length
-        stats.totalRecordsInserted += portfolioCreatorPairs.length
+
+        // Process batches in chunks of MAX_CONCURRENT_BATCHES
+        for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
+          const batchChunk = batches.slice(i, i + MAX_CONCURRENT_BATCHES)
+          const chunkStart = i * BATCH_SIZE
+          const chunkEnd = Math.min((i + batchChunk.length) * BATCH_SIZE, data.length)
+
+          console.log(`Processing batches ${i + 1}-${i + batchChunk.length} of ${batches.length} (records ${chunkStart}-${chunkEnd}/${data.length})...`)
+
+          // Process this chunk of batches in parallel
+          const results = await Promise.all(
+            batchChunk.map(batch =>
+              supabase
+                .from(tableName)
+                .upsert(batch, {
+                  onConflict: onConflictColumns,
+                  ignoreDuplicates: false
+                })
+            )
+          )
+
+          // Check for errors in this chunk
+          for (let j = 0; j < results.length; j++) {
+            if (results[j].error) {
+              console.error(`Error upserting ${description} batch ${i + j + 1}:`, results[j].error)
+              throw results[j].error
+            }
+          }
+
+          console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
+        }
+
+        console.log(`✓ All ${data.length} ${description} upserted successfully`)
+        return data.length
       }
 
-      // Upsert creator-level engagement pairs to user_creator_engagement
-      if (creatorPairs.length > 0) {
-        console.log(`Upserting ${creatorPairs.length} creator-level pairs...`)
-        for (let i = 0; i < creatorPairs.length; i += batchSize) {
-          const batch = creatorPairs.slice(i, i + batchSize)
-          const { error: insertError } = await supabase
-            .from('user_creator_engagement')
-            .upsert(batch, {
-              onConflict: 'distinct_id,creator_id',
-              ignoreDuplicates: false
-            })
+      // Upsert portfolio-creator engagement pairs (parallel batches)
+      const portfolioCount = await upsertInParallelBatches(
+        portfolioCreatorPairs,
+        'user_portfolio_creator_engagement',
+        'distinct_id,portfolio_ticker,creator_id',
+        'portfolio-creator pairs'
+      )
+      stats.engagementRecordsFetched += portfolioCount
+      stats.totalRecordsInserted += portfolioCount
 
-          if (insertError) {
-            console.error('Error upserting creator pairs batch:', insertError)
-            throw insertError
-          }
-          console.log(`Upserted batch: ${i + batch.length}/${creatorPairs.length} creator pairs`)
-        }
-        console.log('✓ Creator-level pairs upserted successfully')
-        stats.engagementRecordsFetched += creatorPairs.length
-        stats.totalRecordsInserted += creatorPairs.length
-      }
+      // Upsert creator-level engagement pairs (parallel batches)
+      const creatorCount = await upsertInParallelBatches(
+        creatorPairs,
+        'user_creator_engagement',
+        'distinct_id,creator_id',
+        'creator-level pairs'
+      )
+      stats.engagementRecordsFetched += creatorCount
+      stats.totalRecordsInserted += creatorCount
 
       // Trigger refresh-engagement-views function to handle aggregation work
       // This prevents timeout by splitting the work into two functions
