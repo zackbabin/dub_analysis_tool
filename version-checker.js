@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-10-18'; // Increment this after each UI update
+const CURRENT_VERSION = '2025-11-10-19'; // Increment this after each UI update
 
 class VersionChecker {
     constructor() {
@@ -126,11 +126,20 @@ class VersionChecker {
 
     /**
      * Refresh the page and update stored version
+     * Also clears cached analysis results to force rebuild with new code
      */
     refreshPage() {
         console.log(`🔄 Refreshing page to version ${CURRENT_VERSION}`);
+
+        // Clear all cached analysis results to force rebuild with new UI code
+        localStorage.removeItem('dubAnalysisResults');
+        localStorage.removeItem('creatorAnalysisResults');
+
+        // Update version
         localStorage.setItem(this.storageKey, CURRENT_VERSION);
-        window.location.reload(true); // Hard refresh
+
+        // Hard refresh
+        window.location.reload(true);
     }
 
     /**
