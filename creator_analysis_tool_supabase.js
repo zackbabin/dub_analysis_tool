@@ -2487,9 +2487,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Clear the output container completely
             this.outputContainer.innerHTML = '';
 
+            // Fetch summary stats for metric cards
+            console.log('Fetching summary stats for metric cards...');
+            const summaryStats = await this.fetchPremiumCreatorMetrics() || {};
+
             // Re-render the entire creator analysis display
             console.log('Re-rendering creator analysis with fresh data...');
-            await this.displayResults({ summaryStats: {} }); // Pass minimal stats since we only show H1
+            await this.displayResults({ summaryStats });
 
             // Update timestamp and data scope with current time (matching user tool pattern)
             this.updateTimestampAndDataScope();
