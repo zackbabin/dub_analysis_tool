@@ -1,7 +1,7 @@
-// Supabase Edge Function: process-mixpanel-engagement
-// Part 2 of 3: Loads raw Mixpanel data from Storage and processes it
-// Handles data processing, database upserts, and triggers refresh-engagement-views
-// Triggered by sync-mixpanel-engagement after raw data is stored
+// Supabase Edge Function: process-creator-engagement
+// Part 2b of 4: Loads raw Mixpanel data from Storage and processes creator-level pairs
+// Handles creator engagement upserts, then triggers refresh-engagement-views
+// Triggered by process-portfolio-engagement after portfolio pairs are inserted
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
@@ -36,10 +36,10 @@ serve(async (req) => {
       throw new Error('Missing filename parameter')
     }
 
-    console.log(`Starting processing of ${filename}...`)
+    console.log(`Starting creator engagement processing for ${filename}...`)
 
     // Create sync log entry
-    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_engagement_processing')
+    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'creator_engagement_processing')
     const syncLogId = syncLog.id
 
     try {
@@ -77,10 +77,10 @@ serve(async (req) => {
       }
 
       // Parallel batch processing configuration
-      const BATCH_SIZE = 2000  // Large batches for fewer round trips
-      const MAX_CONCURRENT_BATCHES = 10  // High parallelism
+      const BATCH_SIZE = 5000  // Larger batches = fewer operations
+      const MAX_CONCURRENT_BATCHES = 3  // Lower concurrency to reduce CPU usage
 
-      // Process engagement data
+      // Process engagement data to get creator pairs
       console.log('Processing engagement pairs...')
       const { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
         profileViewsData,
@@ -89,7 +89,8 @@ serve(async (req) => {
         originalSyncTime
       )
       logElapsed()
-      console.log(`Processed ${portfolioCreatorPairs.length} portfolio pairs, ${creatorPairs.length} creator pairs`)
+      console.log(`Skipping ${portfolioCreatorPairs.length} portfolio pairs (already processed)`)
+      console.log(`Processing ${creatorPairs.length} creator pairs`)
 
       // Helper function to upsert batches in parallel
       async function upsertInParallelBatches(
@@ -137,65 +138,33 @@ serve(async (req) => {
           }
 
           console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
+
+          // Small delay between chunks to avoid CPU quota exhaustion
+          if (i + MAX_CONCURRENT_BATCHES < batches.length) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+          }
         }
 
         console.log(`✓ All ${data.length} ${description} upserted successfully`)
         return data.length
       }
 
-      // Upsert both tables in parallel for maximum speed
-      console.log('Starting parallel upserts for both tables...')
-      const [portfolioCount, creatorCount] = await Promise.all([
-        upsertInParallelBatches(
-          portfolioCreatorPairs,
-          'user_portfolio_creator_engagement',
-          'distinct_id,portfolio_ticker,creator_id',
-          'portfolio-creator pairs'
-        ),
-        upsertInParallelBatches(
-          creatorPairs,
-          'user_creator_engagement',
-          'distinct_id,creator_id',
-          'creator-level pairs'
-        )
-      ])
+      // Upsert creator-level engagement pairs
+      console.log('Upserting creator-level pairs...')
 
-      stats.engagementRecordsFetched += portfolioCount + creatorCount
-      stats.totalRecordsInserted += portfolioCount + creatorCount
-      logElapsed()
-      console.log(`✓ All upserts complete: ${portfolioCount} portfolio pairs + ${creatorCount} creator pairs = ${stats.totalRecordsInserted} total`)
-
-      // Update sync log with success
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: stats.totalRecordsInserted,
-      })
-
-      // Delete the raw data file from storage (cleanup)
-      console.log('Cleaning up storage file...')
-      const { error: deleteError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .remove([filename])
-
-      if (deleteError) {
-        console.warn('⚠️ Failed to delete storage file:', deleteError.message)
-      } else {
-        console.log('✓ Storage file cleaned up')
-      }
-
-      console.log('Processing completed successfully')
-
-      return createSuccessResponse(
-        'Mixpanel engagement data processed and inserted successfully',
-        stats
+      const creatorCount = await upsertInParallelBatches(
+        creatorPairs,
+        'user_creator_engagement',
+        'distinct_id,creator_id',
+        'creator-level pairs'
       )
-    } catch (error) {
-      // Update sync log with failure
-      await updateSyncLogFailure(supabase, syncLogId, error)
-      throw error
-    } finally {
-      // ALWAYS trigger refresh-engagement-views, even if processing fails
-      console.log('Triggering refresh-engagement-views function...')
 
+      stats.totalRecordsInserted = creatorCount
+      logElapsed()
+      console.log(`✓ Creator pairs upsert complete: ${creatorCount} records`)
+
+      // IMPORTANT: Trigger refresh IMMEDIATELY after upserts complete
+      console.log('Triggering refresh-engagement-views function...')
       const supabaseUrl = Deno.env.get('SUPABASE_URL')
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -215,8 +184,36 @@ serve(async (req) => {
       } else {
         console.warn('⚠️ Cannot trigger refresh function: Supabase credentials not available')
       }
+
+      // Update sync log with success
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: creatorCount,
+      })
+
+      // Delete the raw data file from storage (cleanup)
+      console.log('Cleaning up storage file...')
+      const { error: deleteError } = await supabase.storage
+        .from('mixpanel-raw-data')
+        .remove([filename])
+
+      if (deleteError) {
+        console.warn('⚠️ Failed to delete storage file:', deleteError.message)
+      } else {
+        console.log('✓ Storage file cleaned up')
+      }
+
+      console.log('Creator processing completed successfully')
+
+      return createSuccessResponse(
+        'Creator engagement data processed and inserted successfully',
+        stats
+      )
+    } catch (error) {
+      // Update sync log with failure
+      await updateSyncLogFailure(supabase, syncLogId, error)
+      throw error
     }
   } catch (error) {
-    return createErrorResponse(error, 'process-mixpanel-engagement')
+    return createErrorResponse(error, 'process-creator-engagement')
   }
 })

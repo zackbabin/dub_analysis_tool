@@ -1,7 +1,7 @@
 // Supabase Edge Function: sync-mixpanel-engagement
-// Part 1 of 3: Fetches raw data from Mixpanel and stores in Storage bucket
-// Triggers process-mixpanel-engagement → refresh-engagement-views
-// This separation prevents timeout by splitting Mixpanel fetch from database operations
+// Part 1 of 4: Fetches raw data from Mixpanel and stores in Storage bucket
+// Triggers process-portfolio-engagement → process-creator-engagement → refresh-engagement-views
+// This separation prevents timeout by splitting work across multiple functions with separate CPU quotas
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import {
@@ -129,15 +129,15 @@ serve(async (req) => {
         total_records_inserted: 0,  // No records inserted yet - happens in processing function
       })
 
-      // Trigger processing function to handle data processing and upserts
-      console.log('Triggering process-mixpanel-engagement function...')
+      // Trigger portfolio processing function (which will chain to creator processing)
+      console.log('Triggering process-portfolio-engagement function...')
 
       const supabaseUrl = Deno.env.get('SUPABASE_URL')
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
       if (supabaseUrl && supabaseServiceKey) {
         // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/process-mixpanel-engagement`, {
+        fetch(`${supabaseUrl}/functions/v1/process-portfolio-engagement`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceKey}`,
@@ -146,9 +146,9 @@ serve(async (req) => {
           },
           body: JSON.stringify({ filename })
         }).catch((err) => {
-          console.error('⚠️ Failed to trigger process-mixpanel-engagement:', err.message)
+          console.error('⚠️ Failed to trigger process-portfolio-engagement:', err.message)
         })
-        console.log('✓ Processing function triggered in background')
+        console.log('✓ Portfolio processing function triggered in background')
       } else {
         console.warn('⚠️ Cannot trigger processing function: Supabase credentials not available')
       }
