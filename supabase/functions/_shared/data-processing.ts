@@ -90,6 +90,17 @@ export function processPortfolioCreatorPairs(
   const portfolioCreatorPairs: any[] = []
   const creatorPairs: any[] = []
 
+  // Deduplication map: Maps old/duplicate creator_ids to canonical creator_id
+  // Add entries here when duplicate usernames are discovered
+  const CREATOR_ID_DEDUP_MAP: Record<string, string> = {
+    '118': '211855351476994048',  // @dubAdvisors: 118 is old id, use 211855351476994048
+  }
+
+  // Helper function to normalize creator_id (resolve duplicates)
+  const normalizeCreatorId = (creatorId: string): string => {
+    return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
+  }
+
   // Build creator username map
   const creatorIdToUsername = new Map<string, string>()
   const profileMetric = profileViewsData?.series?.['Total Profile Views']
@@ -97,8 +108,11 @@ export function processPortfolioCreatorPairs(
     Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
       if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
-      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+      Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
+        if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        // Normalize creator_id to handle duplicates
+        const creatorId = normalizeCreatorId(rawCreatorId)
 
         Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
           if (username && username !== '$overall' && username !== 'undefined') {
@@ -117,8 +131,11 @@ export function processPortfolioCreatorPairs(
     Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
       if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
-      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+      Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
+        if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        // Normalize creator_id to handle duplicates
+        const creatorId = normalizeCreatorId(rawCreatorId)
 
         Object.entries(usernameData).forEach(([username, viewCount]: [string, any]) => {
           if (username && username !== '$overall' && username !== 'undefined') {
@@ -159,8 +176,11 @@ export function processPortfolioCreatorPairs(
     Object.entries(subsMetric).forEach(([distinctId, creatorData]: [string, any]) => {
       if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
-      Object.entries(creatorData).forEach(([creatorId, usernameData]: [string, any]) => {
-        if (creatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+      Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
+        if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
+
+        // Normalize creator_id to handle duplicates
+        const creatorId = normalizeCreatorId(rawCreatorId)
 
         Object.entries(usernameData).forEach(([username, subCount]: [string, any]) => {
           if (username && username !== '$overall' && username !== 'undefined') {
@@ -213,8 +233,10 @@ export function processPortfolioCreatorPairs(
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
         if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') return
-        Object.keys(creatorData).forEach(creatorId => {
-          if (creatorId === '$overall') return
+        Object.keys(creatorData).forEach(rawCreatorId => {
+          if (rawCreatorId === '$overall') return
+          // Normalize creator_id to handle duplicates
+          const creatorId = normalizeCreatorId(rawCreatorId)
           allCombinations.add(`${distinctId}|${portfolioTicker}|${creatorId}`)
         })
       })
