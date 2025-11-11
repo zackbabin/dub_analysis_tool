@@ -369,10 +369,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                        Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Averaged across all premium creator portfolios, aggregated from user-level engagement data</li>
+                    <li><strong>Metrics:</strong> Subscription CVR, All-Time Returns, Copy Capital averaged across all premium creators</li>
                 </ul>
             </span>
         </span>`;
@@ -576,10 +576,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86055000%22" target="_blank" style="color: #17a2b8;">Chart 86055000</a> (Copies & Liquidations Aggregates),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                        Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Subscription CVR, Liquidation Rate, Cancellation Rate</li>
+                    <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
                 </ul>
             </span>
         </span>`;
@@ -925,12 +927,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 Portfolio-level conversion metrics for each premium creator's individual portfolios.
                 <ul>
                     <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85877922%22" target="_blank" style="color: #17a2b8;">Chart 85877922</a> (Portfolio Mapping),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86055000%22" target="_blank" style="color: #17a2b8;">Chart 86055000</a> (Copies & Liquidations Aggregates),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85877922%22" target="_blank" style="color: #17a2b8;">Chart 85877922</a> (Portfolio-Creator Mapping),
                         Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Liquidation Rate, All-Time Returns, Total Copy Capital per portfolio</li>
+                    <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, All-Time Returns, Total Copy Capital per portfolio</li>
                 </ul>
             </span>
         </span>`;
@@ -1778,10 +1779,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 Shows which other creators are most frequently copied by users who copied each Premium creator.
                 <ul>
                     <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85130412%22" target="_blank" style="color: #17a2b8;">Chart 85130412</a> (Creator User Profiles)
                     </li>
-                    <li><strong>Analysis:</strong> Identifies co-copying patterns among Premium creator audiences</li>
+                    <li><strong>Analysis:</strong> User-level co-copying patterns showing which creators are copied together by the same users</li>
                     <li><strong>Format:</strong> Shows both Premium and Regular creators copied by each Premium creator's audience</li>
                     <li><strong>Use Case:</strong> Understand creator affinity networks and cross-promotion opportunities</li>
                 </ul>
