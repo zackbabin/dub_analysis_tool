@@ -762,11 +762,63 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
 
-        // Section title
-        const title = document.createElement('h2');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
-        title.textContent = 'Portfolio Assets Breakdown';
-        section.appendChild(title);
+        // Add tooltip CSS if not already present
+        if (!document.getElementById('section-tooltip-styles')) {
+            const style = document.createElement('style');
+            style.id = 'section-tooltip-styles';
+            style.textContent = `
+                .section-title-tooltip {
+                    position: relative;
+                    text-decoration: underline;
+                    text-decoration-style: dotted;
+                    cursor: help;
+                }
+                .section-title-tooltip .tooltip-text {
+                    visibility: hidden;
+                    width: 420px;
+                    background-color: #2d3748;
+                    color: #fff;
+                    text-align: left;
+                    border-radius: 6px;
+                    padding: 14px;
+                    position: absolute;
+                    z-index: 10000;
+                    bottom: 125%;
+                    left: 0;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    font-size: 12px;
+                    line-height: 1.6;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    white-space: normal;
+                    font-weight: normal;
+                }
+                .section-title-tooltip .tooltip-text::after {
+                    content: "";
+                    position: absolute;
+                    top: 100%;
+                    left: 20px;
+                    border-width: 6px;
+                    border-style: solid;
+                    border-color: #2d3748 transparent transparent transparent;
+                }
+                .section-title-tooltip:hover .tooltip-text {
+                    visibility: visible;
+                    opacity: 1;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Section title with tooltip
+        const titleContainer = document.createElement('h2');
+        titleContainer.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+        titleContainer.innerHTML = `
+            <span class="section-title-tooltip">Portfolio Assets Breakdown
+                <span class="tooltip-text">Data Source: portfolio_breakdown_with_metrics view. Shows top stocks by total shares across all premium creator portfolios, aggregated from uploaded portfolio CSV files.</span>
+            </span>
+        `;
+        section.appendChild(titleContainer);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
