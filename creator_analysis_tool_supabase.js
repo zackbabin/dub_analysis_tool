@@ -829,7 +829,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const tbody = document.createElement('tbody');
             creatorStocks.forEach(row => {
                 const tr = document.createElement('tr');
-                const stocksDisplay = row.top_stocks?.join(', ') || '—';
+                // Handle new structure: top_5_stocks is array of {ticker, quantity} objects
+                const stocksDisplay = row.top_5_stocks?.map(s => s.ticker).join(', ') || '—';
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
