@@ -355,3 +355,131 @@ export function processPortfolioCreatorPairs(
   console.log(`Processed ${portfolioCreatorPairs.length} portfolio-creator pairs and ${creatorPairs.length} creator pairs`)
   return { portfolioCreatorPairs, creatorPairs }
 }
+
+// ============================================================================
+// Portfolio-Creator Copy Metrics Processing (Aggregated, not user-level)
+// ============================================================================
+
+/**
+ * Process portfolio-level aggregated copy and liquidation metrics from Mixpanel
+ * Chart 86055000 structure: portfolioTicker -> creatorId -> creatorUsername -> { all: count }
+ * @param copyData - Copy metrics from chart 86055000
+ * @param syncedAt - Timestamp for sync tracking
+ * @returns Array of portfolio-creator copy metrics
+ */
+export function processPortfolioCreatorCopyMetrics(
+  copyData: any,
+  syncedAt: string
+): any[] {
+  const metrics: any[] = []
+
+  if (!copyData || !copyData.series) {
+    console.log('No portfolio-creator copy data to process')
+    return []
+  }
+
+  // Deduplication map for creator_ids
+  const normalizeCreatorId = (creatorId: string): string => {
+    return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
+  }
+
+  const copiesMetric = copyData.series['A. Total Copies']
+  const liquidationsMetric = copyData.series['B. Total Liquidations']
+
+  // Collect all unique (portfolioTicker, creatorId) combinations
+  const allCombinations = new Set<string>()
+
+  const addCombinationsFromMetric = (metric: any) => {
+    if (!metric) return
+    Object.entries(metric).forEach(([portfolioTicker, creatorData]: [string, any]) => {
+      if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+      if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') return
+
+      Object.keys(creatorData).forEach(rawCreatorId => {
+        if (rawCreatorId === '$overall') return
+        const creatorId = normalizeCreatorId(rawCreatorId)
+        allCombinations.add(`${portfolioTicker}|${creatorId}`)
+      })
+    })
+  }
+
+  addCombinationsFromMetric(copiesMetric)
+  addCombinationsFromMetric(liquidationsMetric)
+
+  console.log(`Found ${allCombinations.size} unique portfolio-creator combinations for copy metrics`)
+
+  // Process each combination
+  allCombinations.forEach(combinationKey => {
+    const [rawPortfolioTicker, creatorId] = combinationKey.split('|')
+
+    // Normalize portfolio ticker: ensure it always has $ prefix
+    const portfolioTicker = rawPortfolioTicker.startsWith('$') ? rawPortfolioTicker : '$' + rawPortfolioTicker
+
+    // Get creator username from either metric
+    let creatorUsername = null
+    const copyCreatorData = copiesMetric?.[rawPortfolioTicker]?.[creatorId]
+    const liqCreatorData = liquidationsMetric?.[rawPortfolioTicker]?.[creatorId]
+
+    if (copyCreatorData && typeof copyCreatorData === 'object') {
+      const usernameKeys = Object.keys(copyCreatorData).filter(k => k !== '$overall')
+      if (usernameKeys.length > 0) creatorUsername = usernameKeys[0]
+    }
+
+    if (!creatorUsername && liqCreatorData && typeof liqCreatorData === 'object') {
+      const usernameKeys = Object.keys(liqCreatorData).filter(k => k !== '$overall')
+      if (usernameKeys.length > 0) creatorUsername = usernameKeys[0]
+    }
+
+    if (!creatorUsername) {
+      console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
+      return
+    }
+
+    // Extract copy count
+    let copyCount = 0
+    if (copyCreatorData) {
+      if (copyCreatorData['$overall']) {
+        const overallData = copyCreatorData['$overall']
+        copyCount = typeof overallData === 'object' && overallData !== null && 'all' in overallData
+          ? parseInt(String(overallData.all)) || 0
+          : parseInt(String(overallData)) || 0
+      } else if (copyCreatorData[creatorUsername]) {
+        const usernameData = copyCreatorData[creatorUsername]
+        copyCount = typeof usernameData === 'object' && usernameData !== null && 'all' in usernameData
+          ? parseInt(String(usernameData.all)) || 0
+          : parseInt(String(usernameData)) || 0
+      }
+    }
+
+    // Extract liquidation count
+    let liquidationCount = 0
+    if (liqCreatorData) {
+      if (liqCreatorData['$overall']) {
+        const overallData = liqCreatorData['$overall']
+        liquidationCount = typeof overallData === 'object' && overallData !== null && 'all' in overallData
+          ? parseInt(String(overallData.all)) || 0
+          : parseInt(String(overallData)) || 0
+      } else if (liqCreatorData[creatorUsername]) {
+        const usernameData = liqCreatorData[creatorUsername]
+        liquidationCount = typeof usernameData === 'object' && usernameData !== null && 'all' in usernameData
+          ? parseInt(String(usernameData.all)) || 0
+          : parseInt(String(usernameData)) || 0
+      }
+    }
+
+    // Only create record if there's activity
+    if (copyCount === 0 && liquidationCount === 0) return
+
+    metrics.push({
+      portfolio_ticker: portfolioTicker,
+      creator_id: creatorId,
+      creator_username: creatorUsername,
+      total_copies: copyCount,
+      total_liquidations: liquidationCount,
+      synced_at: syncedAt,
+    })
+  })
+
+  console.log(`Processed ${metrics.length} portfolio-creator copy metrics`)
+  return metrics
+}

@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import { processPortfolioCreatorCopyMetrics } from '../_shared/data-processing.ts'
 import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
@@ -23,6 +24,7 @@ const CHART_IDS = {
   creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
   premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
+  portfolioCreatorCopyMetrics: '86055000',  // Portfolio-Creator Copy/Liquidation aggregates (not user-level)
   // Note: Chart 85810770 (Portfolio Metrics) is no longer used - all portfolio metrics aggregated from user_portfolio_creator_engagement
 }
 
@@ -55,7 +57,7 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      let premiumCreatorsData, userProfileData, subscriptionMetricsData
+      let premiumCreatorsData, userProfileData, subscriptionMetricsData, portfolioCreatorCopyMetricsData
 
       try {
         // Fetch premium creators list from Mixpanel
@@ -72,6 +74,10 @@ serve(async (req) => {
         // Fetch premium creator subscription metrics from Mixpanel (creator-level)
         console.log(`Fetching premium creator subscription metrics from Mixpanel chart ${CHART_IDS.premiumCreatorSubscriptionMetrics}...`)
         subscriptionMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorSubscriptionMetrics, 'Premium Creator Subscription Metrics')
+
+        // Fetch portfolio-creator copy/liquidation metrics (aggregated, not user-level)
+        console.log(`Fetching portfolio-creator copy metrics from Mixpanel chart ${CHART_IDS.portfolioCreatorCopyMetrics}...`)
+        portfolioCreatorCopyMetricsData = await fetchInsightsData(credentials, CHART_IDS.portfolioCreatorCopyMetrics, 'Portfolio-Creator Copy/Liquidation Metrics')
 
         console.log('All Mixpanel data fetched successfully')
       } catch (error: any) {
@@ -143,6 +149,30 @@ serve(async (req) => {
           throw creatorMetricsError
         }
         console.log(`✅ Upserted ${creatorMetricsRows.length} creator-level metrics rows`)
+      }
+
+      // Process and upsert portfolio-creator copy metrics
+      if (portfolioCreatorCopyMetricsData) {
+        console.log('Processing portfolio-creator copy metrics...')
+        const copyMetricsRows = processPortfolioCreatorCopyMetrics(
+          portfolioCreatorCopyMetricsData,
+          syncStartTime.toISOString()
+        )
+
+        if (copyMetricsRows.length > 0) {
+          const { error: copyMetricsError } = await supabase
+            .from('portfolio_creator_copy_metrics')
+            .upsert(copyMetricsRows, {
+              onConflict: 'portfolio_ticker,creator_id',
+              ignoreDuplicates: false,
+            })
+
+          if (copyMetricsError) {
+            console.error('Error upserting portfolio-creator copy metrics:', copyMetricsError)
+            throw copyMetricsError
+          }
+          console.log(`✅ Upserted ${copyMetricsRows.length} portfolio-creator copy metrics rows`)
+        }
       }
 
       const enrichmentRows = processUserProfileData(userProfileData, null, stats)

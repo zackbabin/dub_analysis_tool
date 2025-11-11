@@ -398,7 +398,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 : '—';
 
             const cards = [
-                ['Avg Copy CVR', metrics.avg_copy_cvr ? metrics.avg_copy_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed PDP → Copied Portfolio'],
                 ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
                 ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
                 ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
@@ -448,7 +447,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (!data) {
                 console.log('No premium creator metrics found');
                 return {
-                    avg_copy_cvr: 0,
                     avg_subscription_cvr: 0,
                     median_all_time_performance: null,
                     median_copy_capital: null
@@ -457,7 +455,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Return the pre-calculated metrics from the view
             return {
-                avg_copy_cvr: data.avg_copy_cvr || 0,
                 avg_subscription_cvr: data.avg_subscription_cvr || 0,
                 median_all_time_performance: data.median_all_time_performance || null,
                 median_copy_capital: data.median_copy_capital || null,
@@ -582,7 +579,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics)
                     </li>
-                    <li><strong>Metrics:</strong> Copy CVR, Subscription CVR, Liquidation Rate, Cancellation Rate</li>
+                    <li><strong>Metrics:</strong> Subscription CVR, Liquidation Rate, Cancellation Rate</li>
                 </ul>
             </span>
         </span>`;
@@ -615,7 +612,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <tr>
                 <th style="text-align: left; min-width: 180px; position: sticky; left: 0; background: white; z-index: 10; box-shadow: 2px 0 4px rgba(0,0,0,0.1);">Premium Creator</th>
                 <th style="text-align: right; min-width: 100px;">Copies</th>
-                <th style="text-align: right; min-width: 100px;">Copy CVR</th>
                 <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: right; min-width: 140px;">Liquidation Rate</th>
                 <th style="text-align: right; min-width: 130px;">Subscriptions</th>
@@ -661,7 +657,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             tr.innerHTML = `
                 <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
@@ -878,7 +873,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 portfolio_ticker: p.portfolio_ticker,
                 inception_date: p.inception_date || null,
                 total_copies: p.total_copies || 0,
-                copy_cvr: p.copy_cvr || 0,
                 total_liquidations: p.total_liquidations || 0,
                 liquidation_rate: p.liquidation_rate || 0,
                 all_time_returns: p.total_returns_percentage || null,
@@ -936,7 +930,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85877922%22" target="_blank" style="color: #17a2b8;">Chart 85877922</a> (Portfolio Mapping),
                         Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Copy CVR, Liquidation Rate, All-Time Returns, Total Copy Capital per portfolio</li>
+                    <li><strong>Metrics:</strong> Liquidation Rate, All-Time Returns, Total Copy Capital per portfolio</li>
                 </ul>
             </span>
         </span>`;
@@ -1250,7 +1244,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: left;">Portfolio</th>
                 <th style="text-align: left;">Creation Date</th>
                 <th style="text-align: right; min-width: 100px;">Copies</th>
-                <th style="text-align: right;">Copy CVR</th>
                 <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
                 <th style="text-align: right;">
@@ -1308,7 +1301,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
                 <td style="text-align: left;">${inceptionDateDisplay}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.copy_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
                 <td style="${returnsStyle}">${returnsDisplay}</td>
