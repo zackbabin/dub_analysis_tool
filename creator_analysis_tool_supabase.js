@@ -50,8 +50,26 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Call parent to create base UI
         super.createUI(container, outputContainer);
 
-        // Restore from unified cache (same pattern as user tabs)
-        this.restoreFromUnifiedCache();
+        // Check if cache is marked as stale (from version update)
+        const cacheStale = localStorage.getItem('dubAnalysisCacheStale');
+
+        if (cacheStale === 'true') {
+            // Cache is stale - clear the flag and trigger auto-sync
+            localStorage.removeItem('dubAnalysisCacheStale');
+            console.log('🔄 Cache marked as stale, auto-syncing fresh data...');
+
+            // Trigger sync automatically to fetch fresh data
+            // Use setTimeout to ensure UI is fully initialized first
+            setTimeout(() => {
+                const syncBtn = document.querySelector('[data-source="mixpanel"]');
+                if (syncBtn) {
+                    syncBtn.click();
+                }
+            }, 100);
+        } else {
+            // Cache is fresh - restore from unified cache (same pattern as user tabs)
+            this.restoreFromUnifiedCache();
+        }
 
         // Always hide the upload form container (it's inside creatorContent)
         // The data source buttons should always be visible

@@ -126,9 +126,14 @@ class VersionChecker {
 
     /**
      * Refresh the page and update stored version
+     * Mark cache as stale to force fresh data fetch on reload
      */
     refreshPage() {
         console.log(`🔄 Refreshing page to version ${CURRENT_VERSION}`);
+
+        // Mark cache as stale - tabs will detect this and fetch fresh data
+        // We don't delete the cache, just mark it as needing refresh
+        localStorage.setItem('dubAnalysisCacheStale', 'true');
 
         // Update version
         localStorage.setItem(this.storageKey, CURRENT_VERSION);

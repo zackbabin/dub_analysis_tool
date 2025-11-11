@@ -26,8 +26,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Store output containers for each tab
         this.outputContainers = outputContainers;
 
-        // Restore cached results immediately on page load
-        this.restoreAnalysisResults();
+        // Check if cache is marked as stale (from version update)
+        const cacheStale = localStorage.getItem('dubAnalysisCacheStale');
+
+        if (cacheStale === 'true') {
+            // Cache is stale - clear the flag and trigger auto-sync
+            localStorage.removeItem('dubAnalysisCacheStale');
+            console.log('🔄 Cache marked as stale, auto-syncing fresh data...');
+
+            // Trigger sync automatically to fetch fresh data
+            setTimeout(() => {
+                const syncBtn = document.querySelector('[data-source="mixpanel"]');
+                if (syncBtn) {
+                    syncBtn.click();
+                }
+            }, 100);
+        } else {
+            // Cache is fresh - restore cached results immediately on page load
+            this.restoreAnalysisResults();
+        }
 
         // Call parent to create base UI (just the data source selection)
         super.createUI(container, null);
