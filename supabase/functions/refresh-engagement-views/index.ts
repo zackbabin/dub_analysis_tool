@@ -61,41 +61,39 @@ serve(async (req) => {
       console.warn('⚠️ Cannot trigger pattern analysis: Supabase credentials not available')
     }
 
-    // Step 2: Refresh materialized views (sequential to avoid conflicts)
-    console.log('Refreshing main_analysis materialized view...')
+    // Step 2: Refresh main portfolio engagement views (includes premium_creator_breakdown)
+    // This must run FIRST because other views depend on portfolio_creator_engagement_metrics
+    console.log('Refreshing portfolio engagement views (portfolio_creator_engagement_metrics, hidden_gems, premium_creator_breakdown)...')
 
-    const { error: mainRefreshError } = await supabase.rpc('refresh_main_analysis')
+    const { error: portfolioRefreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
 
-    if (mainRefreshError) {
-      console.error('Error refreshing main_analysis:', mainRefreshError)
-      throw mainRefreshError
+    if (portfolioRefreshError) {
+      console.error('Error refreshing portfolio engagement views:', portfolioRefreshError)
+      throw portfolioRefreshError
     }
 
-    console.log('✓ main_analysis refreshed successfully')
+    console.log('✓ Portfolio engagement views refreshed successfully')
 
-    // Step 3: Refresh dependent summary views
+    // Step 3: Refresh dependent summary views (parallel - these don't depend on each other)
     console.log('Refreshing engagement summary views...')
 
-    const [subResult, copyResult, portfolioResult] = await Promise.all([
+    const [subResult, copyResult] = await Promise.all([
       supabase.rpc('refresh_subscription_engagement_summary'),
-      supabase.rpc('refresh_copy_engagement_summary'),
-      supabase.rpc('refresh_portfolio_engagement_views')
+      supabase.rpc('refresh_copy_engagement_summary')
     ])
 
     if (subResult.error) console.error('Error refreshing subscription summary:', subResult.error)
     if (copyResult.error) console.error('Error refreshing copy summary:', copyResult.error)
-    if (portfolioResult.error) console.error('Error refreshing portfolio views:', portfolioResult.error)
 
     console.log('✓ Engagement summary views refreshed')
-    console.log('✓ Portfolio engagement views refreshed (includes hidden gems)')
 
     console.log('Engagement views refresh completed successfully')
 
     return createSuccessResponse(
       'Engagement views refreshed successfully',
       {
-        main_analysis_refreshed: !mainRefreshError,
-        summary_views_refreshed: !subResult.error && !copyResult.error && !portfolioResult.error,
+        portfolio_views_refreshed: !portfolioRefreshError,
+        summary_views_refreshed: !subResult.error && !copyResult.error,
         pattern_analysis_triggered: true
       }
     )
