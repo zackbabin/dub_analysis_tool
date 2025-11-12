@@ -82,8 +82,8 @@ serve(async (req) => {
 
       // Parallel batch processing configuration
       // Reduced concurrency to avoid CPU quota limits with large datasets
-      const BATCH_SIZE = 5000  // Larger batches = fewer operations
-      const MAX_CONCURRENT_BATCHES = 3  // Lower concurrency to reduce CPU usage
+      const BATCH_SIZE = 10000  // Larger batches = fewer operations
+      const MAX_CONCURRENT_BATCHES = 1  // Process sequentially to stay under CPU quota
 
       // Process engagement data (both portfolio and creator pairs)
       console.log('Processing engagement pairs...')
@@ -168,11 +168,6 @@ serve(async (req) => {
 
           processedCount = chunkEnd
           console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
-
-          // Small delay between chunks to avoid CPU quota exhaustion
-          if (i + MAX_CONCURRENT_BATCHES < batches.length) {
-            await new Promise(resolve => setTimeout(resolve, 100))
-          }
         }
 
         console.log(`✓ All ${data.length} ${description} upserted successfully`)

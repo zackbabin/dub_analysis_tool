@@ -169,11 +169,6 @@ serve(async (req) => {
 
           processedCount = chunkEnd
           console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
-
-          // Small delay between chunks to avoid CPU quota exhaustion
-          if (i + MAX_CONCURRENT_BATCHES < batches.length) {
-            await new Promise(resolve => setTimeout(resolve, 100))
-          }
         }
 
         console.log(`✓ All ${data.length} ${description} upserted successfully`)
