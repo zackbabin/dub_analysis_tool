@@ -962,6 +962,22 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Store data for filtering
             this.portfolioBreakdownData = formattedData;
 
+            // Fetch all premium creators for the filter dropdown
+            const { data: allCreators, error: creatorsError } = await this.supabaseIntegration.supabase
+                .from('premium_creators')
+                .select('creator_username')
+                .order('creator_username', { ascending: true });
+
+            if (creatorsError) {
+                console.error('Error loading premium creators:', creatorsError);
+                // Fall back to creators from portfolio data
+                this.allPremiumCreators = [...new Set(formattedData.map(p => p.creator_username))].sort();
+            } else {
+                // Get unique creator usernames
+                this.allPremiumCreators = [...new Set(allCreators.map(c => c.creator_username))].sort();
+                console.log(`✅ Loaded ${this.allPremiumCreators.length} premium creators for filter`);
+            }
+
             this.displayPremiumPortfolioBreakdown(formattedData);
         } catch (error) {
             console.error('Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
@@ -1021,8 +1037,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         description.textContent = 'Portfolio-level conversion metrics for each premium creator';
         section.appendChild(description);
 
-        // Get unique creators sorted alphabetically
-        const uniqueCreators = [...new Set(portfolioData.map(p => p.creator_username))].sort();
+        // Use all premium creators for filter (including those without portfolio data)
+        const uniqueCreators = this.allPremiumCreators || [...new Set(portfolioData.map(p => p.creator_username))].sort();
 
         // Store selected creators (all selected by default)
         this.selectedPortfolioCreators = new Set(uniqueCreators);
