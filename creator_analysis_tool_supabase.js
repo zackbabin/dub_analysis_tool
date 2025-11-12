@@ -170,7 +170,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.appendChild(affinityContainer);
 
         // Display results - SKIP behavioral analysis
-        this.displayCreatorSummaryStats(results.summaryStats);
+        this.displayCreatorSummaryStats(results.summaryStats, results.engagementSummary, results.subscriptionDistribution);
 
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
@@ -349,7 +349,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     /**
      * Override: Display creator summary statistics - Show 4 averaged metric cards
      */
-    async displayCreatorSummaryStats(stats) {
+    async displayCreatorSummaryStats(stats, engagementSummary, subscriptionDistribution) {
         const container = document.getElementById('creatorSummaryStatsInline');
         if (!container) {
             console.error('❌ Container creatorSummaryStatsInline not found!');
@@ -374,16 +374,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
                         Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution, behavioral drivers</li>
+                    <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution</li>
                 </ul>
             </span>
         </span>`;
 
         section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Premium Creator Analysis</h1>${creatorH1Tooltip}`;
         container.appendChild(section);
-
-        // Fetch subscription engagement summary from Supabase (4 metric cards)
-        const engagementSummary = await this.fetchSubscriptionEngagementSummary();
 
         if (engagementSummary && engagementSummary.length === 2) {
             const subscribersData = engagementSummary.find(d => d.did_subscribe === 1 || d.did_subscribe === true) || {};
@@ -423,9 +420,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             section.appendChild(note);
         }
 
-        // Fetch and display subscription price distribution
-        const subscriptionDistribution = await this.fetchSubscriptionPriceDistribution();
-
+        // Display subscription price distribution (data passed as parameter)
         if (subscriptionDistribution && subscriptionDistribution.length > 0) {
             const chartId = `subscription-price-chart-${Date.now()}`;
 
@@ -454,9 +449,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
             }, 100);
         }
-
-        // Fetch and display Top Subscription Drivers section
-        await this.displayTopSubscriptionDrivers(section);
     }
 
     /**
@@ -2510,9 +2502,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Fetching summary stats for metric cards...');
             const summaryStats = await this.fetchPremiumCreatorMetrics() || {};
 
+            // Load subscription analysis data
+            console.log('Loading subscription analysis data...');
+            const [engagementSummary, subscriptionDistribution] = await Promise.all([
+                this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
+                this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
+            ]);
+
             // Re-render the entire creator analysis display
             console.log('Re-rendering creator analysis with fresh data...');
-            await this.displayResults({ summaryStats });
+            await this.displayResults({ summaryStats, engagementSummary, subscriptionDistribution });
 
             // Update timestamp and data scope with current time (matching user tool pattern)
             this.updateTimestampAndDataScope();
@@ -2845,56 +2844,6 @@ window.togglePortfolioBreakdown = function() {
     }
 };
 
-CreatorAnalysisToolSupabase.prototype.fetchSubscriptionEngagementSummary = async function() {
-        try {
-            if (!this.supabaseIntegration) {
-                console.error('Supabase not configured');
-                return null;
-            }
-
-            const { data, error } = await this.supabaseIntegration.supabase
-                .from('subscription_engagement_summary')
-                .select('*');
-
-            if (error) {
-                console.error('Error fetching subscription engagement summary:', error);
-                return null;
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error in fetchSubscriptionEngagementSummary:', error);
-            return null;
-        }
-};
-
-/**
- * Fetch subscription price distribution data
- */
-CreatorAnalysisToolSupabase.prototype.fetchSubscriptionPriceDistribution = async function() {
-        try {
-            if (!this.supabaseIntegration) {
-                console.error('Supabase not configured');
-                return null;
-            }
-
-            const { data, error } = await this.supabaseIntegration.supabase
-                .from('subscription_price_distribution')
-                .select('*')
-                .order('subscription_price');
-
-            if (error) {
-                console.error('Error fetching subscription price distribution:', error);
-                return null;
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error in fetchSubscriptionPriceDistribution:', error);
-            return null;
-        }
-};
-
 /**
  * Render subscription price chart using Highcharts
  */
@@ -2903,8 +2852,9 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
             return;
         }
 
-        const prices = subscriptionDistribution.map(d => parseFloat(d.subscription_price));
-        const counts = subscriptionDistribution.map(d => parseInt(d.subscription_count));
+        // Use monthly_price and total_subscriptions from latest_subscription_distribution view
+        const prices = subscriptionDistribution.map(d => parseFloat(d.monthly_price));
+        const counts = subscriptionDistribution.map(d => parseInt(d.total_subscriptions));
 
         Highcharts.chart(chartId, {
             chart: {
@@ -2955,96 +2905,6 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
                 enabled: false
             }
         });
-};
-
-/**
- * Display Top Subscription Drivers section
- */
-CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async function(parentSection) {
-        try {
-            if (!this.supabaseIntegration) {
-                console.error('Supabase not configured');
-                return;
-            }
-
-            // Fetch subscription correlation and regression results
-            const { data: correlationData, error: corrError } = await this.supabaseIntegration.supabase
-                .from('regression_results')
-                .select('*')
-                .eq('regression_type', 'subscriptions')
-                .order('correlation_coefficient', { ascending: false })
-                .limit(20);
-
-            if (corrError) {
-                console.error('Error fetching subscription drivers:', corrError);
-                return;
-            }
-
-            if (!correlationData || correlationData.length === 0) {
-                return;
-            }
-
-            const driversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>Top Subscription Drivers</strong>
-                    Behavioral patterns and events that predict subscription conversions.
-                    <ul>
-                        <li><strong>Data Sources:</strong>
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
-                        </li>
-                        <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
-                        <li><strong>Metrics:</strong> Correlation coefficients, odds ratios, statistical significance</li>
-                    </ul>
-                </span>
-            </span>`;
-
-            const driversSection = document.createElement('div');
-            driversSection.style.marginTop = '3rem';
-            driversSection.innerHTML = `
-                <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
-                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
-            `;
-
-            // Create table
-            const tableWrapper = document.createElement('div');
-            tableWrapper.className = 'table-wrapper';
-
-            const table = document.createElement('table');
-            table.className = 'qda-regression-table';
-
-            const thead = document.createElement('thead');
-            thead.innerHTML = `
-                <tr>
-                    <th style="text-align: left;">Event/Behavior</th>
-                    <th style="text-align: right;">Correlation</th>
-                    <th style="text-align: right;">Odds Ratio</th>
-                    <th style="text-align: right;">P-Value</th>
-                </tr>
-            `;
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            correlationData.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="font-weight: 600;">${row.event_name || row.variable_name || 'N/A'}</td>
-                    <td style="text-align: right;">${(row.correlation_coefficient || 0).toFixed(3)}</td>
-                    <td style="text-align: right;">${(row.odds_ratio || 0).toFixed(2)}</td>
-                    <td style="text-align: right;">${(row.p_value || 0) < 0.001 ? '<0.001' : (row.p_value || 0).toFixed(3)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-
-            tableWrapper.appendChild(table);
-            driversSection.appendChild(tableWrapper);
-            parentSection.appendChild(driversSection);
-
-        } catch (error) {
-            console.error('Error in displayTopSubscriptionDrivers:', error);
-        }
 };
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');
