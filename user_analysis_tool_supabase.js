@@ -468,12 +468,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         summaryContainer.innerHTML = `
             <div class="qda-analysis-results">
                 <div id="qdaSummaryStatsInline"></div>
+                <div id="qdaMarketingMetricsInline"></div>
                 <div id="qdaDemographicBreakdownInline"></div>
                 <div id="qdaPersonaBreakdownInline"></div>
             </div>
         `;
 
         displaySummaryStatsInline(results.summaryStats);
+        await this.displayMarketingMetrics();
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
 
@@ -2106,6 +2108,346 @@ UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async fun
         console.log(`✅ Saved ${driversData.length} subscription drivers to database`);
     } catch (error) {
         console.error('Error saving subscription drivers:', error);
+    }
+};
+
+/**
+ * Display Marketing Metrics section
+ * Shows: Avg Monthly Copies, Total Investments, Total Public Portfolios, Total Market-Beating Portfolios
+ */
+UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function() {
+    const container = document.getElementById('qdaMarketingMetricsInline');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    const resultSection = document.createElement('div');
+    resultSection.className = 'qda-result-section';
+    resultSection.style.marginTop = '2rem';
+
+    const title = document.createElement('h2');
+    title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
+    title.textContent = 'Marketing Metrics';
+    resultSection.appendChild(title);
+
+    // Add tooltip
+    const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+        <span class="info-icon">i</span>
+        <span class="tooltip-text">
+            <strong>Marketing Metrics</strong>
+            Key platform metrics for marketing and growth tracking.
+            <ul>
+                <li><strong>Data Sources:</strong>
+                    <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86100814%22" target="_blank" style="color: #17a2b8;">Chart 86100814</a> (Monthly Copies),
+                    Manual CSV Upload (Portfolio Data)
+                </li>
+                <li><strong>Metrics:</strong> Monthly copy trends, public portfolio count, portfolio performance</li>
+            </ul>
+        </span>
+    </span>`;
+
+    const tooltipSpan = document.createElement('span');
+    tooltipSpan.innerHTML = tooltipHTML;
+    resultSection.appendChild(tooltipSpan);
+
+    // Load existing metrics from database
+    const existingMetrics = await this.loadMarketingMetrics();
+
+    // Fetch Avg Monthly Copies from Mixpanel (always refresh this)
+    let avgMonthlyCopies = existingMetrics?.avg_monthly_copies || null;
+    try {
+        const freshCopies = await this.fetchAvgMonthlyCopies();
+        if (freshCopies !== null) {
+            avgMonthlyCopies = freshCopies;
+        }
+    } catch (error) {
+        console.error('Error fetching avg monthly copies:', error);
+    }
+
+    // Get other metrics from database
+    const totalInvestments = existingMetrics?.total_investments || null;
+    const totalPublicPortfolios = existingMetrics?.total_public_portfolios || null;
+    const totalMarketBeating = existingMetrics?.total_market_beating_portfolios || null;
+
+    // Save updated metrics to database
+    await this.saveMarketingMetrics({
+        avg_monthly_copies: avgMonthlyCopies,
+        total_investments: totalInvestments,
+        total_public_portfolios: totalPublicPortfolios,
+        total_market_beating_portfolios: totalMarketBeating
+    });
+
+    // Create metric cards grid
+    const metricSummary = document.createElement('div');
+    metricSummary.className = 'qda-metric-summary';
+
+    const metrics = [
+        ['Avg Monthly Copies', avgMonthlyCopies !== null ? avgMonthlyCopies.toLocaleString() : '-', '18px'],
+        ['Total Investments', totalInvestments !== null ? totalInvestments.toLocaleString() : '-', '18px'],
+        ['Total Public Portfolios', totalPublicPortfolios !== null ? totalPublicPortfolios.toLocaleString() : '-', '18px'],
+        ['Total Market-Beating Portfolios', totalMarketBeating !== null ? totalMarketBeating.toLocaleString() : '-', '18px']
+    ];
+
+    metrics.forEach(([title, content, size]) => {
+        metricSummary.appendChild(createMetricCard(title, content, size));
+    });
+
+    resultSection.appendChild(metricSummary);
+
+    // Add manual data upload button
+    const uploadSection = document.createElement('div');
+    uploadSection.style.marginTop = '1.5rem';
+
+    const uploadButton = document.createElement('button');
+    uploadButton.textContent = 'Upload Manual Data';
+    uploadButton.className = 'qda-action-btn';
+    uploadButton.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;';
+
+    uploadButton.addEventListener('mouseover', () => {
+        uploadButton.style.transform = 'translateY(-2px)';
+        uploadButton.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)';
+    });
+
+    uploadButton.addEventListener('mouseout', () => {
+        uploadButton.style.transform = 'translateY(0)';
+        uploadButton.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)';
+    });
+
+    uploadButton.addEventListener('click', () => {
+        this.showMarketingDataUploadModal();
+    });
+
+    uploadSection.appendChild(uploadButton);
+    resultSection.appendChild(uploadSection);
+
+    container.appendChild(resultSection);
+};
+
+/**
+ * Load marketing metrics from database
+ */
+UserAnalysisToolSupabase.prototype.loadMarketingMetrics = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.warn('Supabase integration not available');
+            return null;
+        }
+
+        const { data, error } = await this.supabaseIntegration.supabase
+            .from('marketing_metrics')
+            .select('*')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error) {
+            // If no rows exist yet, that's okay
+            if (error.code === 'PGRST116') {
+                console.log('No marketing metrics found yet');
+                return null;
+            }
+            console.error('Error loading marketing metrics:', error);
+            return null;
+        }
+
+        return data;
+    } catch (error) {
+        console.error('Error in loadMarketingMetrics:', error);
+        return null;
+    }
+};
+
+/**
+ * Save marketing metrics to database
+ */
+UserAnalysisToolSupabase.prototype.saveMarketingMetrics = async function(metrics) {
+    try {
+        if (!this.supabaseIntegration) {
+            console.warn('Supabase integration not available');
+            return;
+        }
+
+        const { error } = await this.supabaseIntegration.supabase
+            .from('marketing_metrics')
+            .insert({
+                avg_monthly_copies: metrics.avg_monthly_copies,
+                total_investments: metrics.total_investments,
+                total_public_portfolios: metrics.total_public_portfolios,
+                total_market_beating_portfolios: metrics.total_market_beating_portfolios,
+                updated_at: new Date().toISOString()
+            });
+
+        if (error) {
+            console.error('Error saving marketing metrics:', error);
+            return;
+        }
+
+        console.log('✅ Marketing metrics saved to database');
+    } catch (error) {
+        console.error('Error in saveMarketingMetrics:', error);
+    }
+};
+
+/**
+ * Fetch average monthly copies from Mixpanel Chart 86100814
+ */
+UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.warn('Supabase integration not available');
+            return null;
+        }
+
+        console.log('Fetching avg monthly copies from Mixpanel...');
+
+        const response = await this.supabaseIntegration.fetchMixpanelInsights('86100814');
+
+        if (!response || !response.series) {
+            console.warn('No data returned from Mixpanel');
+            return null;
+        }
+
+        // Get the first series (should be "Total Events of Copied Portfolio")
+        const seriesKey = Object.keys(response.series)[0];
+        const monthlyData = response.series[seriesKey];
+
+        if (!monthlyData || typeof monthlyData !== 'object') {
+            console.warn('Invalid monthly data format');
+            return null;
+        }
+
+        // Convert to array and exclude the last month (current incomplete month)
+        const monthlyValues = Object.values(monthlyData);
+        if (monthlyValues.length <= 1) {
+            console.warn('Not enough data to calculate average');
+            return null;
+        }
+
+        // Exclude last month and calculate average
+        const completedMonths = monthlyValues.slice(0, -1);
+        const sum = completedMonths.reduce((acc, val) => acc + val, 0);
+        const average = Math.round(sum / completedMonths.length);
+
+        console.log(`✅ Calculated avg monthly copies: ${average} (${completedMonths.length} months)`);
+        return average;
+    } catch (error) {
+        console.error('Error fetching avg monthly copies:', error);
+        return null;
+    }
+};
+
+/**
+ * Show modal for uploading marketing data CSV
+ */
+UserAnalysisToolSupabase.prototype.showMarketingDataUploadModal = function() {
+    // Create modal overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;';
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background: white; border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);';
+
+    const title = document.createElement('h2');
+    title.textContent = 'Upload Marketing Data CSV';
+    title.style.marginTop = '0';
+    modal.appendChild(title);
+
+    const description = document.createElement('p');
+    description.textContent = 'Upload a CSV file containing portfolio data with a "strategyTicker" column to calculate Total Public Portfolios.';
+    description.style.color = '#6c757d';
+    modal.appendChild(description);
+
+    // File input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv';
+    fileInput.style.cssText = 'margin: 1rem 0; padding: 0.5rem; border: 2px solid #e5e7eb; border-radius: 4px; width: 100%;';
+    modal.appendChild(fileInput);
+
+    // Button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'padding: 0.5rem 1rem; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer;';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+
+    const uploadBtn = document.createElement('button');
+    uploadBtn.textContent = 'Upload';
+    uploadBtn.style.cssText = 'padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;';
+    uploadBtn.addEventListener('click', async () => {
+        if (!fileInput.files || !fileInput.files[0]) {
+            alert('Please select a CSV file');
+            return;
+        }
+
+        await this.processMarketingDataCSV(fileInput.files[0]);
+        overlay.remove();
+    });
+
+    buttonContainer.appendChild(cancelBtn);
+    buttonContainer.appendChild(uploadBtn);
+    modal.appendChild(buttonContainer);
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+};
+
+/**
+ * Process marketing data CSV and calculate Total Public Portfolios
+ */
+UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file) {
+    try {
+        console.log('Processing marketing data CSV...');
+
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+
+        if (lines.length < 2) {
+            alert('CSV file appears to be empty or invalid');
+            return;
+        }
+
+        // Parse header
+        const headers = lines[0].split(',').map(h => h.trim());
+        const strategyTickerIndex = headers.findIndex(h => h.toLowerCase() === 'strategyticker');
+
+        if (strategyTickerIndex === -1) {
+            alert('CSV file must contain a "strategyTicker" column');
+            return;
+        }
+
+        // Count unique strategyTicker values
+        const uniqueTickers = new Set();
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            const ticker = values[strategyTickerIndex]?.trim();
+            if (ticker && ticker !== '') {
+                uniqueTickers.add(ticker);
+            }
+        }
+
+        const totalPublicPortfolios = uniqueTickers.size;
+        console.log(`✅ Found ${totalPublicPortfolios} unique public portfolios`);
+
+        // Load existing metrics and update with new portfolio count
+        const existingMetrics = await this.loadMarketingMetrics();
+        await this.saveMarketingMetrics({
+            avg_monthly_copies: existingMetrics?.avg_monthly_copies || null,
+            total_investments: existingMetrics?.total_investments || null,
+            total_public_portfolios: totalPublicPortfolios,
+            total_market_beating_portfolios: existingMetrics?.total_market_beating_portfolios || null
+        });
+
+        // Refresh the marketing metrics display
+        await this.displayMarketingMetrics();
+
+        alert(`Successfully processed! Found ${totalPublicPortfolios} public portfolios.`);
+    } catch (error) {
+        console.error('Error processing CSV:', error);
+        alert('Error processing CSV file. Please check the console for details.');
     }
 };
 
