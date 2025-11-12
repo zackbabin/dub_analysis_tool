@@ -397,6 +397,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Step 2: Build complete HTML with fresh data (modifies DOM directly)
         await this.buildCompleteHTML(results);
 
+        // Step 2.5: Save subscription regression results to database for creator tool access
+        await this.saveSubscriptionDriversToDatabase(results);
+
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
             const cacheData = {
@@ -2023,6 +2026,86 @@ window.toggleHiddenGems = function() {
             row.style.display = 'none';
         });
         button.textContent = 'Show More';
+    }
+};
+
+/**
+ * Save subscription regression results to database
+ * This allows the creator analysis tool to display Top Subscription Drivers
+ */
+UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async function(results) {
+    try {
+        if (!this.supabaseIntegration) {
+            console.warn('Supabase not configured, skipping subscription drivers save');
+            return;
+        }
+
+        if (!results?.correlationResults?.totalSubscriptions || !results?.regressionResults?.subscriptions) {
+            console.warn('No subscription regression results to save');
+            return;
+        }
+
+        console.log('💾 Saving subscription drivers to database...');
+
+        const correlationData = results.correlationResults.totalSubscriptions;
+        const regressionData = results.regressionResults.subscriptions;
+        const tippingPoints = results.tippingPoints || {};
+        const outcome = 'totalSubscriptions';
+
+        // Build the combined data array (same logic as buildCorrelationTable)
+        const allVariables = Object.keys(correlationData);
+        const excludedVars = window.SECTION_EXCLUSIONS?.[outcome] || [];
+        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
+
+        const driversData = filteredVariables.map(variable => {
+            const correlation = correlationData[variable];
+            const regressionItem = regressionData.find(item => item.variable === variable);
+            const tStat = regressionItem ? regressionItem.tStat : 0;
+
+            let tippingPoint = null;
+            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
+                tippingPoint = String(tippingPoints[outcome][variable]);
+            }
+
+            // Calculate predictive strength
+            const strengthResult = window.calculatePredictiveStrength?.(correlation, tStat) || { strength: 'N/A' };
+
+            return {
+                variable_name: variable,
+                correlation_coefficient: correlation,
+                t_stat: tStat,
+                tipping_point: tippingPoint,
+                predictive_strength: strengthResult.strength
+            };
+        });
+
+        // Sort by absolute correlation (descending)
+        driversData.sort((a, b) => Math.abs(b.correlation_coefficient) - Math.abs(a.correlation_coefficient));
+
+        // Delete existing data and insert new data
+        const { error: deleteError } = await this.supabaseIntegration.supabase
+            .from('subscription_drivers')
+            .delete()
+            .neq('id', 0); // Delete all rows
+
+        if (deleteError) {
+            console.error('Error deleting old subscription drivers:', deleteError);
+            return;
+        }
+
+        // Insert new data
+        const { error: insertError } = await this.supabaseIntegration.supabase
+            .from('subscription_drivers')
+            .insert(driversData);
+
+        if (insertError) {
+            console.error('Error inserting subscription drivers:', insertError);
+            return;
+        }
+
+        console.log(`✅ Saved ${driversData.length} subscription drivers to database`);
+    } catch (error) {
+        console.error('Error saving subscription drivers:', error);
     }
 };
 
