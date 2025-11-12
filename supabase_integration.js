@@ -396,49 +396,6 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Get latest sync status
-     */
-    async getLatestSyncStatus() {
-        try {
-            const { data, error } = await this.supabase
-                .from('latest_sync_status')
-                .select('*')
-                .single();
-
-            if (error) {
-                console.error('Error fetching sync status:', error);
-                return null;
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error getting sync status:', error);
-            return null;
-        }
-    }
-
-    /**
-     * Get data freshness info
-     */
-    async getDataFreshness() {
-        try {
-            const { data, error } = await this.supabase
-                .from('data_freshness')
-                .select('*')
-                .single();
-
-            if (error) {
-                console.error('Error fetching data freshness:', error);
-                return null;
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error getting data freshness:', error);
-            return null;
-        }
-    }
 
     /**
      * Convert Supabase JSON data to CSV format
@@ -656,28 +613,6 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Get latest creator sync status
-     */
-    async getLatestCreatorSyncStatus() {
-        try {
-            const { data, error } = await this.supabase
-                .from('latest_sync_status')
-                .select('*')
-                .eq('tool_type', 'creator')
-                .single();
-
-            if (error) {
-                console.error('Error fetching creator sync status:', error);
-                return null;
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error getting creator sync status:', error);
-            return null;
-        }
-    }
 
     /**
      * Trigger subscription price analysis via Supabase Edge Function
