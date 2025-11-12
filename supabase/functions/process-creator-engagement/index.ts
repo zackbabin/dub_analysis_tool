@@ -43,12 +43,16 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Track elapsed time
+      // Track elapsed time with timeout prevention
       const startTime = Date.now()
+      const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
         console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
         return elapsed
+      }
+      const isApproachingTimeout = () => {
+        return (Date.now() - startTime) > TIMEOUT_BUFFER_MS
       }
 
       // Download raw data from Storage
@@ -110,7 +114,15 @@ serve(async (req) => {
         }
 
         // Process batches in chunks of MAX_CONCURRENT_BATCHES
+        let processedCount = 0
         for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
+          // Check timeout before processing next chunk
+          if (isApproachingTimeout()) {
+            console.warn(`⚠️ Approaching timeout. Processed ${processedCount}/${data.length} ${description}.`)
+            console.log('Exiting early - refresh function will still be triggered.')
+            return processedCount
+          }
+
           const batchChunk = batches.slice(i, i + MAX_CONCURRENT_BATCHES)
           const chunkStart = i * BATCH_SIZE
           const chunkEnd = Math.min((i + batchChunk.length) * BATCH_SIZE, data.length)
@@ -137,6 +149,7 @@ serve(async (req) => {
             }
           }
 
+          processedCount = chunkEnd
           console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
 
           // Small delay between chunks to avoid CPU quota exhaustion
@@ -146,7 +159,7 @@ serve(async (req) => {
         }
 
         console.log(`✓ All ${data.length} ${description} upserted successfully`)
-        return data.length
+        return processedCount
       }
 
       // Upsert creator-level engagement pairs
