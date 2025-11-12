@@ -103,7 +103,9 @@ export function processPortfolioCreatorPairs(
   syncedAt: string
 ): { portfolioCreatorPairs: any[], creatorPairs: any[] } {
   const portfolioCreatorPairs: any[] = []
-  const creatorPairs: any[] = []
+
+  // Use Map for O(1) lookups instead of array.find() O(n) - prevents memory/CPU issues with large datasets
+  const creatorPairsMap = new Map<string, any>()
 
   // Build creator username map
   const creatorIdToUsername = new Map<string, string>()
@@ -148,15 +150,14 @@ export function processPortfolioCreatorPairs(
               : parseInt(String(viewCount)) || 0
 
             if (count > 0) {
-              // Find or create creator pair
-              const existingPair = creatorPairs.find(
-                p => p.distinct_id === distinctId && p.creator_id === creatorId
-              )
+              // Use Map for O(1) lookup instead of array.find() O(n)
+              const key = `${distinctId}|${creatorId}`
+              const existingPair = creatorPairsMap.get(key)
 
               if (existingPair) {
                 existingPair.profile_view_count += count
               } else {
-                creatorPairs.push({
+                const newPair = {
                   distinct_id: distinctId,
                   creator_id: creatorId,
                   creator_username: username,
@@ -164,7 +165,8 @@ export function processPortfolioCreatorPairs(
                   did_subscribe: false,
                   subscription_count: 0,
                   synced_at: syncedAt,
-                })
+                }
+                creatorPairsMap.set(key, newPair)
               }
             }
           }
@@ -193,16 +195,15 @@ export function processPortfolioCreatorPairs(
               : parseInt(String(subCount)) || 0
 
             if (count > 0) {
-              // Find or create creator pair
-              const existingPair = creatorPairs.find(
-                p => p.distinct_id === distinctId && p.creator_id === creatorId
-              )
+              // Use Map for O(1) lookup instead of array.find() O(n)
+              const key = `${distinctId}|${creatorId}`
+              const existingPair = creatorPairsMap.get(key)
 
               if (existingPair) {
                 existingPair.did_subscribe = true
                 existingPair.subscription_count = count
               } else {
-                creatorPairs.push({
+                const newPair = {
                   distinct_id: distinctId,
                   creator_id: creatorId,
                   creator_username: username,
@@ -210,7 +211,8 @@ export function processPortfolioCreatorPairs(
                   did_subscribe: true,
                   subscription_count: count,
                   synced_at: syncedAt,
-                })
+                }
+                creatorPairsMap.set(key, newPair)
               }
             }
           }
@@ -355,6 +357,9 @@ export function processPortfolioCreatorPairs(
     })
   })
 
+
+  // Convert Map to array for return
+  const creatorPairs = Array.from(creatorPairsMap.values())
 
   console.log(`Processed ${portfolioCreatorPairs.length} portfolio-creator pairs and ${creatorPairs.length} creator pairs`)
   return { portfolioCreatorPairs, creatorPairs }

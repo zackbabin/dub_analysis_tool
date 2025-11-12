@@ -480,9 +480,6 @@
             // Initialize Supabase Integration with credentials
             window.supabaseIntegration = new SupabaseIntegration(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // Check for cache stale flag ONCE before initializing any tools
-            const cacheStale = localStorage.getItem('dubAnalysisCacheStale');
-
             // Initialize User Analysis Tool (Summary, Portfolio, Subscription tabs)
             const userTool = new UserAnalysisToolSupabase();
             userTool.supabaseIntegration = window.supabaseIntegration;
@@ -498,10 +495,8 @@
                 portfolio: document.getElementById('portfolioResultsContainer')
             };
 
-            // Restore cached results if cache is NOT stale
-            if (cacheStale !== 'true') {
-                userTool.restoreAnalysisResults();
-            }
+            // Restore cached results
+            userTool.restoreAnalysisResults();
 
             console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
 
@@ -518,26 +513,10 @@
             creatorTool.progressSection = document.getElementById('unifiedProgressSection');
             creatorTool.statusSection = document.getElementById('unifiedStatusSection');
 
-            // Restore cached results if cache is NOT stale
-            if (cacheStale !== 'true') {
-                creatorTool.restoreFromUnifiedCache();
-            }
+            // Restore cached results
+            creatorTool.restoreFromUnifiedCache();
 
             console.log('✅ Creator Analysis Tool (Supabase) initialized');
-
-            // Handle cache stale flag after both tools are initialized
-            if (cacheStale === 'true') {
-                localStorage.removeItem('dubAnalysisCacheStale');
-                console.log('🔄 Cache marked as stale, auto-syncing fresh data for all tabs...');
-
-                // Trigger sync automatically to fetch fresh data for all tabs
-                setTimeout(() => {
-                    const syncBtn = document.getElementById('syncLiveDataBtn');
-                    if (syncBtn) {
-                        syncBtn.click();
-                    }
-                }, 100);
-            }
 
             // Create unified data source component (for all 4 data tabs)
             const buttons = createUnifiedDataSource(userTool, creatorTool);

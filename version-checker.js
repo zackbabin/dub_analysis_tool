@@ -126,19 +126,15 @@ class VersionChecker {
 
     /**
      * Refresh the page and update stored version
-     * Mark cache as stale to trigger auto-sync on reload
      */
     refreshPage() {
         console.log(`🔄 Refreshing page to version ${CURRENT_VERSION}`);
 
-        // Mark cache as stale so page will auto-sync fresh data
-        // This preserves the cache during reload but triggers a sync
-        localStorage.setItem('dubAnalysisCacheStale', 'true');
-
         // Update version
         localStorage.setItem(this.storageKey, CURRENT_VERSION);
 
-        // Hard refresh
+        // Hard refresh to load new UI code
+        // Cache will be restored normally on page load
         window.location.reload(true);
     }
 
