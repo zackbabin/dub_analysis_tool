@@ -187,39 +187,31 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Load and display premium creator copy affinity
         await this.loadAndDisplayPremiumCreatorAffinity();
 
-        // Add data scope text (top left) and timestamp (top right) - EXACT same pattern as other tabs
-        // If timestampStr is provided, use it (from fresh sync), otherwise get from unified cache
-        if (!timestampStr) {
-            const cached = localStorage.getItem('dubAnalysisResults');
-            if (cached) {
-                const data = JSON.parse(cached);
-                timestampStr = data.timestamp;
-            }
-        }
+        // Add data scope text (top left) and timestamp (top right)
+        // Get the actual Mixpanel data refresh time from sync_logs (same as user analysis tabs)
+        const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
-        if (timestampStr) {
-            // Format timestamp to match other tabs
-            const formattedTimestamp = new Date(timestampStr).toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
+        const formattedTimestamp = displayTime.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
 
-            // Add timestamp first (will be inserted at position 0)
-            const timestamp = document.createElement('div');
-            timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-            resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+        // Add timestamp first (will be inserted at position 0)
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
+        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
-            // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
-            const dataScope = document.createElement('div');
-            dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
-            resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
-        }
+        // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
+        const dataScope = document.createElement('div');
+        dataScope.className = 'qda-data-scope';
+        dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
+        resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
 
         resultsDiv.style.display = 'block';
 
@@ -500,9 +492,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Update timestamp and data scope after sync (matching user tool pattern)
+     * Update timestamp and data scope after sync
      */
-    updateTimestampAndDataScope() {
+    async updateTimestampAndDataScope() {
         const resultsDiv = document.getElementById('creatorAnalysisResultsInline');
         if (!resultsDiv) return;
 
@@ -512,37 +504,30 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (existingTimestamp) existingTimestamp.remove();
         if (existingDataScope) existingDataScope.remove();
 
-        // Get timestamp from unified cache (set by user tool during sync)
-        const cached = localStorage.getItem('dubAnalysisResults');
-        let timestampStr = null;
-        if (cached) {
-            const data = JSON.parse(cached);
-            timestampStr = data.timestamp;
-        }
+        // Get the actual Mixpanel data refresh time from sync_logs
+        const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
-        if (timestampStr) {
-            // Format timestamp to match other tabs
-            const formattedTimestamp = new Date(timestampStr).toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
+        const formattedTimestamp = displayTime.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
 
-            // Add timestamp first (will be inserted at position 0)
-            const timestamp = document.createElement('div');
-            timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-            resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+        // Add timestamp first (will be inserted at position 0)
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
+        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
 
-            // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
-            const dataScope = document.createElement('div');
-            dataScope.className = 'qda-data-scope';
-            dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
-            resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
-        }
+        // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
+        const dataScope = document.createElement('div');
+        dataScope.className = 'qda-data-scope';
+        dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
+        resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
     }
 
     /**
