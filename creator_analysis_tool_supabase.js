@@ -449,6 +449,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
             }, 100);
         }
+
+        // Display Top Subscription Drivers section (loaded from database)
+        await this.displayTopSubscriptionDrivers(section);
     }
 
     /**
@@ -2905,6 +2908,103 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
                 enabled: false
             }
         });
+};
+
+/**
+ * Display Top Subscription Drivers section
+ * Loads data from subscription_drivers table (populated by user analysis tool)
+ */
+CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async function(parentSection) {
+    try {
+        if (!this.supabaseIntegration) {
+            console.error('Supabase not configured');
+            return;
+        }
+
+        // Fetch subscription drivers from database table
+        const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
+            .from('subscription_drivers')
+            .select('*')
+            .order('correlation_coefficient', { ascending: false })
+            .limit(20);
+
+        if (driversError) {
+            console.error('Error fetching subscription drivers:', driversError);
+            return;
+        }
+
+        if (!driversData || driversData.length === 0) {
+            console.warn('No subscription drivers data available. Run user analysis sync first.');
+            return;
+        }
+
+        const driversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Top Subscription Drivers</strong>
+                Behavioral patterns and events that predict subscription conversions.
+                <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                    </li>
+                    <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
+                    <li><strong>Metrics:</strong> Correlation coefficients, t-statistics, predictive strength</li>
+                </ul>
+            </span>
+        </span>`;
+
+        const driversSection = document.createElement('div');
+        driversSection.style.marginTop = '3rem';
+        driversSection.innerHTML = `
+            <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
+            <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
+        `;
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Variable</th>
+                <th style="text-align: right;">Correlation</th>
+                <th style="text-align: right;">T-Statistic</th>
+                <th style="text-align: right;">Predictive Strength</th>
+                <th style="text-align: right;">Tipping Point</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        driversData.slice(0, 10).forEach(row => {
+            const tr = document.createElement('tr');
+
+            // Use variable label if available
+            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
+
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${displayName}</td>
+                <td style="text-align: right;">${parseFloat(row.correlation_coefficient).toFixed(2)}</td>
+                <td style="text-align: right;">${parseFloat(row.t_stat).toFixed(2)}</td>
+                <td style="text-align: right;">${row.predictive_strength || 'N/A'}</td>
+                <td style="text-align: right;">${row.tipping_point || 'N/A'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        driversSection.appendChild(tableWrapper);
+        parentSection.appendChild(driversSection);
+
+    } catch (error) {
+        console.error('Error in displayTopSubscriptionDrivers:', error);
+    }
 };
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');
