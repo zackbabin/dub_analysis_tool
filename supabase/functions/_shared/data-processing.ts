@@ -421,12 +421,20 @@ export function processPortfolioCreatorCopyMetrics(
 
     if (copyCreatorData && typeof copyCreatorData === 'object') {
       const usernameKeys = Object.keys(copyCreatorData).filter(k => k !== '$overall')
-      if (usernameKeys.length > 0) creatorUsername = usernameKeys[0]
+      if (usernameKeys.length > 0) {
+        const rawUsername = usernameKeys[0]
+        // Ensure username has @ prefix for consistency
+        creatorUsername = rawUsername.startsWith('@') ? rawUsername : `@${rawUsername}`
+      }
     }
 
     if (!creatorUsername && liqCreatorData && typeof liqCreatorData === 'object') {
       const usernameKeys = Object.keys(liqCreatorData).filter(k => k !== '$overall')
-      if (usernameKeys.length > 0) creatorUsername = usernameKeys[0]
+      if (usernameKeys.length > 0) {
+        const rawUsername = usernameKeys[0]
+        // Ensure username has @ prefix for consistency
+        creatorUsername = rawUsername.startsWith('@') ? rawUsername : `@${rawUsername}`
+      }
     }
 
     if (!creatorUsername) {

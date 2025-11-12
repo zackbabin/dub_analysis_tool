@@ -46,14 +46,22 @@ serve(async (req) => {
       // Date range configured in Mixpanel chart settings
       console.log(`Fetching data from Mixpanel chart (date range configured in chart)`)
 
-      // Fetch subscribers data only
-      console.log('Fetching Subscribers Insights data...')
+      // Fetch subscribers data only with 120s timeout
+      console.log('Fetching Subscribers Insights data (120s timeout)...')
 
-      const subscribersData = await fetchInsightsData(
+      // Wrap fetch in timeout to prevent function from hanging
+      const FETCH_TIMEOUT_MS = 120000 // 120s timeout for Mixpanel fetch
+      const fetchPromise = fetchInsightsData(
         credentials,
         CHART_IDS.subscribersInsights,
         'Subscribers Insights'
       )
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Mixpanel fetch timeout after 120s')), FETCH_TIMEOUT_MS)
+      })
+
+      const subscribersData = await Promise.race([fetchPromise, timeoutPromise])
 
       console.log('✓ Subscribers data fetched successfully')
 
