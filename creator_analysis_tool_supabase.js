@@ -360,19 +360,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
-        // Add H1 title with tooltip - matching exact style from Portfolio Analysis
+        // Add H1 title with tooltip - updated to include subscription analysis
         const creatorH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
             <span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Analysis</strong>
-                Average engagement metrics per premium creator portfolio.
+                Comprehensive analysis of premium creator engagement and subscription patterns.
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
                         Manual CSV Upload (Portfolio Returns & Capital)
                     </li>
-                    <li><strong>Metrics:</strong> Subscription CVR, All-Time Returns, Copy Capital averaged across all premium creators</li>
+                    <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution, behavioral drivers</li>
                 </ul>
             </span>
         </span>`;
@@ -380,47 +382,81 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Premium Creator Analysis</h1>${creatorH1Tooltip}`;
         container.appendChild(section);
 
-        // Fetch averaged metrics from Supabase
-        const metrics = await this.fetchPremiumCreatorMetrics();
+        // Fetch subscription engagement summary from Supabase (4 metric cards)
+        const engagementSummary = await this.fetchSubscriptionEngagementSummary();
 
-        if (metrics) {
+        if (engagementSummary && engagementSummary.length === 2) {
+            const subscribersData = engagementSummary.find(d => d.did_subscribe === 1 || d.did_subscribe === true) || {};
+            const nonSubscribersData = engagementSummary.find(d => d.did_subscribe === 0 || d.did_subscribe === false) || {};
+
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
-            // Override grid to use 4 columns instead of default 5
             metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            metricSummary.style.marginTop = '1.5rem';
 
-            // Create 4 metric cards with conversion rates and performance metrics
-            const medianPerformanceDisplay = metrics.median_all_time_performance !== null && metrics.median_all_time_performance !== undefined
-                ? `${metrics.median_all_time_performance >= 0 ? '+' : ''}${metrics.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
-                : '—';
-            const medianCopyCapitalDisplay = metrics.median_copy_capital !== null && metrics.median_copy_capital !== undefined
-                ? `$${metrics.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-                : '—';
-
-            const cards = [
-                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
-                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
-                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
+            const metrics = [
+                { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
+                { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
+                { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
+                { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
             ];
 
-            cards.forEach(([title, content, tooltip]) => {
+            metrics.forEach(metric => {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
-                        ${title}
-                        <span class="info-tooltip" style="display: inline-flex; align-items: center;">
-                            <span class="info-icon">i</span>
-                            <span class="tooltip-text">${tooltip}</span>
-                        </span>
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold;">
+                        ${parseFloat(metric.primaryValue).toFixed(1)}
+                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
                     </div>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
                 `;
                 metricSummary.appendChild(card);
             });
 
             section.appendChild(metricSummary);
+
+            // Add comparison note
+            const note = document.createElement('p');
+            note.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;';
+            note.textContent = "Compares users who subscribed vs. haven't subscribed";
+            section.appendChild(note);
         }
+
+        // Fetch and display subscription price distribution
+        const subscriptionDistribution = await this.fetchSubscriptionPriceDistribution();
+
+        if (subscriptionDistribution && subscriptionDistribution.length > 0) {
+            const chartId = `subscription-price-chart-${Date.now()}`;
+
+            const priceTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Subscription Price Distribution</strong>
+                    Distribution of subscription prices across all creator subscriptions.
+                    <ul>
+                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)</li>
+                        <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
+                    </ul>
+                </span>
+            </span>`;
+
+            const chartSection = document.createElement('div');
+            chartSection.style.marginTop = '3rem';
+            chartSection.innerHTML = `
+                <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Subscription Price Distribution</h2>${priceTooltipHTML}
+                <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
+            `;
+            section.appendChild(chartSection);
+
+            // Render chart after DOM is ready
+            setTimeout(() => {
+                this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
+            }, 100);
+        }
+
+        // Fetch and display Top Subscription Drivers section
+        await this.displayTopSubscriptionDrivers(section);
     }
 
     /**
@@ -566,6 +602,50 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
         title.textContent = 'Premium Creator Breakdown';
         section.appendChild(title);
+
+        // Fetch premium creator metrics for the 3 metric cards
+        const metrics = await this.fetchPremiumCreatorMetrics();
+
+        if (metrics) {
+            const metricSummary = document.createElement('div');
+            metricSummary.className = 'qda-metric-summary';
+            // Override grid to use 3 columns
+            metricSummary.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            metricSummary.style.marginTop = '1.5rem';
+            metricSummary.style.marginBottom = '1.5rem';
+
+            // Create 3 metric cards
+            const medianPerformanceDisplay = metrics.median_all_time_performance !== null && metrics.median_all_time_performance !== undefined
+                ? `${metrics.median_all_time_performance >= 0 ? '+' : ''}${metrics.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                : '—';
+            const medianCopyCapitalDisplay = metrics.median_copy_capital !== null && metrics.median_copy_capital !== undefined
+                ? `$${metrics.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                : '—';
+
+            const cards = [
+                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
+                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
+                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
+            ];
+
+            cards.forEach(([cardTitle, content, tooltip]) => {
+                const card = document.createElement('div');
+                card.className = 'qda-metric-card';
+                card.innerHTML = `
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
+                        ${cardTitle}
+                        <span class="info-tooltip" style="display: inline-flex; align-items: center;">
+                            <span class="info-icon">i</span>
+                            <span class="tooltip-text">${tooltip}</span>
+                        </span>
+                    </div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
+                `;
+                metricSummary.appendChild(card);
+            });
+
+            section.appendChild(metricSummary);
+        }
 
         // Add tooltip
         const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
@@ -2763,6 +2843,208 @@ window.togglePortfolioBreakdown = function() {
         });
         button.textContent = 'Show More';
     }
+};
+
+CreatorAnalysisToolSupabase.prototype.fetchSubscriptionEngagementSummary = async function() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return null;
+            }
+
+            const { data, error } = await this.supabaseIntegration.supabase
+                .from('subscription_engagement_summary')
+                .select('*');
+
+            if (error) {
+                console.error('Error fetching subscription engagement summary:', error);
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error in fetchSubscriptionEngagementSummary:', error);
+            return null;
+        }
+};
+
+/**
+ * Fetch subscription price distribution data
+ */
+CreatorAnalysisToolSupabase.prototype.fetchSubscriptionPriceDistribution = async function() {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return null;
+            }
+
+            const { data, error } = await this.supabaseIntegration.supabase
+                .from('subscription_price_distribution')
+                .select('*')
+                .order('subscription_price');
+
+            if (error) {
+                console.error('Error fetching subscription price distribution:', error);
+                return null;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error in fetchSubscriptionPriceDistribution:', error);
+            return null;
+        }
+};
+
+/**
+ * Render subscription price chart using Highcharts
+ */
+CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(chartId, subscriptionDistribution) {
+        if (!subscriptionDistribution || subscriptionDistribution.length === 0) {
+            return;
+        }
+
+        const prices = subscriptionDistribution.map(d => parseFloat(d.subscription_price));
+        const counts = subscriptionDistribution.map(d => parseInt(d.subscription_count));
+
+        Highcharts.chart(chartId, {
+            chart: {
+                type: 'column',
+                backgroundColor: '#ffffff',
+                style: {
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial'
+                }
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                categories: prices.map(p => `$${p.toFixed(2)}`),
+                title: {
+                    text: 'Subscription Price'
+                }
+            },
+            yAxis: {
+                title: {
+                    text: 'Number of Subscriptions'
+                },
+                allowDecimals: false
+            },
+            legend: {
+                enabled: false
+            },
+            tooltip: {
+                formatter: function() {
+                    return `<b>Price:</b> ${this.x}<br/><b>Subscriptions:</b> ${this.y}`;
+                }
+            },
+            plotOptions: {
+                column: {
+                    color: '#17a2b8',
+                    borderRadius: 4,
+                    dataLabels: {
+                        enabled: true,
+                        format: '{y}'
+                    }
+                }
+            },
+            series: [{
+                name: 'Subscriptions',
+                data: counts
+            }],
+            credits: {
+                enabled: false
+            }
+        });
+};
+
+/**
+ * Display Top Subscription Drivers section
+ */
+CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async function(parentSection) {
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            // Fetch subscription correlation and regression results
+            const { data: correlationData, error: corrError } = await this.supabaseIntegration.supabase
+                .from('regression_results')
+                .select('*')
+                .eq('regression_type', 'subscriptions')
+                .order('correlation_coefficient', { ascending: false })
+                .limit(20);
+
+            if (corrError) {
+                console.error('Error fetching subscription drivers:', corrError);
+                return;
+            }
+
+            if (!correlationData || correlationData.length === 0) {
+                return;
+            }
+
+            const driversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+                <span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Top Subscription Drivers</strong>
+                    Behavioral patterns and events that predict subscription conversions.
+                    <ul>
+                        <li><strong>Data Sources:</strong>
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                        </li>
+                        <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
+                        <li><strong>Metrics:</strong> Correlation coefficients, odds ratios, statistical significance</li>
+                    </ul>
+                </span>
+            </span>`;
+
+            const driversSection = document.createElement('div');
+            driversSection.style.marginTop = '3rem';
+            driversSection.innerHTML = `
+                <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
+                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
+            `;
+
+            // Create table
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper';
+
+            const table = document.createElement('table');
+            table.className = 'qda-regression-table';
+
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="text-align: left;">Event/Behavior</th>
+                    <th style="text-align: right;">Correlation</th>
+                    <th style="text-align: right;">Odds Ratio</th>
+                    <th style="text-align: right;">P-Value</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            correlationData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${row.event_name || row.variable_name || 'N/A'}</td>
+                    <td style="text-align: right;">${(row.correlation_coefficient || 0).toFixed(3)}</td>
+                    <td style="text-align: right;">${(row.odds_ratio || 0).toFixed(2)}</td>
+                    <td style="text-align: right;">${(row.p_value || 0) < 0.001 ? '<0.001' : (row.p_value || 0).toFixed(3)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+
+            tableWrapper.appendChild(table);
+            driversSection.appendChild(tableWrapper);
+            parentSection.appendChild(driversSection);
+
+        } catch (error) {
+            console.error('Error in displayTopSubscriptionDrivers:', error);
+        }
 };
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');

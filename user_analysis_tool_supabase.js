@@ -53,20 +53,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         // Re-initialize nested tab event listeners for portfolio
                         this.initializePortfolioNestedTabs();
                     }
-                    if (data.subscription && this.outputContainers.subscription) {
-                        this.outputContainers.subscription.innerHTML = data.subscription;
-                        this.removeAnchorLinks(this.outputContainers.subscription);
-
-                        // Re-render subscription price chart if data is cached
-                        if (data.subscriptionDistribution) {
-                            setTimeout(() => {
-                                const chartContainer = this.outputContainers.subscription.querySelector('[id^="subscription-price-chart-"]');
-                                if (chartContainer) {
-                                    this.renderSubscriptionPriceChart(chartContainer.id, data.subscriptionDistribution);
-                                }
-                            }, 500);
-                        }
-                    }
 
                     console.log('✅ Restored analysis results from', data.timestamp);
                 }
@@ -416,8 +402,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const cacheData = {
                 summary: this.outputContainers.summary?.innerHTML || '',
                 portfolio: this.outputContainers.portfolio?.innerHTML || '',
-                subscription: this.outputContainers.subscription?.innerHTML || '',
-                subscriptionDistribution: this.cachedSubscriptionDistribution, // Cache chart data
                 timestamp: new Date().toISOString()
             };
             console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
@@ -697,137 +681,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // === SUBSCRIPTION TAB ===
-        const subscriptionContainer = this.outputContainers.subscription;
-        subscriptionContainer.innerHTML = `
-            <div class="qda-analysis-results">
-                <div id="subscriptionAnalysisSection"></div>
-            </div>
-        `;
-
-        // Build Subscriptions Section with all enhancements
-        const subscriptionSection = document.getElementById('subscriptionAnalysisSection');
-
-        // Check if subscription data exists
-        if (results.correlationResults?.totalSubscriptions && results.regressionResults?.subscriptions) {
-            const subMetricsHTML = this.generateSubscriptionMetricsHTML(engagementSummary);
-
-            // Build price distribution chart from loaded subscription distribution data
-            let priceDistributionHTML = '';
-            if (subscriptionDistribution && subscriptionDistribution.length > 0) {
-                // Generate unique ID for chart container
-                const chartId = `subscription-price-chart-${Date.now()}`;
-
-                const priceTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                    <span class="info-icon">i</span>
-                    <span class="tooltip-text">
-                        <strong>Subscription Price Distribution</strong>
-                        Distribution of subscription prices across all creator subscriptions.
-                        <ul>
-                            <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)</li>
-                            <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
-                        </ul>
-                    </span>
-                </span>`;
-
-                priceDistributionHTML = `
-                    <div style="margin-top: 3rem;">
-                        <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Subscription Price Distribution</h2>${priceTooltipHTML}
-                        <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
-                    </div>
-                `;
-
-                // Render chart after DOM is ready
-                setTimeout(() => {
-                    this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
-                }, 100);
-            } else {
-                priceDistributionHTML = `
-                    <div style="margin-top: 3rem;">
-                        <h2 style="margin-top: 0; margin-bottom: 0.25rem;">Subscription Price Distribution</h2>
-                        <p style="color: #6c757d; font-style: italic;">No subscription price data available. Please run "Sync Creator Data" to fetch this data.</p>
-                    </div>
-                `;
-            }
-
-            const subDriversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>Top Subscription Drivers</strong>
-                    Behavioral patterns and events that predict subscription conversions.
-                    <ul>
-                        <li><strong>Data Sources:</strong>
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
-                        </li>
-                        <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
-                        <li><strong>Metrics:</strong> Correlation coefficients, odds ratios, statistical significance</li>
-                    </ul>
-                </span>
-            </span>`;
-            const subCorrelationHeaderHTML = `<h2 style="margin-top: 1.5rem; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${subDriversTooltipHTML}<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>`;
-            // const subCombinationsHTML = this.generateSubscriptionCombinationsHTML(topSubscriptionCombos); // Moved to Portfolio Analysis tab as creator copy combinations
-            const subCombinationsHTML = ''; // Commented out - moved to Portfolio Analysis tab
-            // const subSequenceHTML = subscriptionSequenceAnalysis ?
-            //     this.generateConversionPathHTML(subscriptionSequenceAnalysis, 'Subscriptions') : '';
-            const subSequenceHTML = ''; // Comment out subscription conversion path analysis
-
-            try {
-                const subscriptionsTable = this.buildCorrelationTable(results.correlationResults.totalSubscriptions, results.regressionResults.subscriptions, 'subscriptions', tippingPoints);
-
-                // Create complete section wrapper
-                const subWrapper = document.createElement('div');
-                subWrapper.className = 'qda-result-section';
-
-                const h1TooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                    <span class="info-icon">i</span>
-                    <span class="tooltip-text">
-                        <strong>Subscription Analysis</strong>
-                        User behavior patterns leading to creator subscriptions.
-                        <ul>
-                            <li><strong>Data Sources:</strong>
-                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions by Creator),
-                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views),
-                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)
-                            </li>
-                            <li><strong>Metrics:</strong> Subscription rates, price distribution, behavioral drivers</li>
-                        </ul>
-                    </span>
-                </span>`;
-
-                subWrapper.innerHTML = `
-                    <h1 style="margin-bottom: 0.25rem; display: inline;">Subscription Analysis</h1>${h1TooltipHTML}
-                    ${subMetricsHTML}
-                    ${priceDistributionHTML}
-                    ${subCorrelationHeaderHTML}
-                `;
-                subWrapper.appendChild(subscriptionsTable);
-                subWrapper.insertAdjacentHTML('beforeend', subCombinationsHTML + subSequenceHTML);
-
-                // Insert complete HTML once
-                subscriptionSection.innerHTML = subWrapper.outerHTML;
-            } catch (e) {
-                console.error('Error building subscriptions table:', e);
-                subscriptionSection.innerHTML = `
-                    <div class="qda-result-section">
-                        <h1 style="margin-bottom: 0.25rem;">Subscription Analysis</h1>
-                        ${subMetricsHTML}
-                        ${priceDistributionHTML}
-                        ${subCorrelationHeaderHTML}
-                        <p style="color: #dc3545;">Error displaying subscription analysis. Please try syncing again.</p>
-                    </div>
-                `;
-            }
-        } else {
-            subscriptionSection.innerHTML = `
-                <div class="qda-result-section">
-                    <h1 style="margin-bottom: 0.25rem;">Subscription Analysis</h1>
-                    <p style="color: #6c757d; font-style: italic;">Subscription analysis data will be available after syncing.</p>
-                </div>
-            `;
-        }
-
-        // Add timestamp and data scope to first 3 tabs (creator tab handled separately)
+        // Add timestamp and data scope to remaining tabs (summary, portfolio)
         // Get the actual Mixpanel data refresh time from sync_logs
         const mixpanelSyncTime = await window.supabaseIntegration.getMostRecentMixpanelSyncTime();
         const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
@@ -848,8 +702,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Add timestamp (top right) and data scope (top left) to each container
         const tabConfigs = [
             { container: summaryContainer, scopeText: 'Data for KYC approved users from the last 60 days' },
-            { container: portfolioContainer, scopeText: 'Data for KYC approved users from the last 60 days' },
-            { container: subscriptionContainer, scopeText: 'Data for KYC approved users from the last 60 days' }
+            { container: portfolioContainer, scopeText: 'Data for KYC approved users from the last 60 days' }
         ];
 
         tabConfigs.forEach(({ container, scopeText }) => {

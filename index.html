@@ -21,7 +21,6 @@
     <div class="tab-navigation">
         <button class="tab-btn active" data-tab="summary">Summary Stats</button>
         <button class="tab-btn" data-tab="portfolio">Portfolio Analysis</button>
-        <button class="tab-btn" data-tab="subscription">Subscription Analysis</button>
         <button class="tab-btn" data-tab="creator">Premium Creator Analysis</button>
         <button class="tab-btn" data-tab="crypto">Crypto Business Analysis</button>
     </div>
@@ -44,13 +43,6 @@
     <div id="portfolio-tab" class="tab-pane">
         <div class="tab-results-container">
             <div id="portfolioResultsContainer"></div>
-        </div>
-    </div>
-
-    <!-- Subscription Analysis Tab -->
-    <div id="subscription-tab" class="tab-pane">
-        <div class="tab-results-container">
-            <div id="subscriptionResultsContainer"></div>
         </div>
     </div>
 
@@ -454,7 +446,7 @@
             // Listen for hash changes (browser back/forward)
             window.addEventListener('hashchange', () => {
                 const hash = window.location.hash.slice(1); // Remove the '#'
-                const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model', 'crypto'];
+                const validTabs = ['summary', 'portfolio', 'creator', 'business-model', 'crypto'];
 
                 // Parse tab and section anchor (format: "portfolio#hidden-gems")
                 const hashParts = hash.split('#');
@@ -466,7 +458,7 @@
 
             // Initialize tab from URL hash on page load
             const initialHash = window.location.hash.slice(1);
-            const validTabs = ['summary', 'portfolio', 'subscription', 'creator', 'business-model', 'crypto'];
+            const validTabs = ['summary', 'portfolio', 'creator', 'business-model', 'crypto'];
 
             // Parse tab and section anchor
             const hashParts = initialHash.split('#');
@@ -503,8 +495,7 @@
             // Initialize with output containers
             userTool.outputContainers = {
                 summary: document.getElementById('summaryResultsContainer'),
-                portfolio: document.getElementById('portfolioResultsContainer'),
-                subscription: document.getElementById('subscriptionResultsContainer')
+                portfolio: document.getElementById('portfolioResultsContainer')
             };
 
             // Restore cached results if cache is NOT stale
