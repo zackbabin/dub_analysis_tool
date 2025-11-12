@@ -4,6 +4,21 @@
  */
 
 // ============================================================================
+// Creator ID Deduplication
+// ============================================================================
+
+// Deduplication map: Maps old/duplicate creator_ids to canonical creator_id
+// Add entries here when duplicate usernames are discovered
+const CREATOR_ID_DEDUP_MAP: Record<string, string> = {
+  '118': '211855351476994048',  // @dubAdvisors: 118 is old id, use 211855351476994048
+}
+
+// Helper function to normalize creator_id (resolve duplicates)
+const normalizeCreatorId = (creatorId: string): string => {
+  return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
+}
+
+// ============================================================================
 // Funnel Data Processing
 // ============================================================================
 
@@ -89,17 +104,6 @@ export function processPortfolioCreatorPairs(
 ): { portfolioCreatorPairs: any[], creatorPairs: any[] } {
   const portfolioCreatorPairs: any[] = []
   const creatorPairs: any[] = []
-
-  // Deduplication map: Maps old/duplicate creator_ids to canonical creator_id
-  // Add entries here when duplicate usernames are discovered
-  const CREATOR_ID_DEDUP_MAP: Record<string, string> = {
-    '118': '211855351476994048',  // @dubAdvisors: 118 is old id, use 211855351476994048
-  }
-
-  // Helper function to normalize creator_id (resolve duplicates)
-  const normalizeCreatorId = (creatorId: string): string => {
-    return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
-  }
 
   // Build creator username map
   const creatorIdToUsername = new Map<string, string>()
@@ -376,11 +380,6 @@ export function processPortfolioCreatorCopyMetrics(
   if (!copyData || !copyData.series) {
     console.log('No portfolio-creator copy data to process')
     return []
-  }
-
-  // Deduplication map for creator_ids
-  const normalizeCreatorId = (creatorId: string): string => {
-    return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
   }
 
   const copiesMetric = copyData.series['A. Total Copies']
