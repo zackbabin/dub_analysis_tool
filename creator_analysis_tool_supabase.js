@@ -390,6 +390,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             metricSummary.className = 'qda-metric-summary';
             metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
             metricSummary.style.marginTop = '1.5rem';
+            metricSummary.style.marginBottom = '0.5rem';
 
             const metrics = [
                 { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
