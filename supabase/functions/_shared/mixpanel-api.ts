@@ -342,3 +342,99 @@ export async function shouldSkipSync(
     return { shouldSkip: false, lastSyncTime: null }
   }
 }
+
+// ============================================================================
+// Mixpanel API - Event Export (Raw Events)
+// ============================================================================
+
+export interface MixpanelExportEvent {
+  event: string
+  properties: {
+    $distinct_id: string
+    time: number
+    [key: string]: any
+  }
+}
+
+/**
+ * Fetch raw events from Mixpanel Event Export API
+ * Returns NDJSON stream - each line is a separate JSON event
+ * Much faster than Insights API for large datasets
+ *
+ * @param credentials - Mixpanel service account credentials
+ * @param fromDate - Start date (YYYY-MM-DD)
+ * @param toDate - End date (YYYY-MM-DD)
+ * @param events - Optional array of event names to filter
+ * @returns Array of parsed event objects
+ */
+export async function fetchEventsExport(
+  credentials: MixpanelCredentials,
+  fromDate: string,
+  toDate: string,
+  events?: string[]
+): Promise<MixpanelExportEvent[]> {
+  console.log(`Fetching events from Export API: ${fromDate} to ${toDate}`)
+  if (events && events.length > 0) {
+    console.log(`Filtering ${events.length} event types`)
+  }
+
+  // Build query parameters
+  const params = new URLSearchParams({
+    project_id: MIXPANEL_CONFIG.PROJECT_ID,
+    from_date: fromDate,
+    to_date: toDate,
+  })
+
+  // Add event filter if specified
+  if (events && events.length > 0) {
+    params.append('event', JSON.stringify(events))
+  }
+
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  const url = `${MIXPANEL_CONFIG.EXPORT_API_BASE}/export?${params}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'text/plain',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel Export API error (${response.status}): ${errorText}`)
+  }
+
+  // Parse NDJSON response (each line is a JSON object)
+  const text = await response.text()
+  const lines = text.trim().split('\n')
+
+  console.log(`Received ${lines.length} event lines from Export API`)
+
+  const parsedEvents: MixpanelExportEvent[] = []
+  let parseErrors = 0
+
+  for (const line of lines) {
+    if (!line.trim()) continue
+
+    try {
+      const event = JSON.parse(line)
+      parsedEvents.push(event)
+    } catch (error) {
+      parseErrors++
+      if (parseErrors <= 5) {
+        console.warn(`Failed to parse event line: ${line.substring(0, 100)}`)
+      }
+    }
+  }
+
+  if (parseErrors > 0) {
+    console.warn(`⚠️ Failed to parse ${parseErrors} events`)
+  }
+
+  console.log(`✓ Parsed ${parsedEvents.length} events successfully`)
+  return parsedEvents
+}
