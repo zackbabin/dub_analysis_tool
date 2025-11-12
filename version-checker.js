@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-12-02'; // UI reorganization: Moved subscription analysis into Premium Creator Analysis tab, removed Subscription Analysis tab
+const CURRENT_VERSION = '2025-11-12-03'; // Added Top Subscription Drivers table with database persistence
 
 class VersionChecker {
     constructor() {
