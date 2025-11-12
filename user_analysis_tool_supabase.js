@@ -2177,9 +2177,10 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function() {
         total_market_beating_portfolios: totalMarketBeating
     });
 
-    // Create metric cards grid
+    // Create metric cards grid (4 columns for Marketing Metrics)
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';
+    metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
     const metrics = [
         ['Avg Monthly Copies', avgMonthlyCopies !== null ? avgMonthlyCopies.toLocaleString() : '-', '18px'],
