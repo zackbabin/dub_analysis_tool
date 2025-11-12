@@ -36,16 +36,15 @@ premium_creator_copiers AS (
 ),
 premium_totals AS (
   -- Get aggregated totals from portfolio_creator_copy_metrics (chart 86055000)
-  -- This is the SAME source used by premium_creator_breakdown
-  -- Sum across all portfolios for each creator
+  -- This is the SAME source and logic used by premium_creator_breakdown
+  -- Join directly on creator_username to avoid duplicate counting
   SELECT
     pc.creator_username AS premium_creator,
     SUM(pccm.total_copies) AS total_copies,
     SUM(pccm.total_liquidations) AS total_liquidations
-  FROM premium_creators_list pc
-  CROSS JOIN LATERAL unnest(pc.creator_ids) AS pc_creator_id
+  FROM (SELECT DISTINCT creator_username FROM premium_creators) pc
   LEFT JOIN portfolio_creator_copy_metrics pccm
-    ON pc_creator_id = pccm.creator_id
+    ON pc.creator_username = pccm.creator_username
   GROUP BY pc.creator_username
 ),
 affinity_raw AS (
