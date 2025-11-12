@@ -367,8 +367,24 @@
                 uploadBtn.onclick = () => {
                     showCreatorUploadModal(creatorTool);
                 };
+            } else if (activeTab === 'summary') {
+                // On summary tab: Enable for marketing data upload
+                uploadBtn.disabled = false;
+                uploadBtn.style.background = 'white';
+                uploadBtn.style.borderColor = '#28a745';
+                uploadBtn.style.cursor = 'pointer';
+                uploadBtn.style.pointerEvents = 'auto';
+                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
+                uploadBtn.querySelector('div:first-child').textContent = 'Upload Manual Data';
+                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
+                uploadBtn.querySelector('div:last-child').textContent = 'Upload portfolio data for Marketing Metrics';
+                uploadBtn.onmouseover = uploadHoverIn;
+                uploadBtn.onmouseout = uploadHoverOut;
+                uploadBtn.onclick = () => {
+                    userTool.showMarketingDataUploadModal();
+                };
             } else {
-                // On user tabs: DISABLED
+                // On portfolio tab: DISABLED
                 uploadBtn.disabled = true;
                 uploadBtn.style.background = '#f8f9fa';
                 uploadBtn.style.borderColor = '#e9ecef';

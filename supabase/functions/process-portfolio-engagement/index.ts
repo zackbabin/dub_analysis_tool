@@ -72,7 +72,8 @@ serve(async (req) => {
       logElapsed()
       console.log('✓ Raw data loaded from Storage')
 
-      const { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
+      // Use let for variables we'll explicitly set to undefined later for garbage collection
+      let { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
 
       // Process and insert data into database
       const stats: SyncStats = {

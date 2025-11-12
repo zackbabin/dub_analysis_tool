@@ -2194,32 +2194,6 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function() {
 
     resultSection.appendChild(metricSummary);
 
-    // Add manual data upload button
-    const uploadSection = document.createElement('div');
-    uploadSection.style.marginTop = '1.5rem';
-
-    const uploadButton = document.createElement('button');
-    uploadButton.textContent = 'Upload Manual Data';
-    uploadButton.className = 'qda-action-btn';
-    uploadButton.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;';
-
-    uploadButton.addEventListener('mouseover', () => {
-        uploadButton.style.transform = 'translateY(-2px)';
-        uploadButton.style.boxShadow = '0 6px 12px rgba(102, 126, 234, 0.4)';
-    });
-
-    uploadButton.addEventListener('mouseout', () => {
-        uploadButton.style.transform = 'translateY(0)';
-        uploadButton.style.boxShadow = '0 4px 6px rgba(102, 126, 234, 0.3)';
-    });
-
-    uploadButton.addEventListener('click', () => {
-        this.showMarketingDataUploadModal();
-    });
-
-    uploadSection.appendChild(uploadButton);
-    resultSection.appendChild(uploadSection);
-
     container.appendChild(resultSection);
 };
 
