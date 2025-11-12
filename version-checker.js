@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-12-03'; // Added Top Subscription Drivers table with database persistence
+const CURRENT_VERSION = '2025-11-12-04'; // Fixed version checker to preserve cache on refresh
 
 class VersionChecker {
     constructor() {
@@ -126,13 +126,14 @@ class VersionChecker {
 
     /**
      * Refresh the page and update stored version
-     * Clear cached HTML to show latest data from database
+     * Mark cache as stale to trigger auto-sync on reload
      */
     refreshPage() {
         console.log(`🔄 Refreshing page to version ${CURRENT_VERSION}`);
 
-        // Clear the cached HTML (database already has correct data)
-        localStorage.removeItem('dubAnalysisResults');
+        // Mark cache as stale so page will auto-sync fresh data
+        // This preserves the cache during reload but triggers a sync
+        localStorage.setItem('dubAnalysisCacheStale', 'true');
 
         // Update version
         localStorage.setItem(this.storageKey, CURRENT_VERSION);
