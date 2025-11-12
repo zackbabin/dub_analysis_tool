@@ -88,23 +88,26 @@ ORDER BY ar.premium_creator, unique_copiers DESC;
 
 -- Recreate display view
 CREATE VIEW premium_creator_affinity_display AS
-WITH all_premium_creators AS (
-  -- Get ALL premium creators from the authoritative table
-  -- Group by username to handle duplicates (e.g., dubAdvisors)
+WITH premium_totals_direct AS (
+  -- Get totals directly using same logic as premium_creator_breakdown
+  -- Don't pull from base view to avoid aggregation issues
+  SELECT
+    pc.creator_username AS premium_creator,
+    COALESCE(SUM(pccm.total_copies), 0)::bigint AS premium_creator_total_copies,
+    COALESCE(SUM(pccm.total_liquidations), 0)::bigint AS premium_creator_total_liquidations
+  FROM premium_creators pc
+  LEFT JOIN portfolio_creator_copy_metrics pccm
+    ON pc.creator_id = pccm.creator_id
+  GROUP BY pc.creator_username
+),
+all_premium_creators AS (
+  -- Get ALL premium creators with their totals
   SELECT
     creator_username AS premium_creator,
-    COALESCE(MAX(pt.total_copies), 0)::bigint AS premium_creator_total_copies,
-    COALESCE(MAX(pt.total_liquidations), 0)::bigint AS premium_creator_total_liquidations
-  FROM premium_creators pc
-  LEFT JOIN (
-    SELECT
-      premium_creator,
-      MAX(premium_creator_total_copies) AS total_copies,
-      MAX(premium_creator_total_liquidations) AS total_liquidations
-    FROM premium_creator_copy_affinity_base
-    GROUP BY premium_creator
-  ) pt ON pc.creator_username = pt.premium_creator
-  GROUP BY creator_username
+    COALESCE(pt.premium_creator_total_copies, 0)::bigint AS premium_creator_total_copies,
+    COALESCE(pt.premium_creator_total_liquidations, 0)::bigint AS premium_creator_total_liquidations
+  FROM (SELECT DISTINCT creator_username FROM premium_creators) pc
+  LEFT JOIN premium_totals_direct pt ON pc.creator_username = pt.premium_creator
 ),
 ranked_regular AS (
   SELECT
