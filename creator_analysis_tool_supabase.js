@@ -2959,8 +2959,8 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
         const driversSection = document.createElement('div');
         driversSection.style.marginTop = '3rem';
         driversSection.innerHTML = `
-            <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
-            <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
+            <h2 style="margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
+            <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
         `;
 
         // Create table
