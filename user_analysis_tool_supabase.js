@@ -2369,10 +2369,14 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
         await new Promise(resolve => setTimeout(resolve, 400));
 
         const text = await file.text();
-        const lines = text.split('\n').filter(line => line.trim());
+        // Handle different line endings (Windows \r\n, Unix \n, Mac \r)
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+
+        console.log(`CSV file has ${lines.length} lines (after filtering empty lines)`);
+        console.log('First few lines:', lines.slice(0, 3));
 
         if (lines.length < 2) {
-            this.addStatusMessage('❌ CSV file appears to be empty or invalid', 'error');
+            this.addStatusMessage(`❌ CSV file appears to be empty or invalid (found ${lines.length} lines)`, 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
@@ -2478,10 +2482,14 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
         await new Promise(resolve => setTimeout(resolve, 400));
 
         const text = await file.text();
-        const lines = text.split('\n').filter(line => line.trim());
+        // Handle different line endings (Windows \r\n, Unix \n, Mac \r)
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
+
+        console.log(`CSV file has ${lines.length} lines (after filtering empty lines)`);
+        console.log('First few lines:', lines.slice(0, 3));
 
         if (lines.length < 2) {
-            this.addStatusMessage('❌ CSV file appears to be empty or invalid', 'error');
+            this.addStatusMessage(`❌ CSV file appears to be empty or invalid (found ${lines.length} lines)`, 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
@@ -2492,10 +2500,10 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
 
         // Parse header
         const headers = lines[0].split(',').map(h => h.trim());
-        const accountValueIndex = headers.findIndex(h => h.toLowerCase() === 'totalaccountvalue');
+        const totalHoldingsIndex = headers.findIndex(h => h.toLowerCase() === 'total holdings ($)');
 
-        if (accountValueIndex === -1) {
-            this.addStatusMessage('❌ CSV file must contain a "totalaccountvalue" column', 'error');
+        if (totalHoldingsIndex === -1) {
+            this.addStatusMessage('❌ CSV file must contain a "Total Holdings ($)" column', 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
@@ -2504,16 +2512,23 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
 
         // Add delay before next step
         await new Promise(resolve => setTimeout(resolve, 300));
-        this.updateProgress(50, 'Calculating total investments...');
+        this.updateProgress(50, 'Extracting Total Holdings from most recent month...');
 
-        // Sum all totalaccountvalue values
-        let totalInvestments = 0;
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',');
-            const accountValue = parseFloat(values[accountValueIndex]?.trim() || 0);
-            if (!isNaN(accountValue)) {
-                totalInvestments += accountValue;
-            }
+        // Get the most recent month row (last row with data, before any trailing empty lines)
+        // Lines array already has empty lines filtered out, so the last line is the most recent
+        const lastDataLine = lines[lines.length - 1];
+        const values = lastDataLine.split(',');
+        const totalHoldingsValue = values[totalHoldingsIndex]?.trim() || '0';
+
+        // Remove commas and parse the value
+        const totalInvestments = parseFloat(totalHoldingsValue.replace(/,/g, ''));
+
+        if (isNaN(totalInvestments)) {
+            this.addStatusMessage('❌ Could not parse Total Holdings value from most recent month', 'error');
+            setTimeout(() => {
+                if (progressSection) progressSection.style.display = 'none';
+            }, 1500);
+            return;
         }
 
         console.log(`✅ Calculated Total Investments: $${totalInvestments.toLocaleString()}`);
