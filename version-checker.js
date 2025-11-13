@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-12-11'; // Added Marketing Metrics upload on Summary Stats with proper caching and progress bar
+const CURRENT_VERSION = '2025-11-13-01'; // Fix Premium Creator Analysis UI spacing and layout
 
 class VersionChecker {
     constructor() {

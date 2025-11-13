@@ -579,10 +579,34 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
 
+        // Add tooltip
+        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
+            <span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Premium Creator Breakdown</strong>
+                Conversion metrics for each premium creator, aggregated across all their portfolios.
+                <ul>
+                    <li><strong>Data Sources:</strong>
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86055000%22" target="_blank" style="color: #17a2b8;">Chart 86055000</a> (Copies & Liquidations Aggregates),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                        Manual CSV Upload (Portfolio Returns & Capital)
+                    </li>
+                    <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
+                </ul>
+            </span>
+        </span>`;
+
         const title = document.createElement('h2');
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-        title.textContent = 'Premium Creator Breakdown';
+        title.innerHTML = `Premium Creator Breakdown${tooltipHTML}`;
         section.appendChild(title);
+
+        const description = document.createElement('p');
+        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
+        description.textContent = 'Conversion metrics breakdown for each premium creator';
+        section.appendChild(description);
 
         // Fetch premium creator metrics for the 3 metric cards
         const metrics = await this.fetchPremiumCreatorMetrics();
@@ -627,34 +651,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             section.appendChild(metricSummary);
         }
-
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>Premium Creator Breakdown</strong>
-                Conversion metrics for each premium creator, aggregated across all their portfolios.
-                <ul>
-                    <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86055000%22" target="_blank" style="color: #17a2b8;">Chart 86055000</a> (Copies & Liquidations Aggregates),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
-                        Manual CSV Upload (Portfolio Returns & Capital)
-                    </li>
-                    <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
-                </ul>
-            </span>
-        </span>`;
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.innerHTML = tooltipHTML;
-        section.appendChild(tooltipSpan);
-
-        const description = document.createElement('p');
-        description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
-        description.textContent = 'Conversion metrics breakdown for each premium creator';
-        section.appendChild(description);
 
         // Create table
         const tableWrapper = document.createElement('div');
@@ -2960,7 +2956,7 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
         driversSection.style.marginTop = '3rem';
         driversSection.innerHTML = `
             <h2 style="margin-top: 0; margin-bottom: 0.5rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
-            <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
+            <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
         `;
 
         // Create table
