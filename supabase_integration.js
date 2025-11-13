@@ -1310,6 +1310,36 @@ class SupabaseIntegration {
         });
     }
 
+    /**
+     * Fetch Mixpanel Insights data via Edge Function
+     * @param {string} chartId - Mixpanel chart ID (e.g., '86100814')
+     * @returns {Promise<Object>} - Chart data with series
+     */
+    async fetchMixpanelInsights(chartId) {
+        try {
+            console.log(`Fetching Mixpanel chart ${chartId} via Edge Function...`);
+
+            const { data, error } = await this.supabase.functions.invoke('fetch-mixpanel-marketing', {
+                body: { chartId }
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Failed to fetch Mixpanel chart: ${error.message}`);
+            }
+
+            if (!data || !data.series) {
+                throw new Error('Invalid response from Mixpanel chart');
+            }
+
+            console.log(`✅ Fetched Mixpanel chart ${chartId}`);
+            return data;
+        } catch (error) {
+            console.error('Error fetching Mixpanel insights:', error);
+            throw error;
+        }
+    }
+
 }
 
 // Export to window for global access
