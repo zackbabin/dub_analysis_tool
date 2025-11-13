@@ -349,6 +349,20 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
         container.innerHTML = '';
 
+        // Add data scope text (top left)
+        const dataScope = document.createElement('div');
+        dataScope.className = 'qda-data-scope';
+        dataScope.textContent = 'Data for KYC approved users from the last 60 days';
+        container.appendChild(dataScope);
+
+        // Add timestamp (top right)
+        const timestamp = document.createElement('div');
+        timestamp.className = 'qda-timestamp';
+        const now = new Date();
+        const timestampStr = `${(now.getMonth() + 1)}/${now.getDate()}/${now.getFullYear()}, ${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')} ${now.getHours() >= 12 ? 'PM' : 'AM'}`;
+        timestamp.textContent = `Data as of: ${timestampStr}`;
+        container.appendChild(timestamp);
+
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
