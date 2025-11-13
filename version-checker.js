@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-13-07'; // Fix CSV parsing with better debug logging and quote handling
+const CURRENT_VERSION = '2025-11-13-08'; // Fix CSV parsing to properly handle quoted values
 
 class VersionChecker {
     constructor() {
