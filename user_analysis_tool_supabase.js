@@ -2221,7 +2221,7 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
 
     const metrics = [
         ['Avg Monthly Copies', avgMonthlyCopies !== null ? avgMonthlyCopies.toLocaleString() : '-', '18px'],
-        ['Total Investments', totalInvestments !== null ? totalInvestments.toLocaleString() : '-', '18px'],
+        ['Total Investments', totalInvestments !== null ? `$${totalInvestments.toLocaleString()}` : '-', '18px'],
         ['Total Public Portfolios', totalPublicPortfolios !== null ? totalPublicPortfolios.toLocaleString() : '-', '18px'],
         ['Total Market-Beating Portfolios', totalMarketBeating !== null ? totalMarketBeating.toLocaleString() : '-', '18px']
     ];
@@ -2451,6 +2451,114 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
         }, 1500);
     } catch (error) {
         console.error('Error processing CSV:', error);
+        this.addStatusMessage('❌ Error processing CSV file. Check console for details.', 'error');
+
+        // Hide progress bar on error
+        setTimeout(() => {
+            const progressSection = document.getElementById('unifiedProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }, 1500);
+    }
+};
+
+/**
+ * Process total investments CSV and calculate Total Investments
+ */
+UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(file) {
+    try {
+        this.clearStatus();
+
+        // Show the unified progress bar
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+
+        this.showProgress(0);
+        this.updateProgress(10, `Uploading ${file.name}...`);
+        console.log('Processing total investments CSV...');
+
+        // Add small delay to ensure progress bar is visible
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        const text = await file.text();
+        const lines = text.split('\n').filter(line => line.trim());
+
+        if (lines.length < 2) {
+            this.addStatusMessage('❌ CSV file appears to be empty or invalid', 'error');
+            setTimeout(() => {
+                if (progressSection) progressSection.style.display = 'none';
+            }, 1500);
+            return;
+        }
+
+        this.updateProgress(30, 'Processing records...');
+
+        // Parse header
+        const headers = lines[0].split(',').map(h => h.trim());
+        const accountValueIndex = headers.findIndex(h => h.toLowerCase() === 'totalaccountvalue');
+
+        if (accountValueIndex === -1) {
+            this.addStatusMessage('❌ CSV file must contain a "totalaccountvalue" column', 'error');
+            setTimeout(() => {
+                if (progressSection) progressSection.style.display = 'none';
+            }, 1500);
+            return;
+        }
+
+        // Add delay before next step
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(50, 'Calculating total investments...');
+
+        // Sum all totalaccountvalue values
+        let totalInvestments = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            const accountValue = parseFloat(values[accountValueIndex]?.trim() || 0);
+            if (!isNaN(accountValue)) {
+                totalInvestments += accountValue;
+            }
+        }
+
+        console.log(`✅ Calculated Total Investments: $${totalInvestments.toLocaleString()}`);
+
+        // Add delay before next step
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(70, 'Refreshing table...');
+
+        // Update only the total_investments field, keep other metrics unchanged
+        const existingMetrics = await this.loadMarketingMetrics();
+        const updatedMetrics = {
+            avg_monthly_copies: existingMetrics?.avg_monthly_copies || null,
+            total_investments: totalInvestments,
+            total_public_portfolios: existingMetrics?.total_public_portfolios || null,
+            total_market_beating_portfolios: existingMetrics?.total_market_beating_portfolios || null
+        };
+
+        await this.saveMarketingMetrics(updatedMetrics);
+
+        // Refresh display to show updated total investments (won't fetch Mixpanel, just displays stored data)
+        await this.displayMarketingMetrics();
+
+        // Save updated summary tab HTML to cache (so marketing metrics persist on refresh)
+        this.saveToUnifiedCache();
+
+        // Final delay to show completion
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(100, 'Complete!');
+
+        this.addStatusMessage(`✅ Uploaded ${file.name} ($${totalInvestments.toLocaleString()} total investments)`, 'success');
+
+        // Hide progress bar after 1.5 seconds
+        setTimeout(() => {
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }, 1500);
+    } catch (error) {
+        console.error('Error processing total investments CSV:', error);
         this.addStatusMessage('❌ Error processing CSV file. Check console for details.', 'error');
 
         // Hide progress bar on error

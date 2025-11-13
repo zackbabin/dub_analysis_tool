@@ -316,6 +316,99 @@
             };
         }
 
+        // Show modal with two upload options for marketing metrics
+        function showMarketingUploadModal(userTool) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+            // Create modal content
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = 'background: white; border-radius: 12px; padding: 30px; max-width: 600px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2);';
+
+            modalContent.innerHTML = `
+                <h3 style="margin: 0 0 20px 0; color: #333; text-align: center;">Select Data Type to Upload</h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <div id="uploadPublicPortfoliosBtn" style="padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">📊 Public Portfolios Data</div>
+                        <div style="font-size: 13px; color: #6c757d;">Upload CSV to calculate Total Public Portfolios</div>
+                    </div>
+                    <div id="uploadTotalInvestmentsBtn" style="padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                        <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">💰 Total Investments Data</div>
+                        <div style="font-size: 13px; color: #6c757d;">Upload CSV to calculate Total Investments</div>
+                    </div>
+                </div>
+                <button id="cancelModalBtn" style="width: 100%; margin-top: 20px; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">Cancel</button>
+            `;
+
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+
+            // Add hover effects
+            const publicPortfoliosBtn = modalContent.querySelector('#uploadPublicPortfoliosBtn');
+            const totalInvestmentsBtn = modalContent.querySelector('#uploadTotalInvestmentsBtn');
+
+            publicPortfoliosBtn.onmouseover = () => {
+                publicPortfoliosBtn.style.background = '#e8f5e9';
+                publicPortfoliosBtn.style.transform = 'translateY(-2px)';
+            };
+            publicPortfoliosBtn.onmouseout = () => {
+                publicPortfoliosBtn.style.background = 'white';
+                publicPortfoliosBtn.style.transform = 'translateY(0)';
+            };
+
+            totalInvestmentsBtn.onmouseover = () => {
+                totalInvestmentsBtn.style.background = '#e8f5e9';
+                totalInvestmentsBtn.style.transform = 'translateY(-2px)';
+            };
+            totalInvestmentsBtn.onmouseout = () => {
+                totalInvestmentsBtn.style.background = 'white';
+                totalInvestmentsBtn.style.transform = 'translateY(0)';
+            };
+
+            // Handle public portfolios upload
+            publicPortfoliosBtn.onclick = () => {
+                document.body.removeChild(modal);
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.csv';
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await userTool.processMarketingDataCSV(file);
+                    }
+                };
+                fileInput.click();
+            };
+
+            // Handle total investments upload
+            totalInvestmentsBtn.onclick = () => {
+                document.body.removeChild(modal);
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.csv';
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        await userTool.processTotalInvestmentsCSV(file);
+                    }
+                };
+                fileInput.click();
+            };
+
+            // Handle cancel
+            modalContent.querySelector('#cancelModalBtn').onclick = () => {
+                document.body.removeChild(modal);
+            };
+
+            // Close modal on overlay click
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            };
+        }
+
         // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
@@ -381,17 +474,7 @@
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
-                    // Create hidden file input for direct file picker
-                    const fileInput = document.createElement('input');
-                    fileInput.type = 'file';
-                    fileInput.accept = '.csv';
-                    fileInput.onchange = async (e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                            await userTool.processMarketingDataCSV(file);
-                        }
-                    };
-                    fileInput.click();
+                    showMarketingUploadModal(userTool);
                 };
             } else {
                 // On portfolio tab: DISABLED
