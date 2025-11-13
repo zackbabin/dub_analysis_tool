@@ -2339,24 +2339,30 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
  */
 UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file) {
     try {
+        this.showProgress(10);
+        this.updateProgress(10, 'Reading CSV file...');
         console.log('Processing marketing data CSV...');
 
         const text = await file.text();
         const lines = text.split('\n').filter(line => line.trim());
 
         if (lines.length < 2) {
-            alert('CSV file appears to be empty or invalid');
+            this.addStatusMessage('❌ CSV file appears to be empty or invalid', 'error');
             return;
         }
+
+        this.updateProgress(30, 'Parsing data...');
 
         // Parse header
         const headers = lines[0].split(',').map(h => h.trim());
         const strategyTickerIndex = headers.findIndex(h => h.toLowerCase() === 'strategyticker');
 
         if (strategyTickerIndex === -1) {
-            alert('CSV file must contain a "strategyTicker" column');
+            this.addStatusMessage('❌ CSV file must contain a "strategyTicker" column', 'error');
             return;
         }
+
+        this.updateProgress(50, 'Counting unique portfolios...');
 
         // Count unique strategyTicker values
         const uniqueTickers = new Set();
@@ -2371,6 +2377,8 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
         const totalPublicPortfolios = uniqueTickers.size;
         console.log(`✅ Found ${totalPublicPortfolios} unique public portfolios`);
 
+        this.updateProgress(70, 'Saving to database...');
+
         // Update only the total_public_portfolios field, keep other metrics unchanged
         const existingMetrics = await this.loadMarketingMetrics();
         const updatedMetrics = {
@@ -2382,13 +2390,16 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
 
         await this.saveMarketingMetrics(updatedMetrics);
 
+        this.updateProgress(90, 'Updating display...');
+
         // Refresh display to show updated portfolio count (won't fetch Mixpanel, just displays stored data)
         await this.displayMarketingMetrics();
 
-        alert(`Successfully processed! Found ${totalPublicPortfolios} public portfolios.`);
+        this.updateProgress(100, `✅ Found ${totalPublicPortfolios} public portfolios`);
+        this.addStatusMessage(`✅ Successfully processed! Found ${totalPublicPortfolios} public portfolios.`, 'success');
     } catch (error) {
         console.error('Error processing CSV:', error);
-        alert('Error processing CSV file. Please check the console for details.');
+        this.addStatusMessage('❌ Error processing CSV file. Check console for details.', 'error');
     }
 };
 
