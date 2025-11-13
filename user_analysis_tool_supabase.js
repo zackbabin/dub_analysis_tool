@@ -2498,8 +2498,31 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
 
         this.updateProgress(30, 'Processing records...');
 
+        // Helper function to parse CSV line properly (handles quoted values with commas)
+        const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        };
+
         // Parse header
-        const headers = lines[0].split(',').map(h => h.trim());
+        const headers = parseCSVLine(lines[0]);
+        console.log('Headers:', headers);
+
         const totalHoldingsIndex = headers.findIndex(h => h.toLowerCase() === 'total holdings ($)');
 
         if (totalHoldingsIndex === -1) {
@@ -2519,15 +2542,15 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
         const lastDataLine = lines[lines.length - 1];
         console.log('Last data line:', lastDataLine);
 
-        const values = lastDataLine.split(',');
+        const values = parseCSVLine(lastDataLine);
         console.log('Parsed values:', values);
         console.log('Total Holdings Index:', totalHoldingsIndex);
 
         const totalHoldingsValue = values[totalHoldingsIndex]?.trim() || '0';
         console.log('Total Holdings Value (raw):', totalHoldingsValue);
 
-        // Remove commas and quotes, then parse the value
-        const cleanedValue = totalHoldingsValue.replace(/[",]/g, '');
+        // Remove commas from the numeric value
+        const cleanedValue = totalHoldingsValue.replace(/,/g, '');
         console.log('Cleaned value:', cleanedValue);
 
         const totalInvestments = parseFloat(cleanedValue);
