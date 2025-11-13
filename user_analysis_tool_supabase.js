@@ -34,6 +34,26 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
+     * Save user analysis HTML to unified cache
+     */
+    saveToUnifiedCache() {
+        try {
+            const cached = localStorage.getItem('dubAnalysisResults');
+            const data = cached ? JSON.parse(cached) : {};
+
+            // Update summary and portfolio tabs in unified cache
+            data.summary = this.outputContainers.summary?.innerHTML || '';
+            data.portfolio = this.outputContainers.portfolio?.innerHTML || '';
+            data.timestamp = new Date().toISOString();
+
+            localStorage.setItem('dubAnalysisResults', JSON.stringify(data));
+            console.log('✅ Saved user analysis to unified cache');
+        } catch (e) {
+            console.warn('Failed to save user analysis to unified cache:', e);
+        }
+    }
+
+    /**
      * Override: Restore cached analysis results for all tabs
      */
     restoreAnalysisResults() {
@@ -2339,19 +2359,33 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
  */
 UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file) {
     try {
-        this.showProgress(10);
-        this.updateProgress(10, 'Reading CSV file...');
+        this.clearStatus();
+
+        // Show the unified progress bar
+        const progressSection = document.getElementById('unifiedProgressSection');
+        if (progressSection) {
+            progressSection.style.display = 'block';
+        }
+
+        this.showProgress(0);
+        this.updateProgress(10, `Uploading ${file.name}...`);
         console.log('Processing marketing data CSV...');
+
+        // Add small delay to ensure progress bar is visible
+        await new Promise(resolve => setTimeout(resolve, 400));
 
         const text = await file.text();
         const lines = text.split('\n').filter(line => line.trim());
 
         if (lines.length < 2) {
             this.addStatusMessage('❌ CSV file appears to be empty or invalid', 'error');
+            setTimeout(() => {
+                if (progressSection) progressSection.style.display = 'none';
+            }, 1500);
             return;
         }
 
-        this.updateProgress(30, 'Parsing data...');
+        this.updateProgress(30, 'Processing records...');
 
         // Parse header
         const headers = lines[0].split(',').map(h => h.trim());
@@ -2359,10 +2393,15 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
 
         if (strategyTickerIndex === -1) {
             this.addStatusMessage('❌ CSV file must contain a "strategyTicker" column', 'error');
+            setTimeout(() => {
+                if (progressSection) progressSection.style.display = 'none';
+            }, 1500);
             return;
         }
 
-        this.updateProgress(50, 'Counting unique portfolios...');
+        // Add delay before next step
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(50, 'Processing records...');
 
         // Count unique strategyTicker values
         const uniqueTickers = new Set();
@@ -2377,7 +2416,9 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
         const totalPublicPortfolios = uniqueTickers.size;
         console.log(`✅ Found ${totalPublicPortfolios} unique public portfolios`);
 
-        this.updateProgress(70, 'Saving to database...');
+        // Add delay before next step
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(70, 'Refreshing table...');
 
         // Update only the total_public_portfolios field, keep other metrics unchanged
         const existingMetrics = await this.loadMarketingMetrics();
@@ -2390,16 +2431,35 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
 
         await this.saveMarketingMetrics(updatedMetrics);
 
-        this.updateProgress(90, 'Updating display...');
-
         // Refresh display to show updated portfolio count (won't fetch Mixpanel, just displays stored data)
         await this.displayMarketingMetrics();
 
-        this.updateProgress(100, `✅ Found ${totalPublicPortfolios} public portfolios`);
-        this.addStatusMessage(`✅ Successfully processed! Found ${totalPublicPortfolios} public portfolios.`, 'success');
+        // Save updated summary tab HTML to cache (so marketing metrics persist on refresh)
+        this.saveToUnifiedCache();
+
+        // Final delay to show completion
+        await new Promise(resolve => setTimeout(resolve, 300));
+        this.updateProgress(100, 'Complete!');
+
+        this.addStatusMessage(`✅ Uploaded ${file.name} (${totalPublicPortfolios} public portfolios)`, 'success');
+
+        // Hide progress bar after 1.5 seconds
+        setTimeout(() => {
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }, 1500);
     } catch (error) {
         console.error('Error processing CSV:', error);
         this.addStatusMessage('❌ Error processing CSV file. Check console for details.', 'error');
+
+        // Hide progress bar on error
+        setTimeout(() => {
+            const progressSection = document.getElementById('unifiedProgressSection');
+            if (progressSection) {
+                progressSection.style.display = 'none';
+            }
+        }, 1500);
     }
 };
 
