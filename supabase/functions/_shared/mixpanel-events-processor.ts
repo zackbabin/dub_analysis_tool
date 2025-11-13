@@ -92,11 +92,6 @@ export function processEventsToUserProfiles(events: MixpanelEvent[]): UserProfil
       continue  // Skip events without any identifier
     }
 
-    // Skip device-only IDs (starting with $device:)
-    if (typeof distinctId === 'string' && distinctId.startsWith('$device:')) {
-      continue
-    }
-
     if (!userEventsMap.has(distinctId)) {
       userEventsMap.set(distinctId, [])
     }
