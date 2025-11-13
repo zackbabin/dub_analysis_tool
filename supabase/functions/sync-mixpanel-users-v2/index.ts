@@ -55,12 +55,16 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range: from 2025-01-01 to yesterday (to avoid timezone issues)
+      // Calculate date range: last 7 days (for testing, to avoid timeout)
+      // TODO: Expand to full date range once we confirm this works
       // Mixpanel Export API uses UTC and rejects dates in the future
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
-      const fromDate = '2025-01-01'
+
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      const fromDate = weekAgo.toISOString().split('T')[0] // Last 7 days for testing
 
       console.log(`Date range: ${fromDate} to ${toDate}`)
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
