@@ -460,24 +460,38 @@ function processPremiumCreatorsData(data: any): any[] {
     const keys = Object.keys(usernameData as any)
     console.log(`Processing ${creatorUsername}, found keys:`, keys)
 
-    // Find the creator_id (any numeric key, not just 18-digit)
-    let foundCreatorId = false
+    // Collect ALL numeric creator IDs for this username
+    const creatorIds: string[] = []
+
     for (const [key, value] of Object.entries(usernameData as any)) {
       // Creator IDs are numeric strings, skip $overall and other non-numeric keys
       if (key !== '$overall' && /^\d+$/.test(key)) {
-        rows.push({
-          creator_id: String(key),
-          creator_username: String(creatorUsername),
-          synced_at: now,
-        })
-        console.log(`✅ Added ${creatorUsername} with creator_id ${key}`)
-        foundCreatorId = true
-        break // Only take the first creator_id per username
+        creatorIds.push(key)
       }
     }
 
-    if (!foundCreatorId) {
-      console.log(`⚠️ No creator_id found for ${creatorUsername}`)
+    if (creatorIds.length > 0) {
+      // If multiple creator IDs exist, prioritize 18-digit IDs
+      let selectedCreatorId: string
+      if (creatorIds.length > 1) {
+        // Prefer 18-digit IDs
+        const longIds = creatorIds.filter(id => id.length >= 18)
+        selectedCreatorId = longIds.length > 0 ? longIds[0] : creatorIds[0]
+        console.log(`ℹ️ ${creatorUsername} has multiple IDs: [${creatorIds.join(', ')}], selected: ${selectedCreatorId}`)
+      } else {
+        selectedCreatorId = creatorIds[0]
+      }
+
+      rows.push({
+        creator_id: String(selectedCreatorId),
+        creator_username: String(creatorUsername),
+        synced_at: now,
+      })
+      console.log(`✅ Added ${creatorUsername} with creator_id ${selectedCreatorId}`)
+    } else {
+      console.log(`⚠️ No valid creator_id found for ${creatorUsername}`)
+      console.log(`⚠️ Available keys:`, keys)
+      console.log(`⚠️ This creator will be SKIPPED - check Mixpanel data structure!`)
     }
   }
 
