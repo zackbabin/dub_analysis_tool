@@ -16,20 +16,19 @@ import {
   createErrorResponse,
 } from '../_shared/sync-helpers.ts'
 
-// 12 events that we can track from Export API
+// 11 events that we can track from Export API
 const TRACKED_EVENTS = [
-  'Viewed Portfolio Details',
-  'Viewed Creator Profile',
   'BankAccountLinked',
-  'AchTransferInitiated',
-  'DubAutoCopyInitiated',
-  'Viewed Creator Paywall',
-  'SubscriptionCreated',
-  '$ae_session',
-  'Viewed Discover Tab',
-  'Viewed Stripe Modal',
-  'Tapped Creator Card',
   'Tapped Portfolio Card',
+  'Tapped Creator Card',
+  'Viewed Stripe Modal',
+  '$ae_session',
+  'SubscriptionCreated',
+  'Viewed Creator Profile',        // Check creatorType for premium/regular split
+  'Viewed Creator Paywall',
+  'Viewed Portfolio Details',       // Check creatorType for premium/regular split
+  'DubAutoCopyInitiated',           // Check creatorType for premium/regular split → total_copies
+  'AchTransferInitiated',           // → total_ach_transfers
 ]
 
 const MIXPANEL_CONFIG = {
@@ -86,7 +85,9 @@ async function streamAndProcessEvents(
   let events: any[] = []
   let totalEvents = 0
   let totalRecordsInserted = 0
-  const CHUNK_SIZE = 5000 // Process 5k events at a time
+  const CHUNK_SIZE = 1000 // Process 1k events at a time (reduced for CPU efficiency)
+  const startTime = Date.now()
+  const MAX_EXECUTION_TIME = 100000 // 100 seconds (leave buffer before 150s timeout)
 
   console.log('Processing events in chunks...')
 
@@ -110,9 +111,18 @@ async function streamAndProcessEvents(
 
           // Process chunk when we hit CHUNK_SIZE
           if (events.length >= CHUNK_SIZE) {
+            // Check if approaching timeout
+            const elapsed = Date.now() - startTime
+            if (elapsed > MAX_EXECUTION_TIME) {
+              console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Processed ${totalEvents} events, ${totalRecordsInserted} users upserted.`)
+              console.log('⚠️ Partial sync completed - run again to continue processing')
+              break // Exit early to avoid timeout
+            }
+
             const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
             totalRecordsInserted += inserted
-            console.log(`✓ Processed ${totalEvents} events, ${totalRecordsInserted} users upserted`)
+            const elapsedSec = Math.round(elapsed / 1000)
+            console.log(`✓ Processed ${totalEvents} events, ${totalRecordsInserted} users upserted (${elapsedSec}s elapsed)`)
             events = [] // Clear for next chunk
           }
         } catch (error) {
@@ -150,6 +160,7 @@ async function streamAndProcessEvents(
 
 /**
  * Process a chunk of events and upsert to database
+ * Uses INCREMENTAL aggregation: adds new event counts to existing totals
  */
 async function processAndUpsertChunk(
   events: any[],
@@ -166,13 +177,12 @@ async function processAndUpsertChunk(
     return 0
   }
 
-  // Upsert to database
-  const { error } = await supabase
-    .from('subscribers_insights_v2')
-    .upsert(profileRows, {
-      onConflict: 'distinct_id',
-      ignoreDuplicates: false,
-    })
+  // Use custom SQL for incremental upsert
+  // Event metrics are ADDED to existing values
+  // User properties are REPLACED with latest values
+  const { error } = await supabase.rpc('upsert_subscribers_incremental', {
+    profiles: profileRows
+  })
 
   if (error) {
     console.error('Error upserting chunk:', error)
@@ -194,9 +204,15 @@ serve(async (req) => {
 
     console.log('Starting Mixpanel user sync v2 (Event Export API - Streaming)...')
 
-    // Check if sync should be skipped (within 1-hour window)
-    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_users_v2', 1)
-    if (skipResponse) return skipResponse
+    // Parse request body for optional date range (for backfill)
+    const body = await req.json().catch(() => ({}))
+    const { from_date, to_date } = body
+
+    // Check if sync should be skipped (within 1-hour window) - only for regular daily sync
+    if (!from_date && !to_date) {
+      const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_users_v2', 1)
+      if (skipResponse) return skipResponse
+    }
 
     // Create sync log entry and track execution time
     const executionStartMs = Date.now()
@@ -204,14 +220,24 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range: just yesterday (1 day)
-      // Mixpanel Export API uses UTC and rejects dates in the future
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
-      const fromDate = toDate // Same date = 1 day only
+      // Calculate date range
+      let fromDate: string
+      let toDate: string
 
-      console.log(`Date range: ${fromDate} to ${toDate}`)
+      if (from_date && to_date) {
+        // Backfill mode: use provided dates
+        fromDate = from_date
+        toDate = to_date
+        console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
+      } else {
+        // Regular mode: just yesterday (1 day)
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
+        fromDate = toDate // Same date = 1 day only
+        console.log(`DAILY MODE: Date range ${fromDate} to ${toDate}`)
+      }
+
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
 

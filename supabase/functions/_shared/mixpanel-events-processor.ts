@@ -4,23 +4,25 @@
  *
  * Key differences from Insights API:
  * - Metrics are counted from events (not pre-aggregated)
- * - User properties extracted from event properties
- * - No premium/regular distinction (simplified)
+ * - User properties NOT available in Export API (events only have distinct_id)
+ * - Premium/regular splits determined by creatorType property in events
  */
 
 export interface MixpanelEvent {
   event: string
   properties: {
     $distinct_id: string
+    distinct_id?: string
     time: number  // Unix timestamp (seconds)
-    [key: string]: any  // User properties and event-specific properties
+    creatorType?: string  // Used to determine premium vs regular
+    [key: string]: any  // Event-specific properties
   }
 }
 
 export interface UserProfile {
   distinct_id: string
 
-  // User properties (from event properties)
+  // User properties (placeholder for future implementation - not in Export API)
   income?: string
   net_worth?: string
   investing_activity?: string
@@ -29,37 +31,38 @@ export interface UserProfile {
   investment_type?: string
   acquisition_survey?: string
 
-  // Account properties (from event properties)
+  // Account properties (from specific events)
   linked_bank_account: boolean
-  available_copy_credits: number
-  buying_power: number
+  available_copy_credits?: number
+  buying_power?: number
 
-  // Financial metrics (from event properties - may not be available)
-  total_deposits: number
-  total_deposit_count: number
-  total_withdrawals: number
-  total_withdrawal_count: number
+  // Financial metrics (placeholder for future implementation)
+  total_deposits?: number
+  total_deposit_count?: number
+  total_withdrawals?: number
+  total_withdrawal_count?: number
 
-  // Portfolio metrics (from event properties - may not be available)
-  active_created_portfolios: number
-  lifetime_created_portfolios: number
+  // Portfolio metrics (placeholder for future implementation)
+  active_created_portfolios?: number
+  lifetime_created_portfolios?: number
 
-  // Event-counted metrics (12 tracked events)
+  // Event-counted metrics - matching subscribers_insights schema
   total_copies: number
-  total_pdp_views: number
-  total_creator_profile_views: number
+  total_regular_copies: number
+  total_premium_copies: number
+  regular_pdp_views: number
+  premium_pdp_views: number
+  regular_creator_profile_views: number
+  premium_creator_profile_views: number
+
+  // Event-counted metrics - No premium/regular split
   total_ach_transfers: number
   paywall_views: number
   total_subscriptions: number
   app_sessions: number
-  discover_tab_views: number
   stripe_modal_views: number
   creator_card_taps: number
   portfolio_card_taps: number
-
-  // Metrics not available (no events)
-  leaderboard_tab_views: number
-  premium_tab_views: number
 
   // Metadata
   updated_at: string
@@ -116,12 +119,6 @@ export function processEventsToUserProfiles(events: MixpanelEvent[]): UserProfil
  * Build a single user profile from their events
  */
 function buildUserProfile(distinctId: string, events: MixpanelEvent[]): UserProfile {
-  // Sort events by time (most recent first for property extraction)
-  const sortedEvents = [...events].sort((a, b) => b.properties.time - a.properties.time)
-
-  // Extract user properties (take most recent non-null value)
-  const userProperties = extractUserProperties(sortedEvents)
-
   // Count events for metrics
   const eventMetrics = countEventMetrics(events)
 
@@ -132,7 +129,6 @@ function buildUserProfile(distinctId: string, events: MixpanelEvent[]): UserProf
 
   return {
     distinct_id: distinctId,
-    ...userProperties,
     ...eventMetrics,
     updated_at: new Date().toISOString(),
     events_processed: events.length,
@@ -142,86 +138,38 @@ function buildUserProfile(distinctId: string, events: MixpanelEvent[]): UserProf
 }
 
 /**
- * Extract user properties from events
- * Takes the most recent non-null value for each property
+ * Helper function to check if an event is related to a premium creator
+ * Checks creatorType property for "premiumCreator" or contains "premium"
  */
-function extractUserProperties(sortedEvents: MixpanelEvent[]): Partial<UserProfile> {
-  const properties: Partial<UserProfile> = {
-    // Initialize account properties to defaults
-    linked_bank_account: false,
-    available_copy_credits: 0,
-    buying_power: 0,
-    total_deposits: 0,
-    total_deposit_count: 0,
-    total_withdrawals: 0,
-    total_withdrawal_count: 0,
-    active_created_portfolios: 0,
-    lifetime_created_portfolios: 0,
-    leaderboard_tab_views: 0,
-    premium_tab_views: 0,
-  }
+function isPremiumEvent(event: MixpanelEvent): boolean {
+  const creatorType = event.properties.creatorType
+  if (!creatorType) return false
 
-  // Iterate through events (most recent first) and take first non-null value
-  for (const event of sortedEvents) {
-    const props = event.properties
-
-    // User profile properties
-    if (!properties.income && props.income) {
-      properties.income = props.income
-    }
-    if (!properties.net_worth && (props.netWorth || props.net_worth)) {
-      properties.net_worth = props.netWorth || props.net_worth
-    }
-    if (!properties.investing_activity && (props.investingActivity || props.investing_activity)) {
-      properties.investing_activity = props.investingActivity || props.investing_activity
-    }
-    if (!properties.investing_experience_years && (props.investingExperienceYears || props.investing_experience_years)) {
-      properties.investing_experience_years = parseInt(props.investingExperienceYears || props.investing_experience_years || 0)
-    }
-    if (!properties.investing_objective && (props.investingObjective || props.investing_objective)) {
-      properties.investing_objective = props.investingObjective || props.investing_objective
-    }
-    if (!properties.investment_type && (props.investmentType || props.investment_type)) {
-      properties.investment_type = props.investmentType || props.investment_type
-    }
-    if (!properties.acquisition_survey && (props.acquisitionSurvey || props.acquisition_survey)) {
-      properties.acquisition_survey = props.acquisitionSurvey || props.acquisition_survey
-    }
-
-    // Account properties (if available in events)
-    if (props.availableCopyCredits !== undefined || props.available_copy_credits !== undefined) {
-      properties.available_copy_credits = parseFloat(props.availableCopyCredits || props.available_copy_credits || 0)
-    }
-    if (props.buyingPower !== undefined || props.buying_power !== undefined) {
-      properties.buying_power = parseFloat(props.buyingPower || props.buying_power || 0)
-    }
-
-    // Portfolio properties (if available)
-    if (props.activeCreatedPortfolios !== undefined || props.active_created_portfolios !== undefined) {
-      properties.active_created_portfolios = parseInt(props.activeCreatedPortfolios || props.active_created_portfolios || 0)
-    }
-    if (props.lifetimeCreatedPortfolios !== undefined || props.lifetime_created_portfolios !== undefined) {
-      properties.lifetime_created_portfolios = parseInt(props.lifetimeCreatedPortfolios || props.lifetime_created_portfolios || 0)
-    }
-  }
-
-  return properties
+  const typeStr = String(creatorType).toLowerCase()
+  return typeStr === 'premiumcreator' || typeStr.includes('premium')
 }
 
 /**
  * Count events to calculate metrics
  * Maps event names to metric columns
+ * Categorizes portfolio/creator views and copies as premium vs regular
  */
 function countEventMetrics(events: MixpanelEvent[]): Partial<UserProfile> {
   const metrics: Partial<UserProfile> = {
+    // Event metrics matching subscribers_insights schema
     total_copies: 0,
-    total_pdp_views: 0,
-    total_creator_profile_views: 0,
+    total_regular_copies: 0,
+    total_premium_copies: 0,
+    regular_pdp_views: 0,
+    premium_pdp_views: 0,
+    regular_creator_profile_views: 0,
+    premium_creator_profile_views: 0,
+
+    // No split metrics
     total_ach_transfers: 0,
     paywall_views: 0,
     total_subscriptions: 0,
     app_sessions: 0,
-    discover_tab_views: 0,
     stripe_modal_views: 0,
     creator_card_taps: 0,
     portfolio_card_taps: 0,
@@ -230,17 +178,35 @@ function countEventMetrics(events: MixpanelEvent[]): Partial<UserProfile> {
 
   // Count each event type
   for (const event of events) {
+    const isPremium = isPremiumEvent(event)
+
     switch (event.event) {
       case 'DubAutoCopyInitiated':
+        // Map to total_copies AND split by creatorType
         metrics.total_copies!++
+        if (isPremium) {
+          metrics.total_premium_copies!++
+        } else {
+          metrics.total_regular_copies!++
+        }
         break
 
       case 'Viewed Portfolio Details':
-        metrics.total_pdp_views!++
+        // Check creatorType for premium/regular split
+        if (isPremium) {
+          metrics.premium_pdp_views!++
+        } else {
+          metrics.regular_pdp_views!++
+        }
         break
 
       case 'Viewed Creator Profile':
-        metrics.total_creator_profile_views!++
+        // Check creatorType for premium/regular split
+        if (isPremium) {
+          metrics.premium_creator_profile_views!++
+        } else {
+          metrics.regular_creator_profile_views!++
+        }
         break
 
       case 'AchTransferInitiated':
@@ -257,10 +223,6 @@ function countEventMetrics(events: MixpanelEvent[]): Partial<UserProfile> {
 
       case '$ae_session':
         metrics.app_sessions!++
-        break
-
-      case 'Viewed Discover Tab':
-        metrics.discover_tab_views!++
         break
 
       case 'Viewed Stripe Modal':
@@ -296,46 +258,26 @@ export function formatProfilesForDB(profiles: UserProfile[], syncedAt: string): 
   return profiles.map(profile => ({
     distinct_id: profile.distinct_id,
 
-    // User properties
-    income: profile.income || null,
-    net_worth: profile.net_worth || null,
-    investing_activity: profile.investing_activity || null,
-    investing_experience_years: profile.investing_experience_years || null,
-    investing_objective: profile.investing_objective || null,
-    investment_type: profile.investment_type || null,
-    acquisition_survey: profile.acquisition_survey || null,
-
     // Account properties
     linked_bank_account: profile.linked_bank_account || false,
-    available_copy_credits: profile.available_copy_credits || 0,
-    buying_power: profile.buying_power || 0,
 
-    // Financial metrics
-    total_deposits: profile.total_deposits || 0,
-    total_deposit_count: profile.total_deposit_count || 0,
-    total_withdrawals: profile.total_withdrawals || 0,
-    total_withdrawal_count: profile.total_withdrawal_count || 0,
-
-    // Portfolio metrics
-    active_created_portfolios: profile.active_created_portfolios || 0,
-    lifetime_created_portfolios: profile.lifetime_created_portfolios || 0,
-
-    // Event-counted metrics
+    // Event-counted metrics - matching subscribers_insights schema
     total_copies: profile.total_copies || 0,
-    total_pdp_views: profile.total_pdp_views || 0,
-    total_creator_profile_views: profile.total_creator_profile_views || 0,
+    total_regular_copies: profile.total_regular_copies || 0,
+    total_premium_copies: profile.total_premium_copies || 0,
+    regular_pdp_views: profile.regular_pdp_views || 0,
+    premium_pdp_views: profile.premium_pdp_views || 0,
+    regular_creator_profile_views: profile.regular_creator_profile_views || 0,
+    premium_creator_profile_views: profile.premium_creator_profile_views || 0,
+
+    // Event-counted metrics - No split
     total_ach_transfers: profile.total_ach_transfers || 0,
     paywall_views: profile.paywall_views || 0,
     total_subscriptions: profile.total_subscriptions || 0,
     app_sessions: profile.app_sessions || 0,
-    discover_tab_views: profile.discover_tab_views || 0,
     stripe_modal_views: profile.stripe_modal_views || 0,
     creator_card_taps: profile.creator_card_taps || 0,
     portfolio_card_taps: profile.portfolio_card_taps || 0,
-
-    // Unavailable metrics
-    leaderboard_tab_views: profile.leaderboard_tab_views || 0,
-    premium_tab_views: profile.premium_tab_views || 0,
 
     // Metadata
     updated_at: syncedAt,
