@@ -4,7 +4,7 @@
 // Processing happens in separate process-event-sequences function
 // Triggered manually alongside other sync functions
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchInsightsData } from '../_shared/mixpanel-api.ts'
 import {
   initializeMixpanelCredentials,

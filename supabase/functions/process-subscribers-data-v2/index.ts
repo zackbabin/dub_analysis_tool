@@ -3,7 +3,7 @@
 // Handles event counting, property extraction, and batch upserts with timeout prevention
 // Triggered by sync-mixpanel-users-v2 after events are stored
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
 import {
   initializeSupabaseClient,

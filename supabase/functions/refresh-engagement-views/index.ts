@@ -3,7 +3,7 @@
 // Part 2 of engagement sync workflow - triggered by sync-mixpanel-engagement
 // Separated to prevent timeouts by splitting compute-heavy work from data fetching
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
   initializeSupabaseClient,
   handleCorsRequest,

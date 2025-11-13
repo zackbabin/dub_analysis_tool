@@ -3,7 +3,7 @@
 // Handles batch upserts with timeout prevention
 // Triggered by sync-mixpanel-users after raw data is stored
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
   initializeSupabaseClient,
   handleCorsRequest,

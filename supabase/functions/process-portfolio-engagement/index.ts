@@ -3,7 +3,7 @@
 // Handles portfolio engagement upserts, then triggers process-creator-engagement
 // Triggered by sync-mixpanel-engagement after raw data is stored
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
 import {
   initializeSupabaseClient,

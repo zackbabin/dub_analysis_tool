@@ -3,7 +3,7 @@
 // Handles creator engagement upserts, then triggers refresh-engagement-views
 // Triggered by process-portfolio-engagement after portfolio pairs are inserted
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
 import {
   initializeSupabaseClient,

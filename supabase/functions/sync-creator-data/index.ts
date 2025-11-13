@@ -3,7 +3,7 @@
 // Enriches uploaded creators with Mixpanel user attributes
 // Stores data in creators_insights table
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 import { processPortfolioCreatorCopyMetrics } from '../_shared/data-processing.ts'
 import {

@@ -3,7 +3,7 @@
 // Triggers process-subscribers-data-v2 → event processing and batch upsert
 // Parallel implementation to test Export API vs Insights API
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchEventsExport } from '../_shared/mixpanel-api.ts'
 import {
   initializeMixpanelCredentials,

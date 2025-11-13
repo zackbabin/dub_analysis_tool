@@ -2,7 +2,7 @@
 // Fetches subscription pricing data from Mixpanel and stores in Supabase database
 // Analyzes price distribution across different subscription intervals
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import { fetchInsightsData, CORS_HEADERS, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 

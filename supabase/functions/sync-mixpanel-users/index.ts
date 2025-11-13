@@ -3,7 +3,7 @@
 // Triggers process-subscribers-data → batch processing and upsert
 // This separation prevents timeout by splitting work across multiple functions with separate CPU quotas
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
 import {
   initializeMixpanelCredentials,
