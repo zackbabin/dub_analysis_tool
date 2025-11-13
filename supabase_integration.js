@@ -1328,12 +1328,17 @@ class SupabaseIntegration {
                 throw new Error(`Failed to fetch Mixpanel chart: ${error.message}`);
             }
 
-            if (!data || !data.series) {
+            // Edge Function wraps response in { success, message, stats }
+            // The chart data is in stats
+            const chartData = data?.stats || data;
+
+            if (!chartData || !chartData.series) {
+                console.error('Invalid response from Edge Function:', data);
                 throw new Error('Invalid response from Mixpanel chart');
             }
 
             console.log(`✅ Fetched Mixpanel chart ${chartId}`);
-            return data;
+            return chartData;
         } catch (error) {
             console.error('Error fetching Mixpanel insights:', error);
             throw error;
