@@ -377,11 +377,21 @@
                 uploadBtn.querySelector('div:first-child').style.color = '#28a745';
                 uploadBtn.querySelector('div:first-child').textContent = 'Upload Manual Data';
                 uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
-                uploadBtn.querySelector('div:last-child').textContent = 'Upload portfolio data for Marketing Metrics';
+                uploadBtn.querySelector('div:last-child').textContent = 'Fetch the latest data from file uploads';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
-                    userTool.showMarketingDataUploadModal();
+                    // Create hidden file input for direct file picker
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = '.csv';
+                    fileInput.onchange = async (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                            await userTool.processMarketingDataCSV(file);
+                        }
+                    };
+                    fileInput.click();
                 };
             } else {
                 // On portfolio tab: DISABLED

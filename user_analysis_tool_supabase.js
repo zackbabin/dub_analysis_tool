@@ -2312,65 +2312,6 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
 };
 
 /**
- * Show modal for uploading marketing data CSV
- */
-UserAnalysisToolSupabase.prototype.showMarketingDataUploadModal = function() {
-    // Create modal overlay
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;';
-
-    // Create modal
-    const modal = document.createElement('div');
-    modal.style.cssText = 'background: white; border-radius: 12px; padding: 2rem; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);';
-
-    const title = document.createElement('h2');
-    title.textContent = 'Upload Marketing Data CSV';
-    title.style.marginTop = '0';
-    modal.appendChild(title);
-
-    const description = document.createElement('p');
-    description.textContent = 'Upload a CSV file containing portfolio data with a "strategyTicker" column to calculate Total Public Portfolios.';
-    description.style.color = '#6c757d';
-    modal.appendChild(description);
-
-    // File input
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.csv';
-    fileInput.style.cssText = 'margin: 1rem 0; padding: 0.5rem; border: 2px solid #e5e7eb; border-radius: 4px; width: 100%;';
-    modal.appendChild(fileInput);
-
-    // Button container
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = 'display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.cssText = 'padding: 0.5rem 1rem; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer;';
-    cancelBtn.addEventListener('click', () => overlay.remove());
-
-    const uploadBtn = document.createElement('button');
-    uploadBtn.textContent = 'Upload';
-    uploadBtn.style.cssText = 'padding: 0.5rem 1rem; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;';
-    uploadBtn.addEventListener('click', async () => {
-        if (!fileInput.files || !fileInput.files[0]) {
-            alert('Please select a CSV file');
-            return;
-        }
-
-        await this.processMarketingDataCSV(fileInput.files[0]);
-        overlay.remove();
-    });
-
-    buttonContainer.appendChild(cancelBtn);
-    buttonContainer.appendChild(uploadBtn);
-    modal.appendChild(buttonContainer);
-
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-};
-
-/**
  * Process marketing data CSV and calculate Total Public Portfolios
  */
 UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file) {
