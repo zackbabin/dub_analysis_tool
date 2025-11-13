@@ -354,6 +354,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const contents = await this.loadGitHubData();
         this.updateProgress(50, 'Merging data...');
 
+        // Step 2.5: Fetch and update Marketing Metrics from Mixpanel
+        await this.displayMarketingMetrics(true);
+
         // Step 3: Process and analyze data
         await this.processAndAnalyze(contents);
     }
@@ -2123,7 +2126,11 @@ UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async fun
  * Display Marketing Metrics section
  * Shows: Avg Monthly Copies, Total Investments, Total Public Portfolios, Total Market-Beating Portfolios
  */
-UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function() {
+/**
+ * Display Marketing Metrics section
+ * @param {boolean} fetchFromMixpanel - Whether to fetch fresh data from Mixpanel (default: false)
+ */
+UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetchFromMixpanel = false) {
     const container = document.getElementById('qdaMarketingMetricsInline');
     if (!container) return;
 
@@ -2161,29 +2168,31 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function() {
     // Load existing metrics from database
     const existingMetrics = await this.loadMarketingMetrics();
 
-    // Fetch Avg Monthly Copies from Mixpanel (always refresh this)
+    // Fetch Avg Monthly Copies from Mixpanel only if requested (during sync)
     let avgMonthlyCopies = existingMetrics?.avg_monthly_copies || null;
-    try {
-        const freshCopies = await this.fetchAvgMonthlyCopies();
-        if (freshCopies !== null) {
-            avgMonthlyCopies = freshCopies;
+    if (fetchFromMixpanel) {
+        try {
+            const freshCopies = await this.fetchAvgMonthlyCopies();
+            if (freshCopies !== null) {
+                avgMonthlyCopies = freshCopies;
+
+                // Save updated metrics to database only when fetching fresh data
+                await this.saveMarketingMetrics({
+                    avg_monthly_copies: avgMonthlyCopies,
+                    total_investments: existingMetrics?.total_investments || null,
+                    total_public_portfolios: existingMetrics?.total_public_portfolios || null,
+                    total_market_beating_portfolios: existingMetrics?.total_market_beating_portfolios || null
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching avg monthly copies:', error);
         }
-    } catch (error) {
-        console.error('Error fetching avg monthly copies:', error);
     }
 
     // Get other metrics from database
     const totalInvestments = existingMetrics?.total_investments || null;
     const totalPublicPortfolios = existingMetrics?.total_public_portfolios || null;
     const totalMarketBeating = existingMetrics?.total_market_beating_portfolios || null;
-
-    // Save updated metrics to database
-    await this.saveMarketingMetrics({
-        avg_monthly_copies: avgMonthlyCopies,
-        total_investments: totalInvestments,
-        total_public_portfolios: totalPublicPortfolios,
-        total_market_beating_portfolios: totalMarketBeating
-    });
 
     // Create metric cards grid (4 columns for Marketing Metrics)
     const metricSummary = document.createElement('div');
@@ -2230,6 +2239,7 @@ UserAnalysisToolSupabase.prototype.loadMarketingMetrics = async function() {
                 return null;
             }
             console.error('Error loading marketing metrics:', error);
+            console.error('Full error details:', JSON.stringify(error, null, 2));
             return null;
         }
 
@@ -2250,7 +2260,19 @@ UserAnalysisToolSupabase.prototype.saveMarketingMetrics = async function(metrics
             return;
         }
 
-        const { error } = await this.supabaseIntegration.supabase
+        // Delete existing rows first (simpler than trigger approach)
+        const { error: deleteError } = await this.supabaseIntegration.supabase
+            .from('marketing_metrics')
+            .delete()
+            .neq('id', 0); // Delete all rows
+
+        if (deleteError) {
+            console.error('Error deleting old marketing metrics:', deleteError);
+            return;
+        }
+
+        // Insert new row
+        const { error: insertError } = await this.supabaseIntegration.supabase
             .from('marketing_metrics')
             .insert({
                 avg_monthly_copies: metrics.avg_monthly_copies,
@@ -2260,8 +2282,8 @@ UserAnalysisToolSupabase.prototype.saveMarketingMetrics = async function(metrics
                 updated_at: new Date().toISOString()
             });
 
-        if (error) {
-            console.error('Error saving marketing metrics:', error);
+        if (insertError) {
+            console.error('Error inserting marketing metrics:', insertError);
             return;
         }
 
@@ -2356,16 +2378,18 @@ UserAnalysisToolSupabase.prototype.processMarketingDataCSV = async function(file
         const totalPublicPortfolios = uniqueTickers.size;
         console.log(`✅ Found ${totalPublicPortfolios} unique public portfolios`);
 
-        // Load existing metrics and update with new portfolio count
+        // Update only the total_public_portfolios field, keep other metrics unchanged
         const existingMetrics = await this.loadMarketingMetrics();
-        await this.saveMarketingMetrics({
+        const updatedMetrics = {
             avg_monthly_copies: existingMetrics?.avg_monthly_copies || null,
             total_investments: existingMetrics?.total_investments || null,
             total_public_portfolios: totalPublicPortfolios,
             total_market_beating_portfolios: existingMetrics?.total_market_beating_portfolios || null
-        });
+        };
 
-        // Refresh the marketing metrics display
+        await this.saveMarketingMetrics(updatedMetrics);
+
+        // Refresh display to show updated portfolio count (won't fetch Mixpanel, just displays stored data)
         await this.displayMarketingMetrics();
 
         alert(`Successfully processed! Found ${totalPublicPortfolios} public portfolios.`);
