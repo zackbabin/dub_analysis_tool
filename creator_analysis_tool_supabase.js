@@ -2959,8 +2959,8 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
         const driversSection = document.createElement('div');
         driversSection.style.marginTop = '3rem';
         driversSection.innerHTML = `
-            <h2 style="margin-bottom: 0.25rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
-            <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
+            <h2 style="margin-top: 0; margin-bottom: 0.5rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
+            <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">The top events that are the strongest predictors of subscriptions</p>
         `;
 
         // Create table
@@ -2977,7 +2977,6 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
                 <th style="text-align: right;">Correlation</th>
                 <th style="text-align: right;">T-Statistic</th>
                 <th style="text-align: right;">Predictive Strength</th>
-                <th style="text-align: right;">Tipping Point</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -2989,13 +2988,41 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
             // Use variable label if available
             const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
 
-            tr.innerHTML = `
-                <td style="font-weight: 600;">${displayName}</td>
-                <td style="text-align: right;">${parseFloat(row.correlation_coefficient).toFixed(2)}</td>
-                <td style="text-align: right;">${parseFloat(row.t_stat).toFixed(2)}</td>
-                <td style="text-align: right;">${row.predictive_strength || 'N/A'}</td>
-                <td style="text-align: right;">${row.tipping_point || 'N/A'}</td>
-            `;
+            // Variable cell
+            const varCell = document.createElement('td');
+            varCell.style.fontWeight = '600';
+            varCell.textContent = displayName;
+            tr.appendChild(varCell);
+
+            // Correlation cell
+            const corrCell = document.createElement('td');
+            corrCell.style.textAlign = 'right';
+            corrCell.textContent = parseFloat(row.correlation_coefficient).toFixed(2);
+            tr.appendChild(corrCell);
+
+            // T-Statistic cell
+            const tStatCell = document.createElement('td');
+            tStatCell.style.textAlign = 'right';
+            tStatCell.textContent = parseFloat(row.t_stat).toFixed(2);
+            tr.appendChild(tStatCell);
+
+            // Predictive Strength cell with color coding
+            const strengthCell = document.createElement('td');
+            strengthCell.style.textAlign = 'right';
+            const strengthValue = row.predictive_strength || 'N/A';
+
+            // Calculate predictive strength class using same logic as behavioral drivers
+            const result = window.calculatePredictiveStrength?.(
+                parseFloat(row.correlation_coefficient),
+                parseFloat(row.t_stat)
+            ) || { strength: strengthValue, className: '' };
+
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = result.className;
+            strengthSpan.textContent = result.strength;
+            strengthCell.appendChild(strengthSpan);
+            tr.appendChild(strengthCell);
+
             tbody.appendChild(tr);
         });
         table.appendChild(tbody);

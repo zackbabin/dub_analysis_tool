@@ -2084,6 +2084,14 @@ UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async fun
         // Sort by absolute correlation (descending)
         driversData.sort((a, b) => Math.abs(b.correlation_coefficient) - Math.abs(a.correlation_coefficient));
 
+        // Debug: Log first few drivers with tipping points
+        console.log('Top 3 subscription drivers with tipping points:',
+            driversData.slice(0, 3).map(d => ({
+                variable: d.variable_name,
+                tipping_point: d.tipping_point
+            }))
+        );
+
         // Delete existing data and insert new data
         const { error: deleteError } = await this.supabaseIntegration.supabase
             .from('subscription_drivers')
