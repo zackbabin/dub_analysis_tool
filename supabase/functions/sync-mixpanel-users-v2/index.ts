@@ -1,10 +1,9 @@
-// Supabase Edge Function: sync-mixpanel-users-v2 (Event Export API)
-// Part 1 of 2: Fetches raw events from Mixpanel Export API and stores in Storage bucket
-// Triggers process-subscribers-data-v2 → event processing and batch upsert
-// Parallel implementation to test Export API vs Insights API
+// Supabase Edge Function: sync-mixpanel-users-v2 (Event Export API - Streaming)
+// Streams events from Mixpanel Export API, processes incrementally to avoid memory issues
+// Processes events in chunks and upserts to subscribers_insights_v2
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { fetchEventsExport } from '../_shared/mixpanel-api.ts'
+import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
 import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
@@ -33,6 +32,156 @@ const TRACKED_EVENTS = [
   'Tapped Portfolio Card',
 ]
 
+const MIXPANEL_CONFIG = {
+  PROJECT_ID: '2599235',
+  EXPORT_API_BASE: 'https://data.mixpanel.com/api/2.0',
+}
+
+/**
+ * Stream and process events from Mixpanel Export API line by line
+ * Processes in chunks to avoid memory overload
+ */
+async function streamAndProcessEvents(
+  credentials: any,
+  supabase: any,
+  fromDate: string,
+  toDate: string,
+  syncStartTime: Date
+) {
+  console.log('Streaming events from Mixpanel Export API...')
+
+  // Build query parameters
+  const params = new URLSearchParams({
+    project_id: MIXPANEL_CONFIG.PROJECT_ID,
+    from_date: fromDate,
+    to_date: toDate,
+    event: JSON.stringify(TRACKED_EVENTS),
+  })
+
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+  const url = `${MIXPANEL_CONFIG.EXPORT_API_BASE}/export?${params}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'text/plain',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel Export API error (${response.status}): ${errorText}`)
+  }
+
+  if (!response.body) {
+    throw new Error('No response body from Mixpanel Export API')
+  }
+
+  // Process stream line by line
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let events: any[] = []
+  let totalEvents = 0
+  let totalRecordsInserted = 0
+  const CHUNK_SIZE = 5000 // Process 5k events at a time
+
+  console.log('Processing events in chunks...')
+
+  while (true) {
+    const { done, value } = await reader.read()
+
+    if (value) {
+      buffer += decoder.decode(value, { stream: true })
+
+      // Process complete lines
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+
+        try {
+          const event = JSON.parse(line)
+          events.push(event)
+          totalEvents++
+
+          // Process chunk when we hit CHUNK_SIZE
+          if (events.length >= CHUNK_SIZE) {
+            const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
+            totalRecordsInserted += inserted
+            console.log(`✓ Processed ${totalEvents} events, ${totalRecordsInserted} users upserted`)
+            events = [] // Clear for next chunk
+          }
+        } catch (error) {
+          console.warn(`Failed to parse event line: ${line.substring(0, 100)}`)
+        }
+      }
+    }
+
+    if (done) {
+      // Process any remaining events in buffer
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer)
+          events.push(event)
+          totalEvents++
+        } catch (error) {
+          console.warn(`Failed to parse final event`)
+        }
+      }
+
+      // Process final chunk
+      if (events.length > 0) {
+        const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
+        totalRecordsInserted += inserted
+      }
+
+      break
+    }
+  }
+
+  console.log(`✓ Streaming complete: ${totalEvents} events processed, ${totalRecordsInserted} users upserted`)
+
+  return { totalEvents, totalRecordsInserted }
+}
+
+/**
+ * Process a chunk of events and upsert to database
+ */
+async function processAndUpsertChunk(
+  events: any[],
+  supabase: any,
+  syncStartTime: Date
+): Promise<number> {
+  // Process events into user profiles
+  const userProfiles = processEventsToUserProfiles(events)
+
+  // Format profiles for database
+  const profileRows = formatProfilesForDB(userProfiles, syncStartTime.toISOString())
+
+  if (profileRows.length === 0) {
+    return 0
+  }
+
+  // Upsert to database
+  const { error } = await supabase
+    .from('subscribers_insights_v2')
+    .upsert(profileRows, {
+      onConflict: 'distinct_id',
+      ignoreDuplicates: false,
+    })
+
+  if (error) {
+    console.error('Error upserting chunk:', error)
+    throw error
+  }
+
+  return profileRows.length
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCorsRequest(req)
@@ -43,7 +192,7 @@ serve(async (req) => {
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
-    console.log('Starting Mixpanel user sync v2 (Event Export API)...')
+    console.log('Starting Mixpanel user sync v2 (Event Export API - Streaming)...')
 
     // Check if sync should be skipped (within 1-hour window)
     const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_users_v2', 1)
@@ -55,98 +204,40 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range: just yesterday (1 day for initial testing)
-      // TODO: Expand to full date range once we confirm this works
+      // Calculate date range: just yesterday (1 day)
       // Mixpanel Export API uses UTC and rejects dates in the future
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       const toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
-      const fromDate = toDate // Same date = 1 day only for testing
+      const fromDate = toDate // Same date = 1 day only
 
       console.log(`Date range: ${fromDate} to ${toDate}`)
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
 
-      // Fetch events from Export API (should be much faster than Insights API)
-      console.log('Fetching events from Export API...')
-      const fetchStartMs = Date.now()
-
-      const events = await fetchEventsExport(
+      // Stream and process events
+      const { totalEvents, totalRecordsInserted } = await streamAndProcessEvents(
         credentials,
+        supabase,
         fromDate,
         toDate,
-        TRACKED_EVENTS
+        syncStartTime
       )
 
-      const fetchElapsedMs = Date.now() - fetchStartMs
-      const fetchElapsedSec = Math.round(fetchElapsedMs / 1000)
-      console.log(`✓ Fetched ${events.length} events in ${fetchElapsedSec}s`)
-
-      // Store raw events in Storage bucket for processing function
-      console.log('Storing raw events in Storage bucket...')
-      const filename = `subscribers-v2-${syncStartTime.toISOString()}.json`
-      const dataToStore = {
-        events,
-        syncStartTime: syncStartTime.toISOString(),
-        fetchedAt: new Date().toISOString(),
-        stats: {
-          totalEvents: events.length,
-          dateRange: { fromDate, toDate },
-          fetchTimeSeconds: fetchElapsedSec,
-        },
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .upload(filename, JSON.stringify(dataToStore), {
-          contentType: 'application/json',
-          upsert: false,
-        })
-
-      if (uploadError) {
-        console.error('Error uploading to storage:', uploadError)
-        throw uploadError
-      }
-
       const elapsedMs = Date.now() - executionStartMs
-      console.log(`✓ Raw events stored: ${filename} (${Math.round(elapsedMs / 1000)}s total)`)
+      const elapsedSec = Math.round(elapsedMs / 1000)
 
-      // Update sync log with fetch success
+      // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: 0, // Records inserted in processing function
+        total_records_inserted: totalRecordsInserted,
       })
 
-      // Trigger processing function (which will process events and upsert to subscribers_insights_v2)
-      console.log('Triggering process-subscribers-data-v2 function...')
+      console.log(`Sync completed successfully in ${elapsedSec}s`)
 
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && supabaseServiceKey) {
-        // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/process-subscribers-data-v2`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${supabaseServiceKey}`,
-            apikey: supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filename }),
-        }).catch((err) => {
-          console.error('⚠️ Failed to trigger process-subscribers-data-v2:', err.message)
-        })
-        console.log('✓ Processing function triggered in background')
-      } else {
-        console.warn('⚠️ Cannot trigger processing function: Supabase credentials not available')
-      }
-
-      console.log('Fetch completed successfully')
-
-      return createSuccessResponse('Subscriber events fetched and stored successfully (v2)', {
-        filename,
-        totalTimeSeconds: Math.round(elapsedMs / 1000),
-        fetchTimeSeconds: fetchElapsedSec,
-        totalEvents: events.length,
+      return createSuccessResponse('Subscriber events synced successfully via streaming (v2)', {
+        totalTimeSeconds: elapsedSec,
+        totalEvents,
+        totalRecordsInserted,
         dateRange: { fromDate, toDate },
         trackedEvents: TRACKED_EVENTS.length,
       })

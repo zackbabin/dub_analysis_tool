@@ -1,14 +1,15 @@
-// Supabase Edge Function: process-subscribers-data-v2 (Event Export API)
-// Part 2 of 2: Loads raw events from Storage, processes into user profiles, and upserts to subscribers_insights_v2
-// Handles event counting, property extraction, and batch upserts with timeout prevention
-// Triggered by sync-mixpanel-users-v2 after events are stored
+// Supabase Edge Function: process-subscribers-data-v2 (Event Export API - Streaming)
+// Streams events directly from Mixpanel Export API, processes into user profiles, and upserts to subscribers_insights_v2
+// Handles event counting, property extraction, and batch upserts with memory efficiency
+// Triggered by sync-mixpanel-users-v2 with date range parameters
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { fetchEventsExport } from '../_shared/mixpanel-api.ts'
 import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
 import {
+  initializeMixpanelCredentials,
   initializeSupabaseClient,
   handleCorsRequest,
-  createSyncLog,
   updateSyncLogSuccess,
   updateSyncLogFailure,
   createSuccessResponse,
@@ -28,20 +29,19 @@ serve(async (req) => {
 
   try {
     const supabase = initializeSupabaseClient()
+    const credentials = initializeMixpanelCredentials()
 
-    // Get filename from request body
+    // Get parameters from request body
     const body = await req.json()
-    const filename = body.filename
+    const { fromDate, toDate, trackedEvents, syncLogId } = body
 
-    if (!filename) {
-      throw new Error('Missing filename parameter')
+    if (!fromDate || !toDate || !trackedEvents || !syncLogId) {
+      throw new Error('Missing required parameters: fromDate, toDate, trackedEvents, syncLogId')
     }
 
-    console.log(`Starting subscriber data processing v2 for ${filename}...`)
-
-    // Create sync log entry
-    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'subscribers_processing_v2')
-    const syncLogId = syncLog.id
+    console.log(`Starting subscriber data processing v2 (streaming)...`)
+    console.log(`Date range: ${fromDate} to ${toDate}`)
+    console.log(`Tracking ${trackedEvents.length} event types`)
 
     try {
       // Track elapsed time with timeout prevention
@@ -53,34 +53,17 @@ serve(async (req) => {
         return elapsed
       }
 
-      // Download raw events from Storage
-      console.log('Downloading raw events from Storage...')
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .download(filename)
-
-      if (downloadError) {
-        console.error('Error downloading from storage:', downloadError)
-        throw downloadError
-      }
-
-      const rawDataText = await fileData.text()
-      const rawData = JSON.parse(rawDataText)
+      // Fetch events directly from Mixpanel Export API (streaming)
+      console.log('Fetching events from Export API...')
+      const events = await fetchEventsExport(
+        credentials,
+        fromDate,
+        toDate,
+        trackedEvents
+      )
 
       logElapsed()
-      console.log('✓ Raw events loaded from Storage')
-
-      const { events, stats: fetchStats } = rawData
-
-      // Validate data
-      if (!events || !Array.isArray(events)) {
-        throw new Error('Invalid data format: events must be an array')
-      }
-
-      console.log(`Received ${events.length} events to process`)
-      if (fetchStats) {
-        console.log(`Fetch stats: ${fetchStats.totalEvents} events, date range: ${fetchStats.dateRange.fromDate} to ${fetchStats.dateRange.toDate}`)
-      }
+      console.log(`✓ Fetched ${events.length} events`)
 
       // Process events into user profiles
       console.log('Processing events into user profiles...')
@@ -89,7 +72,8 @@ serve(async (req) => {
       console.log(`✓ Built ${userProfiles.length} user profiles`)
 
       // Format profiles for database
-      const profileRows = formatProfilesForDB(userProfiles, syncStartTime.toISOString())
+      const syncStartTime = new Date().toISOString()
+      const profileRows = formatProfilesForDB(userProfiles, syncStartTime)
       console.log(`✓ Formatted ${profileRows.length} rows for database`)
 
       const stats: SyncStats = {
@@ -154,21 +138,12 @@ serve(async (req) => {
         total_records_inserted: stats.totalRecordsInserted,
       })
 
-      // Delete the raw data file from storage (cleanup)
-      console.log('Cleaning up storage file...')
-      const { error: deleteError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .remove([filename])
-
-      if (deleteError) {
-        console.warn('⚠️ Failed to delete storage file:', deleteError.message)
-      } else {
-        console.log('✓ Storage file cleaned up')
-      }
-
       console.log('Subscriber processing v2 completed successfully')
 
-      return createSuccessResponse('Subscriber data processed and inserted successfully (v2)', stats)
+      return createSuccessResponse('Subscriber data processed and inserted successfully (v2)', {
+        totalEvents: stats.eventsProcessed,
+        totalRecordsInserted: stats.totalRecordsInserted,
+      })
     } catch (error) {
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
