@@ -62,9 +62,30 @@ serve(async (req) => {
         setTimeout(() => reject(new Error('Mixpanel fetch timeout after 140s')), FETCH_TIMEOUT_MS)
       })
 
-      const subscribersData = await Promise.race([fetchPromise, timeoutPromise])
+      let subscribersData
+      try {
+        subscribersData = await Promise.race([fetchPromise, timeoutPromise])
+        console.log('✓ Subscribers data fetched successfully')
+      } catch (error: any) {
+        if (error.message?.includes('timeout')) {
+          console.warn('⚠️ Mixpanel fetch timed out after 140s - skipping user sync for this run')
+          console.warn('Note: Other syncs (engagement, creator data) will continue normally')
 
-      console.log('✓ Subscribers data fetched successfully')
+          // Update sync log with warning
+          await updateSyncLogSuccess(supabase, syncLogId, {
+            total_records_inserted: 0,
+          })
+
+          return createSuccessResponse(
+            'Sync partially completed (user data fetch timed out, other syncs will continue)',
+            {
+              warning: 'Mixpanel user data fetch timed out',
+              timeout_seconds: FETCH_TIMEOUT_MS / 1000,
+            }
+          )
+        }
+        throw error // Re-throw non-timeout errors
+      }
 
       // Store raw data in Storage bucket for processing function
       console.log('Storing raw data in Storage bucket...')
