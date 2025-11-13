@@ -2188,31 +2188,39 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
     // Load existing metrics from database
     const existingMetrics = await this.loadMarketingMetrics();
 
-    // Fetch Avg Monthly Copies from Mixpanel only if requested (during sync)
+    // Fetch fresh data from Mixpanel/Supabase only if requested (during sync)
     let avgMonthlyCopies = existingMetrics?.avg_monthly_copies || null;
+    let totalMarketBeating = existingMetrics?.total_market_beating_portfolios || null;
+
     if (fetchFromMixpanel) {
         try {
+            // Fetch Avg Monthly Copies from Mixpanel
             const freshCopies = await this.fetchAvgMonthlyCopies();
             if (freshCopies !== null) {
                 avgMonthlyCopies = freshCopies;
-
-                // Save updated metrics to database only when fetching fresh data
-                await this.saveMarketingMetrics({
-                    avg_monthly_copies: avgMonthlyCopies,
-                    total_investments: existingMetrics?.total_investments || null,
-                    total_public_portfolios: existingMetrics?.total_public_portfolios || null,
-                    total_market_beating_portfolios: existingMetrics?.total_market_beating_portfolios || null
-                });
             }
+
+            // Fetch Market-Beating Portfolios count from portfolio_performance_metrics
+            const marketBeatingCount = await this.fetchMarketBeatingPortfolios();
+            if (marketBeatingCount !== null) {
+                totalMarketBeating = marketBeatingCount;
+            }
+
+            // Save updated metrics to database only when fetching fresh data
+            await this.saveMarketingMetrics({
+                avg_monthly_copies: avgMonthlyCopies,
+                total_investments: existingMetrics?.total_investments || null,
+                total_public_portfolios: existingMetrics?.total_public_portfolios || null,
+                total_market_beating_portfolios: totalMarketBeating
+            });
         } catch (error) {
-            console.error('Error fetching avg monthly copies:', error);
+            console.error('Error fetching marketing metrics:', error);
         }
     }
 
     // Get other metrics from database
     const totalInvestments = existingMetrics?.total_investments || null;
     const totalPublicPortfolios = existingMetrics?.total_public_portfolios || null;
-    const totalMarketBeating = existingMetrics?.total_market_beating_portfolios || null;
 
     // Create metric cards grid (4 columns for Marketing Metrics)
     const metricSummary = document.createElement('div');
@@ -2350,6 +2358,37 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
         return average;
     } catch (error) {
         console.error('Error fetching avg monthly copies:', error);
+        return null;
+    }
+};
+
+/**
+ * Fetch count of market-beating portfolios from portfolio_performance_metrics
+ * Market-beating = total_returns_percentage >= 0.15 (15%)
+ */
+UserAnalysisToolSupabase.prototype.fetchMarketBeatingPortfolios = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.warn('Supabase integration not available');
+            return null;
+        }
+
+        console.log('Fetching market-beating portfolios count...');
+
+        const { count, error } = await this.supabaseIntegration.supabase
+            .from('portfolio_performance_metrics')
+            .select('*', { count: 'exact', head: true })
+            .gte('total_returns_percentage', 0.15);
+
+        if (error) {
+            console.error('Error fetching market-beating portfolios:', error);
+            return null;
+        }
+
+        console.log(`✅ Found ${count} market-beating portfolios (>=15% returns)`);
+        return count;
+    } catch (error) {
+        console.error('Error fetching market-beating portfolios:', error);
         return null;
     }
 };
