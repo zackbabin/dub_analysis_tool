@@ -2517,14 +2517,23 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
         // Get the most recent month row (last row with data, before any trailing empty lines)
         // Lines array already has empty lines filtered out, so the last line is the most recent
         const lastDataLine = lines[lines.length - 1];
+        console.log('Last data line:', lastDataLine);
+
         const values = lastDataLine.split(',');
+        console.log('Parsed values:', values);
+        console.log('Total Holdings Index:', totalHoldingsIndex);
+
         const totalHoldingsValue = values[totalHoldingsIndex]?.trim() || '0';
+        console.log('Total Holdings Value (raw):', totalHoldingsValue);
 
-        // Remove commas and parse the value
-        const totalInvestments = parseFloat(totalHoldingsValue.replace(/,/g, ''));
+        // Remove commas and quotes, then parse the value
+        const cleanedValue = totalHoldingsValue.replace(/[",]/g, '');
+        console.log('Cleaned value:', cleanedValue);
 
-        if (isNaN(totalInvestments)) {
-            this.addStatusMessage('❌ Could not parse Total Holdings value from most recent month', 'error');
+        const totalInvestments = parseFloat(cleanedValue);
+
+        if (isNaN(totalInvestments) || totalInvestments === 0) {
+            this.addStatusMessage(`❌ Could not parse Total Holdings value from most recent month (got: "${totalHoldingsValue}")`, 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
