@@ -236,39 +236,60 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Functions (three-part process)
-     * Part 1: sync-mixpanel-users (subscribers data - large dataset)
-     * Part 2: sync-mixpanel-funnels (time funnels only) - CURRENTLY DISABLED
+     * Trigger Mixpanel sync via Supabase Edge Functions (v2 two-part process)
+     * Part 1: sync-mixpanel-users-v2 (event data from Export API - streaming, incremental)
+     * Part 2: sync-mixpanel-user-properties-v2 (user properties from Insights API)
      * Part 3: sync-mixpanel-engagement (views, subscriptions, copies)
      *         → Automatically triggers refresh-engagement-views (materialized views + pattern analysis)
-     * Replaces: triggerGitHubWorkflow() + waitForWorkflowCompletion()
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel sync (3-part process)...');
+        console.log('🔄 Starting Mixpanel sync v2 (3-part process)...');
 
         try {
-            // Part 1: Sync users/subscribers data (with retry for cold starts)
+            // Part 1: Sync event data (v2 - Export API streaming)
             // Note: Skip logic is now handled in the edge function itself
-            console.log('📊 Step 1/3: Syncing user/subscriber data...');
+            console.log('📊 Step 1/3: Syncing user event data (v2)...');
             let usersData = null;
             try {
                 usersData = await this.invokeFunctionWithRetry(
-                    'sync-mixpanel-users',
+                    'sync-mixpanel-users-v2',
                     {},
-                    'Users sync',
+                    'Users sync v2',
                     2,      // maxRetries: Only 2 attempts (function takes too long)
                     5000    // retryDelay: 5 seconds
                 );
                 if (usersData.skipped) {
-                    console.log('⏭️ Step 1/3: User sync skipped (data refreshed within last 6 hours)');
+                    console.log('⏭️ Step 1/3: User event sync skipped (data refreshed within last hour)');
                 } else {
-                    console.log('✅ Step 1/3 complete: User data synced successfully');
+                    console.log('✅ Step 1/3 complete: User event data synced successfully (v2)');
                 }
                 console.log('   Stats:', usersData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 1/3 failed: User sync timed out, continuing with existing data');
+                console.warn('⚠️ Step 1/3 failed: User event sync timed out, continuing with existing data');
                 usersData = { stats: { failed: true, error: error.message } };
+            }
+
+            // Part 1.5: Sync user properties (v2 - Insights API)
+            console.log('📊 Step 1.5/3: Syncing user properties (v2)...');
+            let propertiesData = null;
+            try {
+                propertiesData = await this.invokeFunctionWithRetry(
+                    'sync-mixpanel-user-properties-v2',
+                    {},
+                    'User properties sync v2',
+                    2,
+                    5000
+                );
+                if (propertiesData.skipped) {
+                    console.log('⏭️ Step 1.5/3: User properties sync skipped (data refreshed within last hour)');
+                } else {
+                    console.log('✅ Step 1.5/3 complete: User properties synced successfully (v2)');
+                }
+                console.log('   Stats:', propertiesData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 1.5/3 failed: User properties sync timed out, continuing with existing data');
+                propertiesData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
