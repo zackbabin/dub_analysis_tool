@@ -2260,30 +2260,23 @@ UserAnalysisToolSupabase.prototype.saveMarketingMetrics = async function(metrics
             return;
         }
 
-        // Delete existing rows first (simpler than trigger approach)
-        const { error: deleteError } = await this.supabaseIntegration.supabase
+        // Upsert with id=1 (single row table)
+        // If row with id=1 exists, update it. Otherwise insert with id=1.
+        const { error } = await this.supabaseIntegration.supabase
             .from('marketing_metrics')
-            .delete()
-            .neq('id', 0); // Delete all rows
-
-        if (deleteError) {
-            console.error('Error deleting old marketing metrics:', deleteError);
-            return;
-        }
-
-        // Insert new row
-        const { error: insertError } = await this.supabaseIntegration.supabase
-            .from('marketing_metrics')
-            .insert({
+            .upsert({
+                id: 1,  // Single row constraint
                 avg_monthly_copies: metrics.avg_monthly_copies,
                 total_investments: metrics.total_investments,
                 total_public_portfolios: metrics.total_public_portfolios,
                 total_market_beating_portfolios: metrics.total_market_beating_portfolios,
                 updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'id'  // Use id as the conflict resolution key
             });
 
-        if (insertError) {
-            console.error('Error inserting marketing metrics:', insertError);
+        if (error) {
+            console.error('Error upserting marketing metrics:', error);
             return;
         }
 
