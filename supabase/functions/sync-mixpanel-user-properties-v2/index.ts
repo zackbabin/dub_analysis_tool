@@ -45,38 +45,56 @@ interface UserPropertyRow {
 function parseUserProperties(data: any): UserPropertyRow[] {
   const users: UserPropertyRow[] = []
 
-  if (!data.series || !data.series['Total of User Profiles']) {
-    console.warn('No series data found in response')
-    return users
-  }
-
-  if (!data.headers || data.headers.length < 2) {
-    console.warn('No headers found in response')
-    return users
-  }
-
-  console.log(`Headers: ${data.headers.join(', ')}`)
-
-  const series = data.series['Total of User Profiles']
-
-  // Iterate through all distinct_ids in the response
-  for (const [distinctId, userData] of Object.entries(series)) {
-    // Skip the $overall aggregation
-    if (distinctId === '$overall') continue
-
-    // Extract nested property values following the headers order
-    const propertyValues = extractPropertyValues(userData as any, data.headers)
-
-    if (propertyValues) {
-      users.push({
-        distinct_id: distinctId,
-        ...propertyValues
-      })
+  try {
+    if (!data) {
+      console.error('No data provided to parseUserProperties')
+      return users
     }
-  }
 
-  console.log(`Parsed ${users.length} users`)
-  return users
+    if (!data.series || !data.series['Total of User Profiles']) {
+      console.warn('No series data found in response')
+      console.log('Data structure:', JSON.stringify(data).substring(0, 200))
+      return users
+    }
+
+    if (!data.headers || data.headers.length < 2) {
+      console.warn('No headers found in response')
+      console.log('Headers:', data.headers)
+      return users
+    }
+
+    console.log(`Headers: ${data.headers.join(', ')}`)
+
+    const series = data.series['Total of User Profiles']
+
+    // Iterate through all distinct_ids in the response
+    for (const [distinctId, userData] of Object.entries(series)) {
+      try {
+        // Skip the $overall aggregation
+        if (distinctId === '$overall') continue
+
+        // Extract nested property values following the headers order
+        const propertyValues = extractPropertyValues(userData as any, data.headers)
+
+        if (propertyValues) {
+          users.push({
+            distinct_id: distinctId,
+            ...propertyValues
+          })
+        }
+      } catch (userError) {
+        console.error(`Error parsing user ${distinctId}:`, userError.message)
+        // Continue processing other users
+      }
+    }
+
+    console.log(`Parsed ${users.length} users`)
+    return users
+  } catch (error) {
+    console.error('Error in parseUserProperties:', error.message)
+    console.error('Stack:', error.stack)
+    return users
+  }
 }
 
 /**
@@ -208,15 +226,18 @@ serve(async (req) => {
   if (corsResponse) return corsResponse
 
   try {
+    console.log('Initializing credentials and Supabase client...')
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
     console.log('Starting Mixpanel user properties sync v2...')
 
     // Check if sync should be skipped (within 1-hour window)
+    console.log('Checking skip sync...')
     const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_properties_v2', 1)
     if (skipResponse) return skipResponse
 
+    console.log('Creating sync log...')
     const executionStartMs = Date.now()
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_user_properties_v2')
     const syncLogId = syncLog.id
@@ -226,6 +247,7 @@ serve(async (req) => {
 
       // Fetch data from Insights API (chart has date range configured)
       const data = await fetchInsightsData(credentials, CHART_ID)
+      console.log('✓ Received data from Mixpanel')
 
       console.log('Parsing user properties...')
       const users = parseUserProperties(data)
