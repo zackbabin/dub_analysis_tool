@@ -544,8 +544,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
 
             // Build complete HTML structure with H1 in same section as metrics
-            const portfolioH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
+            let portfolioHTML = `
+                <div class="qda-result-section">
+                    <h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Portfolio Analysis<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>Portfolio Analysis</strong>
                     Copy behavior metrics showing engagement patterns and conversion rates.
@@ -557,19 +558,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <li><strong>Metrics:</strong> Copy engagement, conversion rates, hidden gems analysis</li>
                     </ul>
                 </span>
-            </span>`;
-
-            let portfolioHTML = `
-                <div class="qda-result-section">
-                    <h1 style="margin-bottom: 0.25rem; display: inline;">Portfolio Analysis</h1>${portfolioH1Tooltip}
+            </span></h1>
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                 </div>
             `;
 
             // Add Top Behavioral Drivers Section with nested tabs
-            const behavioralTooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
+            portfolioHTML += `
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>Top Behavioral Drivers</strong>
                     Statistical analysis showing which user behaviors best predict deposits and copies.
@@ -579,11 +577,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <li><strong>Metrics:</strong> Correlation coefficient, odds ratio, tipping point</li>
                     </ul>
                 </span>
-            </span>`;
-
-            portfolioHTML += `
-                <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem; display: inline;">Top Behavioral Drivers</h2>${behavioralTooltip}
+            </span></h2>
                     <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits and copies</p>
 
                     <div class="behavioral-tabs-container">
@@ -605,8 +599,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
 
             // Add High-Impact Combinations Section structure to portfolioHTML
-            const combinationsTooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
+            portfolioHTML += `
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>High-Impact Combinations</strong>
                     Portfolio and creator pairs that users view together before copying, with highest conversion lift.
@@ -621,11 +616,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
                     </ul>
                 </span>
-            </span>`;
-
-            portfolioHTML += `
-                <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem; display: inline;">High-Impact Combinations</h2>${combinationsTooltip}
+            </span></h2>
                     <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
 
                     <div class="combinations-tabs-container">
@@ -802,8 +793,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            this.generateCombinationsTableHTML(
+                `<span class="info-tooltip">High-Impact Creator Combinations<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>High-Impact Creator Combinations</strong>
                 Identifies 2-creator pairs that drive subscriptions:
@@ -815,12 +808,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </ul>
                 Shows top 10 combinations sorted by Expected Value. Users must view BOTH creators to be counted as "exposed."
             </span>
-        </span>`;
-
-        const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
-            this.generateCombinationsTableHTML(
-                `High-Impact Creator Combinations${tooltipHTML}`,
+        </span>`,
                 'Users who viewed both of these creators were significantly more likely to subscribe',
                 topCombinations,
                 (combo) => {
@@ -880,8 +868,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 3rem;">',
+            `<h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Hidden Gems<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Hidden Gems</strong>
                 Portfolios attracting attention but not yet frequently copied:
@@ -893,11 +882,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </ul>
                 These portfolios show potential for growth opportunities.
             </span>
-        </span>`;
-
-        const parts = [
-            '<div class="qda-result-section" style="margin-top: 3rem;">',
-            `<h2 style="margin-top: 0; margin-bottom: 0.5rem;">Hidden Gems${tooltipHTML}</h2>`,
+        </span></h2>`,
             '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">Portfolios with high engagement but low conversion (Total PDP Views to Copies ratio ≥ 5:1, max 100 copies)</p>'
         ];
 
@@ -1077,8 +1062,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 3rem;">',
+            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;"><span class="info-tooltip">Portfolio Sequence Analysis<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Portfolio Sequence Analysis</strong>
                 Identifies the first 3 portfolios viewed (in exact order) that drive copies:
@@ -1090,10 +1076,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </ul>
                 Reveals optimal onboarding paths for new users.
             </span>
-        </span>`;
-
-        const impactTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
+        </span></h3>`,
+            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
+            '<div class="table-wrapper">',
+            '<table class="qda-regression-table">',
+            `<thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Portfolio Sequence</th>
+                    <th style="text-align: right;"><span class="info-tooltip">Impact<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Impact (Lift)</strong>
                 Measures conversion likelihood multiplier:
@@ -1103,19 +1094,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <li><strong>Interpretation:</strong> Higher lift = stronger predictive signal</li>
                 </ul>
             </span>
-        </span>`;
-
-        const parts = [
-            '<div class="qda-result-section" style="margin-top: 3rem;">',
-            `<h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">Portfolio Sequence Analysis${tooltipHTML}</h3>`,
-            '<p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">This analysis identifies the first three PDP views that drive highest likelihood to copy</p>',
-            '<div class="table-wrapper">',
-            '<table class="qda-regression-table">',
-            `<thead>
-                <tr>
-                    <th>Rank</th>
-                    <th>Portfolio Sequence</th>
-                    <th style="text-align: right;">Impact${impactTooltipHTML}</th>
+        </span></th>
                     <th style="text-align: right;">Users</th>
                     <th style="text-align: right;">Total Copies</th>
                     <th style="text-align: right;">Conv Rate</th>
@@ -1159,8 +1138,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
+        const parts = [
+            '<div class="qda-result-section" style="margin-top: 2rem;">',
+            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <img src="https://rnpfeblxapdafrbmomix.supabase.co/storage/v1/object/public/Images/Claude_AI_symbol.svg.png"
+                     alt="Claude AI"
+                     style="width: 24px; height: 24px; vertical-align: middle;" />
+                <span class="info-tooltip">Conversion Path Analysis: ${outcomeType}<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Conversion Path Analysis</strong>
                 AI-powered event sequence analysis to identify predictive patterns:
@@ -1173,15 +1157,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <li><strong>Output:</strong> High-impact sequences, critical triggers, and anti-patterns with actionable insights</li>
                 </ul>
             </span>
-        </span>`;
-
-        const parts = [
-            '<div class="qda-result-section" style="margin-top: 2rem;">',
-            `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                <img src="https://rnpfeblxapdafrbmomix.supabase.co/storage/v1/object/public/Images/Claude_AI_symbol.svg.png"
-                     alt="Claude AI"
-                     style="width: 24px; height: 24px; vertical-align: middle;" />
-                Conversion Path Analysis: ${outcomeType}${tooltipHTML}
+        </span>
             </h2>`,
             `<div style="
                 background: #f8f9fa;
@@ -1327,17 +1303,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         border-top: 1px solid #dee2e6;
                     ">`,
                         `<div>
-                            <strong>Volume:</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%
-                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
-                                <span class="info-icon">i</span>
+                            <span class="info-tooltip"><strong>Volume:</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%<span class="info-icon">i</span>
                                 <span class="tooltip-text">Percentage of converters who exhibited this sequence</span>
                             </span>
                         </div>`,
                         `<div><strong>Avg Time to Convert:</strong> ${Math.round(seq.avg_time_to_conversion_minutes)} min</div>`,
                         `<div>
-                            <strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}
-                            <span class="info-tooltip" style="margin-left: 0.25rem; vertical-align: middle;">
-                                <span class="info-icon">i</span>
+                            <span class="info-tooltip"><strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}<span class="info-icon">i</span>
                                 <span class="tooltip-text">Average number of events users performed before conversion</span>
                             </span>
                         </div>`,
@@ -1359,14 +1331,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Critical Triggers Section
         if (analysisData.critical_triggers && analysisData.critical_triggers.length > 0) {
-            const triggerTooltip = `<span class="info-tooltip" style="margin-left: 0.5rem; vertical-align: middle;">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">Events that immediately precede conversion, showing which actions are most likely to trigger the final conversion step</span>
-            </span>`;
-
             parts.push(
                 '<div class="path-analysis-section" style="margin-top: 2rem;">',
-                `<h3>Critical Conversion Triggers${triggerTooltip}</h3>`
+                `<h3><span class="info-tooltip">Critical Conversion Triggers<span class="info-icon">i</span>
+                <span class="tooltip-text">Events that immediately precede conversion, showing which actions are most likely to trigger the final conversion step</span>
+            </span></h3>`
             );
 
             analysisData.critical_triggers.forEach(trigger => {
@@ -1417,26 +1386,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * @param {function} extraColumnValueFn - Optional function to extract extra column value from combo
      */
     generateCombinationsTableHTML(title, subtitle, data, valueFormatter, columnLabel, conversionLabel, extraColumnLabel = null, extraColumnValueFn = null) {
-        const impactTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>Impact (Lift)</strong>
-                Measures conversion likelihood multiplier:
-                <ul>
-                    <li><strong>Formula:</strong> Group conversion rate ÷ Overall baseline rate</li>
-                    <li><strong>Example:</strong> 2.5x means users who viewed this combination were 2.5 times more likely to convert</li>
-                    <li><strong>Interpretation:</strong> Higher lift = stronger predictive signal</li>
-                </ul>
-            </span>
-        </span>`;
-
-        const totalCopiesTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle;">
-            <span class="info-icon">i</span>
-            <span class="tooltip-text">
-                The total portfolio copies by users who viewed all portfolios/creators
-            </span>
-        </span>`;
-
         const parts = [
             '<div style="margin-top: 3rem;">',
             `<h2 style="margin-top: 1.5rem; margin-bottom: 0.5rem;">${title}</h2>`,
@@ -1446,7 +1395,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '<thead><tr>',
             '<th>Rank</th>',
             `<th>${columnLabel}</th>`,
-            `<th style="text-align: right;">Impact${impactTooltipHTML}</th>`,
+            `<th style="text-align: right;"><span class="info-tooltip">Impact<span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Impact (Lift)</strong>
+                Measures conversion likelihood multiplier:
+                <ul>
+                    <li><strong>Formula:</strong> Group conversion rate ÷ Overall baseline rate</li>
+                    <li><strong>Example:</strong> 2.5x means users who viewed this combination were 2.5 times more likely to convert</li>
+                    <li><strong>Interpretation:</strong> Higher lift = stronger predictive signal</li>
+                </ul>
+            </span>
+        </span></th>`,
             '<th style="text-align: right;">Unique Views</th>'
         ];
 
@@ -1456,7 +1415,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         parts.push(
-            `<th style="text-align: right;">${conversionLabel}${totalCopiesTooltipHTML}</th>`,
+            `<th style="text-align: right;"><span class="info-tooltip">${conversionLabel}<span class="info-icon">i</span>
+            <span class="tooltip-text">
+                The total portfolio copies by users who viewed all portfolios/creators
+            </span>
+        </span></th>`,
             '<th style="text-align: right;">Conv Rate</th>',
             '</tr></thead>',
             '<tbody>'
@@ -1578,7 +1541,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         headers.forEach(headerData => {
             const th = document.createElement('th');
             if (headerData.tooltip) {
-                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
+                th.innerHTML = `<span class="info-tooltip">${headerData.text}<span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
             } else {
                 th.textContent = headerData.text;
             }
@@ -1713,7 +1676,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         headers.forEach(headerData => {
             const th = document.createElement('th');
             if (headerData.tooltip) {
-                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
+                th.innerHTML = `<span class="info-tooltip">${headerData.text}<span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
             } else {
                 th.textContent = headerData.text;
             }
@@ -2161,13 +2124,8 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
     resultSection.style.marginTop = '2rem';
 
     const title = document.createElement('h2');
-    title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-    title.textContent = 'Marketing Metrics';
-    resultSection.appendChild(title);
-
-    // Add tooltip
-    const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-        <span class="info-icon">i</span>
+    title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+    title.innerHTML = `<span class="info-tooltip">Marketing Metrics<span class="info-icon">i</span>
         <span class="tooltip-text">
             <strong>Marketing Metrics</strong>
             Key platform metrics for marketing and growth tracking.
@@ -2180,10 +2138,7 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
             </ul>
         </span>
     </span>`;
-
-    const tooltipSpan = document.createElement('span');
-    tooltipSpan.innerHTML = tooltipHTML;
-    resultSection.appendChild(tooltipSpan);
+    resultSection.appendChild(title);
 
     // Load existing metrics from database
     const existingMetrics = await this.loadMarketingMetrics();

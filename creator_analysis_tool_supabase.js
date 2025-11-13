@@ -353,8 +353,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.className = 'qda-result-section';
 
         // Add H1 title with tooltip - updated to include subscription analysis
-        const creatorH1Tooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        section.innerHTML = `<h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Premium Creator Analysis<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Analysis</strong>
                 Comprehensive analysis of premium creator engagement and subscription patterns.
@@ -369,9 +368,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution</li>
                 </ul>
             </span>
-        </span>`;
-
-        section.innerHTML = `<h1 style="margin-bottom: 0.25rem; display: inline;">Premium Creator Analysis</h1>${creatorH1Tooltip}`;
+        </span></h1>`;
         container.appendChild(section);
 
         if (engagementSummary && engagementSummary.length === 2) {
@@ -417,8 +414,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         if (subscriptionDistribution && subscriptionDistribution.length > 0) {
             const chartId = `subscription-price-chart-${Date.now()}`;
 
-            const priceTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
+            const chartSection = document.createElement('div');
+            chartSection.style.marginTop = '3rem';
+            chartSection.innerHTML = `
+                <h2 style="margin-top: 0; margin-bottom: 0.25rem;"><span class="info-tooltip">Subscription Price Distribution<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>Subscription Price Distribution</strong>
                     Distribution of subscription prices across all creator subscriptions.
@@ -427,12 +426,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
                     </ul>
                 </span>
-            </span>`;
-
-            const chartSection = document.createElement('div');
-            chartSection.style.marginTop = '3rem';
-            chartSection.innerHTML = `
-                <h2 style="margin-top: 0; margin-bottom: 0.25rem; display: inline;">Subscription Price Distribution</h2>${priceTooltipHTML}
+            </span></h2>
                 <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
             `;
             section.appendChild(chartSection);
@@ -579,9 +573,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
 
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+        title.innerHTML = `<span class="info-tooltip">Premium Creator Breakdown<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Breakdown</strong>
                 Conversion metrics for each premium creator, aggregated across all their portfolios.
@@ -597,10 +591,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 </ul>
             </span>
         </span>`;
-
-        const title = document.createElement('h2');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-        title.innerHTML = `Premium Creator Breakdown${tooltipHTML}`;
         section.appendChild(title);
 
         const description = document.createElement('p');
@@ -637,10 +627,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 4px;">
-                        ${cardTitle}
-                        <span class="info-tooltip" style="display: inline-flex; align-items: center;">
-                            <span class="info-icon">i</span>
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
+                        <span class="info-tooltip">${cardTitle}<span class="info-icon">i</span>
                             <span class="tooltip-text">${tooltip}</span>
                         </span>
                     </div>
@@ -677,9 +665,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right; min-width: 150px;">Subscription CVR</th>
                 <th style="text-align: right; min-width: 160px;">Cancellation Rate</th>
                 <th style="text-align: right; min-width: 160px;">
-                    All-Time Returns
-                    <span class="info-tooltip" style="display: inline-flex; align-items: center; margin-left: 4px;">
-                        <span class="info-icon">i</span>
+                    <span class="info-tooltip">All-Time Returns<span class="info-icon">i</span>
                         <span class="tooltip-text">Average all-time returns across all portfolios created after 9/30/2024</span>
                     </span>
                 </th>
@@ -803,8 +789,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const titleContainer = document.createElement('h2');
         titleContainer.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
 
-        const portfolioTooltip = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        titleContainer.innerHTML = `<span class="info-tooltip">Portfolio Assets Breakdown<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Portfolio Assets Breakdown</strong>
                 <ul>
@@ -815,8 +800,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 Shows stock holdings from uploaded portfolio CSV files.
             </span>
         </span>`;
-
-        titleContainer.innerHTML = `Portfolio Assets Breakdown${portfolioTooltip}`;
         section.appendChild(titleContainer);
 
         const description = document.createElement('p');
@@ -990,11 +973,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const title = document.createElement('h2');
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
         title.textContent = 'Premium Portfolio Breakdown';
-        section.appendChild(title);
-
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        title.innerHTML = `<span class="info-tooltip">Premium Portfolio Breakdown<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Portfolio Breakdown</strong>
                 Portfolio-level conversion metrics for each premium creator's individual portfolios.
@@ -1008,10 +987,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 </ul>
             </span>
         </span>`;
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.innerHTML = tooltipHTML;
-        section.appendChild(tooltipSpan);
+        section.appendChild(title);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 0.5rem;';
@@ -1321,9 +1297,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right; min-width: 120px;">Liquidations</th>
                 <th style="text-align: right;">Liquidation Rate</th>
                 <th style="text-align: right;">
-                    All-Time Returns
-                    <span class="info-tooltip" style="display: inline-flex; align-items: center; margin-left: 4px;">
-                        <span class="info-icon">i</span>
+                    <span class="info-tooltip">All-Time Returns<span class="info-icon">i</span>
                         <span class="tooltip-text">All-time returns since 9/30/2024</span>
                     </span>
                 </th>
@@ -1451,13 +1425,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.style.marginTop = '3rem';
 
         const title = document.createElement('h1');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem; display: inline;';
-        title.textContent = 'Premium Creator Retention';
-        section.appendChild(title);
-
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem;';
+        title.innerHTML = `<span class="info-tooltip">Premium Creator Retention<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Retention</strong>
                 Monthly subscription renewal rates tracking user retention from initial subscription through 6 months.
@@ -1468,10 +1437,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 </ul>
             </span>
         </span>`;
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.innerHTML = tooltipHTML;
-        section.appendChild(tooltipSpan);
+        section.appendChild(title);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
@@ -1840,13 +1806,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.style.marginTop = '3rem';
 
         const title = document.createElement('h2');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-        title.textContent = 'Premium Creator Copy Affinity';
-        section.appendChild(title);
-
-        // Add tooltip
-        const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+        title.innerHTML = `<span class="info-tooltip">Premium Creator Copy Affinity<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Copy Affinity</strong>
                 Shows which other creators are most frequently copied by users who copied each Premium creator.
@@ -1861,10 +1822,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 </ul>
             </span>
         </span>`;
-
-        const tooltipSpan = document.createElement('span');
-        tooltipSpan.innerHTML = tooltipHTML;
-        section.appendChild(tooltipSpan);
+        section.appendChild(title);
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1rem;';
@@ -2936,8 +2894,10 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
             return;
         }
 
-        const driversTooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-            <span class="info-icon">i</span>
+        const driversSection = document.createElement('div');
+        driversSection.style.marginTop = '3rem';
+        driversSection.innerHTML = `
+            <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Top Subscription Drivers<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Top Subscription Drivers</strong>
                 Behavioral patterns and events that predict subscription conversions.
@@ -2950,12 +2910,7 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
                     <li><strong>Metrics:</strong> Correlation coefficients, t-statistics, predictive strength</li>
                 </ul>
             </span>
-        </span>`;
-
-        const driversSection = document.createElement('div');
-        driversSection.style.marginTop = '3rem';
-        driversSection.innerHTML = `
-            <h2 style="margin-top: 0; margin-bottom: 0.5rem; display: inline;">Top Subscription Drivers</h2>${driversTooltipHTML}
+        </span></h2>
             <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
         `;
 
