@@ -79,6 +79,9 @@ export async function checkAndHandleSkipSync(
   source: string,
   lookbackHours: number = 1
 ): Promise<Response | null> {
+  // TEMPORARILY DISABLED FOR TESTING - ALWAYS ALLOW SYNC
+  // UNCOMMENT THE CODE BELOW AFTER TESTING IS COMPLETE
+  /*
   const { shouldSkip, lastSyncTime } = await shouldSkipSync(supabase, source, lookbackHours)
 
   if (shouldSkip) {
@@ -96,7 +99,9 @@ export async function checkAndHandleSkipSync(
       }
     )
   }
+  */
 
+  console.log('⚠️ SKIP LOGIC TEMPORARILY DISABLED - ALWAYS ALLOWING SYNC')
   return null
 }
 

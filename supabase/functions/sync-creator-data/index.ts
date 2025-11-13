@@ -49,9 +49,8 @@ serve(async (req) => {
     console.log('Starting Creator enrichment sync...')
 
     // Check if sync should be skipped (within 1-hour window)
-    // TEMPORARILY COMMENTED OUT FOR TESTING - UNCOMMENT AFTER TESTING
-    // const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_profiles', 1)
-    // if (skipResponse) return skipResponse
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_profiles', 1)
+    if (skipResponse) return skipResponse
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'creator', 'mixpanel_user_profiles')
