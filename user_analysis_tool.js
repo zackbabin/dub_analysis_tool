@@ -1444,7 +1444,8 @@ function calculateSummaryStats(data) {
 
     const demographicKeys = [
         'income', 'netWorth', 'investingExperienceYears',
-        'investingActivity', 'investmentType', 'investingObjective'
+        'investingActivity', 'investmentType', 'investingObjective',
+        'acquisitionSurvey'
     ];
 
     const demographics = {};
@@ -1567,7 +1568,8 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         investingExperienceYears: row['Investing Experience Years'] || row['investingExperienceYears'] || '',
         investingActivity: row['Investing Activity'] || row['investingActivity'] || '',
         investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
-        investmentType: row['Investment Type'] || row['investmentType'] || ''
+        investmentType: row['Investment Type'] || row['investmentType'] || '',
+        acquisitionSurvey: row['Acquisition Survey'] || row['acquisitionSurvey'] || ''
     }));
 
     // Step 2: Dynamically add any new columns that weren't hardcoded above
@@ -1835,7 +1837,8 @@ function displayDemographicBreakdownInline(stats) {
         { key: 'investingExperienceYears', title: 'Investing Experience Years' },
         { key: 'investingActivity', title: 'Investing Activity' },
         { key: 'investmentType', title: 'Investment Type' },
-        { key: 'investingObjective', title: 'Investing Objective' }
+        { key: 'investingObjective', title: 'Investing Objective' },
+        { key: 'acquisitionSurvey', title: 'Acquisition Survey' }
     ];
 
     demographicConfigs.forEach(config => {
