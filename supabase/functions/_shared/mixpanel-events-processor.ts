@@ -76,13 +76,25 @@ export interface UserProfile {
 export function processEventsToUserProfiles(events: MixpanelEvent[]): UserProfile[] {
   console.log(`Processing ${events.length} events into user profiles...`)
 
-  // Step 1: Group events by distinct_id
+  // Step 1: Group events by distinct_id, user_id, or identified_id
   const userEventsMap = new Map<string, MixpanelEvent[]>()
 
   for (const event of events) {
-    const distinctId = event.properties.$distinct_id
+    // Check for any of the three user identifiers
+    const distinctId = event.properties.distinct_id
+      || event.properties.$distinct_id
+      || event.properties.user_id
+      || event.properties.$user_id
+      || event.properties.identified_id
+      || event.properties.$identified_id
+
     if (!distinctId) {
-      continue  // Skip events without distinct_id
+      continue  // Skip events without any identifier
+    }
+
+    // Skip device-only IDs (starting with $device:)
+    if (typeof distinctId === 'string' && distinctId.startsWith('$device:')) {
+      continue
     }
 
     if (!userEventsMap.has(distinctId)) {
