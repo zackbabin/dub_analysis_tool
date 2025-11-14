@@ -1,6 +1,6 @@
 /**
  * Mixpanel Event Processing Module
- * Processes raw events from Export API into user profiles for subscribers_insights_v2
+ * Processes raw events from Export API into user profiles for subscribers_insights
  *
  * Key differences from Insights API:
  * - Metrics are counted from events (not pre-aggregated)

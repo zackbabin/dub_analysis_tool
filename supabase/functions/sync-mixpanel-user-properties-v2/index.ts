@@ -186,7 +186,7 @@ async function updateUserPropertiesBatch(
 
     try {
       const { error, count } = await supabase
-        .from('subscribers_insights_v2')
+        .from('subscribers_insights')
         .upsert(batch, {
           onConflict: 'distinct_id',
           count: 'exact'

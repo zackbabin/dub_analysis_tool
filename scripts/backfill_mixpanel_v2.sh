@@ -89,4 +89,4 @@ done
 echo "✅ Backfill complete!"
 echo ""
 echo "To verify, run this SQL query:"
-echo "SELECT COUNT(*) as total_users, MAX(updated_at) as latest_sync FROM subscribers_insights_v2;"
+echo "SELECT COUNT(*) as total_users, MAX(updated_at) as latest_sync FROM subscribers_insights;"

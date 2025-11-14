@@ -99,10 +99,10 @@ serve(async (req) => {
         )
       }
 
-      // Fetch subscribers_insights_v2 for conversion outcomes
-      console.log('Fetching conversion outcomes from subscribers_insights_v2...')
+      // Fetch subscribers_insights for conversion outcomes
+      console.log('Fetching conversion outcomes from subscribers_insights...')
       const { data: subscribers, error: subscribersError } = await supabase
-        .from('subscribers_insights_v2')
+        .from('subscribers_insights')
         .select('distinct_id, total_copies, paywall_views, stripe_modal_views')
 
       if (subscribersError) {

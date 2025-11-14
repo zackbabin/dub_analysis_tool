@@ -1,6 +1,6 @@
 // Supabase Edge Function: sync-mixpanel-users-v2 (Event Export API - Streaming)
 // Streams events from Mixpanel Export API, processes incrementally to avoid memory issues
-// Processes events in chunks and upserts to subscribers_insights_v2
+// Processes events in chunks and upserts to subscribers_insights
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
