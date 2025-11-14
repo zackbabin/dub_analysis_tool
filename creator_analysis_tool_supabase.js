@@ -1380,35 +1380,30 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Load and display premium creator retention analysis
      */
     async loadAndDisplayPremiumCreatorRetention() {
-        try {
-            if (!this.supabaseIntegration) {
-                console.error('Supabase not configured');
-                return;
-            }
-
-            console.log('Loading premium creator retention...');
-
-            // Fetch retention data from Mixpanel via edge function
-            const retentionResponse = await this.supabaseIntegration.fetchCreatorRetention();
-
-            if (retentionResponse && retentionResponse.rawData) {
-                this.displayPremiumCreatorRetention(retentionResponse);
-            } else {
-                throw new Error('No retention data returned');
-            }
-        } catch (error) {
-            console.error('Error in loadAndDisplayPremiumCreatorRetention:', error);
-            const container = document.getElementById('premiumCreatorRetentionInline');
-            if (container) {
-                container.innerHTML = '<p style="color: #dc3545;">Failed to load creator retention data.</p>';
-            }
+        if (!this.supabaseIntegration) {
+            console.error('Supabase not configured');
+            return;
         }
+
+        const container = document.getElementById('premiumCreatorRetentionInline');
+
+        // Use UNIVERSAL resilient loading pattern
+        await this.supabaseIntegration.loadAndDisplayWithFallback({
+            syncFunction: async () => await this.supabaseIntegration.fetchCreatorRetention(),
+            loadFunction: async () => await this.supabaseIntegration.loadCreatorRetentionFromDatabase(),
+            dataLabel: 'creator retention',
+            container: container,
+            displayFunction: (data, syncFailed, container) => {
+                this.displayPremiumCreatorRetention(data, syncFailed);
+            },
+            emptyMessage: 'No retention data available yet. Click "Sync Live Data" to fetch.'
+        });
     }
 
     /**
      * Display premium creator retention analysis
      */
-    displayPremiumCreatorRetention(retentionData) {
+    displayPremiumCreatorRetention(retentionData, syncFailed = false) {
         const container = document.getElementById('premiumCreatorRetentionInline');
         if (!container) {
             console.error('❌ Container premiumCreatorRetentionInline not found!');
@@ -1423,6 +1418,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
+
+        // Show warning banner if sync failed but we're showing cached data
+        if (syncFailed) {
+            const warning = this.supabaseIntegration.createStaleDataWarning(
+                'Unable to refresh retention data from Mixpanel (rate limit or API error). Showing cached data from database.'
+            );
+            section.appendChild(warning);
+        }
 
         const title = document.createElement('h1');
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem;';

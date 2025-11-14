@@ -171,6 +171,104 @@ class SupabaseIntegration {
     }
 
     /**
+     * UNIVERSAL RESILIENT DATA LOADING PATTERN
+     * Use this for ALL sections across User Analysis, Creator Analysis, and Summary tabs
+     *
+     * This ensures data is ALWAYS displayed if available, even if sync/refresh fails.
+     * Pattern: Try sync → Load from DB → Show data (with warning if stale)
+     *
+     * @param {Object} config - Configuration object
+     * @param {Function} config.syncFunction - Async function to sync/refresh data (optional, can be null for DB-only loads)
+     * @param {Function} config.loadFunction - Async function to load data from database (required)
+     * @param {string} config.dataLabel - Label for logging (e.g., "creator retention", "subscription pricing")
+     * @param {HTMLElement} config.container - DOM container to display results
+     * @param {Function} config.displayFunction - Function to render the data (receives: data, syncFailed, container)
+     * @param {string} config.emptyMessage - Message to show when no data exists (optional)
+     * @returns {Promise<void>}
+     */
+    async loadAndDisplayWithFallback(config) {
+        const {
+            syncFunction = null,
+            loadFunction,
+            dataLabel,
+            container,
+            displayFunction,
+            emptyMessage = `No ${dataLabel} data available yet. Click "Sync Live Data" to fetch.`
+        } = config;
+
+        if (!container) {
+            console.error(`Container not provided for ${dataLabel}`);
+            return;
+        }
+
+        let syncFailed = false;
+        let syncError = null;
+
+        try {
+            // Step 1: Try to sync/refresh data (optional, non-blocking)
+            if (syncFunction) {
+                try {
+                    console.log(`🔄 Attempting to sync ${dataLabel}...`);
+                    await syncFunction();
+                    console.log(`✅ ${dataLabel} synced successfully`);
+                } catch (error) {
+                    syncFailed = true;
+                    syncError = error;
+                    console.warn(`⚠️ ${dataLabel} sync failed, will load from database:`, error.message);
+                }
+            } else {
+                console.log(`📊 Loading ${dataLabel} from database (no sync)...`);
+            }
+
+            // Step 2: Always load from database (regardless of sync success)
+            console.log(`📊 Loading ${dataLabel} from database...`);
+            const data = await loadFunction();
+            console.log(`✅ Loaded ${dataLabel} from database`);
+
+            // Step 3: Check if we have data
+            const hasData = data && (Array.isArray(data) ? data.length > 0 : Object.keys(data).length > 0);
+
+            if (!hasData) {
+                container.innerHTML = `<p style="color: #999;">${emptyMessage}</p>`;
+                return;
+            }
+
+            // Step 4: Display data with warning banner if sync failed
+            displayFunction(data, syncFailed, container);
+
+        } catch (error) {
+            console.error(`❌ Failed to load ${dataLabel}:`, error);
+            container.innerHTML = `<p style="color: #dc3545;">Failed to load ${dataLabel}: ${error.message}</p>`;
+        }
+    }
+
+    /**
+     * Create a warning banner for stale data
+     * @param {string} message - Warning message to display
+     * @returns {HTMLElement} Warning banner element
+     */
+    createStaleDataWarning(message) {
+        const warning = document.createElement('div');
+        warning.style.cssText = `
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            color: #856404;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        `;
+        warning.innerHTML = `
+            <span style="font-size: 18px;">⚠️</span>
+            <span>${message}</span>
+        `;
+        return warning;
+    }
+
+    /**
      * Invoke Supabase Edge Function with retry logic for cold starts
      * @param {string} functionName - Name of the edge function to invoke
      * @param {object} body - Request body
@@ -762,7 +860,7 @@ class SupabaseIntegration {
         console.log('Fetching creator retention data from Mixpanel...');
 
         try {
-            const { data, error } = await this.supabase.functions.invoke('fetch-creator-retention', {
+            const { data, error} = await this.supabase.functions.invoke('fetch-creator-retention', {
                 body: {}
             });
 
@@ -779,6 +877,38 @@ class SupabaseIntegration {
             return data;
         } catch (error) {
             console.error('Error calling fetch-creator-retention Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load creator retention data from database (materialized view)
+     * This loads cached data without calling Mixpanel API
+     */
+    async loadCreatorRetentionFromDatabase() {
+        console.log('Loading creator retention data from database...');
+
+        try {
+            const { data, error } = await this.supabase
+                .from('premium_creator_retention_analysis')
+                .select('*')
+                .order('cohort_date', { ascending: false });
+
+            if (error) {
+                console.error('Error loading retention data:', error);
+                throw error;
+            }
+
+            console.log(`✅ Loaded ${data.length} retention records from database`);
+
+            // Format to match the expected structure from API
+            return {
+                rawData: data,
+                success: true,
+                source: 'database'
+            };
+        } catch (error) {
+            console.error('Error loading retention from database:', error);
             throw error;
         }
     }
