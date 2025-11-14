@@ -351,7 +351,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         const section = document.createElement('div');
         section.className = 'qda-result-section';
-        section.style.marginTop = '2rem';
 
         // Add H1 title with tooltip - updated to include subscription analysis
         section.innerHTML = `<h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Premium Creator Analysis<span class="info-icon">i</span>
