@@ -201,6 +201,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             hour12: true
         });
 
+        // Remove any existing timestamp/data-scope elements first (prevent duplicates)
+        resultsDiv.querySelectorAll('.qda-timestamp').forEach(el => el.remove());
+        resultsDiv.querySelectorAll('.qda-data-scope').forEach(el => el.remove());
+
         // Add timestamp first (will be inserted at position 0)
         const timestamp = document.createElement('div');
         timestamp.className = 'qda-timestamp';
@@ -492,11 +496,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const resultsDiv = document.getElementById('creatorAnalysisResultsInline');
         if (!resultsDiv) return;
 
-        // Remove existing timestamp and data scope
-        const existingTimestamp = resultsDiv.querySelector('.qda-timestamp');
-        const existingDataScope = resultsDiv.querySelector('.qda-data-scope');
-        if (existingTimestamp) existingTimestamp.remove();
-        if (existingDataScope) existingDataScope.remove();
+        // Remove ALL existing timestamps and data scopes (not just first one)
+        resultsDiv.querySelectorAll('.qda-timestamp').forEach(el => el.remove());
+        resultsDiv.querySelectorAll('.qda-data-scope').forEach(el => el.remove());
 
         // Get the actual Mixpanel data refresh time from sync_logs
         const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
