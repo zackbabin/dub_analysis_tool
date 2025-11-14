@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-02'; // Update help text: clarify data scope for each tab
+const CURRENT_VERSION = '2025-11-14-03'; // Align Premium Creator Analysis H1 with other tabs
 
 class VersionChecker {
     constructor() {
