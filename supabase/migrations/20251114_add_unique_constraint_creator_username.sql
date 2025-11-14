@@ -198,9 +198,22 @@ BEGIN
   END LOOP;
 END $$;
 
--- Step 3: Add unique constraint on creator_username
-ALTER TABLE premium_creators
-ADD CONSTRAINT premium_creators_username_unique UNIQUE (creator_username);
+-- Step 3: Add unique constraint on creator_username (if it doesn't exist)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'premium_creators_username_unique'
+    AND conrelid = 'premium_creators'::regclass
+  ) THEN
+    ALTER TABLE premium_creators
+    ADD CONSTRAINT premium_creators_username_unique UNIQUE (creator_username);
+
+    RAISE NOTICE 'Added unique constraint premium_creators_username_unique';
+  ELSE
+    RAISE NOTICE 'Constraint premium_creators_username_unique already exists, skipping';
+  END IF;
+END $$;
 
 COMMENT ON CONSTRAINT premium_creators_username_unique ON premium_creators IS
 'Ensures only one creator_id per username. If a creator has multiple IDs in Mixpanel, we keep the 18-digit ID.';
