@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-07'; // Increase width of demographic tables + filter 0.0% in Acquisition Survey
+const CURRENT_VERSION = '2025-11-14-08'; // Fix: Force cache bypass on refresh (use timestamp query param)
 
 class VersionChecker {
     constructor() {
@@ -138,8 +138,10 @@ class VersionChecker {
         localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
         console.log('🚩 Set auto-refresh flag');
 
-        // Hard refresh to load new UI code
-        window.location.reload(true);
+        // Force cache bypass by adding timestamp query parameter
+        // Note: window.location.reload(true) is deprecated and doesn't work in modern browsers
+        const url = window.location.href.split('?')[0];
+        window.location.href = url + '?t=' + Date.now();
     }
 
     /**
