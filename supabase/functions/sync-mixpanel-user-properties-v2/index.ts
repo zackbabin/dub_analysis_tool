@@ -125,15 +125,38 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
         // Handle different field types
         if (dbColumn === 'linked_bank_account') {
           (row as any)[dbColumn] = value === 'true' || value === true
-        } else if (dbColumn.includes('count') || dbColumn.includes('total_') ||
-                   dbColumn === 'buying_power' || dbColumn === 'available_copy_credits' ||
-                   dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios') {
+        } else if (
+          // Explicitly defined string fields
+          dbColumn === 'income' ||
+          dbColumn === 'net_worth' ||
+          dbColumn === 'investing_activity' ||
+          dbColumn === 'investing_experience_years' ||
+          dbColumn === 'investing_objective' ||
+          dbColumn === 'investment_type' ||
+          dbColumn === 'acquisition_survey'
+        ) {
+          // String fields - keep as string
+          (row as any)[dbColumn] = String(value)
+        } else if (
           // Numeric fields
-          const parsed = parseFloat(value)
-          (row as any)[dbColumn] = isNaN(parsed) ? 0 : parsed
+          dbColumn.includes('count') ||
+          dbColumn.includes('total_') ||
+          dbColumn === 'buying_power' ||
+          dbColumn === 'available_copy_credits' ||
+          dbColumn === 'active_created_portfolios' ||
+          dbColumn === 'lifetime_created_portfolios' ||
+          dbColumn === 'app_sessions'
+        ) {
+          // Numeric fields - handle both number and string types
+          if (typeof value === 'number') {
+            (row as any)[dbColumn] = value
+          } else {
+            const parsed = Number(value)
+            (row as any)[dbColumn] = isNaN(parsed) ? 0 : parsed
+          }
         } else {
-          // String fields
-          (row as any)[dbColumn] = value
+          // Default: treat as string
+          (row as any)[dbColumn] = String(value)
         }
       }
 
