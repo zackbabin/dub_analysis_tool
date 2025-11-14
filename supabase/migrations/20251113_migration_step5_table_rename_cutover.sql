@@ -48,23 +48,19 @@ END $$;
 -- PERFORM THE CUTOVER
 -- ==============================================================================
 
--- Step 1: Rename old table to _v1_deprecated (backup)
-ALTER TABLE subscribers_insights RENAME TO subscribers_insights_v1_deprecated;
-RAISE NOTICE '✅ Renamed subscribers_insights → subscribers_insights_v1_deprecated';
+DO $$
+BEGIN
+  -- Step 1: Rename old table to _v1_deprecated (backup)
+  ALTER TABLE subscribers_insights RENAME TO subscribers_insights_v1_deprecated;
+  RAISE NOTICE '✅ Renamed subscribers_insights → subscribers_insights_v1_deprecated';
 
--- Step 2: Rename v2 to become the primary table
-ALTER TABLE subscribers_insights_v2 RENAME TO subscribers_insights;
-RAISE NOTICE '✅ Renamed subscribers_insights_v2 → subscribers_insights';
+  -- Step 2: Rename v2 to become the primary table
+  ALTER TABLE subscribers_insights_v2 RENAME TO subscribers_insights;
+  RAISE NOTICE '✅ Renamed subscribers_insights_v2 → subscribers_insights';
 
--- Step 3: Update constraint names to match (for consistency)
-ALTER TABLE subscribers_insights RENAME CONSTRAINT subscribers_insights_v2_pkey TO subscribers_insights_pkey;
-ALTER TABLE subscribers_insights RENAME CONSTRAINT subscribers_insights_v2_distinct_id_key TO subscribers_insights_distinct_id_key;
-RAISE NOTICE '✅ Updated constraint names';
-
--- Step 4: Update sequence ownership (if needed)
--- Note: v2 already has its own sequence, just rename it
-ALTER SEQUENCE subscribers_insights_v2_id_seq RENAME TO subscribers_insights_id_seq;
-RAISE NOTICE '✅ Renamed sequence';
+  -- Note: Keeping v2 constraint/sequence names as-is for simplicity
+  -- They'll be cleaned up when we delete the old table
+END $$;
 
 -- ==============================================================================
 -- POST-CUTOVER VERIFICATION
@@ -94,8 +90,11 @@ FROM pg_indexes
 WHERE tablename = 'subscribers_insights'
 ORDER BY indexname;
 
-RAISE NOTICE '✅ CUTOVER COMPLETE - subscribers_insights now points to v2 data';
-RAISE NOTICE '📋 Next steps:';
-RAISE NOTICE '  1. Run step 6 to verify indexes and constraints';
-RAISE NOTICE '  2. Run step 7 to test all edge functions';
-RAISE NOTICE '  3. Monitor for 7 days before deleting v1_deprecated backup';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ CUTOVER COMPLETE - subscribers_insights now points to v2 data';
+  RAISE NOTICE '📋 Next steps:';
+  RAISE NOTICE '  1. Run step 6 to verify indexes and constraints';
+  RAISE NOTICE '  2. Run step 7 to test all edge functions';
+  RAISE NOTICE '  3. Monitor for 7 days before deleting v1_deprecated backup';
+END $$;

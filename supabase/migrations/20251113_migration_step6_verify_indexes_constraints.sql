@@ -29,33 +29,41 @@ WHERE tablename = 'subscribers_insights'
 ORDER BY indexname;
 
 -- Expected indexes:
--- - subscribers_insights_pkey (PRIMARY KEY on id)
--- - subscribers_insights_distinct_id_key (UNIQUE on distinct_id)
--- - idx_subscribers_synced_at (on synced_at DESC)
+-- - subscribers_insights_v2_pkey (PRIMARY KEY on distinct_id)
+-- Note: Constraint names kept as v2 for simplicity
 
 -- Check 3: Verify critical indexes exist
 DO $$
+DECLARE
+  index_count INTEGER;
 BEGIN
   -- Primary key
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'subscribers_insights'
-    AND indexname = 'subscribers_insights_pkey'
-  ) THEN
+  SELECT COUNT(*) INTO index_count
+  FROM pg_indexes
+  WHERE tablename = 'subscribers_insights'
+  AND indexname LIKE '%pkey%';
+
+  IF index_count = 0 THEN
     RAISE EXCEPTION '❌ Missing PRIMARY KEY index on subscribers_insights';
   ELSE
     RAISE NOTICE '✅ PRIMARY KEY exists';
   END IF;
 
-  -- Unique constraint on distinct_id
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'subscribers_insights'
-    AND indexname = 'subscribers_insights_distinct_id_key'
-  ) THEN
-    RAISE EXCEPTION '❌ Missing UNIQUE index on distinct_id';
+  -- Verify distinct_id has a unique constraint (either as PK or separate unique index)
+  SELECT COUNT(*) INTO index_count
+  FROM pg_constraint
+  WHERE conrelid = 'subscribers_insights'::regclass
+  AND contype IN ('p', 'u')
+  AND 'distinct_id' = ANY(
+    SELECT attname FROM pg_attribute
+    WHERE attrelid = 'subscribers_insights'::regclass
+    AND attnum = ANY(conkey)
+  );
+
+  IF index_count = 0 THEN
+    RAISE EXCEPTION '❌ Missing UNIQUE constraint on distinct_id';
   ELSE
-    RAISE NOTICE '✅ UNIQUE index on distinct_id exists';
+    RAISE NOTICE '✅ UNIQUE constraint on distinct_id exists';
   END IF;
 END $$;
 
@@ -106,18 +114,11 @@ ORDER BY policyname;
 -- VERIFY SEQUENCE
 -- ==============================================================================
 
--- Check 7: Verify sequence exists and is linked
+-- Check 7: Verify sequence exists (v2 uses distinct_id as PK, no id column)
+-- Note: v2 doesn't use a sequence since distinct_id is the primary key (not auto-incrementing)
 SELECT
-  seq.relname as sequence_name,
-  tab.relname as table_name,
-  att.attname as column_name,
-  pg_get_serial_sequence('subscribers_insights', 'id') as sequence_link
-FROM pg_class seq
-JOIN pg_depend dep ON seq.oid = dep.objid
-JOIN pg_class tab ON dep.refobjid = tab.oid
-JOIN pg_attribute att ON att.attrelid = tab.oid AND att.attnum = dep.refobjsubid
-WHERE seq.relkind = 'S'
-AND tab.relname = 'subscribers_insights';
+  'subscribers_insights_v2' as note,
+  'No sequence needed - uses distinct_id as PRIMARY KEY' as status;
 
 -- ==============================================================================
 -- VERIFY TRIGGERS
@@ -161,10 +162,13 @@ FROM subscribers_insights_v1_deprecated;
 -- FINAL STATUS
 -- ==============================================================================
 
-RAISE NOTICE '✅ Index and constraint verification complete';
-RAISE NOTICE '📋 Review the query results above to ensure:';
-RAISE NOTICE '  1. All expected indexes exist';
-RAISE NOTICE '  2. PRIMARY KEY and UNIQUE constraints are in place';
-RAISE NOTICE '  3. RLS is enabled with correct policies';
-RAISE NOTICE '  4. Sequence is properly linked';
-RAISE NOTICE '  5. updated_at trigger exists';
+DO $$
+BEGIN
+  RAISE NOTICE '✅ Index and constraint verification complete';
+  RAISE NOTICE '📋 Review the query results above to ensure:';
+  RAISE NOTICE '  1. All expected indexes exist';
+  RAISE NOTICE '  2. PRIMARY KEY and UNIQUE constraints are in place';
+  RAISE NOTICE '  3. RLS is enabled with correct policies';
+  RAISE NOTICE '  4. No sequence needed (v2 uses distinct_id as PK)';
+  RAISE NOTICE '  5. updated_at trigger exists';
+END $$;

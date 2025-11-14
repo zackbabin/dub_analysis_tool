@@ -46,7 +46,6 @@ INSERT INTO subscribers_insights_v2 (
   app_sessions,
   creator_card_taps,
   portfolio_card_taps,
-  synced_at,
   updated_at
 )
 SELECT
@@ -54,7 +53,7 @@ SELECT
   v1.income,
   v1.net_worth,
   v1.investing_activity,
-  v1.investing_experience_years,
+  v1.investing_experience_years::text, -- Cast to text for v2 column type
   v1.investing_objective,
   v1.investment_type,
   v1.acquisition_survey,
@@ -80,7 +79,6 @@ SELECT
   v1.app_sessions,
   v1.creator_card_taps,
   v1.portfolio_card_taps,
-  v1.synced_at,
   v1.updated_at
 FROM subscribers_insights v1
 LEFT JOIN subscribers_insights_v2 v2 ON v1.distinct_id = v2.distinct_id
