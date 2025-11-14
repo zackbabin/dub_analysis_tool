@@ -1771,9 +1771,9 @@ function displayDemographicBreakdownInline(stats) {
     resultSection.appendChild(title);
 
     const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;';
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;';
 
-    const createBreakdownTable = (titleText, data, totalResponses) => {
+    const createBreakdownTable = (titleText, data, totalResponses, isAcquisitionSurvey = false) => {
         const tableContainer = document.createElement('div');
         tableContainer.style.maxWidth = '320px';
 
@@ -1801,6 +1801,40 @@ function displayDemographicBreakdownInline(stats) {
                 count: data[category],
                 percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
             }));
+
+        // Special handling for Acquisition Survey: aggregate all "Other" responses
+        if (isAcquisitionSurvey) {
+            const otherItems = dataArray.filter(item =>
+                item.category.toLowerCase().includes('other')
+            );
+            const nonOtherItems = dataArray.filter(item =>
+                !item.category.toLowerCase().includes('other')
+            );
+
+            if (otherItems.length > 0) {
+                // Calculate total count and percentage for all "Other" items
+                const totalOtherCount = otherItems.reduce((sum, item) => sum + item.count, 0);
+                const totalOtherPercentage = totalResponses > 0 ? (totalOtherCount / totalResponses) * 100 : 0;
+
+                // Get top 5 "Other" responses by count
+                const sortedOtherItems = [...otherItems].sort((a, b) => b.count - a.count);
+                const top5Other = sortedOtherItems.slice(0, 5).map(item => {
+                    // Extract the actual response text after "Other - "
+                    const match = item.category.match(/Other\s*-\s*(.+)/i);
+                    return match ? match[1].trim() : item.category;
+                });
+
+                // Create aggregated "Other" row
+                const aggregatedOther = {
+                    category: `Other - ${top5Other.join(', ')}`,
+                    count: totalOtherCount,
+                    percentage: totalOtherPercentage
+                };
+
+                // Combine non-Other items with aggregated Other
+                dataArray = [...nonOtherItems, aggregatedOther];
+            }
+        }
 
         dataArray.sort((a, b) => b.percentage - a.percentage);
 
@@ -1837,7 +1871,8 @@ function displayDemographicBreakdownInline(stats) {
         createBreakdownTable(
             config.title,
             stats[config.key + 'Breakdown'],
-            stats[config.key + 'TotalResponses']
+            stats[config.key + 'TotalResponses'],
+            config.key === 'acquisitionSurvey' // Pass true for Acquisition Survey
         );
     });
 
