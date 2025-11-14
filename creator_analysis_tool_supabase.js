@@ -210,7 +210,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
+        dataScope.textContent = 'Data from Freemium users in the last 60 days';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
 
         resultsDiv.style.display = 'block';
@@ -521,7 +521,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'Data from users in the last 6 months and portfolios created after 9/30/2024';
+        dataScope.textContent = 'Data from Freemium users in the last 60 days';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
     }
 
