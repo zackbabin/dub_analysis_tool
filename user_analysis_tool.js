@@ -1723,13 +1723,8 @@ function displaySummaryStatsInline(stats) {
     resultSection.className = 'qda-result-section';
 
     const title = document.createElement('h1');
-    title.textContent = 'Summary Statistics';
-    title.style.cssText = 'margin-bottom: 0.25rem; display: inline;';
-    resultSection.appendChild(title);
-
-    // Add tooltip with Mixpanel chart link
-    const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-        <span class="info-icon">i</span>
+    title.style.cssText = 'margin-bottom: 0.25rem;';
+    title.innerHTML = `<span class="info-tooltip">Summary Statistics<span class="info-icon">i</span>
         <span class="tooltip-text">
             <strong>Summary Statistics</strong>
             High-level conversion metrics and user behavior across the entire platform.
@@ -1740,10 +1735,7 @@ function displaySummaryStatsInline(stats) {
             </ul>
         </span>
     </span>`;
-
-    const tooltipSpan = document.createElement('span');
-    tooltipSpan.innerHTML = tooltipHTML;
-    resultSection.appendChild(tooltipSpan);
+    resultSection.appendChild(title);
 
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';
