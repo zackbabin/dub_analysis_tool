@@ -1595,7 +1595,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Variable - convert camelCase to readable format
             const varCell = document.createElement('td');
-            const readableVar = item.variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            // Handle acronyms (consecutive capitals) specially to avoid "P D P" → keep as "PDP"
+            const readableVar = item.variable
+                .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // Split before last capital in acronym
+                .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
+                .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
             varCell.textContent = readableVar;
             row.appendChild(varCell);
 

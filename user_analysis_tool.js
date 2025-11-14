@@ -1533,6 +1533,7 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
 
         // Behavioral / Engagement Metrics
         totalRegularCopies: cleanNumeric(row['Total Regular Copies'] || row['F. Total Regular Copies']),
+        totalPremiumCopies: cleanNumeric(row['Total Premium Copies'] || row['G. Total Premium Copies']),
         uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
         uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
 
