@@ -4,8 +4,22 @@
 # Backfills 90 days of data in 7-day chunks
 
 # Configuration
-SUPABASE_URL="https://rnpfeblxapdafrbmomix.supabase.co"
-SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMyMzA2MiwiZXhwIjoyMDc0ODk5MDYyfQ.YNVjIXxAtlTjHyK9LAGqgJ7H_4USPB0exYVxlwvoYb4"
+# Load from environment variables
+SUPABASE_URL="${SUPABASE_URL:-https://rnpfeblxapdafrbmomix.supabase.co}"
+
+# Check for required SERVICE_ROLE_KEY
+if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+  echo "❌ Error: SUPABASE_SERVICE_ROLE_KEY environment variable is not set"
+  echo ""
+  echo "Please set it before running this script:"
+  echo "  export SUPABASE_SERVICE_ROLE_KEY='your-service-role-key'"
+  echo ""
+  echo "You can find your service role key in:"
+  echo "  Supabase Dashboard → Project Settings → API → service_role key"
+  exit 1
+fi
+
+SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY"
 FUNCTION_URL="${SUPABASE_URL}/functions/v1/sync-mixpanel-user-events"
 
 # Calculate dates (90 days back from yesterday)
