@@ -191,13 +191,13 @@ serve(async (req) => {
       console.log(`✓ Creator pairs upsert complete: ${creatorCount} records`)
 
       // IMPORTANT: Trigger refresh IMMEDIATELY after upserts complete
-      console.log('Triggering refresh-engagement-views function...')
+      console.log('Triggering refresh-materialized-views function...')
       const supabaseUrl = Deno.env.get('SUPABASE_URL')
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
       if (supabaseUrl && supabaseServiceKey) {
         // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/refresh-engagement-views`, {
+        fetch(`${supabaseUrl}/functions/v1/refresh-materialized-views`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${supabaseServiceKey}`,
@@ -205,7 +205,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
         }).catch((err) => {
-          console.error('⚠️ Failed to trigger refresh-engagement-views:', err.message)
+          console.error('⚠️ Failed to trigger refresh-materialized-views:', err.message)
         })
         console.log('✓ Refresh function triggered in background')
       } else {

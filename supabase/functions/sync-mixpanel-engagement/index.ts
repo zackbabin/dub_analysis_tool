@@ -1,6 +1,6 @@
 // Supabase Edge Function: sync-mixpanel-engagement
 // Part 1 of 4: Fetches raw data from Mixpanel and stores in Storage bucket
-// Triggers process-portfolio-engagement → process-creator-engagement → refresh-engagement-views
+// Triggers process-portfolio-engagement → process-creator-engagement → refresh-materialized-views
 // This separation prevents timeout by splitting work across multiple functions with separate CPU quotas
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
