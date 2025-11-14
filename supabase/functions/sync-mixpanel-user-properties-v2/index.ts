@@ -178,7 +178,7 @@ async function updateUserPropertiesBatch(
 ): Promise<number> {
   console.log(`Starting bulk upsert of ${users.length} users...`)
 
-  const BATCH_SIZE = 1000
+  const BATCH_SIZE = 250 // Reduced from 1000 to avoid statement timeout
   let totalUpserted = 0
 
   for (let i = 0; i < users.length; i += BATCH_SIZE) {
