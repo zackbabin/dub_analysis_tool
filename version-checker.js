@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-08'; // Fix: Force cache bypass on refresh (use timestamp query param)
+const CURRENT_VERSION = '2025-11-14-09'; // Fix: Always check server version first to avoid infinite toast loop
 
 class VersionChecker {
     constructor() {
@@ -19,8 +19,8 @@ class VersionChecker {
      * Start periodic version checking
      */
     startPeriodicCheck() {
-        // Initial check
-        this.checkVersion();
+        // Initial check - ALWAYS fetch from server first to avoid cached version-checker.js issues
+        this.checkVersionFromServer();
 
         // Check periodically
         this.intervalId = setInterval(() => {
@@ -48,10 +48,16 @@ class VersionChecker {
                 const serverVersion = match[1];
                 const cachedVersion = localStorage.getItem(this.storageKey);
 
-                if (cachedVersion && cachedVersion !== serverVersion) {
+                if (!cachedVersion) {
+                    // First time visitor - save server version
+                    console.log(`📦 First visit - saving version ${serverVersion}`);
+                    localStorage.setItem(this.storageKey, serverVersion);
+                } else if (cachedVersion !== serverVersion) {
                     console.log(`📦 Version update detected: cached=${cachedVersion}, server=${serverVersion}`);
                     this.showUpdateNotification();
                     clearInterval(this.intervalId); // Stop checking once notified
+                } else {
+                    console.log(`✅ Version up to date: ${serverVersion}`);
                 }
             }
         } catch (error) {
@@ -60,8 +66,8 @@ class VersionChecker {
     }
 
     /**
-     * Check if the user's cached version matches the current deployed version
-     * If mismatch, show update notification
+     * DEPRECATED: This function uses CURRENT_VERSION from potentially cached file
+     * Use checkVersionFromServer() instead to avoid infinite toast loops
      */
     checkVersion() {
         const cachedVersion = localStorage.getItem(this.storageKey);
@@ -127,21 +133,36 @@ class VersionChecker {
     /**
      * Refresh the page and update stored version
      */
-    refreshPage() {
-        console.log(`🔄 Refreshing page to version ${CURRENT_VERSION}`);
+    async refreshPage() {
+        // Fetch the latest version from server first
+        try {
+            const response = await fetch(`version-checker.js?t=${Date.now()}`);
+            const content = await response.text();
+            const match = content.match(/const CURRENT_VERSION = ['"]([^'"]+)['"]/);
 
-        // Update version
-        localStorage.setItem(this.storageKey, CURRENT_VERSION);
+            if (match && match[1]) {
+                const serverVersion = match[1];
+                console.log(`🔄 Refreshing page to version ${serverVersion}`);
 
-        // Set flag to trigger automatic data refresh after page load
-        // Note: We do NOT clear cache here - we want to show cached UI while refreshing
-        localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
-        console.log('🚩 Set auto-refresh flag');
+                // Update to server version (not cached CURRENT_VERSION)
+                localStorage.setItem(this.storageKey, serverVersion);
 
-        // Force cache bypass by adding timestamp query parameter
-        // Note: window.location.reload(true) is deprecated and doesn't work in modern browsers
-        const url = window.location.href.split('?')[0];
-        window.location.href = url + '?t=' + Date.now();
+                // Set flag to trigger automatic data refresh after page load
+                localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
+                console.log('🚩 Set auto-refresh flag');
+
+                // Force cache bypass by adding timestamp query parameter
+                const url = window.location.href.split('?')[0];
+                window.location.href = url + '?t=' + Date.now();
+            }
+        } catch (error) {
+            console.error('Error fetching server version:', error);
+            // Fallback to old behavior
+            localStorage.setItem(this.storageKey, CURRENT_VERSION);
+            localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
+            const url = window.location.href.split('?')[0];
+            window.location.href = url + '?t=' + Date.now();
+        }
     }
 
     /**
