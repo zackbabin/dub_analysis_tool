@@ -1,8 +1,77 @@
 -- Migration: Add unique constraint on creator_username in premium_creators table
 -- This ensures only ONE creator_id per username in the database
--- Merges data from duplicate creator_ids (e.g., @dubAdvisors: 118 → 211855351476994048)
+-- Handles two deduplication scenarios:
+--   1. Same username with multiple creator_ids (e.g., @dubAdvisors: 118 → 211855351476994048)
+--   2. Same creator_id with multiple usernames (prefer username with most engagement)
 
--- Step 1: Merge data from duplicate creator_ids (prefer 18-digit IDs)
+-- Step 1: Handle same creator_id with multiple usernames
+-- Keep the username that appears most in user_portfolio_creator_engagement (most engagement)
+DO $$
+DECLARE
+  duplicate_creator_id TEXT;
+  kept_username TEXT;
+  old_usernames TEXT[];
+  old_username TEXT;
+BEGIN
+  -- Find creator_ids with multiple usernames
+  FOR duplicate_creator_id, kept_username, old_usernames IN
+    SELECT
+      creator_id,
+      -- Keep the username with most engagement (most rows in user_portfolio_creator_engagement)
+      (SELECT creator_username
+       FROM (
+         SELECT uce.creator_username, COUNT(*) as engagement_count
+         FROM user_portfolio_creator_engagement uce
+         WHERE uce.creator_id = pc.creator_id
+         GROUP BY uce.creator_username
+         ORDER BY engagement_count DESC
+         LIMIT 1
+       ) sub
+      ) as kept_username,
+      ARRAY_AGG(creator_username) as all_usernames
+    FROM premium_creators pc
+    GROUP BY creator_id
+    HAVING COUNT(*) > 1
+  LOOP
+    RAISE NOTICE 'Consolidating creator_id %: usernames [%], keeping %',
+      duplicate_creator_id,
+      ARRAY_TO_STRING(old_usernames, ', '),
+      kept_username;
+
+    -- Update all engagement tables to use the kept username
+    FOREACH old_username IN ARRAY old_usernames
+    LOOP
+      IF old_username != kept_username THEN
+        -- Update user_portfolio_creator_engagement
+        UPDATE user_portfolio_creator_engagement
+        SET creator_username = kept_username
+        WHERE creator_id = duplicate_creator_id
+          AND creator_username = old_username;
+
+        -- Update user_creator_engagement
+        UPDATE user_creator_engagement
+        SET creator_username = kept_username
+        WHERE creator_id = duplicate_creator_id
+          AND creator_username = old_username;
+
+        -- Update portfolio_creator_copy_metrics
+        UPDATE portfolio_creator_copy_metrics
+        SET creator_username = kept_username
+        WHERE creator_id = duplicate_creator_id
+          AND creator_username = old_username;
+
+        -- Delete old username from premium_creators
+        DELETE FROM premium_creators
+        WHERE creator_id = duplicate_creator_id
+          AND creator_username = old_username;
+
+        RAISE NOTICE '  ✅ Consolidated % to %', old_username, kept_username;
+      END IF;
+    END LOOP;
+  END LOOP;
+END $$;
+
+-- Step 2: Merge data from duplicate creator_ids (prefer 18-digit IDs)
 DO $$
 DECLARE
   duplicate_username TEXT;
@@ -129,14 +198,14 @@ BEGIN
   END LOOP;
 END $$;
 
--- Step 2: Add unique constraint on creator_username
+-- Step 3: Add unique constraint on creator_username
 ALTER TABLE premium_creators
 ADD CONSTRAINT premium_creators_username_unique UNIQUE (creator_username);
 
 COMMENT ON CONSTRAINT premium_creators_username_unique ON premium_creators IS
 'Ensures only one creator_id per username. If a creator has multiple IDs in Mixpanel, we keep the 18-digit ID.';
 
--- Step 3: Verify results
+-- Step 4: Verify results
 SELECT
   'After deduplication' as status,
   COUNT(*) as total_rows,

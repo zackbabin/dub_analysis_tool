@@ -460,30 +460,41 @@ function processPremiumCreatorsData(data: any): any[] {
     const keys = Object.keys(usernameData as any)
     console.log(`Processing ${creatorUsername}, found keys:`, keys)
 
-    // Collect ALL numeric creator IDs for this username
-    const creatorIds: string[] = []
+    // Collect ALL numeric creator IDs for this username with their metric values
+    const creatorIdsWithMetrics: Array<{ id: string, metricValue: number }> = []
 
     for (const [key, value] of Object.entries(usernameData as any)) {
       // Creator IDs are numeric strings, skip $overall and other non-numeric keys
       if (key !== '$overall' && /^\d+$/.test(key)) {
-        creatorIds.push(key)
+        // Extract metric value (should be in value.all or just value)
+        let metricValue = 0
+        if (typeof value === 'object' && value !== null && 'all' in value) {
+          metricValue = Number(value.all) || 0
+        } else {
+          metricValue = Number(value) || 0
+        }
+        creatorIdsWithMetrics.push({ id: key, metricValue })
       }
     }
 
     // Select creator_id (or use username as fallback if no numeric ID found)
     let selectedCreatorId: string
+    let metricValue = 0
 
-    if (creatorIds.length > 0) {
+    if (creatorIdsWithMetrics.length > 0) {
       // If multiple creator IDs exist, prioritize 18-digit IDs
-      if (creatorIds.length > 1) {
+      if (creatorIdsWithMetrics.length > 1) {
         // Prefer 18-digit IDs
-        const longIds = creatorIds.filter(id => id.length >= 18)
-        selectedCreatorId = longIds.length > 0 ? longIds[0] : creatorIds[0]
-        console.log(`ℹ️ ${creatorUsername} has multiple IDs: [${creatorIds.join(', ')}], selected: ${selectedCreatorId}`)
+        const longIds = creatorIdsWithMetrics.filter(item => item.id.length >= 18)
+        const selected = longIds.length > 0 ? longIds[0] : creatorIdsWithMetrics[0]
+        selectedCreatorId = selected.id
+        metricValue = selected.metricValue
+        console.log(`ℹ️ ${creatorUsername} has multiple IDs: [${creatorIdsWithMetrics.map(i => i.id).join(', ')}], selected: ${selectedCreatorId}`)
       } else {
-        selectedCreatorId = creatorIds[0]
+        selectedCreatorId = creatorIdsWithMetrics[0].id
+        metricValue = creatorIdsWithMetrics[0].metricValue
       }
-      console.log(`✅ Added ${creatorUsername} with creator_id ${selectedCreatorId}`)
+      console.log(`✅ Added ${creatorUsername} with creator_id ${selectedCreatorId}, metric: ${metricValue}`)
     } else {
       // No numeric creator_id found - use username as fallback
       // This ensures we don't skip ANY premium creators from Mixpanel
@@ -496,15 +507,19 @@ function processPremiumCreatorsData(data: any): any[] {
     rows.push({
       creator_id: String(selectedCreatorId),
       creator_username: String(creatorUsername),
+      metric_value: metricValue,
       synced_at: now,
     })
   }
 
-  // Deduplicate by creator_username - keep ONE creator_id per username
-  // Prefer 18-digit IDs when multiple IDs exist for same username
-  const usernameToRows = new Map<string, any[]>()
+  // Two-phase deduplication:
+  // 1. Deduplicate by creator_username - keep ONE creator_id per username (prefer 18-digit IDs)
+  // 2. Deduplicate by creator_id - keep ONE username per ID (prefer highest metric value)
 
-  // Group rows by username
+  console.log(`Starting deduplication: ${rows.length} total rows`)
+
+  // Phase 1: Deduplicate by username
+  const usernameToRows = new Map<string, any[]>()
   for (const row of rows) {
     if (!usernameToRows.has(row.creator_username)) {
       usernameToRows.set(row.creator_username, [])
@@ -512,25 +527,55 @@ function processPremiumCreatorsData(data: any): any[] {
     usernameToRows.get(row.creator_username)!.push(row)
   }
 
-  // Select ONE row per username (prefer 18-digit IDs)
-  const deduplicatedRows: any[] = []
+  const dedupedByUsername: any[] = []
   for (const [username, userRows] of usernameToRows.entries()) {
     if (userRows.length === 1) {
-      deduplicatedRows.push(userRows[0])
+      dedupedByUsername.push(userRows[0])
     } else {
       // Multiple creator_ids for same username - prefer 18-digit ID
       const longIdRows = userRows.filter(r => r.creator_id.length >= 18)
       const selectedRow = longIdRows.length > 0 ? longIdRows[0] : userRows[0]
 
       const allIds = userRows.map(r => r.creator_id).join(', ')
-      console.log(`⚠️ Deduping ${username}: found IDs [${allIds}], selected ${selectedRow.creator_id}`)
-      deduplicatedRows.push(selectedRow)
+      console.log(`⚠️ Deduping by username ${username}: found IDs [${allIds}], selected ${selectedRow.creator_id}`)
+      dedupedByUsername.push(selectedRow)
     }
   }
 
-  console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by username)`)
-  console.log('Final premium creators:', deduplicatedRows.map(r => r.creator_username).join(', '))
-  return deduplicatedRows
+  console.log(`After username dedup: ${dedupedByUsername.length} rows`)
+
+  // Phase 2: Deduplicate by creator_id (same ID with multiple usernames)
+  const idToRows = new Map<string, any[]>()
+  for (const row of dedupedByUsername) {
+    if (!idToRows.has(row.creator_id)) {
+      idToRows.set(row.creator_id, [])
+    }
+    idToRows.get(row.creator_id)!.push(row)
+  }
+
+  const finalRows: any[] = []
+  for (const [creatorId, idRows] of idToRows.entries()) {
+    if (idRows.length === 1) {
+      // Remove metric_value before pushing (not a DB column)
+      const { metric_value, ...rowWithoutMetric } = idRows[0]
+      finalRows.push(rowWithoutMetric)
+    } else {
+      // Multiple usernames for same creator_id - prefer username with highest metric value
+      const sortedByMetric = [...idRows].sort((a, b) => b.metric_value - a.metric_value)
+      const selectedRow = sortedByMetric[0]
+
+      const allUsernames = idRows.map(r => `${r.creator_username}(${r.metric_value})`).join(', ')
+      console.log(`⚠️ Deduping by creator_id ${creatorId}: found usernames [${allUsernames}], selected ${selectedRow.creator_username} with metric ${selectedRow.metric_value}`)
+
+      // Remove metric_value before pushing (not a DB column)
+      const { metric_value, ...rowWithoutMetric } = selectedRow
+      finalRows.push(rowWithoutMetric)
+    }
+  }
+
+  console.log(`Processed ${rows.length} premium creators from Mixpanel (${finalRows.length} after deduplication)`)
+  console.log('Final premium creators:', finalRows.map(r => r.creator_username).join(', '))
+  return finalRows
 }
 
 
