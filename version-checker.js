@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-12'; // Update data scope text for Portfolio and Premium Creator tabs
+const CURRENT_VERSION = '2025-11-14-13'; // Fix demographic table layout: 2 rows (4 cols + 3 cols), filter Acquisition Survey < 0.1%
 
 class VersionChecker {
     constructor() {

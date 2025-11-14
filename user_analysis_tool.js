@@ -1771,12 +1771,16 @@ function displayDemographicBreakdownInline(stats) {
     title.textContent = 'Demographic Breakdown';
     resultSection.appendChild(title);
 
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;';
+    // First row: 4-column grid for first 4 tables
+    const grid1 = document.createElement('div');
+    grid1.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;';
 
-    const createBreakdownTable = (titleText, data, totalResponses, isAcquisitionSurvey = false, maxWidth = '320px') => {
+    // Second row: 3-column grid for last 3 tables
+    const grid2 = document.createElement('div');
+    grid2.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;';
+
+    const createBreakdownTable = (titleText, data, totalResponses, isAcquisitionSurvey = false, targetGrid = grid1) => {
         const tableContainer = document.createElement('div');
-        tableContainer.style.maxWidth = maxWidth;
 
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
@@ -1836,8 +1840,8 @@ function displayDemographicBreakdownInline(stats) {
                 dataArray = [...nonOtherItems, aggregatedOther];
             }
 
-            // Filter out items with 0.0% for Acquisition Survey
-            dataArray = dataArray.filter(item => item.percentage > 0);
+            // Filter out items with less than 0.1% for Acquisition Survey
+            dataArray = dataArray.filter(item => item.percentage >= 0.1);
         }
 
         dataArray.sort((a, b) => b.percentage - a.percentage);
@@ -1858,30 +1862,46 @@ function displayDemographicBreakdownInline(stats) {
         tableWrapper.appendChild(table);
 
         tableContainer.appendChild(tableWrapper);
-        grid.appendChild(tableContainer);
+        targetGrid.appendChild(tableContainer);
     };
 
-    const demographicConfigs = [
-        { key: 'income', title: 'Income', width: '320px' },
-        { key: 'netWorth', title: 'Net Worth', width: '320px' },
-        { key: 'investingExperienceYears', title: 'Investing Experience Years', width: '320px' },
-        { key: 'investingActivity', title: 'Investing Activity', width: '320px' },
-        { key: 'investmentType', title: 'Investment Type', width: '400px' },
-        { key: 'investingObjective', title: 'Investing Objective', width: '400px' },
-        { key: 'acquisitionSurvey', title: 'Acquisition Survey', width: '500px' }
+    // First 4 tables go in grid1 (4-column layout)
+    const row1Configs = [
+        { key: 'income', title: 'Income' },
+        { key: 'netWorth', title: 'Net Worth' },
+        { key: 'investingExperienceYears', title: 'Investing Experience Years' },
+        { key: 'investingActivity', title: 'Investing Activity' }
     ];
 
-    demographicConfigs.forEach(config => {
+    // Last 3 tables go in grid2 (3-column layout)
+    const row2Configs = [
+        { key: 'investmentType', title: 'Investment Type' },
+        { key: 'investingObjective', title: 'Investing Objective' },
+        { key: 'acquisitionSurvey', title: 'Acquisition Survey' }
+    ];
+
+    row1Configs.forEach(config => {
         createBreakdownTable(
             config.title,
             stats[config.key + 'Breakdown'],
             stats[config.key + 'TotalResponses'],
-            config.key === 'acquisitionSurvey', // Pass true for Acquisition Survey
-            config.width // Pass custom width
+            false, // Not Acquisition Survey
+            grid1  // First row grid
         );
     });
 
-    resultSection.appendChild(grid);
+    row2Configs.forEach(config => {
+        createBreakdownTable(
+            config.title,
+            stats[config.key + 'Breakdown'],
+            stats[config.key + 'TotalResponses'],
+            config.key === 'acquisitionSurvey', // True only for Acquisition Survey
+            grid2  // Second row grid
+        );
+    });
+
+    resultSection.appendChild(grid1);
+    resultSection.appendChild(grid2);
     container.appendChild(resultSection);
 }
 
