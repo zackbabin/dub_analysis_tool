@@ -133,11 +133,8 @@ class VersionChecker {
         // Update version
         localStorage.setItem(this.storageKey, CURRENT_VERSION);
 
-        // Clear cached analysis results to force fresh data fetch
-        localStorage.removeItem('dubAnalysisResults');
-        console.log('🗑️ Cleared cached analysis results');
-
         // Set flag to trigger automatic data refresh after page load
+        // Note: We do NOT clear cache here - we want to show cached UI while refreshing
         localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
         console.log('🚩 Set auto-refresh flag');
 
