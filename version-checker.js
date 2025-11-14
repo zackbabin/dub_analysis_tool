@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-10'; // Fix: Clear browser caches before reload + use location.replace
+const CURRENT_VERSION = '2025-11-14-11'; // Fix: Pre-fetch all JS files with cache-busting before reload
 
 class VersionChecker {
     constructor() {
@@ -159,9 +159,33 @@ class VersionChecker {
                     console.log(`✅ Cleared ${cacheNames.length} caches`);
                 }
 
-                // Force hard reload using location.replace with cache-bust timestamp
+                // Pre-fetch all JavaScript files with cache-busting to force fresh downloads
+                const cacheBust = Date.now();
+                const jsFiles = [
+                    'csv_utils.js',
+                    'analysis_utils.js',
+                    'supabase_integration.js',
+                    'user_analysis_tool.js',
+                    'user_analysis_tool_supabase.js',
+                    'creator_analysis_tool.js',
+                    'creator_analysis_tool_supabase.js',
+                    'business-model-analysis.js',
+                    'crypto-analysis.js'
+                ];
+
+                console.log('📥 Pre-fetching fresh JavaScript files...');
+                await Promise.all(
+                    jsFiles.map(file =>
+                        fetch(`${file}?cb=${cacheBust}`, { cache: 'reload' })
+                            .then(() => console.log(`✓ ${file}`))
+                            .catch(err => console.warn(`✗ ${file}:`, err))
+                    )
+                );
+                console.log('✅ All files pre-fetched with fresh content');
+
+                // Now reload - browser should use the freshly fetched files
                 const url = window.location.href.split('?')[0];
-                window.location.replace(url + '?cb=' + Date.now());
+                window.location.replace(url + '?cb=' + cacheBust);
             }
         } catch (error) {
             console.error('Error fetching server version:', error);
