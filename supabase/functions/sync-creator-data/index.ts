@@ -470,9 +470,11 @@ function processPremiumCreatorsData(data: any): any[] {
       }
     }
 
+    // Select creator_id (or use username as fallback if no numeric ID found)
+    let selectedCreatorId: string
+
     if (creatorIds.length > 0) {
       // If multiple creator IDs exist, prioritize 18-digit IDs
-      let selectedCreatorId: string
       if (creatorIds.length > 1) {
         // Prefer 18-digit IDs
         const longIds = creatorIds.filter(id => id.length >= 18)
@@ -481,38 +483,52 @@ function processPremiumCreatorsData(data: any): any[] {
       } else {
         selectedCreatorId = creatorIds[0]
       }
-
-      rows.push({
-        creator_id: String(selectedCreatorId),
-        creator_username: String(creatorUsername),
-        synced_at: now,
-      })
       console.log(`✅ Added ${creatorUsername} with creator_id ${selectedCreatorId}`)
     } else {
-      console.log(`⚠️ No valid creator_id found for ${creatorUsername}`)
+      // No numeric creator_id found - use username as fallback
+      // This ensures we don't skip ANY premium creators from Mixpanel
+      selectedCreatorId = creatorUsername
+      console.log(`⚠️ No numeric creator_id found for ${creatorUsername}`)
       console.log(`⚠️ Available keys:`, keys)
-      console.log(`⚠️ This creator will be SKIPPED - check Mixpanel data structure!`)
+      console.log(`⚠️ Using username as creator_id fallback`)
+    }
+
+    rows.push({
+      creator_id: String(selectedCreatorId),
+      creator_username: String(creatorUsername),
+      synced_at: now,
+    })
+  }
+
+  // Deduplicate by creator_username - keep ONE creator_id per username
+  // Prefer 18-digit IDs when multiple IDs exist for same username
+  const usernameToRows = new Map<string, any[]>()
+
+  // Group rows by username
+  for (const row of rows) {
+    if (!usernameToRows.has(row.creator_username)) {
+      usernameToRows.set(row.creator_username, [])
+    }
+    usernameToRows.get(row.creator_username)!.push(row)
+  }
+
+  // Select ONE row per username (prefer 18-digit IDs)
+  const deduplicatedRows: any[] = []
+  for (const [username, userRows] of usernameToRows.entries()) {
+    if (userRows.length === 1) {
+      deduplicatedRows.push(userRows[0])
+    } else {
+      // Multiple creator_ids for same username - prefer 18-digit ID
+      const longIdRows = userRows.filter(r => r.creator_id.length >= 18)
+      const selectedRow = longIdRows.length > 0 ? longIdRows[0] : userRows[0]
+
+      const allIds = userRows.map(r => r.creator_id).join(', ')
+      console.log(`⚠️ Deduping ${username}: found IDs [${allIds}], selected ${selectedRow.creator_id}`)
+      deduplicatedRows.push(selectedRow)
     }
   }
 
-  // Deduplicate by creator_id (primary key), but aggregate duplicate usernames
-  const seenIds = new Set<string>()
-  const seenUsernames = new Set<string>()
-  const deduplicatedRows = rows.filter(row => {
-    if (seenIds.has(row.creator_id)) {
-      console.log(`⚠️ Duplicate creator_id found: ${row.creator_id} for ${row.creator_username}`)
-      return false
-    }
-    if (seenUsernames.has(row.creator_username)) {
-      console.log(`⚠️ Duplicate username found: ${row.creator_username} with different creator_id ${row.creator_id}`)
-      // Keep the row - same username with different creator_id is valid
-    }
-    seenIds.add(row.creator_id)
-    seenUsernames.add(row.creator_username)
-    return true
-  })
-
-  console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by creator_id)`)
+  console.log(`Processed ${rows.length} premium creators from Mixpanel (${deduplicatedRows.length} unique by username)`)
   console.log('Final premium creators:', deduplicatedRows.map(r => r.creator_username).join(', '))
   return deduplicatedRows
 }
