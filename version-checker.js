@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-05'; // Fix PDP Views display + add totalPremiumCopies to analysis
+const CURRENT_VERSION = '2025-11-14-06'; // Increase width of demographic tables + filter 0.0% in Acquisition Survey
 
 class VersionChecker {
     constructor() {

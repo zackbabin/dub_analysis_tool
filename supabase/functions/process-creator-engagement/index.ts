@@ -190,27 +190,9 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Creator pairs upsert complete: ${creatorCount} records`)
 
-      // IMPORTANT: Trigger refresh IMMEDIATELY after upserts complete
-      console.log('Triggering refresh-materialized-views function...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && supabaseServiceKey) {
-        // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/refresh-materialized-views`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-        }).catch((err) => {
-          console.error('⚠️ Failed to trigger refresh-materialized-views:', err.message)
-        })
-        console.log('✓ Refresh function triggered in background')
-      } else {
-        console.warn('⚠️ Cannot trigger refresh function: Supabase credentials not available')
-      }
+      // NOTE: Materialized views refresh is now handled at the end of the full workflow
+      // This ensures all data (subscribers, creators, events, etc.) is synced before refreshing
+      console.log('✓ Creator engagement processing complete - views will be refreshed after all syncs finish')
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {

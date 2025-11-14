@@ -1774,9 +1774,9 @@ function displayDemographicBreakdownInline(stats) {
     const grid = document.createElement('div');
     grid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;';
 
-    const createBreakdownTable = (titleText, data, totalResponses, isAcquisitionSurvey = false) => {
+    const createBreakdownTable = (titleText, data, totalResponses, isAcquisitionSurvey = false, maxWidth = '320px') => {
         const tableContainer = document.createElement('div');
-        tableContainer.style.maxWidth = '320px';
+        tableContainer.style.maxWidth = maxWidth;
 
         const table = document.createElement('table');
         table.className = 'qda-regression-table';
@@ -1835,6 +1835,9 @@ function displayDemographicBreakdownInline(stats) {
                 // Combine non-Other items with aggregated Other
                 dataArray = [...nonOtherItems, aggregatedOther];
             }
+
+            // Filter out items with 0.0% for Acquisition Survey
+            dataArray = dataArray.filter(item => item.percentage > 0);
         }
 
         dataArray.sort((a, b) => b.percentage - a.percentage);
@@ -1859,13 +1862,13 @@ function displayDemographicBreakdownInline(stats) {
     };
 
     const demographicConfigs = [
-        { key: 'income', title: 'Income' },
-        { key: 'netWorth', title: 'Net Worth' },
-        { key: 'investingExperienceYears', title: 'Investing Experience Years' },
-        { key: 'investingActivity', title: 'Investing Activity' },
-        { key: 'investmentType', title: 'Investment Type' },
-        { key: 'investingObjective', title: 'Investing Objective' },
-        { key: 'acquisitionSurvey', title: 'Acquisition Survey' }
+        { key: 'income', title: 'Income', width: '320px' },
+        { key: 'netWorth', title: 'Net Worth', width: '320px' },
+        { key: 'investingExperienceYears', title: 'Investing Experience Years', width: '320px' },
+        { key: 'investingActivity', title: 'Investing Activity', width: '320px' },
+        { key: 'investmentType', title: 'Investment Type', width: '400px' },
+        { key: 'investingObjective', title: 'Investing Objective', width: '400px' },
+        { key: 'acquisitionSurvey', title: 'Acquisition Survey', width: '500px' }
     ];
 
     demographicConfigs.forEach(config => {
@@ -1873,7 +1876,8 @@ function displayDemographicBreakdownInline(stats) {
             config.title,
             stats[config.key + 'Breakdown'],
             stats[config.key + 'TotalResponses'],
-            config.key === 'acquisitionSurvey' // Pass true for Acquisition Survey
+            config.key === 'acquisitionSurvey', // Pass true for Acquisition Survey
+            config.width // Pass custom width
         );
     });
 

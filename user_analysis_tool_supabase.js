@@ -217,21 +217,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         console.log('Triggering Supabase Edge Functions (User + Creator data)...');
 
-        // Sync user data first (populates engagement tables)
-        const userResult = await this.supabaseIntegration.triggerMixpanelSync();
-        console.log('✅ User data sync completed:', userResult.stats);
-
-        // Then sync creator data (now that engagement tables are populated)
-        let creatorResult = null;
         try {
-            creatorResult = await this.supabaseIntegration.triggerCreatorSync();
-            console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
-        } catch (error) {
-            console.warn('⚠️ Creator data sync failed, continuing with existing data:', error.message);
-            // Continue with workflow - creator sync failure is not fatal
-        }
+            // Sync user data first (populates engagement tables)
+            const userResult = await this.supabaseIntegration.triggerMixpanelSync();
+            console.log('✅ User data sync completed:', userResult);
 
-        // Trigger event sequence sync (fetch raw data from Mixpanel)
+            // Then sync creator data (now that engagement tables are populated)
+            let creatorResult = null;
+            try {
+                creatorResult = await this.supabaseIntegration.triggerCreatorSync();
+                console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
+            } catch (error) {
+                console.warn('⚠️ Creator data sync failed, continuing with existing data:', error.message);
+                // Continue with workflow - creator sync failure is not fatal
+            }
+
+            // Trigger event sequence sync (fetch raw data from Mixpanel)
         // Run this before subscription price to reduce concurrent API calls (4 max instead of 5)
         console.log('🔄 Starting event sequence workflow...');
         console.log('Step 1/4: Triggering event sequence sync (fetching raw data from Mixpanel)...');
@@ -315,16 +316,31 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Continue even if price analysis fails - it's supplementary data
         }
 
-        // Trigger copy pattern analysis (portfolio + creator combinations)
-        console.log('Triggering copy pattern analysis...');
-        try {
-            const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
-            if (copyResult && copyResult.success) {
-                console.log('✅ Copy pattern analysis completed:', copyResult.stats);
+            // Trigger copy pattern analysis (portfolio + creator combinations)
+            console.log('Triggering copy pattern analysis...');
+            try {
+                const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
+                if (copyResult && copyResult.success) {
+                    console.log('✅ Copy pattern analysis completed:', copyResult.stats);
+                }
+            } catch (error) {
+                console.warn('⚠️ Copy pattern analysis failed:', error.message);
+                // Continue even if analysis fails - it's supplementary data
             }
-        } catch (error) {
-            console.warn('⚠️ Copy pattern analysis failed:', error.message);
-            // Continue even if analysis fails - it's supplementary data
+
+        } finally {
+            // ALWAYS refresh materialized views at the end, even if some syncs failed
+            // This ensures views have the latest data from whichever syncs succeeded
+            console.log('🔄 Final refresh: Refreshing all materialized views with latest data...');
+            try {
+                const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
+                if (refreshResult && refreshResult.success) {
+                    console.log('✅ Final materialized views refresh completed');
+                }
+            } catch (error) {
+                console.warn('⚠️ Final materialized views refresh failed:', error.message);
+                // Non-fatal - user can manually refresh if needed
+            }
         }
 
         return true;

@@ -180,6 +180,12 @@ serve(async (req) => {
       console.log(`Processed ${enrichmentRows.length} creator enrichment rows`)
       console.log(`Stats: ${stats.totalMixpanelUsers} total users, ${stats.matchedCreators} matched creators`)
 
+      // ============================================================================
+      // TEMPORARILY DISABLED: Testing if creators_insights table is still needed
+      // If this test sync completes successfully and all UI sections display correctly,
+      // we can safely remove the creators_insights table and this entire block
+      // ============================================================================
+      /*
       if (enrichmentRows.length > 0) {
         // Upsert enrichment data
         const batchSize = 500
@@ -206,6 +212,11 @@ serve(async (req) => {
 
         stats.enrichedCreators = totalProcessed
       }
+      */
+
+      // Skip creators_insights upsert for this test
+      stats.enrichedCreators = 0
+      console.log('⚠️ TEST MODE: Skipped creators_insights upsert')
 
       console.log('Creator enrichment sync completed successfully')
 

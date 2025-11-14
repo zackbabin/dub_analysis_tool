@@ -236,45 +236,59 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger Mixpanel sync via Supabase Edge Functions (v2 two-part process)
-     * Part 1: sync-mixpanel-users-v2 (event data from Export API - streaming, incremental)
-     * Part 2: sync-mixpanel-user-properties-v2 (user properties from Insights API)
+     * Trigger Mixpanel sync via Supabase Edge Functions
+     * Part 1: sync-mixpanel-user-events (event data from Export API - streaming, incremental)
+     * Part 2: sync-mixpanel-user-properties-v2 (user properties from Engage API - paginated)
      * Part 3: sync-mixpanel-engagement (views, subscriptions, copies)
-     *         → Automatically triggers refresh-engagement-views (materialized views + pattern analysis)
+     *         → Chains to process-portfolio-engagement → process-creator-engagement
+     * Note: Materialized views are refreshed at the end of the full workflow (after all syncs)
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
         console.log('🔄 Starting Mixpanel analysis refresh...');
-        console.log('ℹ️  Event and user property data is synced automatically via cron jobs');
 
         try {
+            // Part 1: Sync user events (Export API - ~30s)
+            console.log('📊 Step 1/3: Syncing user events...');
+            let userEventsData = null;
+            try {
+                userEventsData = await this.invokeFunctionWithRetry(
+                    'sync-mixpanel-user-events',
+                    {},
+                    'User events sync',
+                    3,      // maxRetries: 3 attempts
+                    5000    // retryDelay: 5 seconds
+                );
 
-            // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
-            // Funnels uses 3 concurrent queries internally which can cause rate limits
-            // console.log('⏱️ Step 2/4: Syncing funnels...');
-            // const { data: funnelsData, error: funnelsError } = await this.supabase.functions.invoke('sync-mixpanel-funnels', {
-            //     body: {}
-            // });
-            //
-            // // Check funnels result
-            // if (funnelsError) {
-            //     console.error('❌ Funnels sync error:', funnelsError);
-            //     if (funnelsError.message?.includes('Failed to send')) {
-            //         throw new Error(`Funnels sync failed: Edge Function 'sync-mixpanel-funnels' is not reachable. Please ensure it's deployed: supabase functions deploy sync-mixpanel-funnels`);
-            //     }
-            //     throw new Error(`Funnels sync failed: ${funnelsError.message || JSON.stringify(funnelsError)}`);
-            // }
-            // if (!funnelsData || !funnelsData.success) {
-            //     throw new Error(`Funnels sync failed: ${funnelsData?.error || 'Unknown error'}`);
-            // }
-            // console.log('✅ Step 2/4 complete: Time funnels synced successfully');
-            // console.log('   Stats:', funnelsData.stats);
-            console.log('⏭️ Step 2/4: Funnels sync temporarily disabled');
-            const funnelsData = { stats: { skipped: true } };
+                console.log('✅ Step 1/3 complete: User events synced successfully');
+                console.log('   Stats:', userEventsData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 1/3 failed: User events sync error, continuing with existing data');
+                userEventsData = { stats: { failed: true, error: error.message } };
+            }
 
-            // Part 1: Sync engagement (with retry for cold starts)
+            // Part 2: Sync user properties (Engage API - ~30s, auto-chains pages)
+            console.log('📊 Step 2/3: Syncing user properties...');
+            let userPropertiesData = null;
+            try {
+                userPropertiesData = await this.invokeFunctionWithRetry(
+                    'sync-mixpanel-user-properties-v2',
+                    {},
+                    'User properties sync',
+                    3,      // maxRetries: 3 attempts
+                    5000    // retryDelay: 5 seconds
+                );
+
+                console.log('✅ Step 2/3 complete: User properties synced successfully');
+                console.log('   Stats:', userPropertiesData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 2/3 failed: User properties sync error, continuing with existing data');
+                userPropertiesData = { stats: { failed: true, error: error.message } };
+            }
+
+            // Part 3: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
-            console.log('📊 Step 1/2: Syncing engagement...');
+            console.log('📊 Step 3/3: Syncing engagement...');
             let engagementData = null;
             try {
                 engagementData = await this.invokeFunctionWithRetry(
@@ -285,14 +299,14 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds (increased from 3)
                 );
 
-                console.log('✅ Step 1/2 complete: Engagement data synced successfully');
+                console.log('✅ Step 3/3 complete: Engagement data synced successfully');
                 console.log('   Stats:', engagementData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 1/2 failed: Engagement sync timed out, continuing with existing data');
+                console.warn('⚠️ Step 3/3 failed: Engagement sync timed out, continuing with existing data');
                 engagementData = { stats: { failed: true, error: error.message } };
             }
 
-            // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
+            // Note: Pattern analyses and view refreshes happen at the end of the full workflow
 
             console.log('🎉 Mixpanel analysis refresh completed successfully!');
 
@@ -300,12 +314,15 @@ class SupabaseIntegration {
             this.invalidateCache();
 
             // Return combined stats
+            const hasFailures = userEventsData?.stats?.failed || userPropertiesData?.stats?.failed || engagementData?.stats?.failed;
             return {
-                success: !engagementData.stats.failed,
-                message: !engagementData.stats.failed
+                success: !hasFailures,
+                message: !hasFailures
                     ? 'Mixpanel analysis refresh completed successfully'
-                    : 'Mixpanel analysis refresh completed with failures',
-                engagement: engagementData.stats
+                    : 'Mixpanel analysis refresh completed with some failures',
+                userEvents: userEventsData?.stats,
+                userProperties: userPropertiesData?.stats,
+                engagement: engagementData?.stats
             };
         } catch (error) {
             console.error('❌ Unexpected error during Mixpanel sync:', error);
@@ -314,10 +331,40 @@ class SupabaseIntegration {
                 success: false,
                 message: 'Mixpanel sync failed unexpectedly',
                 error: error.message,
-                users: { failed: true },
-                funnels: { skipped: true },
+                userEvents: { failed: true },
+                userProperties: { failed: true },
                 engagement: { failed: true }
             };
+        }
+    }
+
+    /**
+     * Trigger refresh of all materialized views
+     * Called at the end of workflow to ensure views have latest data from all sources
+     */
+    async triggerMaterializedViewsRefresh() {
+        console.log('Triggering materialized views refresh...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('refresh-materialized-views', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Materialized views refresh error:', error);
+                throw new Error(`Materialized views refresh failed: ${error.message}`);
+            }
+
+            if (!data || !data.success) {
+                throw new Error(data?.error || 'Unknown error during materialized views refresh');
+            }
+
+            console.log('✅ Materialized views refresh completed:', data);
+
+            return data;
+        } catch (error) {
+            console.error('Error calling refresh-materialized-views Edge Function:', error);
+            throw error;
         }
     }
 

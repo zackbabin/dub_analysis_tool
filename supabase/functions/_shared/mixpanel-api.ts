@@ -328,7 +328,7 @@ export async function fetchEngageProfiles(
 ): Promise<EngageResponse> {
   const params = new URLSearchParams({
     project_id: MIXPANEL_CONFIG.PROJECT_ID,
-    include_all_users: 'true',
+    include_all_users: 'false',
   })
 
   // Add cohort filter if specified

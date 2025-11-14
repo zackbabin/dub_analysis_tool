@@ -1,6 +1,5 @@
--- Create function for incremental upsert of subscriber insights
--- Event metrics (counts) are ADDED to existing values
--- Account properties updated with OR logic for linked_bank_account
+-- Fix upsert_subscribers_incremental function to reference correct table name
+-- The function was created with subscribers_insights_v2 but table was renamed to subscribers_insights
 
 CREATE OR REPLACE FUNCTION upsert_subscribers_incremental(profiles jsonb)
 RETURNS void
@@ -87,21 +86,3 @@ $$;
 
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION upsert_subscribers_incremental(jsonb) TO service_role;
-
--- Test the function (optional - comment out in production)
--- SELECT upsert_subscribers_incremental('[
---   {
---     "distinct_id": "test_user_123",
---     "linked_bank_account": true,
---     "total_copies": 8,
---     "total_regular_copies": 5,
---     "total_premium_copies": 3,
---     "regular_pdp_views": 10,
---     "premium_pdp_views": 5,
---     "total_subscriptions": 1,
---     "updated_at": "2025-11-13T00:00:00Z",
---     "events_processed": 10,
---     "first_event_time": "2025-11-13T00:00:00Z",
---     "last_event_time": "2025-11-13T01:00:00Z"
---   }
--- ]'::jsonb);
