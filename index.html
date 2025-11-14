@@ -635,6 +635,32 @@
 
             console.log('✅ Unified data source component created');
 
+            // Check for auto-refresh flag (set by version update toast)
+            const autoRefreshFlag = localStorage.getItem('autoRefreshAfterVersionUpdate');
+            if (autoRefreshFlag === 'true') {
+                console.log('🔄 Auto-refresh flag detected - fetching fresh data from database...');
+
+                // Remove the flag immediately to prevent repeated refreshes
+                localStorage.removeItem('autoRefreshAfterVersionUpdate');
+
+                // Trigger automatic database refresh (no Mixpanel sync)
+                setTimeout(async () => {
+                    try {
+                        console.log('Step 1: Refreshing user analysis data...');
+                        await userTool.refreshFromDatabaseOnly();
+                        console.log('✅ User analysis data refreshed');
+
+                        console.log('Step 2: Refreshing creator analysis data...');
+                        await creatorTool.refreshFromDatabaseOnly();
+                        console.log('✅ Creator analysis data refreshed');
+
+                        console.log('✅ Auto-refresh complete - all data updated from database');
+                    } catch (error) {
+                        console.error('❌ Auto-refresh failed:', error);
+                    }
+                }, 500); // Small delay to ensure UI is fully loaded
+            }
+
             // Initialize Business Model Analysis Tool
             const businessModelAnalysis = new BusinessModelAnalysis('businessModelContent');
             console.log('✅ Business Model Analysis Tool initialized');

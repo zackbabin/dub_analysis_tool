@@ -357,6 +357,43 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
+     * Refresh data from database only (no Mixpanel sync)
+     * Used when user clicks "Refresh" on version update toast
+     */
+    async refreshFromDatabaseOnly() {
+        this.clearStatus();
+        this.showProgress(0);
+
+        try {
+            console.log('🔄 Refreshing data from database (no Mixpanel sync)...');
+
+            // Clear query cache to ensure fresh data
+            if (this.supabaseIntegration) {
+                this.supabaseIntegration.invalidateCache();
+                console.log('🗑️ Query cache cleared');
+            }
+
+            this.updateProgress(20, 'Loading data from database...');
+
+            // Step 1: Load data from Supabase database
+            const contents = await this.loadGitHubData();
+            this.updateProgress(50, 'Processing data...');
+
+            // Step 2: Fetch and update Marketing Metrics
+            await this.displayMarketingMetrics(true);
+
+            // Step 3: Process and analyze data
+            await this.processAndAnalyze(contents);
+
+            console.log('✅ Database refresh completed');
+        } catch (error) {
+            this.addStatusMessage(`❌ Error refreshing data: ${error.message}`, 'error');
+            console.error('Database refresh error:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Override: Run the GitHub workflow using Supabase
      */
     async runGitHubWorkflow() {
