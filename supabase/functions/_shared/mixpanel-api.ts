@@ -292,6 +292,85 @@ export async function fetchPortfolioViewEvents(
 }
 
 // ============================================================================
+// Mixpanel API - Engage (User Profiles with Pagination)
+// ============================================================================
+
+export interface EngageUserProfile {
+  $distinct_id: string
+  $properties: {
+    [key: string]: any
+  }
+}
+
+export interface EngageResponse {
+  results: EngageUserProfile[]
+  session_id?: string
+  page?: number
+  total?: number
+}
+
+/**
+ * Fetch user profiles from Mixpanel Engage API (with pagination support)
+ * Much better than Insights API - returns flat properties, supports pagination
+ *
+ * @param credentials - Mixpanel service account credentials
+ * @param options - Query options
+ * @returns Engage API response with results and pagination info
+ */
+export async function fetchEngageProfiles(
+  credentials: MixpanelCredentials,
+  options: {
+    cohortId?: number
+    outputProperties?: string[]
+    page?: number
+    sessionId?: string
+  } = {}
+): Promise<EngageResponse> {
+  const params = new URLSearchParams({
+    project_id: MIXPANEL_CONFIG.PROJECT_ID,
+  })
+
+  // Add cohort filter if specified
+  if (options.cohortId) {
+    params.append('filter_by_cohort', JSON.stringify({ id: options.cohortId }))
+  }
+
+  // Add output properties if specified
+  if (options.outputProperties && options.outputProperties.length > 0) {
+    params.append('output_properties', JSON.stringify(options.outputProperties))
+  }
+
+  // Add pagination params if specified
+  if (options.page !== undefined) {
+    params.append('page', options.page.toString())
+  }
+  if (options.sessionId) {
+    params.append('session_id', options.sessionId)
+  }
+
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  const url = `${MIXPANEL_CONFIG.API_BASE}/2.0/engage?${params}`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: authHeader,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Mixpanel Engage API error (${response.status}): ${errorText}`)
+  }
+
+  const data = await response.json()
+  return data
+}
+
+// ============================================================================
 // Skip Sync Logic
 // ============================================================================
 

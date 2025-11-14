@@ -1,5 +1,5 @@
 -- Set up cron job for sync-mixpanel-user-properties-v2
--- Fetches user properties daily and auto-chains to processing
+-- Fetches user properties daily using Mixpanel Engage API (paginated, auto-chains)
 -- Runs at 3 AM UTC (after events sync at 2 AM)
 
 -- Create trigger function for user properties sync
@@ -16,9 +16,9 @@ BEGIN
   FROM supabase_config sc
   WHERE id = 1;
 
-  RAISE NOTICE 'Triggering sync-mixpanel-user-properties-v2 (auto-chains to processing)...';
+  RAISE NOTICE 'Triggering sync-mixpanel-user-properties-v2 (Engage API with pagination)...';
 
-  -- Trigger the fetch function, which will automatically chain to processing
+  -- Trigger the fetch function, which will automatically chain to next page until complete
   PERFORM net.http_post(
     url := supabase_url || '/functions/v1/sync-mixpanel-user-properties-v2',
     headers := jsonb_build_object(
@@ -27,10 +27,10 @@ BEGIN
       'Content-Type', 'application/json'
     ),
     body := '{}'::jsonb,
-    timeout_milliseconds := 150000  -- 2.5 min timeout for fetch
+    timeout_milliseconds := 150000  -- 2.5 min timeout
   );
 
-  RAISE NOTICE 'User properties sync triggered (will auto-process in chunks)';
+  RAISE NOTICE 'User properties sync triggered (will auto-chain pages until complete)';
 END;
 $$;
 
@@ -49,6 +49,6 @@ WHERE jobname LIKE '%properties%' OR jobname LIKE 'mixpanel%'
 ORDER BY jobname;
 
 COMMENT ON FUNCTION trigger_user_properties_sync() IS
-'Triggers daily user properties sync from Mixpanel.
-The function automatically chains: fetch → store → process all chunks.
+'Triggers daily user properties sync from Mixpanel Engage API.
+Uses paginated Engage API with auto-chaining (page 0 → page 1 → ... until complete).
 Called by cron job at 3 AM UTC daily.';
