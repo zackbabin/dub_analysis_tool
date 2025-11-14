@@ -327,13 +327,28 @@ serve(async (req) => {
       })
 
       console.log(`Fetch completed in ${elapsedSec}s`)
-      console.log('📋 Next step: Call sync-mixpanel-user-properties-process to process the data')
+      console.log('🔄 Auto-triggering processing (offset=0)...')
 
-      return createSuccessResponse('User properties fetched and stored successfully (Step 1/2)', {
+      // Automatically trigger the processing function to start processing chunks
+      const processUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-mixpanel-user-properties-process`
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+      fetch(processUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ offset: 0 })
+      }).catch(err => console.error('Failed to trigger processing:', err.message))
+
+      console.log('✅ Processing triggered in background')
+
+      return createSuccessResponse('User properties fetched, stored, and processing started (Step 1/2)', {
         totalTimeSeconds: elapsedSec,
         totalUsers: userCount,
         storagePath: `${STORAGE_BUCKET}/${STORAGE_PATH}`,
-        nextStep: 'Call sync-mixpanel-user-properties-process to process the data',
+        nextStep: 'Processing automatically in progress',
       })
     } catch (error) {
       await updateSyncLogFailure(supabase, syncLogId, error)

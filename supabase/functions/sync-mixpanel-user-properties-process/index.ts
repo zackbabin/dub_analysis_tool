@@ -285,8 +285,24 @@ serve(async (req) => {
       const hasMore = nextOffset < totalUsers
 
       console.log(`Processing completed in ${elapsedSec}s`)
+
       if (hasMore) {
-        console.log(`📋 Next step: Call again with offset=${nextOffset} to process next chunk`)
+        console.log(`🔄 Auto-triggering next chunk (offset=${nextOffset})...`)
+
+        // Automatically trigger next chunk
+        const processUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/sync-mixpanel-user-properties-process`
+        const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+        fetch(processUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ offset: nextOffset })
+        }).catch(err => console.error('Failed to trigger next chunk:', err.message))
+
+        console.log('✅ Next chunk triggered in background')
       } else {
         console.log('✅ All users processed!')
       }
@@ -299,7 +315,7 @@ serve(async (req) => {
         usersProcessed: updatedCount,
         progress: `${Math.min(nextOffset, totalUsers)}/${totalUsers} (${Math.round(Math.min(nextOffset, totalUsers) / totalUsers * 100)}%)`,
         hasMore: hasMore,
-        nextStep: hasMore ? `Call again with { "offset": ${nextOffset} }` : 'Processing complete!',
+        nextStep: hasMore ? `Next chunk automatically triggered (offset ${nextOffset})` : 'Processing complete!',
       })
     } catch (error) {
       await updateSyncLogFailure(supabase, syncLogId, error)

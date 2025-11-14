@@ -244,84 +244,10 @@ class SupabaseIntegration {
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel sync v2 (3-part process)...');
+        console.log('🔄 Starting Mixpanel analysis refresh...');
+        console.log('ℹ️  Event and user property data is synced automatically via cron jobs');
 
         try {
-            // Part 1: Sync event data (v2 - Export API streaming)
-            // Note: Skip logic is now handled in the edge function itself
-            console.log('📊 Step 1/3: Syncing user event data (v2)...');
-            let usersData = null;
-            try {
-                usersData = await this.invokeFunctionWithRetry(
-                    'sync-mixpanel-users-v2',
-                    {},
-                    'Users sync v2',
-                    2,      // maxRetries: Only 2 attempts (function takes too long)
-                    5000    // retryDelay: 5 seconds
-                );
-                if (usersData.skipped) {
-                    console.log('⏭️ Step 1/3: User event sync skipped (data refreshed within last hour)');
-                } else {
-                    console.log('✅ Step 1/3 complete: User event data synced successfully (v2)');
-                }
-                console.log('   Stats:', usersData.stats);
-            } catch (error) {
-                console.warn('⚠️ Step 1/3 failed: User event sync timed out, continuing with existing data');
-                usersData = { stats: { failed: true, error: error.message } };
-            }
-
-            // Part 1.5: Sync user properties (v2 - Two-step process)
-            console.log('📊 Step 1.5/3: Syncing user properties (v2)...');
-            let propertiesData = null;
-            try {
-                // Step 1: Fetch from Mixpanel and store to Storage
-                console.log('   → Fetching user properties from Mixpanel...');
-                const fetchResult = await this.invokeFunctionWithRetry(
-                    'sync-mixpanel-user-properties-v2',
-                    {},
-                    'User properties fetch',
-                    2,
-                    5000
-                );
-                console.log(`   ✓ Fetched ${fetchResult.totalUsers} users, stored to Storage`);
-
-                // Step 2: Process in chunks from Storage
-                console.log('   → Processing user properties in chunks...');
-                let offset = 0;
-                let totalProcessed = 0;
-                let hasMore = true;
-
-                while (hasMore) {
-                    const processResult = await this.invokeFunctionWithRetry(
-                        'sync-mixpanel-user-properties-process',
-                        { offset },
-                        `User properties process (offset ${offset})`,
-                        2,
-                        5000
-                    );
-
-                    totalProcessed += processResult.usersProcessed;
-                    hasMore = processResult.hasMore;
-                    offset = processResult.nextOffset || 0;
-
-                    console.log(`   ✓ ${processResult.progress}`);
-
-                    if (!hasMore) {
-                        console.log('✅ Step 1.5/3 complete: All user properties synced successfully (v2)');
-                        propertiesData = {
-                            stats: {
-                                totalUsers: fetchResult.totalUsers,
-                                totalProcessed
-                            }
-                        };
-                        break;
-                    }
-                }
-            } catch (error) {
-                console.warn('⚠️ Step 1.5/3 failed: User properties sync error, continuing with existing data');
-                console.error('   Error:', error.message);
-                propertiesData = { stats: { failed: true, error: error.message } };
-            }
 
             // Part 2: Sync funnels (TEMPORARILY DISABLED - revisit later)
             // Funnels uses 3 concurrent queries internally which can cause rate limits
@@ -346,9 +272,9 @@ class SupabaseIntegration {
             console.log('⏭️ Step 2/4: Funnels sync temporarily disabled');
             const funnelsData = { stats: { skipped: true } };
 
-            // Part 3: Sync engagement (with retry for cold starts)
+            // Part 1: Sync engagement (with retry for cold starts)
             // Engagement uses 4 concurrent queries internally
-            console.log('📊 Step 3/3: Syncing engagement...');
+            console.log('📊 Step 1/2: Syncing engagement...');
             let engagementData = null;
             try {
                 engagementData = await this.invokeFunctionWithRetry(
@@ -359,33 +285,26 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds (increased from 3)
                 );
 
-                console.log('✅ Step 3/3 complete: Engagement data synced successfully');
+                console.log('✅ Step 1/2 complete: Engagement data synced successfully');
                 console.log('   Stats:', engagementData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 3/3 failed: Engagement sync timed out, continuing with existing data');
+                console.warn('⚠️ Step 1/2 failed: Engagement sync timed out, continuing with existing data');
                 engagementData = { stats: { failed: true, error: error.message } };
             }
 
-            // REMOVED: Portfolio events sync (Step 4) - portfolio_view_events table was never read from
-            // This step wrote to an unused table and made additional Mixpanel API calls
-            // Removed as part of performance optimization to save 30-60s per sync
-
             // Note: Pattern analyses are triggered by sync-mixpanel-engagement (fire-and-forget)
 
-            console.log('🎉 Full Mixpanel sync completed successfully!');
+            console.log('🎉 Mixpanel analysis refresh completed successfully!');
 
             // Invalidate all cached queries since data has been refreshed
             this.invalidateCache();
 
-            // Return combined stats (even if some steps failed)
-            const allSucceeded = !usersData.stats.failed && !engagementData.stats.failed;
+            // Return combined stats
             return {
-                success: allSucceeded,
-                message: allSucceeded
-                    ? 'Full Mixpanel sync completed successfully'
-                    : 'Mixpanel sync completed with some failures (using existing data)',
-                users: usersData.stats,
-                funnels: funnelsData.stats,
+                success: !engagementData.stats.failed,
+                message: !engagementData.stats.failed
+                    ? 'Mixpanel analysis refresh completed successfully'
+                    : 'Mixpanel analysis refresh completed with failures',
                 engagement: engagementData.stats
             };
         } catch (error) {
