@@ -321,7 +321,9 @@ export async function fetchEngageProfiles(
   credentials: MixpanelCredentials,
   options: {
     cohortId?: number
+    cohortIds?: number[]
     outputProperties?: string[]
+    where?: string
     page?: number
     sessionId?: string
     pageSize?: number
@@ -332,9 +334,20 @@ export async function fetchEngageProfiles(
     include_all_users: 'false',
   })
 
-  // Add cohort filter if specified
-  if (options.cohortId) {
+  // Add cohort filter if specified (supports single or multiple cohorts)
+  if (options.cohortIds && options.cohortIds.length > 0) {
+    // Multiple cohorts - append each as separate filter_by_cohort param (OR logic)
+    for (const cohortId of options.cohortIds) {
+      params.append('filter_by_cohort', JSON.stringify({ id: cohortId }))
+    }
+  } else if (options.cohortId) {
+    // Single cohort (backward compatibility)
     params.append('filter_by_cohort', JSON.stringify({ id: options.cohortId }))
+  }
+
+  // Add where filter if specified (segmentation expression)
+  if (options.where) {
+    params.append('where', options.where)
   }
 
   // Add output properties if specified
