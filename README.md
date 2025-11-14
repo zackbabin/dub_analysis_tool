@@ -22,7 +22,7 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 
 **Data Flow**:
 ```
-sync-mixpanel-users → subscribers_insights table → Main Analysis Dashboard
+sync-mixpanel-user-events → subscribers_insights table → Main Analysis Dashboard
 ```
 
 **What it analyzes**:
@@ -128,7 +128,7 @@ user_portfolio_creator_engagement → portfolio_creator_engagement_metrics (mate
 
 **Full Sync** (run via "Sync Live Data" button):
 ```
-1. sync-mixpanel-users (subscribers data - 30-60s)
+1. sync-mixpanel-user-events (subscribers event data - 30-60s)
 2. [sync-mixpanel-funnels - DISABLED]
 3. sync-mixpanel-engagement (views, subs, copies - 60-90s)
    └─> Auto-triggers: analyze-subscription-patterns
@@ -338,7 +338,7 @@ analyze-copy-patterns         → sync-business-assumptions
 
 | Function | Trigger | Duration | Purpose |
 |----------|---------|----------|---------|
-| `sync-mixpanel-users` | Manual | 30-60s | Fetch subscriber profiles |
+| `sync-mixpanel-user-events` | Manual/Cron | 30-60s | Fetch subscriber event data (Export API) |
 | `sync-mixpanel-funnels` | Disabled | - | Fetch time funnels (rate limited) |
 | `sync-mixpanel-engagement` | Manual | 60-90s | Fetch views, subs, copies into consolidated table |
 | `analyze-subscription-patterns` | Auto | 30-60s | Statistical creator pair analysis for subscriptions |

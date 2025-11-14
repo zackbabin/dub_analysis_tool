@@ -1,6 +1,6 @@
 /**
  * Shared Mixpanel API utilities
- * Used by: sync-mixpanel-users, sync-mixpanel-funnels, sync-mixpanel-engagement,
+ * Used by: sync-mixpanel-user-events, sync-mixpanel-funnels, sync-mixpanel-engagement,
  *          sync-mixpanel-portfolio-events, sync-creator-data
  */
 

@@ -1,7 +1,8 @@
-// Supabase Edge Function: sync-mixpanel-users
+// Supabase Edge Function: sync-mixpanel-users-deprecated
+// DEPRECATED: Old approach using Insights API + Storage bucket
+// Use sync-mixpanel-user-events instead (Export API with streaming)
 // Part 1 of 2: Fetches raw subscriber data from Mixpanel and stores in Storage bucket
 // Triggers process-subscribers-data → batch processing and upsert
-// This separation prevents timeout by splitting work across multiple functions with separate CPU quotas
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
@@ -155,6 +156,6 @@ serve(async (req) => {
       throw error
     }
   } catch (error) {
-    return createErrorResponse(error, 'sync-mixpanel-users')
+    return createErrorResponse(error, 'sync-mixpanel-users-deprecated')
   }
 })

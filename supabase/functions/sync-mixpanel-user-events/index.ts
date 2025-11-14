@@ -1,4 +1,4 @@
-// Supabase Edge Function: sync-mixpanel-users-v2 (Event Export API - Streaming)
+// Supabase Edge Function: sync-mixpanel-user-events (Event Export API - Streaming)
 // Streams events from Mixpanel Export API, processes incrementally to avoid memory issues
 // Processes events in chunks and upserts to subscribers_insights
 
@@ -273,6 +273,6 @@ serve(async (req) => {
       throw error
     }
   } catch (error) {
-    return createErrorResponse(error, 'sync-mixpanel-users-v2')
+    return createErrorResponse(error, 'sync-mixpanel-user-events')
   }
 })

@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Backfill script for sync-mixpanel-users-v2
+# Backfill script for sync-mixpanel-user-events
 # Backfills 90 days of data in 7-day chunks
 
 # Configuration
 SUPABASE_URL="https://rnpfeblxapdafrbmomix.supabase.co"
 SERVICE_ROLE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMyMzA2MiwiZXhwIjoyMDc0ODk5MDYyfQ.YNVjIXxAtlTjHyK9LAGqgJ7H_4USPB0exYVxlwvoYb4"
-FUNCTION_URL="${SUPABASE_URL}/functions/v1/sync-mixpanel-users-v2"
+FUNCTION_URL="${SUPABASE_URL}/functions/v1/sync-mixpanel-user-events"
 
 # Calculate dates (90 days back from yesterday)
 END_DATE=$(date -v-1d +%Y-%m-%d)  # Yesterday
