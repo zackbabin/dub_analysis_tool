@@ -42,12 +42,11 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Track elapsed time with timeout prevention
+      // Track elapsed time (no timeout constraint when called from cron job)
       const startTime = Date.now()
-      const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-        console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
+        console.log(`⏱️  Elapsed: ${elapsed}s`)
         return elapsed
       }
 
@@ -77,15 +76,15 @@ serve(async (req) => {
       }
 
       // Process subscribers insights in batches to avoid memory issues
-      // Optimized for speed: larger batches + more concurrency
-      const batchSize = 2000  // Increased from 1000
+      // Optimized for speed: larger batches + more concurrency (no timeout constraints from cron)
+      const batchSize = 5000  // Increased from 2000 (no timeout pressure)
       let totalProcessed = 0
 
       const allSubscribersRows = processInsightsData(subscribersData)
       console.log(`Processed ${allSubscribersRows.length} subscriber rows, inserting in batches of ${batchSize}...`)
 
-      // Process batches in parallel (max 5 concurrent) for faster upserts
-      const maxConcurrentBatches = 5  // Increased from 3
+      // Process batches in parallel (max 10 concurrent) for faster upserts
+      const maxConcurrentBatches = 10  // Increased from 5 (no timeout pressure)
       const batches: any[][] = []
 
       for (let i = 0; i < allSubscribersRows.length; i += batchSize) {
@@ -95,14 +94,6 @@ serve(async (req) => {
       console.log(`Split into ${batches.length} batches, processing ${maxConcurrentBatches} at a time...`)
 
       for (let i = 0; i < batches.length; i += maxConcurrentBatches) {
-        // Check if we're approaching timeout
-        const elapsedMs = Date.now() - startTime
-        if (elapsedMs > TIMEOUT_BUFFER_MS) {
-          console.warn(`⚠️ Approaching timeout (${Math.round(elapsedMs / 1000)}s elapsed). Processed ${totalProcessed}/${allSubscribersRows.length} records.`)
-          console.log('Exiting early to avoid timeout. Remaining data will be processed on next sync.')
-          break
-        }
-
         const batchGroup = batches.slice(i, i + maxConcurrentBatches)
 
         const results = await Promise.all(

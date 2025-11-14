@@ -270,25 +270,56 @@ class SupabaseIntegration {
                 usersData = { stats: { failed: true, error: error.message } };
             }
 
-            // Part 1.5: Sync user properties (v2 - Insights API)
+            // Part 1.5: Sync user properties (v2 - Two-step process)
             console.log('📊 Step 1.5/3: Syncing user properties (v2)...');
             let propertiesData = null;
             try {
-                propertiesData = await this.invokeFunctionWithRetry(
+                // Step 1: Fetch from Mixpanel and store to Storage
+                console.log('   → Fetching user properties from Mixpanel...');
+                const fetchResult = await this.invokeFunctionWithRetry(
                     'sync-mixpanel-user-properties-v2',
                     {},
-                    'User properties sync v2',
+                    'User properties fetch',
                     2,
                     5000
                 );
-                if (propertiesData.skipped) {
-                    console.log('⏭️ Step 1.5/3: User properties sync skipped (data refreshed within last hour)');
-                } else {
-                    console.log('✅ Step 1.5/3 complete: User properties synced successfully (v2)');
+                console.log(`   ✓ Fetched ${fetchResult.totalUsers} users, stored to Storage`);
+
+                // Step 2: Process in chunks from Storage
+                console.log('   → Processing user properties in chunks...');
+                let offset = 0;
+                let totalProcessed = 0;
+                let hasMore = true;
+
+                while (hasMore) {
+                    const processResult = await this.invokeFunctionWithRetry(
+                        'sync-mixpanel-user-properties-process',
+                        { offset },
+                        `User properties process (offset ${offset})`,
+                        2,
+                        5000
+                    );
+
+                    totalProcessed += processResult.usersProcessed;
+                    hasMore = processResult.hasMore;
+                    offset = processResult.nextOffset || 0;
+
+                    console.log(`   ✓ ${processResult.progress}`);
+
+                    if (!hasMore) {
+                        console.log('✅ Step 1.5/3 complete: All user properties synced successfully (v2)');
+                        propertiesData = {
+                            stats: {
+                                totalUsers: fetchResult.totalUsers,
+                                totalProcessed
+                            }
+                        };
+                        break;
+                    }
                 }
-                console.log('   Stats:', propertiesData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 1.5/3 failed: User properties sync timed out, continuing with existing data');
+                console.warn('⚠️ Step 1.5/3 failed: User properties sync error, continuing with existing data');
+                console.error('   Error:', error.message);
                 propertiesData = { stats: { failed: true, error: error.message } };
             }
 

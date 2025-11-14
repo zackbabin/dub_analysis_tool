@@ -8,8 +8,7 @@ DROP VIEW IF EXISTS subscribers_insights_compat CASCADE;
 -- Create compatibility view
 CREATE VIEW subscribers_insights_compat AS
 SELECT
-  -- All existing columns from v2
-  id,
+  -- All existing columns from v2 (note: v2 doesn't have 'id', uses distinct_id as PK)
   distinct_id,
   income,
   net_worth,
@@ -41,7 +40,6 @@ SELECT
   creator_card_taps,
   portfolio_card_taps,
   total_ach_transfers,
-  synced_at,
   updated_at,
 
   -- Add dummy columns for removed tab views (set to 0 for compatibility)
