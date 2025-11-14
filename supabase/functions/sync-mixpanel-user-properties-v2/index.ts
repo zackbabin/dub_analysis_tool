@@ -239,12 +239,13 @@ serve(async (req) => {
     try {
       console.log(`Fetching user properties from Mixpanel Engage API (cohort ${COHORT_ID}, page ${page})...`)
 
-      // Fetch data from Engage API
+      // Fetch data from Engage API with larger page size (3000) to minimize API calls
       const response = await fetchEngageProfiles(credentials, {
         cohortId: COHORT_ID,
         outputProperties: OUTPUT_PROPERTIES,
         page: page,
-        sessionId: sessionId
+        sessionId: sessionId,
+        pageSize: 3000  // 3x default to reduce API calls while staying within timeout limits
       })
 
       console.log('✓ Received data from Mixpanel Engage API')

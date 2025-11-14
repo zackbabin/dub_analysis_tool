@@ -324,6 +324,7 @@ export async function fetchEngageProfiles(
     outputProperties?: string[]
     page?: number
     sessionId?: string
+    pageSize?: number
   } = {}
 ): Promise<EngageResponse> {
   const params = new URLSearchParams({
@@ -339,6 +340,11 @@ export async function fetchEngageProfiles(
   // Add output properties if specified
   if (options.outputProperties && options.outputProperties.length > 0) {
     params.append('output_properties', JSON.stringify(options.outputProperties))
+  }
+
+  // Add page size if specified (default: 1000, max: 2000)
+  if (options.pageSize) {
+    params.append('page_size', options.pageSize.toString())
   }
 
   // Add pagination params if specified
