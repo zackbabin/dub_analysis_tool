@@ -130,27 +130,23 @@ serve(async (req) => {
       })
 
       // Trigger portfolio processing function (which will chain to creator processing)
+      // Use proper Supabase client pattern instead of raw fetch
       console.log('Triggering process-portfolio-engagement function...')
 
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && supabaseServiceKey) {
-        // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/process-portfolio-engagement`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filename })
-        }).catch((err) => {
-          console.error('⚠️ Failed to trigger process-portfolio-engagement:', err.message)
+      try {
+        const { data, error } = await supabase.functions.invoke('process-portfolio-engagement', {
+          body: { filename }
         })
-        console.log('✓ Portfolio processing function triggered in background')
-      } else {
-        console.warn('⚠️ Cannot trigger processing function: Supabase credentials not available')
+
+        if (error) {
+          console.error('⚠️ Failed to trigger process-portfolio-engagement:', error)
+        } else {
+          console.log('✓ Portfolio processing function triggered successfully')
+          if (data) console.log('Response:', data)
+        }
+      } catch (err) {
+        console.error('⚠️ Exception triggering process-portfolio-engagement:', err.message)
+        // Continue anyway - don't fail the entire sync
       }
 
       console.log('Fetch completed successfully')
