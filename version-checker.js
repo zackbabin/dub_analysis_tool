@@ -6,7 +6,7 @@
 // IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
 // you MUST also increment this version for the toast notification to work
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-09'; // Fix: Always check server version first to avoid infinite toast loop
+const CURRENT_VERSION = '2025-11-14-10'; // Fix: Clear browser caches before reload + use location.replace
 
 class VersionChecker {
     constructor() {
@@ -151,9 +151,17 @@ class VersionChecker {
                 localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
                 console.log('🚩 Set auto-refresh flag');
 
-                // Force cache bypass by adding timestamp query parameter
+                // Clear all caches if Cache API is available
+                if ('caches' in window) {
+                    console.log('🗑️ Clearing browser caches...');
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    console.log(`✅ Cleared ${cacheNames.length} caches`);
+                }
+
+                // Force hard reload using location.replace with cache-bust timestamp
                 const url = window.location.href.split('?')[0];
-                window.location.href = url + '?t=' + Date.now();
+                window.location.replace(url + '?cb=' + Date.now());
             }
         } catch (error) {
             console.error('Error fetching server version:', error);
@@ -161,7 +169,7 @@ class VersionChecker {
             localStorage.setItem(this.storageKey, CURRENT_VERSION);
             localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
             const url = window.location.href.split('?')[0];
-            window.location.href = url + '?t=' + Date.now();
+            window.location.replace(url + '?cb=' + Date.now());
         }
     }
 
