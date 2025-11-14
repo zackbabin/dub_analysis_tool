@@ -3,10 +3,11 @@
 
 'use strict';
 
-// IMPORTANT: When updating script versions in index.html (e.g., ?v=8 → ?v=9),
-// you MUST also increment this version for the toast notification to work
+// IMPORTANT: When making UI changes, increment BOTH:
+// 1. This CURRENT_VERSION constant (for version detection)
+// 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-14-11'; // Fix: Pre-fetch all JS files with cache-busting before reload
+const CURRENT_VERSION = '2025-11-14-11'; // Implement version parameter cache busting
 
 class VersionChecker {
     constructor() {
@@ -132,10 +133,11 @@ class VersionChecker {
 
     /**
      * Refresh the page and update stored version
+     * Version parameters in HTML (?v=X) handle cache busting automatically
      */
     async refreshPage() {
-        // Fetch the latest version from server first
         try {
+            // Fetch the latest version from server
             const response = await fetch(`version-checker.js?t=${Date.now()}`);
             const content = await response.text();
             const match = content.match(/const CURRENT_VERSION = ['"]([^'"]+)['"]/);
@@ -144,56 +146,21 @@ class VersionChecker {
                 const serverVersion = match[1];
                 console.log(`🔄 Refreshing page to version ${serverVersion}`);
 
-                // Update to server version (not cached CURRENT_VERSION)
+                // Update stored version
                 localStorage.setItem(this.storageKey, serverVersion);
 
                 // Set flag to trigger automatic data refresh after page load
                 localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
                 console.log('🚩 Set auto-refresh flag');
 
-                // Clear all caches if Cache API is available
-                if ('caches' in window) {
-                    console.log('🗑️ Clearing browser caches...');
-                    const cacheNames = await caches.keys();
-                    await Promise.all(cacheNames.map(name => caches.delete(name)));
-                    console.log(`✅ Cleared ${cacheNames.length} caches`);
-                }
-
-                // Pre-fetch all JavaScript files with cache-busting to force fresh downloads
-                const cacheBust = Date.now();
-                const jsFiles = [
-                    'csv_utils.js',
-                    'analysis_utils.js',
-                    'supabase_integration.js',
-                    'user_analysis_tool.js',
-                    'user_analysis_tool_supabase.js',
-                    'creator_analysis_tool.js',
-                    'creator_analysis_tool_supabase.js',
-                    'business-model-analysis.js',
-                    'crypto-analysis.js'
-                ];
-
-                console.log('📥 Pre-fetching fresh JavaScript files...');
-                await Promise.all(
-                    jsFiles.map(file =>
-                        fetch(`${file}?cb=${cacheBust}`, { cache: 'reload' })
-                            .then(() => console.log(`✓ ${file}`))
-                            .catch(err => console.warn(`✗ ${file}:`, err))
-                    )
-                );
-                console.log('✅ All files pre-fetched with fresh content');
-
-                // Now reload - browser should use the freshly fetched files
-                const url = window.location.href.split('?')[0];
-                window.location.replace(url + '?cb=' + cacheBust);
+                // Simple reload - version parameters in HTML handle cache busting
+                window.location.reload();
             }
         } catch (error) {
             console.error('Error fetching server version:', error);
-            // Fallback to old behavior
-            localStorage.setItem(this.storageKey, CURRENT_VERSION);
+            // Fallback: still reload
             localStorage.setItem('autoRefreshAfterVersionUpdate', 'true');
-            const url = window.location.href.split('?')[0];
-            window.location.replace(url + '?cb=' + Date.now());
+            window.location.reload();
         }
     }
 
