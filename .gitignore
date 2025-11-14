@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Supabase
+.supabase/
+
+# Security: Don't commit this file after adding actual service key
+supabase/migrations/20251114_update_service_key.sql
