@@ -59,6 +59,8 @@ interface UserPropertyRow {
   total_withdrawal_count?: number
   active_created_portfolios?: number
   lifetime_created_portfolios?: number
+  active_copied_portfolios?: number
+  lifetime_copied_portfolios?: number
 }
 
 /**
@@ -66,10 +68,10 @@ interface UserPropertyRow {
  */
 const PROPERTY_MAP: Record<string, string> = {
   'totalDeposits': 'total_deposits',
-  'activeCopiedPortfolios': 'lifetime_created_portfolios',
+  'activeCopiedPortfolios': 'active_copied_portfolios',
   'totalDepositCount': 'total_deposit_count',
   'activeCreatedPortfolios': 'active_created_portfolios',
-  'lifetimeCopiedPortfolios': 'lifetime_created_portfolios',
+  'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'income': 'income',
   'investingActivity': 'investing_activity',
   'investingExperienceYears': 'investing_experience_years',
@@ -116,7 +118,8 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           // Set numeric fields to 0, skip string fields
           if (dbColumn.includes('count') || dbColumn.includes('total_') ||
               dbColumn === 'buying_power' || dbColumn === 'available_copy_credits' ||
-              dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios') {
+              dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios' ||
+              dbColumn === 'active_copied_portfolios' || dbColumn === 'lifetime_copied_portfolios') {
             (row as any)[dbColumn] = 0
           }
           continue
@@ -145,6 +148,8 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           dbColumn === 'available_copy_credits' ||
           dbColumn === 'active_created_portfolios' ||
           dbColumn === 'lifetime_created_portfolios' ||
+          dbColumn === 'active_copied_portfolios' ||
+          dbColumn === 'lifetime_copied_portfolios' ||
           dbColumn === 'app_sessions'
         ) {
           // Numeric fields - handle both number and string types
