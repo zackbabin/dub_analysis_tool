@@ -623,20 +623,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>Top Behavioral Drivers</strong>
-                    Statistical analysis showing which user behaviors best predict deposits and copies.
+                    Statistical analysis showing which user behaviors best predict deposits, copies, and subscriptions.
                     <ul>
-                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85713544%22" target="_blank" style="color: #17a2b8;">Chart 85713544</a> (User behavior metrics)</li>
+                        <li><strong>Data Sources:</strong>
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85713544%22" target="_blank" style="color: #17a2b8;">Chart 85713544</a> (Deposits/Copies),
+                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions)
+                        </li>
                         <li><strong>Analysis:</strong> Correlation + Logistic Regression</li>
-                        <li><strong>Metrics:</strong> Correlation coefficient, odds ratio, tipping point</li>
+                        <li><strong>Metrics:</strong> Correlation coefficient, t-statistic, predictive strength, tipping point</li>
                     </ul>
                 </span>
             </span></h2>
-                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits and copies</p>
+                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits, copies, and subscriptions</p>
 
                     <div class="behavioral-tabs-container">
                         <div class="behavioral-tab-navigation">
                             <button class="behavioral-tab-btn active" data-behavioral-tab="deposits">Deposit Funds</button>
                             <button class="behavioral-tab-btn" data-behavioral-tab="copies">Copy Portfolios</button>
+                            <button class="behavioral-tab-btn" data-behavioral-tab="subscriptions">Subscriptions</button>
                         </div>
 
                         <div class="behavioral-tab-content">
@@ -646,31 +650,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             <div id="copies-behavioral-tab" class="behavioral-tab-pane">
                                 <!-- Copy Portfolios content will be inserted here -->
                             </div>
+                            <div id="subscriptions-behavioral-tab" class="behavioral-tab-pane">
+                                <!-- Subscriptions content will be inserted here -->
+                            </div>
                         </div>
-                    </div>
-                </div>
-            `;
-
-            // Add Top Subscription Drivers Section
-            portfolioHTML += `
-                <div class="qda-result-section" id="subscription-drivers-section" style="margin-top: 3rem;">
-                    <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Top Subscription Drivers<span class="info-icon">i</span>
-                    <span class="tooltip-text">
-                        <strong>Top Subscription Drivers</strong>
-                        Behavioral patterns and events that predict subscription conversions.
-                        <ul>
-                            <li><strong>Data Sources:</strong>
-                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
-                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
-                            </li>
-                            <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
-                            <li><strong>Metrics:</strong> Correlation coefficients, t-statistics, predictive strength</li>
-                        </ul>
-                    </span>
-                </span></h2>
-                    <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
-                    <div id="subscription-drivers-content">
-                        <!-- Subscription drivers table will be inserted here -->
                     </div>
                 </div>
             `;
@@ -2697,7 +2680,7 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
 };
 
 /**
- * Display Top Subscription Drivers section
+ * Display Top Subscription Drivers in the Subscriptions tab
  * Loads data from subscription_drivers table (populated during sync)
  */
 UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async function() {
@@ -2707,9 +2690,9 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
             return;
         }
 
-        const contentDiv = document.getElementById('subscription-drivers-content');
+        const contentDiv = document.getElementById('subscriptions-behavioral-tab');
         if (!contentDiv) {
-            console.warn('Subscription drivers content div not found');
+            console.warn('Subscriptions behavioral tab not found');
             return;
         }
 
