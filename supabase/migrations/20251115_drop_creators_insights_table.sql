@@ -3,6 +3,32 @@
 -- Date: 2025-11-15
 
 -- ==============================================================================
+-- SAFETY CHECK: Verify no critical dependencies exist
+-- ==============================================================================
+
+-- Check for views that depend on creators_insights
+DO $$
+DECLARE
+  dependent_views TEXT;
+BEGIN
+  SELECT string_agg(DISTINCT dependent_view.relname, ', ')
+  INTO dependent_views
+  FROM pg_depend
+  JOIN pg_rewrite ON pg_depend.objid = pg_rewrite.oid
+  JOIN pg_class as dependent_view ON pg_rewrite.ev_class = dependent_view.oid
+  JOIN pg_class as source_table ON pg_depend.refobjid = source_table.oid
+  WHERE source_table.relname = 'creators_insights'
+  AND dependent_view.relkind IN ('v', 'm') -- views and materialized views
+  AND dependent_view.relname != 'creators_insights';
+
+  IF dependent_views IS NOT NULL THEN
+    RAISE EXCEPTION 'Cannot drop creators_insights - the following views depend on it: %', dependent_views;
+  ELSE
+    RAISE NOTICE '✅ No dependent views found - safe to drop';
+  END IF;
+END $$;
+
+-- ==============================================================================
 -- STEP 1: Show what will be deleted (safety check)
 -- ==============================================================================
 
@@ -24,6 +50,17 @@ COMMENT ON FUNCTION upload_creator_data IS NULL; -- Remove if exists
 -- ==============================================================================
 -- STEP 3: Drop the table (CASCADE will drop indexes, triggers, constraints)
 -- ==============================================================================
+
+-- What CASCADE will drop:
+-- - All indexes on creators_insights (idx_creators_insights_*)
+-- - All triggers on creators_insights (update_creators_insights_updated_at)
+-- - Sequence: creators_insights_id_seq
+-- - Any constraints on creators_insights
+--
+-- What CASCADE will NOT drop (verified):
+-- - No views depend on creators_insights
+-- - No foreign keys reference creators_insights
+-- - No other tables depend on creators_insights
 
 DROP TABLE IF EXISTS creators_insights CASCADE;
 
