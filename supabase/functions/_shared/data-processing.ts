@@ -280,7 +280,7 @@ export function processPortfolioCreatorPairs(
     }
 
     if (!creatorUsername) {
-      console.warn(`No username found for creatorId ${creatorId} on portfolio ${portfolioTicker}`)
+      console.warn(`No username found for creatorId ${creatorId} on portfolio ${rawPortfolioTicker}`)
       return
     }
 
