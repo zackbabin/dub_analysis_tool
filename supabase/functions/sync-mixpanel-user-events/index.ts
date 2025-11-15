@@ -1,6 +1,7 @@
 // Supabase Edge Function: sync-mixpanel-user-events (Event Export API - Streaming)
 // Streams events from Mixpanel Export API, processes incrementally to avoid memory issues
 // Processes events in chunks and upserts to subscribers_insights
+// Default behavior: Fetches last 60 days through today (rolling 60-day window)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
@@ -230,12 +231,15 @@ serve(async (req) => {
         toDate = to_date
         console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
       } else {
-        // Regular mode: just yesterday (1 day)
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD
-        fromDate = toDate // Same date = 1 day only
-        console.log(`DAILY MODE: Date range ${fromDate} to ${toDate}`)
+        // Regular mode: last 60 days through today
+        const today = new Date()
+        toDate = today.toISOString().split('T')[0] // YYYY-MM-DD (today)
+
+        const sixtyDaysAgo = new Date(today)
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+        fromDate = sixtyDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+
+        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (60 days)`)
       }
 
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
