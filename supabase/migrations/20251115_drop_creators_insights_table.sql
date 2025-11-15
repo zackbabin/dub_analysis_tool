@@ -39,13 +39,11 @@ SELECT
 FROM creators_insights;
 
 -- ==============================================================================
--- STEP 2: Drop dependent function first
+-- STEP 2: Drop dependent function first (if it still exists)
 -- ==============================================================================
 
 -- Drop upload_creator_data function (references creators_insights)
 DROP FUNCTION IF EXISTS upload_creator_data(jsonb[]);
-
-COMMENT ON FUNCTION upload_creator_data IS NULL; -- Remove if exists
 
 -- ==============================================================================
 -- STEP 3: Drop the table (CASCADE will drop indexes, triggers, constraints)
@@ -93,7 +91,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION '⚠️ upload_creator_data function still exists!';
   ELSE
-    RAISE NOTICE '✅ upload_creator_data function successfully dropped';
+    RAISE NOTICE '✅ upload_creator_data function dropped (or was already dropped)';
   END IF;
 END $$;
 
