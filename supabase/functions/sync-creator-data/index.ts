@@ -131,7 +131,8 @@ serve(async (req) => {
       console.log('ℹ️ Portfolio metrics (PDP views, copies, liquidations) aggregated from user-level data')
 
       // Process subscription metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
-      const creatorMetricsRows = processSubscriptionMetrics(subscriptionMetricsData)
+      // Pass premiumCreatorRows to look up missing creator_ids by username
+      const creatorMetricsRows = processSubscriptionMetrics(subscriptionMetricsData, premiumCreatorRows)
       console.log(`Processed subscription metrics for ${creatorMetricsRows.length} creators`)
 
       // Store creator-level metrics in separate table
@@ -570,11 +571,22 @@ function processPremiumCreatorsData(data: any): any[] {
  * across all creator_ids to avoid double-counting, and store one row per creator_id
  * with the same subscription values (since they represent the same creator account).
  *
+ * If a username has metrics but no valid 18-digit creator_id in the chart data,
+ * we look up the creator_id from the premiumCreators list.
+ *
  * Returns array of creator-level metric rows for premium_creator_metrics table
  */
-function processSubscriptionMetrics(data: any): any[] {
+function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any[] {
   const rows: any[] = []
   const now = new Date().toISOString()
+
+  // Create username -> creator_id lookup from premium creators list
+  const usernameToCreatorId = new Map<string, string>()
+  for (const creator of premiumCreators) {
+    if (creator.creator_username && creator.creator_id && creator.creator_id.length >= 18) {
+      usernameToCreatorId.set(creator.creator_username, creator.creator_id)
+    }
+  }
 
   if (!data || !data.series) {
     console.log('No subscription metrics data')
@@ -610,41 +622,65 @@ function processSubscriptionMetrics(data: any): any[] {
     if (typeof usernameData !== 'object') continue
 
     const creatorIds: string[] = []
+    const nonNumericKeys: string[] = []
     let maxSubscriptions = 0
     let maxPaywallViews = 0
     let maxStripeModalViews = 0
     let maxCancellations = 0
 
+    // Extract metrics helper function
+    const getMetricValue = (metricData: any, creatorId: string): number => {
+      try {
+        const value = metricData?.[creatorUsername]?.[creatorId]
+        if (!value) return 0
+
+        // Handle both object format {"all": 123} and direct number format
+        if (typeof value === 'object' && value !== null && 'all' in value) {
+          return parseInt(String(value.all)) || 0
+        }
+
+        return parseInt(String(value)) || 0
+      } catch {
+        return 0
+      }
+    }
+
     // Find all creator_ids for this username and take max value
     for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
       if (creatorId === '$overall') continue
-      if (!/^\d+$/.test(creatorId)) continue // Skip non-numeric keys
       if (typeof creatorIdData !== 'object') continue
 
-      creatorIds.push(creatorId)
+      // Check if this is a valid 18-digit creator_id
+      if (/^\d{18}$/.test(creatorId)) {
+        creatorIds.push(creatorId)
 
-      // Extract metrics for this creator_id
-      const getMetricValue = (metricData: any): number => {
-        try {
-          const value = metricData?.[creatorUsername]?.[creatorId]
-          if (!value) return 0
+        // Take maximum value across creator_ids (they should be the same, but handle edge cases)
+        maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions, creatorId))
+        maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews, creatorId))
+        maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews, creatorId))
+        maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations, creatorId))
+      } else {
+        // Track non-numeric keys - might still have metrics
+        nonNumericKeys.push(creatorId)
 
-          // Handle both object format {"all": 123} and direct number format
-          if (typeof value === 'object' && value !== null && 'all' in value) {
-            return parseInt(String(value.all)) || 0
-          }
-
-          return parseInt(String(value)) || 0
-        } catch {
-          return 0
-        }
+        // Extract metrics even from non-numeric keys
+        maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions, creatorId))
+        maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews, creatorId))
+        maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews, creatorId))
+        maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations, creatorId))
       }
+    }
 
-      // Take maximum value across creator_ids (they should be the same, but handle edge cases)
-      maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions))
-      maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews))
-      maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews))
-      maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations))
+    // If no valid 18-digit creator_ids found in chart data, look up from premium creators list
+    if (creatorIds.length === 0 && maxSubscriptions > 0) {
+      const lookupId = usernameToCreatorId.get(creatorUsername)
+      if (lookupId) {
+        creatorIds.push(lookupId)
+        const keyInfo = nonNumericKeys.length > 0 ? ` (found metrics under keys: ${nonNumericKeys.join(', ')})` : ''
+        console.log(`ℹ️ Creator ${creatorUsername} has no valid 18-digit creator_id in chart data${keyInfo} - using ${lookupId} from premium creators list`)
+      } else {
+        console.warn(`⚠️ Skipping creator ${creatorUsername} - has metrics (${maxSubscriptions} subscriptions) but no valid creator_id found in chart data or premium creators list`)
+      }
     }
 
     if (creatorIds.length > 0) {
