@@ -1012,33 +1012,6 @@ class SupabaseIntegration {
     }
 
     /**
-     * Load engagement summary statistics
-     * Returns summary comparing subscribers vs non-subscribers
-     */
-    async loadEngagementSummary() {
-        return this.cachedQuery('engagement_summary', async () => {
-            console.log('Loading engagement summary...');
-
-            try {
-                const { data, error } = await this.supabase
-                    .from('subscription_engagement_summary')
-                    .select('*');
-
-                if (error) {
-                    console.error('Error loading engagement summary:', error);
-                    throw error;
-                }
-
-                console.log(`✅ Loaded engagement summary`);
-                return data;
-            } catch (error) {
-                console.error('Error loading engagement summary:', error);
-                throw error;
-            }
-        });
-    }
-
-    /**
      * Trigger subscription pattern analysis via Edge Function
      * Runs exhaustive search + logistic regression to find best creator combinations
      */

@@ -506,7 +506,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Load all engagement data in parallel with base analysis
         const [
-            engagementSummary,
             hiddenGems,
             copyEngagementSummary,
             topCopyCombos,
@@ -516,7 +515,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
-            this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),

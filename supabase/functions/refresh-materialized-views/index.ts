@@ -114,19 +114,14 @@ serve(async (req) => {
       console.log('✓ premium_creator_retention_analysis refreshed successfully')
     }
 
-    // Step 6: Refresh summary views (depend on main_analysis)
-    // Run in parallel - they don't depend on each other
-    console.log('Refreshing engagement summary views...')
+    // Step 6: Refresh copy engagement summary (depends on main_analysis)
+    console.log('Refreshing copy engagement summary view...')
 
-    const [subResult, copyResult] = await Promise.all([
-      supabase.rpc('refresh_subscription_engagement_summary'),
-      supabase.rpc('refresh_copy_engagement_summary')
-    ])
+    const copyResult = await supabase.rpc('refresh_copy_engagement_summary')
 
-    if (subResult.error) console.error('Error refreshing subscription summary:', subResult.error)
     if (copyResult.error) console.error('Error refreshing copy summary:', copyResult.error)
 
-    console.log('✓ Engagement summary views refreshed')
+    console.log('✓ Copy engagement summary view refreshed')
 
     console.log('✅ All materialized views refreshed successfully')
 
@@ -137,7 +132,7 @@ serve(async (req) => {
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
         retention_analysis_refreshed: !retentionError,
-        summary_views_refreshed: !subResult.error && !copyResult.error,
+        copy_engagement_summary_refreshed: !copyResult.error,
         pattern_analysis_triggered: true
       }
     )

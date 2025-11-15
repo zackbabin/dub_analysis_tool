@@ -1650,10 +1650,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 const creator = creatorMap.get(username);
                 creator.cohorts.push({
                     cohortDate: cohortDate,
-                    first: data.first,
-                    counts: data.counts
+                    first: data.first || 0,
+                    counts: Array.isArray(data.counts) ? data.counts : []
                 });
-                creator.totalCount += data.first;
+                creator.totalCount += data.first || 0;
             }
         }
 
