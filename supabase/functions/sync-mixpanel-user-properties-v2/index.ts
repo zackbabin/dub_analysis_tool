@@ -17,7 +17,7 @@ import {
   createErrorResponse,
 } from '../_shared/sync-helpers.ts'
 
-const COHORT_IDS = [5828437] // Premium Creator Analysis cohort
+const COHORT_IDS = [5825472] // Premium Creator Analysis cohort
 
 // List of Mixpanel properties to fetch
 const OUTPUT_PROPERTIES = [
@@ -244,9 +244,9 @@ serve(async (req) => {
     try {
       console.log(`Fetching user properties from Mixpanel Engage API (cohorts ${COHORT_IDS.join(', ')}, page ${page})...`)
 
-      // Construct where filter for rc_subscription_status
-      // Filter: null, empty, "expired", or "expired_promotional"
-      const whereFilter = 'not defined(properties["rc_subscription_status"]) or properties["rc_subscription_status"] == "" or properties["rc_subscription_status"] == "expired" or properties["rc_subscription_status"] == "expired_promotional"'
+      // Construct where filter for Email
+      // Filter: users where Email property is defined/set
+      const whereFilter = 'defined(properties["Email"])'
 
       // Fetch data from Engage API with larger page size (3000) to minimize API calls
       const response = await fetchEngageProfiles(credentials, {
