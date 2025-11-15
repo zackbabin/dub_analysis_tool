@@ -343,7 +343,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Display creator summary statistics - Show 4 averaged metric cards
+     * Override: Display creator summary statistics - Show 4 metric cards at top
      */
     async displayCreatorSummaryStats(stats, engagementSummary, subscriptionDistribution) {
         const container = document.getElementById('creatorSummaryStatsInline');
@@ -375,43 +375,50 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         </span></h1>`;
         container.appendChild(section);
 
-        if (engagementSummary && engagementSummary.length === 2) {
-            const subscribersData = engagementSummary.find(d => d.did_subscribe === 1 || d.did_subscribe === true) || {};
-            const nonSubscribersData = engagementSummary.find(d => d.did_subscribe === 0 || d.did_subscribe === false) || {};
-
+        // Display 4 metric cards: Median Copies, Avg Subscription CVR, Median All-Time Returns, Median Copy Capital
+        if (stats) {
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
             metricSummary.style.gridTemplateColumns = 'repeat(4, 1fr)';
             metricSummary.style.marginTop = '1.5rem';
-            metricSummary.style.marginBottom = '0.5rem';
+            metricSummary.style.marginBottom = '2rem';
 
-            const metrics = [
-                { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
-                { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
-                { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
-                { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
+            // Format displays
+            const medianCopiesDisplay = stats.median_copies !== null && stats.median_copies !== undefined
+                ? stats.median_copies.toLocaleString(undefined, {maximumFractionDigits: 0})
+                : '—';
+            const avgSubCVRDisplay = stats.avg_subscription_cvr !== null && stats.avg_subscription_cvr !== undefined
+                ? stats.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%'
+                : '—';
+            const medianPerformanceDisplay = stats.median_all_time_performance !== null && stats.median_all_time_performance !== undefined
+                ? `${stats.median_all_time_performance >= 0 ? '+' : ''}${stats.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                : '—';
+            const medianCopyCapitalDisplay = stats.median_copy_capital !== null && stats.median_copy_capital !== undefined
+                ? `$${stats.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                : '—';
+
+            const cards = [
+                ['Median Copies', medianCopiesDisplay, 'Median number of copies across all Premium Creators'],
+                ['Avg Subscription CVR', avgSubCVRDisplay, 'Viewed Paywall → Subscribed to Creator'],
+                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
+                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
             ];
 
-            metrics.forEach(metric => {
+            cards.forEach(([cardTitle, content, tooltip]) => {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                    <div style="font-size: 1.5rem; font-weight: bold;">
-                        ${parseFloat(metric.primaryValue).toFixed(1)}
-                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
+                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
+                        <span class="info-tooltip">${cardTitle}<span class="info-icon">i</span>
+                            <span class="tooltip-text">${tooltip}</span>
+                        </span>
                     </div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
                 `;
                 metricSummary.appendChild(card);
             });
 
             section.appendChild(metricSummary);
-
-            // Add comparison note
-            const note = document.createElement('p');
-            note.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;';
-            note.textContent = "Compares users who subscribed vs. haven't subscribed";
-            section.appendChild(note);
         }
 
         // Display subscription price distribution (data passed as parameter)
@@ -469,6 +476,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (!data) {
                 console.log('No premium creator metrics found');
                 return {
+                    median_copies: null,
                     avg_subscription_cvr: 0,
                     median_all_time_performance: null,
                     median_copy_capital: null
@@ -477,6 +485,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Return the pre-calculated metrics from the view
             return {
+                median_copies: data.median_copies || null,
                 avg_subscription_cvr: data.avg_subscription_cvr || 0,
                 median_all_time_performance: data.median_all_time_performance || null,
                 median_copy_capital: data.median_copy_capital || null,
@@ -599,48 +608,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
         description.textContent = 'Conversion metrics breakdown for each premium creator';
         section.appendChild(description);
-
-        // Fetch premium creator metrics for the 3 metric cards
-        const metrics = await this.fetchPremiumCreatorMetrics();
-
-        if (metrics) {
-            const metricSummary = document.createElement('div');
-            metricSummary.className = 'qda-metric-summary';
-            // Override grid to use 3 columns
-            metricSummary.style.gridTemplateColumns = 'repeat(3, 1fr)';
-            metricSummary.style.marginTop = '1.5rem';
-            metricSummary.style.marginBottom = '1.5rem';
-
-            // Create 3 metric cards
-            const medianPerformanceDisplay = metrics.median_all_time_performance !== null && metrics.median_all_time_performance !== undefined
-                ? `${metrics.median_all_time_performance >= 0 ? '+' : ''}${metrics.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
-                : '—';
-            const medianCopyCapitalDisplay = metrics.median_copy_capital !== null && metrics.median_copy_capital !== undefined
-                ? `$${metrics.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-                : '—';
-
-            const cards = [
-                ['Avg Subscription CVR', metrics.avg_subscription_cvr ? metrics.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%' : '0%', 'Viewed Paywall → Subscribed to Creator'],
-                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
-                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
-            ];
-
-            cards.forEach(([cardTitle, content, tooltip]) => {
-                const card = document.createElement('div');
-                card.className = 'qda-metric-card';
-                card.innerHTML = `
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
-                        <span class="info-tooltip">${cardTitle}<span class="info-icon">i</span>
-                            <span class="tooltip-text">${tooltip}</span>
-                        </span>
-                    </div>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
-                `;
-                metricSummary.appendChild(card);
-            });
-
-            section.appendChild(metricSummary);
-        }
 
         // Create table
         const tableWrapper = document.createElement('div');
