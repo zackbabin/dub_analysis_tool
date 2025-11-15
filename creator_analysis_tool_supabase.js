@@ -2957,19 +2957,33 @@ CreatorAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async func
         // Fetch subscription drivers from database table
         const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
             .from('subscription_drivers')
-            .select('*')
-            .order('correlation_coefficient', { ascending: false })
-            .limit(20);
+            .select('*');
 
         if (driversError) {
             console.error('Error fetching subscription drivers:', driversError);
+            console.error('Full error details:', JSON.stringify(driversError));
             return;
         }
+
+        console.log(`📊 Fetched ${driversData?.length || 0} subscription drivers from database`);
 
         if (!driversData || driversData.length === 0) {
             console.warn('No subscription drivers data available. Run user analysis sync first.');
             return;
         }
+
+        // Sort by absolute correlation coefficient (descending) for proper predictive strength ordering
+        driversData.sort((a, b) => {
+            const absA = Math.abs(parseFloat(a.correlation_coefficient) || 0);
+            const absB = Math.abs(parseFloat(b.correlation_coefficient) || 0);
+            return absB - absA;
+        });
+
+        console.log('Top 5 subscription drivers:', driversData.slice(0, 5).map(d => ({
+            variable: d.variable_name,
+            correlation: d.correlation_coefficient,
+            strength: d.predictive_strength
+        })));
 
         const driversSection = document.createElement('div');
         driversSection.style.marginTop = '3rem';
