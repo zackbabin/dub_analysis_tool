@@ -599,9 +599,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
                 <div class="qda-result-section">
-                    <h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Portfolio Analysis<span class="info-icon">i</span>
+                    <h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
                 <span class="tooltip-text">
-                    <strong>Portfolio Analysis</strong>
+                    <strong>Behavior Analysis</strong>
                     Copy behavior metrics showing engagement patterns and conversion rates.
                     <ul>
                         <li><strong>Data Sources:</strong>
@@ -647,6 +647,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                                 <!-- Copy Portfolios content will be inserted here -->
                             </div>
                         </div>
+                    </div>
+                </div>
+            `;
+
+            // Add Top Subscription Drivers Section
+            portfolioHTML += `
+                <div class="qda-result-section" id="subscription-drivers-section" style="margin-top: 3rem;">
+                    <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Top Subscription Drivers<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Top Subscription Drivers</strong>
+                        Behavioral patterns and events that predict subscription conversions.
+                        <ul>
+                            <li><strong>Data Sources:</strong>
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                            </li>
+                            <li><strong>Method:</strong> Logistic regression analysis comparing subscribers vs non-subscribers</li>
+                            <li><strong>Metrics:</strong> Correlation coefficients, t-statistics, predictive strength</li>
+                        </ul>
+                    </span>
+                </span></h2>
+                    <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;">The top events that are the strongest predictors of subscriptions</p>
+                    <div id="subscription-drivers-content">
+                        <!-- Subscription drivers table will be inserted here -->
                     </div>
                 </div>
             `;
@@ -745,6 +769,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Initialize nested tab event listeners using shared function
             this.initializePortfolioNestedTabs();
+
+            // Display Top Subscription Drivers section (load from database)
+            await this.displayTopSubscriptionDrivers();
         } else {
             portfolioContentSection.innerHTML = `
                 <div class="qda-result-section">
@@ -2666,6 +2693,132 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
                 progressSection.style.display = 'none';
             }
         }, 1500);
+    }
+};
+
+/**
+ * Display Top Subscription Drivers section
+ * Loads data from subscription_drivers table (populated during sync)
+ */
+UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.error('Supabase not configured');
+            return;
+        }
+
+        const contentDiv = document.getElementById('subscription-drivers-content');
+        if (!contentDiv) {
+            console.warn('Subscription drivers content div not found');
+            return;
+        }
+
+        // Fetch subscription drivers from database table
+        const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
+            .from('subscription_drivers')
+            .select('*');
+
+        if (driversError) {
+            console.error('Error fetching subscription drivers:', driversError);
+            console.error('Full error details:', JSON.stringify(driversError));
+            contentDiv.innerHTML = `
+                <p style="color: #dc3545;">Error loading subscription drivers. Please check console for details.</p>
+            `;
+            return;
+        }
+
+        console.log(`📊 Fetched ${driversData?.length || 0} subscription drivers from database`);
+
+        if (!driversData || driversData.length === 0) {
+            console.warn('No subscription drivers data available.');
+            contentDiv.innerHTML = `
+                <p style="color: #6c757d; font-style: italic;">Subscription drivers data will be available after sync completes.</p>
+            `;
+            return;
+        }
+
+        // Sort by absolute correlation coefficient (descending) for proper predictive strength ordering
+        driversData.sort((a, b) => {
+            const absA = Math.abs(parseFloat(a.correlation_coefficient) || 0);
+            const absB = Math.abs(parseFloat(b.correlation_coefficient) || 0);
+            return absB - absA;
+        });
+
+        console.log('Top 5 subscription drivers:', driversData.slice(0, 5).map(d => ({
+            variable: d.variable_name,
+            correlation: d.correlation_coefficient,
+            strength: d.predictive_strength
+        })));
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Variable</th>
+                <th style="text-align: right;">Correlation</th>
+                <th style="text-align: right;">T-Statistic</th>
+                <th style="text-align: right;">Predictive Strength</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        driversData.slice(0, 10).forEach(row => {
+            const tr = document.createElement('tr');
+
+            // Use variable label if available
+            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
+
+            // Variable cell
+            const varCell = document.createElement('td');
+            varCell.style.fontWeight = '600';
+            varCell.textContent = displayName;
+            tr.appendChild(varCell);
+
+            // Correlation cell
+            const corrCell = document.createElement('td');
+            corrCell.style.textAlign = 'right';
+            corrCell.textContent = parseFloat(row.correlation_coefficient).toFixed(2);
+            tr.appendChild(corrCell);
+
+            // T-Statistic cell
+            const tStatCell = document.createElement('td');
+            tStatCell.style.textAlign = 'right';
+            tStatCell.textContent = parseFloat(row.t_stat).toFixed(2);
+            tr.appendChild(tStatCell);
+
+            // Predictive Strength cell with color coding
+            const strengthCell = document.createElement('td');
+            strengthCell.style.textAlign = 'right';
+            const strengthValue = row.predictive_strength || 'N/A';
+
+            // Calculate predictive strength class using same logic as behavioral drivers
+            const result = window.calculatePredictiveStrength?.(
+                parseFloat(row.correlation_coefficient),
+                parseFloat(row.t_stat)
+            ) || { strength: strengthValue, className: '' };
+
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = result.className;
+            strengthSpan.textContent = result.strength;
+            strengthCell.appendChild(strengthSpan);
+            tr.appendChild(strengthCell);
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        contentDiv.appendChild(tableWrapper);
+
+    } catch (error) {
+        console.error('Error in displayTopSubscriptionDrivers:', error);
     }
 };
 

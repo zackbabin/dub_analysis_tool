@@ -170,7 +170,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.appendChild(affinityContainer);
 
         // Display results - SKIP behavioral analysis
-        this.displayCreatorSummaryStats(results.summaryStats, results.engagementSummary, results.subscriptionDistribution);
+        this.displayCreatorSummaryStats(results.summaryStats, results.subscriptionDistribution);
 
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
@@ -345,7 +345,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     /**
      * Override: Display creator summary statistics - Show 4 metric cards at top
      */
-    async displayCreatorSummaryStats(stats, engagementSummary, subscriptionDistribution) {
+    async displayCreatorSummaryStats(stats, subscriptionDistribution) {
         const container = document.getElementById('creatorSummaryStatsInline');
         if (!container) {
             console.error('❌ Container creatorSummaryStatsInline not found!');
@@ -447,9 +447,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
             }, 100);
         }
-
-        // Display Top Subscription Drivers section (loaded from database)
-        await this.displayTopSubscriptionDrivers(section);
     }
 
     /**
@@ -2433,16 +2430,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Load subscription analysis data
             console.log('Loading subscription analysis data...');
-            const [engagementSummary, subscriptionDistribution] = await Promise.all([
-                this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-                this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
-            ]);
+            const subscriptionDistribution = await this.supabaseIntegration.loadSubscriptionDistribution().catch(e => {
+                console.warn('Failed to load subscription distribution:', e);
+                return [];
+            });
 
             this.updateProgress(60, 'Rendering data...');
 
             // Re-render the entire creator analysis display
             console.log('Re-rendering creator analysis with fresh data...');
-            await this.displayResults({ summaryStats, engagementSummary, subscriptionDistribution });
+            await this.displayResults({ summaryStats, subscriptionDistribution });
 
             // Update timestamp and data scope with current time
             this.updateTimestampAndDataScope();
@@ -2507,14 +2504,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Load subscription analysis data
             console.log('Loading subscription analysis data...');
-            const [engagementSummary, subscriptionDistribution] = await Promise.all([
-                this.supabaseIntegration.loadEngagementSummary().catch(e => { console.warn('Failed to load engagement summary:', e); return null; }),
-                this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
-            ]);
+            const subscriptionDistribution = await this.supabaseIntegration.loadSubscriptionDistribution().catch(e => {
+                console.warn('Failed to load subscription distribution:', e);
+                return [];
+            });
 
             // Re-render the entire creator analysis display
             console.log('Re-rendering creator analysis with fresh data...');
-            await this.displayResults({ summaryStats, engagementSummary, subscriptionDistribution });
+            await this.displayResults({ summaryStats, subscriptionDistribution });
 
             // Update timestamp and data scope with current time (matching user tool pattern)
             this.updateTimestampAndDataScope();
