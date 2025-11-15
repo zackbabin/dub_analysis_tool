@@ -1,7 +1,7 @@
 // Supabase Edge Function: sync-creator-data
-// Fetches user profile data from Mixpanel Insights API
-// Enriches uploaded creators with Mixpanel user attributes
-// Stores data in creators_insights table
+// Fetches premium creator portfolio metrics from Mixpanel Insights API
+// Syncs portfolio-level metrics (copies, subscriptions, performance) to database tables
+// Refreshes materialized views for Premium Creator Analysis dashboard
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
@@ -180,43 +180,8 @@ serve(async (req) => {
       console.log(`Processed ${enrichmentRows.length} creator enrichment rows`)
       console.log(`Stats: ${stats.totalMixpanelUsers} total users, ${stats.matchedCreators} matched creators`)
 
-      // ============================================================================
-      // TEMPORARILY DISABLED: Testing if creators_insights table is still needed
-      // If this test sync completes successfully and all UI sections display correctly,
-      // we can safely remove the creators_insights table and this entire block
-      // ============================================================================
-      /*
-      if (enrichmentRows.length > 0) {
-        // Upsert enrichment data
-        const batchSize = 500
-        let totalProcessed = 0
-
-        for (let i = 0; i < enrichmentRows.length; i += batchSize) {
-          const batch = enrichmentRows.slice(i, i + batchSize)
-
-          const { error: insertError } = await supabase
-            .from('creators_insights')
-            .upsert(batch, {
-              onConflict: 'email',
-              ignoreDuplicates: false,
-            })
-
-          if (insertError) {
-            console.error('Error upserting enrichment batch:', insertError)
-            throw insertError
-          }
-
-          totalProcessed += batch.length
-          console.log(`Upserted batch: ${totalProcessed}/${enrichmentRows.length} records`)
-        }
-
-        stats.enrichedCreators = totalProcessed
-      }
-      */
-
-      // Skip creators_insights upsert for this test
-      stats.enrichedCreators = 0
-      console.log('⚠️ TEST MODE: Skipped creators_insights upsert')
+      // Note: creators_insights table has been removed - enrichment data is no longer stored separately
+      stats.enrichedCreators = enrichmentRows.length
 
       console.log('Creator enrichment sync completed successfully')
 

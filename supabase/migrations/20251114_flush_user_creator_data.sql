@@ -1,5 +1,5 @@
--- Flush data from subscribers_insights and creators_insights tables
--- WARNING: This deletes all user and creator data. Use with caution!
+-- Flush data from subscribers_insights table
+-- WARNING: This deletes all user data. Use with caution!
 
 -- ==============================================================================
 -- SAFETY CHECK: Show current row counts before flushing
@@ -9,15 +9,7 @@ SELECT
   'subscribers_insights' as table_name,
   COUNT(*) as current_row_count,
   MAX(updated_at) as latest_update
-FROM subscribers_insights
-
-UNION ALL
-
-SELECT
-  'creators_insights' as table_name,
-  COUNT(*) as current_row_count,
-  MAX(updated_at) as latest_update
-FROM creators_insights;
+FROM subscribers_insights;
 
 -- ==============================================================================
 -- OPTION 1: TRUNCATE (fastest, resets sequences, cannot be rolled back)
@@ -25,7 +17,6 @@ FROM creators_insights;
 
 -- Uncomment to use TRUNCATE (faster but more destructive):
 -- TRUNCATE TABLE subscribers_insights CASCADE;
--- TRUNCATE TABLE creators_insights CASCADE;
 
 -- ==============================================================================
 -- OPTION 2: DELETE (slower, can be rolled back if in a transaction)
@@ -38,21 +29,11 @@ BEGIN;
 -- Delete all rows from subscribers_insights
 DELETE FROM subscribers_insights;
 
--- Delete all rows from creators_insights
-DELETE FROM creators_insights;
-
 -- Verify deletion
 SELECT
   'subscribers_insights' as table_name,
   COUNT(*) as remaining_rows
-FROM subscribers_insights
-
-UNION ALL
-
-SELECT
-  'creators_insights' as table_name,
-  COUNT(*) as remaining_rows
-FROM creators_insights;
+FROM subscribers_insights;
 
 -- Uncomment to commit changes:
 -- COMMIT;
@@ -76,11 +57,10 @@ ROLLBACK;
 -- ==============================================================================
 
 -- CASCADE behavior:
--- - TRUNCATE CASCADE will also delete data from tables that reference these tables
+-- - TRUNCATE CASCADE will also delete data from tables that reference this table
 -- - DELETE does not cascade by default (foreign key constraints may prevent deletion)
 
 -- To re-populate after flushing:
 -- 1. Run sync-mixpanel-user-events to fetch event data
 -- 2. Run sync-mixpanel-user-properties-v2 to fetch user properties
--- 3. Run sync-creator-data to fetch creator data
--- 4. Refresh materialized views
+-- 3. Refresh materialized views
