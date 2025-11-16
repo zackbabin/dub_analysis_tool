@@ -175,41 +175,153 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
 }
 
 /**
- * Bulk upsert user properties to database
+ * Compare two user property records to detect if any field has changed
+ * Returns true if records are different (needs update), false if identical (skip update)
+ * Handles null/undefined comparison safely
+ */
+function hasUserPropertiesChanged(existing: any, incoming: UserPropertyRow): boolean {
+  // If no existing record, it's a new user (needs insert)
+  if (!existing) return true
+
+  // List of all property fields to compare (excluding distinct_id which is the key)
+  const fieldsToCompare = [
+    'income',
+    'net_worth',
+    'investing_activity',
+    'investing_experience_years',
+    'investing_objective',
+    'investment_type',
+    'acquisition_survey',
+    'linked_bank_account',
+    'available_copy_credits',
+    'buying_power',
+    'total_deposits',
+    'total_deposit_count',
+    'total_withdrawals',
+    'total_withdrawal_count',
+    'active_created_portfolios',
+    'lifetime_created_portfolios',
+    'active_copied_portfolios',
+    'lifetime_copied_portfolios',
+  ]
+
+  // Check each field - if ANY field differs, return true (needs update)
+  for (const field of fieldsToCompare) {
+    const existingValue = existing[field]
+    const incomingValue = (incoming as any)[field]
+
+    // Normalize null/undefined to null for comparison
+    const normalizedExisting = existingValue === undefined ? null : existingValue
+    const normalizedIncoming = incomingValue === undefined ? null : incomingValue
+
+    // For numeric fields, also normalize 0 vs null (0 is different from null)
+    // For string fields, normalize empty string to null
+    const finalExisting = normalizedExisting === '' ? null : normalizedExisting
+    const finalIncoming = normalizedIncoming === '' ? null : normalizedIncoming
+
+    if (finalExisting !== finalIncoming) {
+      // Field differs - needs update
+      return true
+    }
+  }
+
+  // All fields match - no update needed
+  return false
+}
+
+/**
+ * Bulk upsert user properties to database with change detection
+ * Only upserts users whose properties have actually changed
+ * This significantly reduces unnecessary DB writes for unchanged users
  */
 async function updateUserPropertiesBatch(
   supabase: any,
   users: UserPropertyRow[]
 ): Promise<number> {
-  console.log(`Starting bulk upsert of ${users.length} users...`)
+  console.log(`Starting bulk upsert with change detection for ${users.length} users...`)
 
   const BATCH_SIZE = 250 // Reduced from 1000 to avoid statement timeout
   let totalUpserted = 0
+  let totalSkippedUnchanged = 0
 
   for (let i = 0; i < users.length; i += BATCH_SIZE) {
     const batch = users.slice(i, i + BATCH_SIZE)
 
     try {
-      const { error, count } = await supabase
+      // CHANGE DETECTION: Fetch existing records for this batch
+      const distinctIds = batch.map(u => u.distinct_id)
+      const { data: existingRecords, error: fetchError } = await supabase
         .from('subscribers_insights')
-        .upsert(batch, {
-          onConflict: 'distinct_id',
-          count: 'exact'
-        })
+        .select('*')
+        .in('distinct_id', distinctIds)
 
-      if (error) {
-        console.error(`Error upserting batch:`, error.message)
-      } else {
-        const batchCount = count || batch.length
-        totalUpserted += batchCount
-        console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${totalUpserted}/${users.length} users`)
+      if (fetchError) {
+        console.error(`Error fetching existing records for comparison:`, fetchError.message)
+        // On error, fall back to upserting all (safe fallback - no data loss)
+        console.warn('Falling back to upserting all records in batch (no change detection)')
+        const { error, count } = await supabase
+          .from('subscribers_insights')
+          .upsert(batch, {
+            onConflict: 'distinct_id',
+            count: 'exact'
+          })
+
+        if (error) {
+          console.error(`Error upserting batch:`, error.message)
+        } else {
+          const batchCount = count || batch.length
+          totalUpserted += batchCount
+        }
+        continue
+      }
+
+      // Create map of existing records for fast lookup
+      const existingMap = new Map()
+      if (existingRecords) {
+        for (const record of existingRecords) {
+          existingMap.set(record.distinct_id, record)
+        }
+      }
+
+      // Filter batch to only include users with changes
+      const usersToUpsert = batch.filter(user => {
+        const existing = existingMap.get(user.distinct_id)
+        const needsUpdate = hasUserPropertiesChanged(existing, user)
+
+        if (!needsUpdate) {
+          totalSkippedUnchanged++
+        }
+
+        return needsUpdate
+      })
+
+      console.log(`  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${usersToUpsert.length} changed, ${batch.length - usersToUpsert.length} unchanged (skipped)`)
+
+      // Only upsert if there are changes
+      if (usersToUpsert.length > 0) {
+        const { error, count } = await supabase
+          .from('subscribers_insights')
+          .upsert(usersToUpsert, {
+            onConflict: 'distinct_id',
+            count: 'exact'
+          })
+
+        if (error) {
+          console.error(`Error upserting batch:`, error.message)
+        } else {
+          const batchCount = count || usersToUpsert.length
+          totalUpserted += batchCount
+        }
       }
     } catch (batchError) {
-      console.error(`Exception upserting batch:`, batchError.message)
+      console.error(`Exception in batch processing:`, batchError.message)
+      // Continue to next batch on error (don't fail entire sync)
     }
   }
 
-  console.log(`✓ Finished bulk upsert: ${totalUpserted} users`)
+  console.log(`✓ Finished bulk upsert: ${totalUpserted} updated/new, ${totalSkippedUnchanged} skipped (unchanged)`)
+  console.log(`  Efficiency: ${Math.round((totalSkippedUnchanged / users.length) * 100)}% of users had no changes`)
+
   return totalUpserted
 }
 
