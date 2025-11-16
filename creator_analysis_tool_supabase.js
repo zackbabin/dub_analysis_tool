@@ -815,7 +815,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             tableWrapper.style.cssText = 'overflow-x: auto; margin-top: 1rem;';
 
             const tableContainer = document.createElement('div');
-            tableContainer.style.minWidth = '600px';
+            tableContainer.style.minWidth = '900px';
 
             const table = document.createElement('table');
             table.className = 'qda-regression-table';
@@ -824,7 +824,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             thead.innerHTML = `
                 <tr>
                     <th style="text-align: left; min-width: 180px;">Premium Creator</th>
-                    <th style="text-align: left; min-width: 300px;">Top 5 Stocks</th>
+                    <th style="text-align: right; min-width: 130px;">Copy Capital</th>
+                    <th style="text-align: left; min-width: 100px;">Stock 1</th>
+                    <th style="text-align: left; min-width: 100px;">Stock 2</th>
+                    <th style="text-align: left; min-width: 100px;">Stock 3</th>
+                    <th style="text-align: left; min-width: 100px;">Stock 4</th>
+                    <th style="text-align: left; min-width: 100px;">Stock 5</th>
                 </tr>
             `;
             table.appendChild(thead);
@@ -833,11 +838,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             creatorStocks.forEach(row => {
                 const tr = document.createElement('tr');
                 // Handle new structure: top_5_stocks is array of {ticker, quantity} objects
-                const stocksDisplay = row.top_5_stocks?.map(s => s.ticker).join(', ') || '—';
+                const stocks = row.top_5_stocks || [];
+
+                // Format copy capital
+                const copyCapitalDisplay = row.total_copy_capital !== null && row.total_copy_capital !== undefined
+                    ? `$${row.total_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                    : '—';
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocksDisplay}</td>
+                    <td style="text-align: right;">${copyCapitalDisplay}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocks[0]?.ticker || '—'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocks[1]?.ticker || '—'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocks[2]?.ticker || '—'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocks[3]?.ticker || '—'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${stocks[4]?.ticker || '—'}</td>
                 `;
                 tbody.appendChild(tr);
             });
