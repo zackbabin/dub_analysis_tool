@@ -837,22 +837,38 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             const tbody = document.createElement('tbody');
             creatorStocks.forEach(row => {
                 const tr = document.createElement('tr');
-                // Handle new structure: top_5_stocks is array of {ticker, quantity} objects
+                // Handle new structure: top_5_stocks is array of {ticker, quantity, avg_price} objects
                 const stocks = row.top_5_stocks || [];
+                const copyCapital = row.total_copy_capital;
 
                 // Format copy capital
-                const copyCapitalDisplay = row.total_copy_capital !== null && row.total_copy_capital !== undefined
-                    ? `$${row.total_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                const copyCapitalDisplay = copyCapital !== null && copyCapital !== undefined
+                    ? `$${copyCapital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
                     : '—';
+
+                // Helper function to format stock with percentage
+                const formatStockWithPercentage = (stock) => {
+                    if (!stock || !stock.ticker) return '—';
+
+                    // Calculate percentage: (quantity * avg_price) / copy_capital * 100
+                    if (stock.quantity && stock.avg_price && copyCapital && copyCapital > 0) {
+                        const positionValue = stock.quantity * stock.avg_price;
+                        const percentage = (positionValue / copyCapital) * 100;
+                        return `${stock.ticker} (${percentage.toFixed(1)}%)`;
+                    }
+
+                    // If we don't have price data, just show ticker
+                    return stock.ticker;
+                };
 
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${row.creator_username || 'N/A'}</td>
                     <td style="text-align: right;">${copyCapitalDisplay}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocks[0]?.ticker || '—'}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocks[1]?.ticker || '—'}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocks[2]?.ticker || '—'}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocks[3]?.ticker || '—'}</td>
-                    <td style="font-size: 0.875rem; color: #495057;">${stocks[4]?.ticker || '—'}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${formatStockWithPercentage(stocks[0])}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${formatStockWithPercentage(stocks[1])}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${formatStockWithPercentage(stocks[2])}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${formatStockWithPercentage(stocks[3])}</td>
+                    <td style="font-size: 0.875rem; color: #495057;">${formatStockWithPercentage(stocks[4])}</td>
                 `;
                 tbody.appendChild(tr);
             });

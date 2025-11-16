@@ -368,7 +368,7 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
 
 /**
  * Parse portfolio holdings CSV
- * Expected columns: strategyticker, apexticker, count, total_stockquantity
+ * Expected columns: strategyticker, apexticker, count, total_stockquantity, avg_price, min_price, max_price
  */
 function parsePortfolioHoldingsCSV(csvContent: string): any[] {
   const records: any[] = []
@@ -385,12 +385,15 @@ function parsePortfolioHoldingsCSV(csvContent: string): any[] {
   const apexTickerIdx = header.indexOf('apexticker')
   const countIdx = header.indexOf('count')
   const totalQuantityIdx = header.indexOf('total_stockquantity')
+  const avgPriceIdx = header.indexOf('avg_price')
+  const minPriceIdx = header.indexOf('min_price')
+  const maxPriceIdx = header.indexOf('max_price')
 
   if (strategyTickerIdx === -1 || apexTickerIdx === -1 || countIdx === -1 || totalQuantityIdx === -1) {
     throw new Error('CSV missing required columns: strategyticker, apexticker, count, total_stockquantity')
   }
 
-  console.log(`Found columns at indices: strategyticker=${strategyTickerIdx}, apexticker=${apexTickerIdx}, count=${countIdx}, total_stockquantity=${totalQuantityIdx}`)
+  console.log(`Found columns at indices: strategyticker=${strategyTickerIdx}, apexticker=${apexTickerIdx}, count=${countIdx}, total_stockquantity=${totalQuantityIdx}, avg_price=${avgPriceIdx}, min_price=${minPriceIdx}, max_price=${maxPriceIdx}`)
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
@@ -403,6 +406,9 @@ function parsePortfolioHoldingsCSV(csvContent: string): any[] {
     const apexTicker = cols[apexTickerIdx]
     const count = cols[countIdx]
     const totalQuantity = cols[totalQuantityIdx]
+    const avgPrice = avgPriceIdx !== -1 ? cols[avgPriceIdx] : null
+    const minPrice = minPriceIdx !== -1 ? cols[minPriceIdx] : null
+    const maxPrice = maxPriceIdx !== -1 ? cols[maxPriceIdx] : null
 
     if (!strategyTicker) {
       console.warn(`Row ${i}: missing strategyTicker, skipping`)
@@ -422,6 +428,9 @@ function parsePortfolioHoldingsCSV(csvContent: string): any[] {
       stock_ticker: apexTicker,
       position_count: count ? parseInt(count) : 0,
       total_quantity: totalQuantity ? parseFloat(totalQuantity) : 0,
+      avg_price: avgPrice ? parseFloat(avgPrice) : null,
+      min_price: minPrice ? parseFloat(minPrice) : null,
+      max_price: maxPrice ? parseFloat(maxPrice) : null,
       uploaded_at: new Date().toISOString()
     })
   }

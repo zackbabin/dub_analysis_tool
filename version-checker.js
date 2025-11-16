@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-16-01'; // Update Top 5 Stocks table: separate columns per stock + add Copy Capital column
+const CURRENT_VERSION = '2025-11-16-02'; // Add stock allocation percentages to Top 5 Stocks table (e.g., "NVDA (5%)")
 
 class VersionChecker {
     constructor() {
