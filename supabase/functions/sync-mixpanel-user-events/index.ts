@@ -231,11 +231,13 @@ serve(async (req) => {
         toDate = to_date
         console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
       } else {
-        // Regular mode: last 60 days through today
+        // Regular mode: last 60 days through yesterday (to avoid timezone issues with Mixpanel)
         const today = new Date()
-        toDate = today.toISOString().split('T')[0] // YYYY-MM-DD (today)
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD (yesterday)
 
-        const sixtyDaysAgo = new Date(today)
+        const sixtyDaysAgo = new Date(yesterday)
         sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
         fromDate = sixtyDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
 
