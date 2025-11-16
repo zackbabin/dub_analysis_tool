@@ -567,9 +567,9 @@ function processPremiumCreatorsData(data: any): any[] {
  * series["A. Total Subscriptions"]["@brettsimba"]["339489349854568448"]["all"] = 121
  *
  * NOTE: Subscriptions are at the creator USERNAME level, not creator_id level.
- * When a creator has multiple creator_ids (e.g., @dubAdvisors), we take the max value
- * across all creator_ids to avoid double-counting, and store one row per creator_id
- * with the same subscription values (since they represent the same creator account).
+ * When a creator has duplicate entries (e.g., @dubAdvisors with both 18-digit ID and non-numeric key),
+ * we COMBINE (sum) the metrics from all entries and store ONE row per username with a single
+ * creator_id (preferring 18-digit IDs).
  *
  * If a username has metrics but no valid 18-digit creator_id in the chart data,
  * we look up the creator_id from the premiumCreators list.
@@ -623,10 +623,10 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
 
     const creatorIds: string[] = []
     const nonNumericKeys: string[] = []
-    let maxSubscriptions = 0
-    let maxPaywallViews = 0
-    let maxStripeModalViews = 0
-    let maxCancellations = 0
+    let totalSubscriptions = 0
+    let totalPaywallViews = 0
+    let totalStripeModalViews = 0
+    let totalCancellations = 0
 
     // Extract metrics helper function
     const getMetricValue = (metricData: any, creatorId: string): number => {
@@ -645,7 +645,7 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       }
     }
 
-    // Find all creator_ids for this username and take max value
+    // Find all creator_ids for this username and sum metrics (combine duplicates)
     for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
       if (creatorId === '$overall') continue
       if (typeof creatorIdData !== 'object') continue
@@ -654,63 +654,65 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       if (/^\d{18}$/.test(creatorId)) {
         creatorIds.push(creatorId)
 
-        // Take maximum value across creator_ids (they should be the same, but handle edge cases)
-        maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions, creatorId))
-        maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews, creatorId))
-        maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews, creatorId))
-        maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations, creatorId))
+        // Sum metrics across all creator_ids (combine duplicates like @dubAdvisors)
+        totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+        totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+        totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+        totalCancellations += getMetricValue(metrics.cancellations, creatorId)
       } else {
         // Track non-numeric keys - might still have metrics
         nonNumericKeys.push(creatorId)
 
-        // Extract metrics even from non-numeric keys
-        maxSubscriptions = Math.max(maxSubscriptions, getMetricValue(metrics.subscriptions, creatorId))
-        maxPaywallViews = Math.max(maxPaywallViews, getMetricValue(metrics.paywallViews, creatorId))
-        maxStripeModalViews = Math.max(maxStripeModalViews, getMetricValue(metrics.stripeModalViews, creatorId))
-        maxCancellations = Math.max(maxCancellations, getMetricValue(metrics.cancellations, creatorId))
+        // Sum metrics even from non-numeric keys (combine duplicates)
+        totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+        totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+        totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+        totalCancellations += getMetricValue(metrics.cancellations, creatorId)
       }
     }
 
     // If no valid 18-digit creator_ids found in chart data, look up from premium creators list
-    if (creatorIds.length === 0 && maxSubscriptions > 0) {
+    if (creatorIds.length === 0 && totalSubscriptions > 0) {
       const lookupId = usernameToCreatorId.get(creatorUsername)
       if (lookupId) {
         creatorIds.push(lookupId)
         const keyInfo = nonNumericKeys.length > 0 ? ` (found metrics under keys: ${nonNumericKeys.join(', ')})` : ''
         console.log(`ℹ️ Creator ${creatorUsername} has no valid 18-digit creator_id in chart data${keyInfo} - using ${lookupId} from premium creators list`)
       } else {
-        console.warn(`⚠️ Skipping creator ${creatorUsername} - has metrics (${maxSubscriptions} subscriptions) but no valid creator_id found in chart data or premium creators list`)
+        console.warn(`⚠️ Skipping creator ${creatorUsername} - has metrics (${totalSubscriptions} subscriptions) but no valid creator_id found in chart data or premium creators list`)
       }
     }
 
     if (creatorIds.length > 0) {
+      // Select single creator_id (prefer 18-digit IDs)
+      const selected18DigitId = creatorIds.find(id => id.length >= 18)
+      const selectedCreatorId = selected18DigitId || creatorIds[0]
+
       usernameMetrics.set(creatorUsername, {
-        creator_ids: creatorIds,
-        total_subscriptions: maxSubscriptions,
-        total_paywall_views: maxPaywallViews,
-        total_stripe_modal_views: maxStripeModalViews,
-        total_cancellations: maxCancellations
+        creator_id: selectedCreatorId,
+        total_subscriptions: totalSubscriptions,
+        total_paywall_views: totalPaywallViews,
+        total_stripe_modal_views: totalStripeModalViews,
+        total_cancellations: totalCancellations
       })
 
       if (creatorIds.length > 1) {
-        console.log(`⚠️ Creator ${creatorUsername} has ${creatorIds.length} creator_ids - using max values to avoid double-counting`)
+        console.log(`⚠️ Creator ${creatorUsername} has ${creatorIds.length} creator_ids [${creatorIds.join(', ')}] - combining metrics (${totalSubscriptions} total subscriptions) and using ${selectedCreatorId}`)
       }
     }
   }
 
-  // Second pass: create one row per creator_id with the aggregated username-level metrics
+  // Second pass: create one row per username with the aggregated metrics and selected creator_id
   for (const [creatorUsername, metrics] of usernameMetrics.entries()) {
-    for (const creatorId of metrics.creator_ids) {
-      rows.push({
-        creator_id: String(creatorId),
-        creator_username: String(creatorUsername),
-        total_subscriptions: metrics.total_subscriptions,
-        total_paywall_views: metrics.total_paywall_views,
-        total_stripe_modal_views: metrics.total_stripe_modal_views,
-        total_cancellations: metrics.total_cancellations,
-        synced_at: now,
-      })
-    }
+    rows.push({
+      creator_id: String(metrics.creator_id),
+      creator_username: String(creatorUsername),
+      total_subscriptions: metrics.total_subscriptions,
+      total_paywall_views: metrics.total_paywall_views,
+      total_stripe_modal_views: metrics.total_stripe_modal_views,
+      total_cancellations: metrics.total_cancellations,
+      synced_at: now,
+    })
   }
 
   console.log(`Processed subscription metrics for ${rows.length} creator_id rows (${usernameMetrics.size} unique usernames)`)
