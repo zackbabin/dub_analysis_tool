@@ -892,7 +892,8 @@ class SupabaseIntegration {
             const { data, error } = await this.supabase
                 .from('premium_creator_retention_analysis')
                 .select('*')
-                .order('cohort_date', { ascending: false });
+                .order('creator_username', { ascending: true })
+                .order('cohort_date', { ascending: true });
 
             if (error) {
                 console.error('Error loading retention data:', error);
@@ -901,9 +902,24 @@ class SupabaseIntegration {
 
             console.log(`✅ Loaded ${data.length} retention records from database`);
 
+            // Transform to expected format: { "cohort_date": { "username": { first, counts } } }
+            const formattedData = {};
+
+            data.forEach((row) => {
+                const cohortDate = row.cohort_date;
+                if (!formattedData[cohortDate]) {
+                    formattedData[cohortDate] = {};
+                }
+
+                formattedData[cohortDate][row.creator_username] = {
+                    first: row.first,
+                    counts: row.counts
+                };
+            });
+
             // Format to match the expected structure from API
             return {
-                rawData: data,
+                rawData: formattedData,
                 success: true,
                 source: 'database'
             };
