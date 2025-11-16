@@ -262,6 +262,7 @@ export function formatProfilesForDB(profiles: UserProfile[], syncedAt: string): 
     premium_creator_profile_views: profile.premium_creator_profile_views || 0,
 
     // Event-counted metrics - No split
+    total_ach_transfers: profile.total_ach_transfers || 0,
     paywall_views: profile.paywall_views || 0,
     total_subscriptions: profile.total_subscriptions || 0,
     app_sessions: profile.app_sessions || 0,
@@ -271,5 +272,6 @@ export function formatProfilesForDB(profiles: UserProfile[], syncedAt: string): 
 
     // Metadata
     updated_at: syncedAt,
+    events_processed: profile.events_processed || 0,
   }))
 }

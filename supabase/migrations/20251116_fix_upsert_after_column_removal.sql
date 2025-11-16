@@ -23,13 +23,15 @@ BEGIN
       premium_pdp_views,
       regular_creator_profile_views,
       premium_creator_profile_views,
+      total_ach_transfers,
       paywall_views,
       total_subscriptions,
       app_sessions,
       stripe_modal_views,
       creator_card_taps,
       portfolio_card_taps,
-      updated_at
+      updated_at,
+      events_processed
     )
     VALUES (
       (profile->>'distinct_id')::text,
@@ -41,13 +43,15 @@ BEGIN
       (profile->>'premium_pdp_views')::integer,
       (profile->>'regular_creator_profile_views')::integer,
       (profile->>'premium_creator_profile_views')::integer,
+      (profile->>'total_ach_transfers')::integer,
       (profile->>'paywall_views')::integer,
       (profile->>'total_subscriptions')::integer,
       (profile->>'app_sessions')::integer,
       (profile->>'stripe_modal_views')::integer,
       (profile->>'creator_card_taps')::integer,
       (profile->>'portfolio_card_taps')::integer,
-      (profile->>'updated_at')::timestamptz
+      (profile->>'updated_at')::timestamptz,
+      (profile->>'events_processed')::integer
     )
     ON CONFLICT (distinct_id) DO UPDATE SET
       -- Account properties: Use OR for linked_bank_account (once true, stays true)
@@ -61,6 +65,7 @@ BEGIN
       premium_pdp_views = EXCLUDED.premium_pdp_views,
       regular_creator_profile_views = EXCLUDED.regular_creator_profile_views,
       premium_creator_profile_views = EXCLUDED.premium_creator_profile_views,
+      total_ach_transfers = EXCLUDED.total_ach_transfers,
       paywall_views = EXCLUDED.paywall_views,
       total_subscriptions = EXCLUDED.total_subscriptions,
       app_sessions = EXCLUDED.app_sessions,
@@ -69,7 +74,8 @@ BEGIN
       portfolio_card_taps = EXCLUDED.portfolio_card_taps,
 
       -- Metadata: update with latest values
-      updated_at = EXCLUDED.updated_at;
+      updated_at = EXCLUDED.updated_at,
+      events_processed = EXCLUDED.events_processed;
   END LOOP;
 END;
 $$;

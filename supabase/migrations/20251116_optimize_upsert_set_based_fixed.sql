@@ -17,13 +17,15 @@ AS $$
     premium_pdp_views,
     regular_creator_profile_views,
     premium_creator_profile_views,
+    total_ach_transfers,
     paywall_views,
     total_subscriptions,
     app_sessions,
     stripe_modal_views,
     creator_card_taps,
     portfolio_card_taps,
-    updated_at
+    updated_at,
+    events_processed
   )
   SELECT
     (value->>'distinct_id')::text,
@@ -35,13 +37,15 @@ AS $$
     (value->>'premium_pdp_views')::integer,
     (value->>'regular_creator_profile_views')::integer,
     (value->>'premium_creator_profile_views')::integer,
+    (value->>'total_ach_transfers')::integer,
     (value->>'paywall_views')::integer,
     (value->>'total_subscriptions')::integer,
     (value->>'app_sessions')::integer,
     (value->>'stripe_modal_views')::integer,
     (value->>'creator_card_taps')::integer,
     (value->>'portfolio_card_taps')::integer,
-    (value->>'updated_at')::timestamptz
+    (value->>'updated_at')::timestamptz,
+    (value->>'events_processed')::integer
   FROM jsonb_array_elements(profiles)
   ON CONFLICT (distinct_id) DO UPDATE SET
     -- Account properties: Use OR for linked_bank_account (once true, stays true)
@@ -55,6 +59,7 @@ AS $$
     premium_pdp_views = EXCLUDED.premium_pdp_views,
     regular_creator_profile_views = EXCLUDED.regular_creator_profile_views,
     premium_creator_profile_views = EXCLUDED.premium_creator_profile_views,
+    total_ach_transfers = EXCLUDED.total_ach_transfers,
     paywall_views = EXCLUDED.paywall_views,
     total_subscriptions = EXCLUDED.total_subscriptions,
     app_sessions = EXCLUDED.app_sessions,
@@ -63,7 +68,8 @@ AS $$
     portfolio_card_taps = EXCLUDED.portfolio_card_taps,
 
     -- Metadata: update with latest values
-    updated_at = EXCLUDED.updated_at;
+    updated_at = EXCLUDED.updated_at,
+    events_processed = EXCLUDED.events_processed;
 $$;
 
 -- Grant execute permission
