@@ -1765,8 +1765,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return;
         }
 
+        // Clear container to prevent duplicate rendering
+        container.innerHTML = '';
+
         if (!affinityData || affinityData.length === 0) {
-            container.innerHTML = '';
             return;
         }
 
@@ -2850,6 +2852,12 @@ window.togglePortfolioBreakdown = function() {
 CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(chartId, subscriptionDistribution) {
         if (!subscriptionDistribution || subscriptionDistribution.length === 0) {
             return;
+        }
+
+        // Destroy existing chart if it exists (prevents Highcharts error #13)
+        const container = document.getElementById(chartId);
+        if (container && container.highchartsChart) {
+            container.highchartsChart.destroy();
         }
 
         // Use monthly_price and total_subscriptions from latest_subscription_distribution view
