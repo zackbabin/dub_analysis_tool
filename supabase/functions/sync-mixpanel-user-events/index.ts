@@ -86,9 +86,9 @@ async function streamAndProcessEvents(
   let events: any[] = []
   let totalEvents = 0
   let totalRecordsInserted = 0
-  const CHUNK_SIZE = 1000 // Process 1k events at a time (reduced for CPU efficiency)
+  const CHUNK_SIZE = 500 // Process 500 events at a time (optimized for CPU efficiency with 60-day window)
   const startTime = Date.now()
-  const MAX_EXECUTION_TIME = 100000 // 100 seconds (leave buffer before 150s timeout)
+  const MAX_EXECUTION_TIME = 80000 // 80 seconds (leave 70s buffer before 150s timeout)
 
   console.log('Processing events in chunks...')
 
@@ -117,7 +117,14 @@ async function streamAndProcessEvents(
             if (elapsed > MAX_EXECUTION_TIME) {
               console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Processed ${totalEvents} events, ${totalRecordsInserted} users upserted.`)
               console.log('⚠️ Partial sync completed - run again to continue processing')
-              break // Exit early to avoid timeout
+
+              // Process remaining events before exiting
+              if (events.length > 0) {
+                const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
+                totalRecordsInserted += inserted
+              }
+
+              return { totalEvents, totalRecordsInserted } // Early exit
             }
 
             const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
