@@ -88,7 +88,7 @@ async function streamAndProcessEvents(
   let totalRecordsInserted = 0
   const CHUNK_SIZE = 500 // Process 500 events at a time (optimized for CPU efficiency with 60-day window)
   const startTime = Date.now()
-  const MAX_EXECUTION_TIME = 80000 // 80 seconds (leave 70s buffer before 150s timeout)
+  const MAX_EXECUTION_TIME = 130000 // 130 seconds (leave 20s buffer for final chunk + cleanup before 150s hard timeout)
 
   console.log('Processing events in chunks...')
 
@@ -110,26 +110,29 @@ async function streamAndProcessEvents(
           events.push(event)
           totalEvents++
 
-          // Process chunk when we hit CHUNK_SIZE
-          if (events.length >= CHUNK_SIZE) {
-            // Check if approaching timeout
+          // Check timeout every 100 events (frequent checks to ensure data safety)
+          if (totalEvents % 100 === 0) {
             const elapsed = Date.now() - startTime
             if (elapsed > MAX_EXECUTION_TIME) {
               console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Processed ${totalEvents} events, ${totalRecordsInserted} users upserted.`)
-              console.log('⚠️ Partial sync completed - run again to continue processing')
+              console.log('⚠️ Partial sync - saving accumulated events before timeout')
 
-              // Process remaining events before exiting
+              // CRITICAL: Save all accumulated events before exiting
               if (events.length > 0) {
                 const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
                 totalRecordsInserted += inserted
+                console.log(`✓ Saved final ${events.length} events before timeout`)
               }
 
-              return { totalEvents, totalRecordsInserted } // Early exit
+              return { totalEvents, totalRecordsInserted } // Early exit with all data saved
             }
+          }
 
+          // Process chunk when we hit CHUNK_SIZE
+          if (events.length >= CHUNK_SIZE) {
             const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
             totalRecordsInserted += inserted
-            const elapsedSec = Math.round(elapsed / 1000)
+            const elapsedSec = Math.round((Date.now() - startTime) / 1000)
             console.log(`✓ Processed ${totalEvents} events, ${totalRecordsInserted} users upserted (${elapsedSec}s elapsed)`)
             events = [] // Clear for next chunk
           }
