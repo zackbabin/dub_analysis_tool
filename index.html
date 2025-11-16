@@ -424,8 +424,31 @@
             syncBtn.querySelector('div:last-child').style.color = '#6c757d';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
+
+            let isSyncing = false; // Flag to prevent multiple simultaneous syncs
+
             syncBtn.onclick = async () => {
+                // Prevent multiple clicks while sync is in progress
+                if (isSyncing) {
+                    console.log('⚠️ Sync already in progress, ignoring click');
+                    return;
+                }
+
                 console.log('🔵 Unified sync button clicked - syncing both user and creator data');
+                isSyncing = true;
+
+                // Disable button and update UI
+                const titleDiv = syncBtn.querySelector('div:first-child');
+                const descDiv = syncBtn.querySelector('div:last-child');
+                const originalTitle = titleDiv.textContent;
+                const originalDesc = descDiv.textContent;
+
+                syncBtn.style.cursor = 'not-allowed';
+                syncBtn.style.opacity = '0.6';
+                syncBtn.style.pointerEvents = 'none';
+                titleDiv.textContent = 'Syncing...';
+                descDiv.textContent = 'Please wait, this may take a few minutes';
+
                 try {
                     // Run user sync first (populates engagement tables that affinity views depend on)
                     console.log('Step 1: Running user analysis sync...');
@@ -440,6 +463,14 @@
                     console.log('✅ Both sync workflows completed successfully');
                 } catch (error) {
                     console.error('❌ Sync workflow failed:', error);
+                } finally {
+                    // Re-enable button and restore UI
+                    isSyncing = false;
+                    syncBtn.style.cursor = 'pointer';
+                    syncBtn.style.opacity = '1';
+                    syncBtn.style.pointerEvents = 'auto';
+                    titleDiv.textContent = originalTitle;
+                    descDiv.textContent = originalDesc;
                 }
             };
 
