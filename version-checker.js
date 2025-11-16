@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-15-04'; // Fix retention chart data transformation to display Count column and retention rates
+const CURRENT_VERSION = '2025-11-15-05'; // Fix duplicate affinity rendering, subscription drivers 409 error, and Highcharts error #13
 
 class VersionChecker {
     constructor() {
