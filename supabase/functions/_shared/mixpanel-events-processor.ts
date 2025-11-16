@@ -67,8 +67,6 @@ export interface UserProfile {
   // Metadata
   updated_at: string
   events_processed: number
-  first_event_time: string
-  last_event_time: string
 }
 
 /**
@@ -122,18 +120,11 @@ function buildUserProfile(distinctId: string, events: MixpanelEvent[]): UserProf
   // Count events for metrics
   const eventMetrics = countEventMetrics(events)
 
-  // Calculate metadata
-  const timestamps = events.map(e => e.properties.time).sort((a, b) => a - b)
-  const firstEventTime = new Date(timestamps[0] * 1000).toISOString()
-  const lastEventTime = new Date(timestamps[timestamps.length - 1] * 1000).toISOString()
-
   return {
     distinct_id: distinctId,
     ...eventMetrics,
     updated_at: new Date().toISOString(),
     events_processed: events.length,
-    first_event_time: firstEventTime,
-    last_event_time: lastEventTime,
   }
 }
 
@@ -282,7 +273,5 @@ export function formatProfilesForDB(profiles: UserProfile[], syncedAt: string): 
     // Metadata
     updated_at: syncedAt,
     events_processed: profile.events_processed || 0,
-    first_event_time: profile.first_event_time,
-    last_event_time: profile.last_event_time,
   }))
 }

@@ -114,13 +114,15 @@ serve(async (req) => {
     }
 
     // Step 6: Refresh copy engagement summary (depends on main_analysis)
+    // Note: main_analysis is refreshing concurrently in background, so this will use
+    // current (potentially slightly stale) data until main_analysis refresh completes
     console.log('Refreshing copy engagement summary view...')
 
     const copyResult = await supabase.rpc('refresh_copy_engagement_summary')
 
     if (copyResult.error) console.error('Error refreshing copy summary:', copyResult.error)
 
-    console.log('✓ Copy engagement summary view refreshed')
+    console.log('✓ Copy engagement summary view refreshed (using current main_analysis data)')
 
     console.log('✅ All materialized views refreshed successfully')
 
