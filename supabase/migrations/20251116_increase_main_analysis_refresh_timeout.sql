@@ -5,7 +5,9 @@
 -- 3. GROUP BY on distinct_id
 -- Date: 2025-11-16
 
--- Drop and recreate refresh_main_analysis with increased timeout
+-- Drop and recreate refresh_main_analysis with CONCURRENT refresh
+-- CONCURRENT allows the refresh to run in background without blocking reads
+-- Can exceed Edge Function 150s timeout since it doesn't block
 CREATE OR REPLACE FUNCTION refresh_main_analysis()
 RETURNS void
 LANGUAGE plpgsql
@@ -15,7 +17,9 @@ BEGIN
   -- Increase statement timeout to 5 minutes for this operation
   SET LOCAL statement_timeout = '300s';
 
-  REFRESH MATERIALIZED VIEW main_analysis;
+  -- CONCURRENT refresh: doesn't block reads, runs in background
+  -- Requires UNIQUE index (we have idx_main_analysis_distinct_id)
+  REFRESH MATERIALIZED VIEW CONCURRENTLY main_analysis;
 END;
 $$;
 

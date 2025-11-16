@@ -61,18 +61,17 @@ serve(async (req) => {
       console.warn('⚠️ Cannot trigger pattern analysis: Supabase credentials not available')
     }
 
-    // Step 2: Refresh main_analysis (foundational view)
-    // MUST run before views that depend on it (copy/subscription summaries)
-    console.log('Refreshing main_analysis view...')
+    // Step 2: Trigger main_analysis CONCURRENT refresh (non-blocking)
+    // CONCURRENT refresh runs in background and doesn't block reads
+    // Can take 300s+ but Edge Function returns immediately
+    console.log('Triggering main_analysis CONCURRENT refresh (background)...')
 
-    const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
+    // Fire and forget - don't await, let it run in background
+    supabase.rpc('refresh_main_analysis').catch((error) => {
+      console.error('⚠️ main_analysis refresh error:', error)
+    })
 
-    if (mainAnalysisError) {
-      console.error('Error refreshing main_analysis:', mainAnalysisError)
-      throw mainAnalysisError
-    }
-
-    console.log('✓ main_analysis refreshed successfully')
+    console.log('✓ main_analysis refresh triggered (running in background)')
 
     // Step 3: Refresh portfolio engagement views
     // Includes: portfolio_creator_engagement_metrics, hidden_gems, premium_creator_stock_holdings,
@@ -128,7 +127,7 @@ serve(async (req) => {
     return createSuccessResponse(
       'All materialized views refreshed successfully',
       {
-        main_analysis_refreshed: !mainAnalysisError,
+        main_analysis_triggered: true, // Running in background with CONCURRENT
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
         retention_analysis_refreshed: !retentionError,
