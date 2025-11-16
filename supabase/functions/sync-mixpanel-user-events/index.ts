@@ -86,7 +86,7 @@ async function streamAndProcessEvents(
   let events: any[] = []
   let totalEvents = 0
   let totalRecordsInserted = 0
-  const CHUNK_SIZE = 500 // Process 500 events at a time (optimized for CPU efficiency with 60-day window)
+  const CHUNK_SIZE = 250 // Process 250 events at a time (reduced from 500 to avoid CPU timeout with 45-day window)
   const startTime = Date.now()
   const MAX_EXECUTION_TIME = 130000 // 130 seconds (leave 20s buffer for final chunk + cleanup before 150s hard timeout)
 
@@ -241,17 +241,17 @@ serve(async (req) => {
         toDate = to_date
         console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
       } else {
-        // Regular mode: last 60 days through yesterday (to avoid timezone issues with Mixpanel)
+        // Regular mode: last 45 days through yesterday (reduced from 60 to avoid CPU timeout)
         const today = new Date()
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
         toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD (yesterday)
 
-        const sixtyDaysAgo = new Date(yesterday)
-        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
-        fromDate = sixtyDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+        const fortyFiveDaysAgo = new Date(yesterday)
+        fortyFiveDaysAgo.setDate(fortyFiveDaysAgo.getDate() - 45)
+        fromDate = fortyFiveDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
 
-        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (60 days)`)
+        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (45 days)`)
       }
 
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
