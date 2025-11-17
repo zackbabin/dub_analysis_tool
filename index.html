@@ -471,9 +471,7 @@
                     await creatorTool.runSyncWorkflow();
                     console.log('✅ Creator analysis refresh completed');
 
-                    // COMMENTED OUT: Support analysis (syncs Zendesk/Instabug + Claude analysis)
-                    // Uncomment when ready to include CX analysis in sync workflow
-                    /*
+                    // Step 3: Support analysis (syncs Zendesk/Instabug + Claude analysis)
                     console.log('Step 3: Running CX analysis (support feedback)...');
                     try {
                         const response = await fetch(`${SUPABASE_URL}/functions/v1/trigger-support-analysis`, {
@@ -500,7 +498,6 @@
                         console.warn('⚠️ CX analysis failed (non-critical):', cxError);
                         // Don't throw - CX analysis failure shouldn't break the main sync
                     }
-                    */
 
                     console.log('✅ All sync workflows completed successfully');
                 } catch (error) {
