@@ -146,7 +146,75 @@ class CXAnalysis {
         `;
 
         section.innerHTML = tableHTML;
+
+        // Initialize tooltips after rendering
+        setTimeout(() => {
+            this.initializeExamplesToolips();
+        }, 0);
+
         return section;
+    }
+
+    initializeExamplesToolips() {
+        const tooltips = document.querySelectorAll('.cx-examples-tooltip');
+
+        tooltips.forEach(tooltipWrapper => {
+            const trigger = tooltipWrapper.querySelector('.tooltip-trigger');
+            const tooltipBox = tooltipWrapper.querySelector('.tooltip-text');
+
+            if (!trigger || !tooltipBox) return;
+
+            trigger.addEventListener('mouseenter', () => {
+                // Get trigger position
+                const rect = trigger.getBoundingClientRect();
+
+                // Position tooltip with fixed positioning to escape overflow
+                tooltipBox.style.position = 'fixed';
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+                tooltipBox.style.zIndex = '10000';
+
+                // Calculate position (above trigger, centered)
+                const tooltipWidth = 400;
+                let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+                let top = rect.top - tooltipBox.offsetHeight - 8;
+
+                // Keep tooltip on screen horizontally
+                if (left < 10) left = 10;
+                if (left + tooltipWidth > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipWidth - 10;
+                }
+
+                // If tooltip goes above viewport, show below instead
+                if (top < 10) {
+                    top = rect.bottom + 8;
+                }
+
+                tooltipBox.style.left = `${left}px`;
+                tooltipBox.style.top = `${top}px`;
+            });
+
+            trigger.addEventListener('mouseleave', () => {
+                // Delay hiding to allow moving to tooltip
+                setTimeout(() => {
+                    if (!tooltipBox.matches(':hover')) {
+                        tooltipBox.style.visibility = 'hidden';
+                        tooltipBox.style.opacity = '0';
+                    }
+                }, 100);
+            });
+
+            // Keep visible when hovering tooltip
+            tooltipBox.addEventListener('mouseenter', () => {
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+            });
+
+            tooltipBox.addEventListener('mouseleave', () => {
+                tooltipBox.style.visibility = 'hidden';
+                tooltipBox.style.opacity = '0';
+            });
+        });
     }
 
     renderIssueRow(issue, index) {
@@ -225,8 +293,31 @@ class CXAnalysis {
             `;
         }).join('');
 
-        // Use standard info-tooltip pattern (same as Predictive Strength column)
-        return `<span class="info-tooltip">See examples<span class="info-icon">i</span><span class="tooltip-text">${examplesHTML}</span></span>`;
+        // Use custom tooltip with fixed positioning to escape overflow
+        return `
+            <span class="cx-examples-tooltip" style="position: relative; display: inline-block;">
+                <span class="tooltip-trigger" style="color: #212529; text-decoration: underline; text-decoration-style: dotted; cursor: help;">
+                    See examples
+                </span>
+                <span class="tooltip-text" style="
+                    visibility: hidden;
+                    opacity: 0;
+                    width: 400px;
+                    background-color: #2d3748;
+                    color: #fff;
+                    text-align: left;
+                    border-radius: 8px;
+                    padding: 14px 16px;
+                    z-index: 10000;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    transition: opacity 0.3s, visibility 0.3s;
+                    pointer-events: auto;
+                ">
+                    ${examplesHTML}
+                </span>
+            </span>
+        `;
     }
 
     createEmptyMessage(message) {
