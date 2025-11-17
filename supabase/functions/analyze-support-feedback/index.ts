@@ -23,6 +23,8 @@ interface EnrichedConversation {
   created_at: string
   status: string
   priority: string
+  tags: string[] | null
+  custom_fields: Record<string, any> | null
   user_income: string | null
   user_net_worth: string | null
   user_investing_activity: string | null
@@ -50,6 +52,7 @@ Time Period: ${weekStart} to ${weekEnd}
 Total Conversations: ${totalCount}
 Data Sources: Zendesk support tickets + Instabug mobile bug reports
 User Segments: Based on income, net worth, investing activity, and engagement
+Metadata: Each conversation includes tags and custom_fields that may contain platform info, product areas, or other categorization hints
 </analysis_context>
 
 <conversations>
@@ -58,6 +61,8 @@ ${JSON.stringify(conversations, null, 2)}
 
 <task>
 Analyze all conversations and identify the top 10 most significant product issues and feedback themes, ranked by a composite priority score.
+
+**Consider tags and custom_fields** in each conversation for additional context about the issue type, platform, or product area.
 
 **CATEGORIZATION RULES:**
 You MUST assign each issue to exactly ONE of these categories, in this priority order:
@@ -271,8 +276,8 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 800 chars to stay under token limit
-        const MAX_CONVERSATION_LENGTH = 800
+        // Truncate conversation text to 700 chars to stay under token limit (with buffer for tags/custom_fields)
+        const MAX_CONVERSATION_LENGTH = 700
         let truncatedText = sanitize(conversationText)
         if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
@@ -286,6 +291,8 @@ serve(async (req) => {
           created_at: conv.created_at,
           status: conv.status,
           priority: conv.priority,
+          tags: conv.tags || [],
+          custom_fields: conv.custom_fields || {},
           user_info: {
             income: conv.user_income,
             net_worth: conv.user_net_worth,
