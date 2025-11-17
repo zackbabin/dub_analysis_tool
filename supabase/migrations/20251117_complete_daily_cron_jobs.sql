@@ -143,12 +143,44 @@ CREATE TABLE IF NOT EXISTS cron_job_config (
   schedule TEXT NOT NULL,
   command TEXT NOT NULL,
   description TEXT NOT NULL,
-  category TEXT NOT NULL,
-  estimated_duration_minutes INTEGER,
-  depends_on TEXT[], -- Jobs that should complete before this one
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add new columns if they don't exist (for existing tables from previous migrations)
+DO $$
+BEGIN
+  -- Add category column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'cron_job_config' AND column_name = 'category'
+  ) THEN
+    ALTER TABLE cron_job_config ADD COLUMN category TEXT;
+  END IF;
+
+  -- Add estimated_duration_minutes column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'cron_job_config' AND column_name = 'estimated_duration_minutes'
+  ) THEN
+    ALTER TABLE cron_job_config ADD COLUMN estimated_duration_minutes INTEGER;
+  END IF;
+
+  -- Add depends_on column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'cron_job_config' AND column_name = 'depends_on'
+  ) THEN
+    ALTER TABLE cron_job_config ADD COLUMN depends_on TEXT[];
+  END IF;
+
+  -- Add updated_at column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'cron_job_config' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE cron_job_config ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+END $$;
 
 -- Create index for category filtering
 CREATE INDEX IF NOT EXISTS idx_cron_job_config_category ON cron_job_config(category);
