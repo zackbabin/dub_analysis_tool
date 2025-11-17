@@ -628,7 +628,7 @@
             // Listen for hash changes (browser back/forward)
             window.addEventListener('hashchange', () => {
                 const hash = window.location.hash.slice(1); // Remove the '#'
-                const validTabs = ['summary', 'portfolio', 'creator', 'business-model', 'crypto'];
+                const validTabs = ['summary', 'portfolio', 'cx', 'creator', 'business-model', 'crypto'];
 
                 // Parse tab and section anchor (format: "portfolio#hidden-gems")
                 const hashParts = hash.split('#');
@@ -640,7 +640,7 @@
 
             // Initialize tab from URL hash on page load
             const initialHash = window.location.hash.slice(1);
-            const validTabs = ['summary', 'portfolio', 'creator', 'business-model', 'crypto'];
+            const validTabs = ['summary', 'portfolio', 'cx', 'creator', 'business-model', 'crypto'];
 
             // Parse tab and section anchor
             const hashParts = initialHash.split('#');

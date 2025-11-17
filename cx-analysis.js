@@ -74,26 +74,21 @@ class CXAnalysis {
         this.container.innerHTML = '';
         this.container.appendChild(resultsDiv);
 
-        // Format timestamp
+        // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
         const analysisDate = new Date(data.created_at);
         const formattedTimestamp = analysisDate.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
             year: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
             hour12: true
         });
 
-        // Calculate date range for data scope
-        const weekStartDate = new Date(data.week_start_date);
-        const weekEndDate = new Date(analysisDate);
-        const daysRange = Math.round((weekEndDate - weekStartDate) / (1000 * 60 * 60 * 24));
-
         // Add timestamp (top right)
         const timestamp = document.createElement('div');
         timestamp.className = 'qda-timestamp';
-        timestamp.textContent = `Analysis Date: ${formattedTimestamp}`;
+        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
 
         // Add refresh button (next to timestamp)
@@ -125,27 +120,16 @@ class CXAnalysis {
         // Add data scope (top left)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = `Zendesk feedback from last ${daysRange} days (${data.conversation_count} conversations)`;
+        dataScope.textContent = `Data from support tickets in the last 30 days`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title
         const titleSection = document.createElement('div');
         titleSection.style.marginBottom = '30px';
         titleSection.innerHTML = `
-            <h1 style="margin-bottom: 0.25rem;">
-                <span class="info-tooltip">CX Analysis
-                    <span class="info-icon">i</span>
-                    <span class="info-tooltip-text">
-                        AI-powered analysis of customer support conversations from Zendesk.
-                        Issues are categorized and prioritized using Claude Sonnet 4.
-                    </span>
-                </span>
-            </h1>
-            <div style="color: #6c757d; font-size: 0.9rem; margin-bottom: 0.5rem;">
-                Top 10 Product Issues & Feedback Themes
-            </div>
-            <div style="color: #6c757d; font-size: 0.85rem;">
-                Analysis Cost: $${data.analysis_cost?.toFixed(4) || '0.00'} | Tokens: ${data.total_tokens_used?.toLocaleString() || '0'}
+            <h1 style="margin-bottom: 0.25rem;">CX Analysis</h1>
+            <div style="color: #6c757d; font-size: 0.9rem;">
+                AI-powered analysis of the top 10 product issues and feedback
             </div>
         `;
         resultsDiv.appendChild(titleSection);
@@ -165,23 +149,26 @@ class CXAnalysis {
         const section = document.createElement('div');
         section.style.marginBottom = '40px';
 
-        // Create table HTML
+        // Create scrollable table container (similar to Premium Creator Copy Affinity)
         const tableHTML = `
-            <table class="qda-results-table" style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9rem;">
-                <thead>
-                    <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 5%;">#</th>
-                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 45%;">Summarized Feedback</th>
-                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 15%;">Category</th>
-                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 13%;">Percent of Feedback</th>
-                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 12%;">Weekly Volume</th>
-                        <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 10%;">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${issues.map((issue, index) => this.renderIssueRow(issue, index)).join('')}
-                </tbody>
-            </table>
+            <div style="position: relative; overflow-x: auto; margin-top: 20px;">
+                <table class="qda-results-table" style="width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed;">
+                    <thead>
+                        <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 50px; position: sticky; left: 0; background: #f8f9fa; z-index: 2;">#</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; min-width: 300px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; min-width: 140px;">Category</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 150px; white-space: nowrap;">Percent of Feedback</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 130px; white-space: nowrap;">Weekly Volume</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 120px;">Examples</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 100px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${issues.map((issue, index) => this.renderIssueRow(issue, index)).join('')}
+                    </tbody>
+                </table>
+            </div>
         `;
 
         section.innerHTML = tableHTML;
@@ -206,14 +193,14 @@ class CXAnalysis {
         // Alternate row colors
         const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
 
+        // Generate examples tooltip
+        const examplesContent = this.renderExamplesTooltip(issue.examples);
+
         return `
             <tr style="background: ${rowBg}; border-bottom: 1px solid #dee2e6;">
-                <td style="padding: 12px 16px; font-weight: 600; color: #495057;">${issue.rank || index + 1}</td>
-                <td style="padding: 12px 16px;">
-                    <div style="margin-bottom: 4px; font-weight: 500; color: #212529;">
-                        ${this.escapeHtml(issue.issue_summary)}
-                    </div>
-                    ${this.renderExamples(issue.examples)}
+                <td style="padding: 12px 16px; font-weight: 600; color: #495057; position: sticky; left: 0; background: ${rowBg}; z-index: 1;">${issue.rank || index + 1}</td>
+                <td style="padding: 12px 16px; font-weight: 500; color: #212529; position: sticky; left: 50px; background: ${rowBg}; z-index: 1;">
+                    ${this.escapeHtml(issue.issue_summary)}
                 </td>
                 <td style="padding: 12px 16px;">
                     <span style="
@@ -235,6 +222,9 @@ class CXAnalysis {
                 <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #495057;">
                     ${issue.weekly_volume || '-'}
                 </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    ${examplesContent}
+                </td>
                 <td style="padding: 12px 16px; text-align: center; color: #adb5bd;">
                     -
                 </td>
@@ -242,30 +232,59 @@ class CXAnalysis {
         `;
     }
 
-    renderExamples(examples) {
+    renderExamplesTooltip(examples) {
         if (!examples || examples.length === 0) {
-            return '';
+            return '-';
         }
 
-        // Show first example by default, with expand/collapse for others
+        // Generate unique ID for this tooltip
+        const tooltipId = `examples-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Build examples content for tooltip
         const examplesHTML = examples.map((ex, idx) => {
             const sourceIcon = ex.source === 'zendesk' ? '🎫' : '🐛';
-            const userInfo = ex.user_info ? ` | ${ex.user_info}` : '';
+            const userInfo = ex.user_info ? `<br><span style="font-size: 0.75rem; color: #9ca3af;">${this.escapeHtml(ex.user_info)}</span>` : '';
 
             return `
-                <div style="
-                    font-size: 0.8rem;
-                    color: #6c757d;
-                    margin-top: 6px;
-                    padding-left: 12px;
-                    border-left: 3px solid #dee2e6;
-                ">
-                    <span style="font-weight: 600;">${sourceIcon} Example ${idx + 1}:</span> ${this.escapeHtml(ex.excerpt)}${userInfo}
+                <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid #e5e7eb' : 'none'};">
+                    <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">${sourceIcon} Example ${idx + 1}</div>
+                    <div style="font-size: 0.85rem; color: #374151; line-height: 1.5;">${this.escapeHtml(ex.excerpt)}</div>
+                    ${userInfo}
                 </div>
             `;
         }).join('');
 
-        return `<div style="margin-top: 8px;">${examplesHTML}</div>`;
+        return `
+            <span class="info-tooltip" style="position: relative; display: inline-block;">
+                <a href="#" onclick="return false;" style="color: #2563eb; text-decoration: none; cursor: pointer;">
+                    See examples
+                </a>
+                <span class="info-tooltip-text" style="
+                    visibility: hidden;
+                    width: 400px;
+                    max-width: 90vw;
+                    background-color: white;
+                    color: #1f2937;
+                    text-align: left;
+                    border-radius: 8px;
+                    padding: 16px;
+                    position: absolute;
+                    z-index: 1000;
+                    bottom: 125%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    margin-bottom: 8px;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+                    border: 1px solid #e5e7eb;
+                    font-size: 0.875rem;
+                    line-height: 1.5;
+                ">
+                    ${examplesHTML}
+                </span>
+            </span>
+        `;
     }
 
     createEmptyMessage(message) {
