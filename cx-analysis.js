@@ -126,11 +126,11 @@ class CXAnalysis {
         // Create scrollable table container (similar to Premium Creator Copy Affinity)
         const tableHTML = `
             <div class="cx-table-wrapper" style="position: relative; overflow-x: auto; margin-top: 20px; max-width: 100%;">
-                <table class="qda-results-table" style="min-width: 1600px; border-collapse: collapse; font-size: 0.9rem;">
+                <table class="qda-results-table" style="min-width: 1500px; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                         <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 50px; position: sticky; left: 0; background: #f8f9fa; z-index: 2;">#</th>
-                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 700px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 500px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 160px;">Category</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 170px; white-space: nowrap;">Percent of Feedback</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
@@ -146,69 +146,7 @@ class CXAnalysis {
         `;
 
         section.innerHTML = tableHTML;
-
-        // Add tooltip positioning logic after rendering
-        setTimeout(() => {
-            this.initializeTooltips();
-        }, 0);
-
         return section;
-    }
-
-    initializeTooltips() {
-        // Get all tooltip triggers
-        const tooltips = document.querySelectorAll('.cx-examples-tooltip');
-
-        tooltips.forEach(tooltip => {
-            const trigger = tooltip.querySelector('span:first-child');
-            const tooltipBox = tooltip.querySelector('.tooltip-text');
-
-            if (!trigger || !tooltipBox) return;
-
-            // Show tooltip on hover
-            trigger.addEventListener('mouseenter', (e) => {
-                // Get trigger position relative to viewport
-                const rect = trigger.getBoundingClientRect();
-                const tableWrapper = document.querySelector('.cx-table-wrapper');
-                const wrapperRect = tableWrapper ? tableWrapper.getBoundingClientRect() : null;
-
-                // Position tooltip
-                tooltipBox.style.position = 'fixed';
-                tooltipBox.style.visibility = 'visible';
-                tooltipBox.style.opacity = '1';
-                tooltipBox.style.zIndex = '10000';
-
-                // Calculate position (above the trigger, centered)
-                const tooltipWidth = 400;
-                const left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-                const top = rect.top - tooltipBox.offsetHeight - 8;
-
-                // Adjust if tooltip would go off screen
-                const adjustedLeft = Math.max(10, Math.min(left, window.innerWidth - tooltipWidth - 10));
-                const adjustedTop = top < 10 ? rect.bottom + 8 : top;
-
-                tooltipBox.style.left = `${adjustedLeft}px`;
-                tooltipBox.style.top = `${adjustedTop}px`;
-                tooltipBox.style.transform = 'none';
-            });
-
-            // Hide tooltip
-            trigger.addEventListener('mouseleave', () => {
-                tooltipBox.style.visibility = 'hidden';
-                tooltipBox.style.opacity = '0';
-            });
-
-            // Keep tooltip visible when hovering over it
-            tooltipBox.addEventListener('mouseenter', () => {
-                tooltipBox.style.visibility = 'visible';
-                tooltipBox.style.opacity = '1';
-            });
-
-            tooltipBox.addEventListener('mouseleave', () => {
-                tooltipBox.style.visibility = 'hidden';
-                tooltipBox.style.opacity = '0';
-            });
-        });
     }
 
     renderIssueRow(issue, index) {
@@ -273,49 +211,22 @@ class CXAnalysis {
             return '-';
         }
 
-        // Generate unique ID for this tooltip
-        const tooltipId = `examples-${Math.random().toString(36).substr(2, 9)}`;
-
-        // Build examples content for tooltip
+        // Build examples content for tooltip (matching Behavioral Drivers style)
         const examplesHTML = examples.map((ex, idx) => {
             const sourceIcon = ex.source === 'zendesk' ? '🎫' : '🐛';
-            const userInfo = ex.user_info ? `<br><span style="font-size: 0.75rem; color: #9ca3af;">${this.escapeHtml(ex.user_info)}</span>` : '';
+            const userInfo = ex.user_info ? `<div style="font-size: 0.8em; color: #94a3b8; margin-top: 4px;">${this.escapeHtml(ex.user_info)}</div>` : '';
 
             return `
-                <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid #e5e7eb' : 'none'};">
-                    <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">${sourceIcon} Example ${idx + 1}</div>
-                    <div style="font-size: 0.85rem; color: #374151; line-height: 1.5;">${this.escapeHtml(ex.excerpt)}</div>
+                <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
+                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">${sourceIcon} Example ${idx + 1}</div>
+                    <div>${this.escapeHtml(ex.excerpt)}</div>
                     ${userInfo}
                 </div>
             `;
         }).join('');
 
-        return `
-            <span class="info-tooltip cx-examples-tooltip" style="position: relative; display: inline-block;">
-                <span style="color: #212529; text-decoration: underline; cursor: pointer;">
-                    See examples
-                </span>
-                <span class="tooltip-text" style="
-                    visibility: hidden;
-                    opacity: 0;
-                    width: 400px;
-                    max-width: 90vw;
-                    background-color: white;
-                    color: #1f2937;
-                    text-align: left;
-                    border-radius: 8px;
-                    padding: 16px;
-                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-                    border: 1px solid #e5e7eb;
-                    font-size: 0.875rem;
-                    line-height: 1.5;
-                    transition: opacity 0.2s, visibility 0.2s;
-                    pointer-events: auto;
-                ">
-                    ${examplesHTML}
-                </span>
-            </span>
-        `;
+        // Use standard info-tooltip pattern (same as Predictive Strength column)
+        return `<span class="info-tooltip">See examples<span class="info-icon">i</span><span class="tooltip-text">${examplesHTML}</span></span>`;
     }
 
     createEmptyMessage(message) {
