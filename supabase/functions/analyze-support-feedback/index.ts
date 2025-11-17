@@ -253,16 +253,28 @@ serve(async (req) => {
 
       console.log(`Found ${conversations.length} conversations to analyze`)
 
-      // Format conversations for Claude
+      // Format conversations for Claude (with text sanitization)
       const formattedConversations = conversations.map((conv: EnrichedConversation, idx: number) => {
         const messages = conv.all_messages || []
         const conversationText = messages.length > 0 ? messages.join('\n---\n') : conv.description || ''
+
+        // Sanitize text to prevent JSON issues
+        const sanitize = (text: string | null) => {
+          if (!text) return ''
+          // Replace problematic characters but keep readable
+          return text
+            .replace(/\\/g, '\\\\')  // Escape backslashes
+            .replace(/"/g, '\\"')     // Escape quotes
+            .replace(/\n/g, ' ')      // Replace newlines with spaces
+            .replace(/\r/g, '')       // Remove carriage returns
+            .replace(/\t/g, ' ')      // Replace tabs with spaces
+        }
 
         return {
           id: idx + 1,
           external_id: conv.external_id,
           source: conv.source,
-          title: conv.title,
+          title: sanitize(conv.title),
           created_at: conv.created_at,
           status: conv.status,
           priority: conv.priority,
@@ -274,7 +286,7 @@ serve(async (req) => {
             total_subscriptions: conv.user_total_subscriptions,
             app_sessions: conv.user_app_sessions,
           },
-          full_conversation: conversationText,
+          full_conversation: sanitize(conversationText),
           message_count: conv.message_count,
         }
       })
@@ -299,8 +311,29 @@ serve(async (req) => {
 
       const textContent = message.content[0].type === 'text' ? message.content[0].text : ''
 
-      // Parse Claude's response
-      const analysis = JSON.parse(textContent)
+      console.log('Claude response length:', textContent.length)
+      console.log('First 500 chars:', textContent.substring(0, 500))
+      console.log('Last 500 chars:', textContent.substring(textContent.length - 500))
+
+      // Parse Claude's response with better error handling
+      let analysis
+      try {
+        // Try to clean common JSON issues
+        let cleanedText = textContent.trim()
+
+        // Remove markdown code blocks if present
+        if (cleanedText.startsWith('```json')) {
+          cleanedText = cleanedText.replace(/^```json\s*/, '').replace(/```\s*$/, '')
+        } else if (cleanedText.startsWith('```')) {
+          cleanedText = cleanedText.replace(/^```\s*/, '').replace(/```\s*$/, '')
+        }
+
+        analysis = JSON.parse(cleanedText)
+      } catch (parseError) {
+        console.error('JSON Parse Error:', parseError)
+        console.error('Failed to parse response:', textContent)
+        throw new Error(`Claude returned invalid JSON: ${parseError.message}. Response preview: ${textContent.substring(0, 1000)}`)
+      }
 
       // Calculate cost
       const inputCostPer1M = 3.0
