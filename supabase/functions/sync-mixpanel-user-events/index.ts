@@ -324,7 +324,8 @@ serve(async (req) => {
             }
           }
         } catch (err) {
-          console.error('⚠️ Exception triggering processing function:', err.message)
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error('⚠️ Exception triggering processing function:', errorMessage)
           console.log('💡 Run manual_trigger_processing.sql to process staged events')
         }
 
