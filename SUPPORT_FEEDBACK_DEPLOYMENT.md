@@ -19,8 +19,8 @@ supabase secrets set ZENDESK_SUBDOMAIN=your-subdomain
 supabase secrets set ZENDESK_EMAIL=your-email@company.com
 supabase secrets set ZENDESK_TOKEN=your-api-token
 
-# Instabug credentials
-supabase secrets set INSTABUG_TOKEN=your-instabug-token
+# Instabug credentials (COMMENTED OUT - not in use yet)
+# supabase secrets set INSTABUG_TOKEN=your-instabug-token
 
 # Claude API (if not already set)
 supabase secrets set ANTHROPIC_API_KEY=your-anthropic-key

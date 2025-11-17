@@ -93,7 +93,7 @@ class CXAnalysis {
         // Add data scope (top left)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = `Zendesk & Instabug feedback from last ${daysRange} days (${data.conversation_count} conversations)`;
+        dataScope.textContent = `Zendesk feedback from last ${daysRange} days (${data.conversation_count} conversations)`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title
@@ -104,7 +104,7 @@ class CXAnalysis {
                 <span class="info-tooltip">CX Analysis
                     <span class="info-icon">i</span>
                     <span class="info-tooltip-text">
-                        AI-powered analysis of customer support conversations from Zendesk and bug reports from Instabug.
+                        AI-powered analysis of customer support conversations from Zendesk.
                         Issues are categorized and prioritized using Claude Sonnet 4.
                     </span>
                 </span>

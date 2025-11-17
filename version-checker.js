@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-17-04'; // Comment out CX Analysis trigger in Sync Live Data (runs via weekly cron only)
+const CURRENT_VERSION = '2025-11-17-05'; // Comment out Instabug integration (Zendesk only for now)
 
 class VersionChecker {
     constructor() {

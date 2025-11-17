@@ -309,8 +309,8 @@ sync-support-conversations → raw_support_conversations table
 ```
 
 **Data Sources**:
-- **Zendesk**: Support tickets and comments via Zendesk API
-- **Instabug**: Mobile bug reports via Instabug API
+- **Zendesk**: Support tickets and comments via Zendesk API ✅
+- **Instabug**: Mobile bug reports via Instabug API (commented out, not in use yet)
 - **Future**: Notion user interview notes (schema ready, implementation pending)
 
 **User Matching**: Maps users via `distinct_id`:

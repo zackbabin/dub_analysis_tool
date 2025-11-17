@@ -23,21 +23,25 @@ function initializeSupportCredentials() {
   const zendeskSubdomain = Deno.env.get('ZENDESK_SUBDOMAIN')
   const zendeskEmail = Deno.env.get('ZENDESK_EMAIL')
   const zendeskToken = Deno.env.get('ZENDESK_TOKEN')
-  const instabugToken = Deno.env.get('INSTABUG_TOKEN')
+  // COMMENTED OUT: Instabug integration (not ready yet)
+  // const instabugToken = Deno.env.get('INSTABUG_TOKEN')
 
   if (!zendeskSubdomain || !zendeskEmail || !zendeskToken) {
     throw new Error('Zendesk credentials not configured (ZENDESK_SUBDOMAIN, ZENDESK_EMAIL, ZENDESK_TOKEN)')
   }
 
+  // COMMENTED OUT: Instabug integration (not ready yet)
+  /*
   if (!instabugToken) {
     throw new Error('Instabug credentials not configured (INSTABUG_TOKEN)')
   }
+  */
 
   console.log('Support API credentials loaded from secrets')
 
   return {
     zendesk: { subdomain: zendeskSubdomain, email: zendeskEmail, token: zendeskToken },
-    instabug: { token: instabugToken },
+    // instabug: { token: instabugToken },
   }
 }
 
@@ -63,10 +67,11 @@ serve(async (req) => {
       const { data: syncStatus } = await supabase
         .from('support_sync_status')
         .select('*')
-        .in('source', ['zendesk', 'instabug'])
+        .in('source', ['zendesk']) // COMMENTED OUT: 'instabug' (not ready yet)
 
       const zendeskLastSync = syncStatus?.find((s) => s.source === 'zendesk')?.last_sync_timestamp
-      const instabugLastSync = syncStatus?.find((s) => s.source === 'instabug')?.last_sync_timestamp
+      // COMMENTED OUT: Instabug integration (not ready yet)
+      // const instabugLastSync = syncStatus?.find((s) => s.source === 'instabug')?.last_sync_timestamp
 
       // Default to 7 days lookback if no previous sync
       const lookbackDays = parseInt(Deno.env.get('ANALYSIS_LOOKBACK_DAYS') || '7')
@@ -76,12 +81,15 @@ serve(async (req) => {
         ? Math.floor(new Date(zendeskLastSync).getTime() / 1000)
         : Math.floor(defaultStartDate.getTime() / 1000)
 
+      // COMMENTED OUT: Instabug integration (not ready yet)
+      /*
       const instabugStartTime = instabugLastSync
         ? new Date(instabugLastSync).toISOString()
         : defaultStartDate.toISOString()
+      */
 
       console.log(`Syncing Zendesk from ${new Date(zendeskStartTime * 1000).toISOString()}`)
-      console.log(`Syncing Instabug from ${instabugStartTime}`)
+      // console.log(`Syncing Instabug from ${instabugStartTime}`)
 
       // Initialize API clients
       const zendeskClient = new ZendeskClient(
@@ -90,7 +98,8 @@ serve(async (req) => {
         credentials.zendesk.token
       )
 
-      const instabugClient = new InstabugClient(credentials.instabug.token)
+      // COMMENTED OUT: Instabug integration (not ready yet)
+      // const instabugClient = new InstabugClient(credentials.instabug.token)
 
       // Fetch Zendesk data
       console.log('Fetching Zendesk tickets...')
@@ -99,6 +108,8 @@ serve(async (req) => {
       console.log('Fetching Zendesk comments...')
       const zendeskComments = await zendeskClient.fetchCommentsSince(zendeskStartTime)
 
+      // COMMENTED OUT: Instabug integration (not ready yet)
+      /*
       // Fetch Instabug data
       console.log('Fetching Instabug bugs...')
       const instabugBugs = await instabugClient.fetchBugsSince(instabugStartTime)
@@ -109,6 +120,9 @@ serve(async (req) => {
         const comments = await instabugClient.fetchBugComments(bug.id)
         instabugComments.push(...comments.map((c) => ({ ...c, bugId: bug.id })))
       }
+      */
+      const instabugBugs: any[] = []
+      const instabugComments: any[] = []
 
       // Normalize data with PII redaction
       console.log('Normalizing and redacting PII...')
@@ -223,6 +237,8 @@ serve(async (req) => {
         })
         .eq('source', 'zendesk')
 
+      // COMMENTED OUT: Instabug integration (not ready yet)
+      /*
       await supabase
         .from('support_sync_status')
         .update({
@@ -234,6 +250,7 @@ serve(async (req) => {
           updated_at: now,
         })
         .eq('source', 'instabug')
+      */
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)
