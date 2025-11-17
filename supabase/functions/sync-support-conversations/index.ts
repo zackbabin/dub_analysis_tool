@@ -101,124 +101,40 @@ serve(async (req) => {
       // COMMENTED OUT: Instabug integration (not ready yet)
       // const instabugClient = new InstabugClient(credentials.instabug.token)
 
-      // Fetch Zendesk data
-      console.log('Fetching Zendesk tickets...')
-      const zendeskTickets = await zendeskClient.fetchTicketsSince(zendeskStartTime)
+      // Fetch and store Zendesk tickets using streaming (stores each batch immediately)
+      console.log('Fetching and storing Zendesk tickets (streaming mode)...')
+      let totalTicketsStored = 0
 
-      // TEMPORARY: Skip comments for initial sync to avoid timeout
-      // TODO: Re-enable after first successful sync
-      console.log('Skipping Zendesk comments (temporary - for initial sync only)...')
-      const zendeskComments: any[] = []
-
-      // console.log('Fetching Zendesk comments...')
-      // const zendeskComments = await zendeskClient.fetchCommentsSince(zendeskStartTime)
-
-      // COMMENTED OUT: Instabug integration (not ready yet)
-      /*
-      // Fetch Instabug data
-      console.log('Fetching Instabug bugs...')
-      const instabugBugs = await instabugClient.fetchBugsSince(instabugStartTime)
-
-      console.log('Fetching Instabug comments...')
-      const instabugComments: any[] = []
-      for (const bug of instabugBugs) {
-        const comments = await instabugClient.fetchBugComments(bug.id)
-        instabugComments.push(...comments.map((c) => ({ ...c, bugId: bug.id })))
-      }
-      */
-      const instabugBugs: any[] = []
-      const instabugComments: any[] = []
-
-      // Normalize data with PII redaction
-      console.log('Normalizing and redacting PII...')
-      const normalizedTickets = zendeskTickets.map((t) =>
-        ConversationNormalizer.normalizeZendeskTicket(t)
-      )
-      const normalizedBugs = instabugBugs.map((b) =>
-        ConversationNormalizer.normalizeInstabugBug(b)
-      )
-      const allConversations = [...normalizedTickets, ...normalizedBugs]
-
-      // Create mapping of ticket/bug external IDs to user distinct_ids for comment redaction
-      const distinctIdMap = new Map<string, string>()
-      zendeskTickets.forEach((t) => {
-        if (t.external_id) distinctIdMap.set(t.id.toString(), t.external_id)
-      })
-      instabugBugs.forEach((b) => {
-        if (b.user?.id) distinctIdMap.set(b.id.toString(), b.user.id.toString())
-      })
-
-      const normalizedZendeskComments = zendeskComments.map((c) =>
-        ConversationNormalizer.normalizeZendeskComment(
-          c,
-          c.ticket_id,
-          distinctIdMap.get(c.ticket_id?.toString())
+      await zendeskClient.fetchTicketsSince(zendeskStartTime, async (ticketBatch) => {
+        // Normalize and redact PII for this batch
+        const normalizedBatch = ticketBatch.map((t) =>
+          ConversationNormalizer.normalizeZendeskTicket(t)
         )
-      )
-      const normalizedInstabugComments = instabugComments.map((c) =>
-        ConversationNormalizer.normalizeInstabugComment(c, c.bugId, distinctIdMap.get(c.bugId?.toString()))
-      )
-      const allMessages = [...normalizedZendeskComments, ...normalizedInstabugComments]
 
-      // Store conversations
-      console.log(`Storing ${allConversations.length} conversations...`)
-      const { error: convError } = await supabase
-        .from('raw_support_conversations')
-        .upsert(allConversations, {
-          onConflict: 'source,external_id',
-          ignoreDuplicates: false,
-        })
-
-      if (convError) throw convError
-
-      // Get conversation UUIDs for messages
-      const externalIds = [...new Set(allMessages.map((m) => m.conversation_external_id))]
-      const { data: conversations } = await supabase
-        .from('raw_support_conversations')
-        .select('id, external_id, source')
-        .in('external_id', externalIds)
-
-      const idMap = new Map(conversations?.map((c) => [`${c.source}-${c.external_id}`, c.id]) || [])
-
-      // Map messages to conversation UUIDs
-      const mappedMessages = allMessages
-        .map((m) => {
-          // Determine source from conversation_external_id
-          let source = 'zendesk'
-          if (instabugBugs.some((b) => b.id.toString() === m.conversation_external_id)) {
-            source = 'instabug'
-          }
-
-          const conversationId = idMap.get(`${source}-${m.conversation_external_id}`)
-          if (!conversationId) return null
-
-          return {
-            conversation_id: conversationId,
-            external_id: m.external_id,
-            author_type: m.author_type,
-            author_id: m.author_id,
-            author_email: m.author_email,
-            body: m.body,
-            is_public: m.is_public,
-            created_at: m.created_at,
-            attachments: m.attachments,
-            raw_data: m.raw_data,
-          }
-        })
-        .filter((m) => m !== null)
-
-      // Store messages
-      console.log(`Storing ${mappedMessages.length} messages...`)
-      if (mappedMessages.length > 0) {
-        const { error: msgError } = await supabase
-          .from('support_conversation_messages')
-          .upsert(mappedMessages, {
-            onConflict: 'conversation_id,external_id',
+        // Store batch immediately
+        const { error: batchError } = await supabase
+          .from('raw_support_conversations')
+          .upsert(normalizedBatch, {
+            onConflict: 'source,external_id',
             ignoreDuplicates: false,
           })
 
-        if (msgError) throw msgError
-      }
+        if (batchError) {
+          console.error('Error storing batch:', batchError)
+          throw batchError
+        }
+
+        totalTicketsStored += normalizedBatch.length
+        console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
+      })
+
+      console.log(`✓ Successfully stored ${totalTicketsStored} tickets`)
+
+      // TEMPORARY: Skip comments for initial sync
+      console.log('Skipping comments (temporary)...')
+      const totalMessagesStored = 0
+
+      // Messages skipped for now (no comment processing)
 
       // Refresh materialized view
       console.log('Refreshing enriched view...')
@@ -235,8 +151,8 @@ serve(async (req) => {
         .update({
           last_sync_timestamp: now,
           last_sync_status: 'success',
-          conversations_synced: normalizedTickets.length,
-          messages_synced: normalizedZendeskComments.length,
+          conversations_synced: totalTicketsStored,
+          messages_synced: totalMessagesStored,
           error_message: null,
           updated_at: now,
         })
@@ -262,7 +178,7 @@ serve(async (req) => {
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: allConversations.length + mappedMessages.length,
+        total_records_inserted: totalTicketsStored + totalMessagesStored,
       })
 
       console.log(`Sync completed successfully in ${elapsedSec}s`)
@@ -270,16 +186,17 @@ serve(async (req) => {
       return createSuccessResponse('Support conversations synced successfully', {
         totalTimeSeconds: elapsedSec,
         zendesk: {
-          tickets: zendeskTickets.length,
-          comments: zendeskComments.length,
+          tickets: totalTicketsStored,
+          comments: totalMessagesStored,
         },
         instabug: {
-          bugs: instabugBugs.length,
-          comments: instabugComments.length,
+          bugs: 0,
+          comments: 0,
         },
-        total_conversations: allConversations.length,
-        total_messages: mappedMessages.length,
+        total_conversations: totalTicketsStored,
+        total_messages: totalMessagesStored,
         pii_redacted: true,
+        streaming_mode: true,
       })
     } catch (error) {
       // Update sync log with failure

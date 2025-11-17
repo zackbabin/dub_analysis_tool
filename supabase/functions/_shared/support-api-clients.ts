@@ -36,9 +36,13 @@ export class ZendeskClient {
    * Fetch tickets created/updated since a given Unix timestamp
    * Uses incremental tickets API for efficient syncing
    * @param unixTimestamp - Unix timestamp in seconds
+   * @param onBatch - Optional callback to process each batch (enables streaming)
    * @returns Array of ticket objects
    */
-  async fetchTicketsSince(unixTimestamp: number): Promise<any[]> {
+  async fetchTicketsSince(
+    unixTimestamp: number,
+    onBatch?: (tickets: any[]) => Promise<void>
+  ): Promise<any[]> {
     const tickets: any[] = []
     let url: string | null = `${this.baseUrl}/incremental/tickets.json?start_time=${unixTimestamp}`
 
@@ -48,19 +52,25 @@ export class ZendeskClient {
       const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
-      tickets.push(...data.tickets)
+      // Process batch immediately if callback provided (streaming mode)
+      if (onBatch && data.tickets.length > 0) {
+        await onBatch(data.tickets)
+        console.log(`  Processed batch of ${data.tickets.length} tickets`)
+      } else {
+        tickets.push(...data.tickets)
+        console.log(`  Fetched ${tickets.length} tickets so far...`)
+      }
 
       // Log rate limit status
       this.logRateLimitStatus(response, 'tickets')
 
       url = data.next_page
       if (url) {
-        console.log(`  Fetched ${tickets.length} tickets so far, fetching next page...`)
         await this.sleep(this.rateLimitDelay)
       }
     }
 
-    console.log(`✓ Fetched ${tickets.length} Zendesk tickets total`)
+    console.log(`✓ Fetched ${tickets.length || 'all'} Zendesk tickets total`)
     return tickets
   }
 
