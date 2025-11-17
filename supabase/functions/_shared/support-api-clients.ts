@@ -15,7 +15,7 @@
 export class ZendeskClient {
   private baseUrl: string
   private auth: string
-  private rateLimitDelay = 200 // 200ms between requests = ~5 requests/second (well under 400/min limit)
+  private rateLimitDelay = 1000 // 1 second between requests = 60 requests/min (safe under 400/min, avoids burst limits)
   private maxRetries = 3
 
   constructor(subdomain: string, email: string, apiToken: string) {
