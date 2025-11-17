@@ -58,25 +58,72 @@ supabase functions deploy analyze-support-feedback
 supabase functions deploy sync-support-conversations
 ```
 
-### Step 4: Trigger Backfill
+### Step 4: Trigger Backfill (May Require Multiple Runs)
 
-Trigger the sync manually to pull 60 days of data:
+**IMPORTANT: Edge functions have a 150-second timeout. With Zendesk's 10 req/min rate limit, you can process ~2,500 tickets per run. If you have more tickets in the last 60 days, you'll need to run the sync multiple times.**
+
+#### How It Works:
+1. **First run**: Fetches as many tickets as possible before timeout (saves progress)
+2. **If timeout occurs**: Data is saved, but `last_sync_timestamp` isn't updated
+3. **Second run**: Continues from same point, skips duplicates (upsert), fetches more
+4. **Repeat** until sync completes and updates timestamp
+
+#### Monitor Progress:
+
+```sql
+-- Check how many tickets you have so far
+SELECT
+  DATE(created_at) as date,
+  COUNT(*) as tickets,
+  source
+FROM raw_support_conversations
+WHERE created_at >= NOW() - INTERVAL '60 days'
+GROUP BY DATE(created_at), source
+ORDER BY date;
+
+-- Check if still in progress (timestamp won't be updated until completion)
+SELECT
+  source,
+  last_sync_timestamp,
+  EXTRACT(DAY FROM NOW() - last_sync_timestamp) as days_ago,
+  last_sync_status,
+  conversations_synced
+FROM support_sync_status
+WHERE source = 'zendesk';
+```
+
+#### Run the Backfill:
 
 ```bash
-# Option A: Via curl
+# Run sync (repeat 2-3 times if needed for large ticket volumes)
 curl -X POST \
   https://your-project-ref.supabase.co/functions/v1/sync-support-conversations \
   -H "Authorization: Bearer YOUR_ANON_KEY"
 
-# Option B: Via Supabase Dashboard
-# Edge Functions → sync-support-conversations → Invoke
+# Wait for response, check logs
+# If it times out or completes with "still fetching", run again
+# When complete, last_sync_timestamp will update to NOW
 ```
 
-This will:
-- Fetch all Zendesk tickets from the last 60 days
-- Store them in `raw_support_conversations`
-- Update `last_sync_timestamp` to current time
-- Future syncs will be incremental from this point
+#### Signs Backfill is Complete:
+- ✅ `last_sync_timestamp` updates to current time (not 60 days ago)
+- ✅ Function completes without timeout
+- ✅ No more new tickets being added between runs
+- ✅ `conversations_synced` stops increasing
+
+#### Estimate Number of Runs Needed:
+
+Zendesk rate limit: **10 requests/min = 6 seconds per request**
+Edge function timeout: **150 seconds**
+Max requests per run: **~25 requests**
+Tickets per request: **~100 tickets**
+**Max tickets per run: ~2,500**
+
+If you have:
+- **< 2,500 tickets**: 1 run needed ✓
+- **2,500-5,000 tickets**: 2 runs needed
+- **5,000-7,500 tickets**: 3 runs needed
+- **> 7,500 tickets**: 3+ runs needed
 
 ### Step 5: Run Analysis
 
