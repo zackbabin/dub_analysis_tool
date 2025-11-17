@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-17-12'; // CX Analysis: fixed tooltip row height issue
+const CURRENT_VERSION = '2025-11-17-13'; // Re-enabled CX Analysis in Sync Live Data workflow
 
 class VersionChecker {
     constructor() {
