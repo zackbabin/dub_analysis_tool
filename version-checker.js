@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-17-01'; // Add CX Analysis tool for support feedback analysis (Zendesk + Instabug + Claude AI)
+const CURRENT_VERSION = '2025-11-17-03'; // Integrate CX Analysis into Sync Live Data workflow
 
 class VersionChecker {
     constructor() {
