@@ -134,6 +134,85 @@ serve(async (req) => {
 
     console.log('✓ Analysis complete:', analysisResult.stats)
 
+    // Step 4: Sync Linear issues
+    console.log('Step 3: Syncing Linear issues...')
+    let linearSyncResult
+    let linearSyncSkipped = false
+
+    try {
+      const linearSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!linearSyncResponse.ok) {
+        const errorText = await linearSyncResponse.text()
+        console.warn(`⚠️ Linear sync failed (${linearSyncResponse.status}): ${errorText}`)
+        console.log('💡 Continuing without Linear data...')
+        linearSyncSkipped = true
+        linearSyncResult = { success: false, error: errorText }
+      } else {
+        linearSyncResult = await linearSyncResponse.json()
+
+        if (!linearSyncResult.success) {
+          console.warn(`⚠️ Linear sync returned failure: ${linearSyncResult.error}`)
+          linearSyncSkipped = true
+        } else {
+          console.log('✓ Linear sync complete:', linearSyncResult.stats || linearSyncResult.message)
+        }
+      }
+    } catch (linearSyncError) {
+      console.error('⚠️ Linear sync threw exception:', linearSyncError)
+      console.log('💡 Continuing without Linear data...')
+      linearSyncSkipped = true
+      linearSyncResult = {
+        success: false,
+        error: linearSyncError instanceof Error ? linearSyncError.message : String(linearSyncError),
+      }
+    }
+
+    // Step 5: Map Linear issues to feedback (only if Linear sync succeeded)
+    console.log('Step 4: Mapping Linear issues to feedback...')
+    let mappingResult
+
+    if (!linearSyncSkipped) {
+      try {
+        const mappingResponse = await fetch(`${supabaseUrl}/functions/v1/map-linear-to-feedback`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!mappingResponse.ok) {
+          const errorText = await mappingResponse.text()
+          console.warn(`⚠️ Linear mapping failed (${mappingResponse.status}): ${errorText}`)
+          mappingResult = { success: false, error: errorText }
+        } else {
+          mappingResult = await mappingResponse.json()
+
+          if (!mappingResult.success) {
+            console.warn(`⚠️ Linear mapping returned failure: ${mappingResult.error}`)
+          } else {
+            console.log('✓ Linear mapping complete:', mappingResult.stats || mappingResult.message)
+          }
+        }
+      } catch (mappingError) {
+        console.error('⚠️ Linear mapping threw exception:', mappingError)
+        mappingResult = {
+          success: false,
+          error: mappingError instanceof Error ? mappingError.message : String(mappingError),
+        }
+      }
+    } else {
+      console.log('⏭️ Skipping Linear mapping - sync was not successful')
+      mappingResult = { success: false, skipped: true, reason: 'Linear sync failed' }
+    }
+
     const pipelineElapsedSec = Math.round((Date.now() - pipelineStartTime) / 1000)
 
     return new Response(
@@ -143,6 +222,8 @@ serve(async (req) => {
         pipeline_duration_seconds: pipelineElapsedSec,
         sync_summary: syncResult.stats,
         analysis_summary: analysisResult.stats,
+        linear_sync_summary: linearSyncResult,
+        linear_mapping_summary: mappingResult,
       }),
       {
         headers: {

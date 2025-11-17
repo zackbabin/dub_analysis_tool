@@ -471,8 +471,8 @@
                     await creatorTool.runSyncWorkflow();
                     console.log('✅ Creator analysis refresh completed');
 
-                    // Step 3: Support analysis (syncs Zendesk/Instabug + Claude analysis)
-                    console.log('Step 3: Running CX analysis (support feedback)...');
+                    // Step 3: Support analysis (syncs Zendesk + Claude analysis + Linear integration)
+                    console.log('Step 3: Running CX analysis pipeline (support feedback + Linear)...');
                     try {
                         const response = await fetch(`${SUPABASE_URL}/functions/v1/trigger-support-analysis`, {
                             method: 'POST',
@@ -484,62 +484,18 @@
 
                         if (response.ok) {
                             const result = await response.json();
-                            console.log('✅ CX analysis completed:', result);
+                            console.log('✅ CX analysis pipeline completed:', result);
 
-                            // Step 3.1: Sync Linear issues
-                            console.log('Step 3.1: Syncing Linear issues...');
-                            try {
-                                const linearSyncResponse = await fetch(`${SUPABASE_URL}/functions/v1/sync-linear-issues`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                        'Content-Type': 'application/json'
-                                    }
-                                });
-
-                                if (linearSyncResponse.ok) {
-                                    const linearResult = await linearSyncResponse.json();
-                                    console.log('✅ Linear issues synced:', linearResult);
-
-                                    // Step 3.2: Map Linear issues to feedback
-                                    console.log('Step 3.2: Mapping Linear issues to feedback...');
-                                    try {
-                                        const mappingResponse = await fetch(`${SUPABASE_URL}/functions/v1/map-linear-to-feedback`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                                'Content-Type': 'application/json'
-                                            }
-                                        });
-
-                                        if (mappingResponse.ok) {
-                                            const mappingResult = await mappingResponse.json();
-                                            console.log('✅ Linear mapping completed:', mappingResult);
-                                        } else {
-                                            const mappingError = await mappingResponse.text();
-                                            console.warn('⚠️ Linear mapping failed (non-critical):', mappingError);
-                                        }
-                                    } catch (mappingError) {
-                                        console.warn('⚠️ Linear mapping failed (non-critical):', mappingError);
-                                    }
-                                } else {
-                                    const linearError = await linearSyncResponse.text();
-                                    console.warn('⚠️ Linear sync failed (non-critical):', linearError);
-                                }
-                            } catch (linearError) {
-                                console.warn('⚠️ Linear sync failed (non-critical):', linearError);
-                            }
-
-                            // Refresh CX analysis tab if it exists (now with Linear data)
+                            // Refresh CX analysis tab to show updated data with Linear integration
                             if (window.cxAnalysis) {
                                 await window.cxAnalysis.loadAndDisplayResults();
                             }
                         } else {
                             const errorText = await response.text();
-                            console.warn('⚠️ CX analysis failed (non-critical):', errorText);
+                            console.warn('⚠️ CX analysis pipeline failed (non-critical):', errorText);
                         }
                     } catch (cxError) {
-                        console.warn('⚠️ CX analysis failed (non-critical):', cxError);
+                        console.warn('⚠️ CX analysis pipeline failed (non-critical):', cxError);
                         // Don't throw - CX analysis failure shouldn't break the main sync
                     }
 
