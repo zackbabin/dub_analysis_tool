@@ -20,22 +20,5 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Do the same for subscription_engagement_summary
-DROP FUNCTION IF EXISTS refresh_subscription_engagement_summary();
-
-CREATE OR REPLACE FUNCTION refresh_subscription_engagement_summary()
-RETURNS void AS $$
-BEGIN
-  -- Try concurrent refresh first (safer, but requires unique index)
-  BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY subscription_engagement_summary;
-    RAISE NOTICE 'Refreshed subscription_engagement_summary (concurrent mode)';
-  EXCEPTION
-    WHEN OTHERS THEN
-      -- Fall back to non-concurrent refresh if concurrent fails
-      RAISE NOTICE 'Concurrent refresh failed, falling back to non-concurrent';
-      REFRESH MATERIALIZED VIEW subscription_engagement_summary;
-      RAISE NOTICE 'Refreshed subscription_engagement_summary (non-concurrent mode)';
-  END;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Note: subscription_engagement_summary was dropped in 20251115_drop_subscription_engagement_summary.sql
+-- The refresh function for it has been removed in 20251117_remove_orphaned_subscription_refresh_function.sql
