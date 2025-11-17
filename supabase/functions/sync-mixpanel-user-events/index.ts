@@ -2,7 +2,7 @@
 // Streams events from Mixpanel Export API, stores raw events in staging table
 // Processing moved to Postgres for 10-50x performance improvement
 // Postgres function aggregates events into user profiles via set-based SQL
-// Default behavior: Fetches last 3 days through yesterday (rolling 3-day window)
+// Default behavior: Fetches yesterday only, processes last 60 days (rolling 60-day window)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -501,16 +501,10 @@ serve(async (req) => {
       const copyEngagementElapsedSec = Math.round((Date.now() - copyEngagementStart) / 1000)
       console.log(`✓ Step 4 complete: copy_engagement_summary refreshed in ${copyEngagementElapsedSec}s`)
 
-      // Step 5: Clear staging table
-      console.log('Step 5/5: Clearing staging table...')
-      const { error: finalClearError } = await supabase.rpc('clear_events_staging')
-
-      if (finalClearError) {
-        console.warn('Warning: Failed to clear staging table:', finalClearError)
-        // Don't fail the entire sync if cleanup fails
-      } else {
-        console.log('✓ Step 5 complete: Staging table cleared')
-      }
+      // Step 5: Keep events in staging for 60-day rolling window
+      // Events accumulate in staging, processing filters to last 60 days
+      // Optional: Run cleanup_old_events() monthly to remove events older than 90 days
+      console.log('✓ Step 5 complete: Events kept in staging for 60-day rolling window')
 
       const totalElapsedMs = Date.now() - executionStartMs
       const totalElapsedSec = Math.round(totalElapsedMs / 1000)
