@@ -174,9 +174,9 @@ BEGIN
   WHERE jobname LIKE '%-daily';
 
   RAISE NOTICE '';
-  RAISE NOTICE '✅ Successfully created % daily cron jobs:', job_count;
+  RAISE NOTICE 'Successfully created % daily cron jobs', job_count;
   RAISE NOTICE '';
-  RAISE NOTICE '📋 Jobs created:';
+  RAISE NOTICE 'Jobs created:';
   RAISE NOTICE '   User Analysis (3 jobs):';
   RAISE NOTICE '     - sync-user-events-daily       (2:00 AM UTC)';
   RAISE NOTICE '     - sync-user-properties-daily   (2:20 AM UTC)';
@@ -193,8 +193,8 @@ BEGIN
   RAISE NOTICE '     - sync-linear-issues-daily     (4:00 AM UTC)';
   RAISE NOTICE '     - map-linear-to-feedback-daily (4:10 AM UTC)';
   RAISE NOTICE '';
-  RAISE NOTICE '⏰ Complete schedule: 2:00 AM - 4:15 AM UTC (~45 min)';
+  RAISE NOTICE 'Complete schedule: 2:00 AM - 4:15 AM UTC (about 45 min)';
   RAISE NOTICE '';
-  RAISE NOTICE '🔍 View jobs in Supabase Dashboard > Database > Cron';
-  RAISE NOTICE '📊 Query: SELECT * FROM cron.job WHERE jobname LIKE ''%-daily'';';
+  RAISE NOTICE 'View jobs in Supabase Dashboard > Database > Cron';
+  RAISE NOTICE 'Query: SELECT * FROM cron.job WHERE jobname LIKE ''%%-daily'';';
 END $$;
