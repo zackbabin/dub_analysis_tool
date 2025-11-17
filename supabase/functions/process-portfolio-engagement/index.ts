@@ -100,10 +100,9 @@ serve(async (req) => {
         totalRecordsInserted: 0,
       }
 
-      // Parallel batch processing configuration
-      // Reduced concurrency to avoid CPU quota limits with large datasets
-      const BATCH_SIZE = 2000  // Smaller batches to avoid statement timeout (10k was too large)
-      const MAX_CONCURRENT_BATCHES = 1  // Process sequentially to stay under CPU quota
+      // Staging table configuration for Postgres-accelerated processing
+      // Similar to sync-mixpanel-user-events pattern: stage data, process in Postgres
+      const STAGING_BATCH_SIZE = 5000  // Large batches OK for staging (no conflict checks)
 
       // Process engagement data (both portfolio and creator pairs)
       console.log('Processing engagement pairs...')
@@ -178,108 +177,80 @@ serve(async (req) => {
         console.warn('⚠️ Cannot trigger creator processing function: Supabase credentials not available')
       }
 
-      // Helper function to upsert batches in parallel with error handling
-      async function upsertInParallelBatches(
-        data: any[],
-        tableName: string,
-        onConflictColumns: string,
-        description: string
-      ): Promise<number> {
-        if (data.length === 0) {
-          console.log(`No ${description} to upsert`)
-          return 0
-        }
-
-        console.log(`Upserting ${data.length} ${description} in batches of ${BATCH_SIZE} (${MAX_CONCURRENT_BATCHES} concurrent)...`)
-
-        // Split data into batches
-        const batches: any[][] = []
-        for (let i = 0; i < data.length; i += BATCH_SIZE) {
-          batches.push(data.slice(i, i + BATCH_SIZE))
-        }
-        console.log(`Split into ${batches.length} batches`)
-
-        // Process batches in chunks of MAX_CONCURRENT_BATCHES
-        let processedCount = 0
-        for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
-          // Check timeout before processing next chunk
-          if (isApproachingTimeout()) {
-            console.warn(`⚠️ Approaching timeout. Processed ${processedCount}/${data.length} ${description}.`)
-            console.log('Exiting early - triggering next function to continue processing.')
-            return processedCount
-          }
-
-          const batchChunk = batches.slice(i, i + MAX_CONCURRENT_BATCHES)
-          const chunkStart = i * BATCH_SIZE
-          const chunkEnd = Math.min((i + batchChunk.length) * BATCH_SIZE, data.length)
-
-          console.log(`Processing batches ${i + 1}-${i + batchChunk.length} of ${batches.length} (records ${chunkStart}-${chunkEnd}/${data.length})...`)
-
-          // Process this chunk of batches in parallel with error handling
-          let results
-          try {
-            results = await Promise.all(
-              batchChunk.map(batch =>
-                supabase
-                  .from(tableName)
-                  .upsert(batch, {
-                    onConflict: onConflictColumns,
-                    ignoreDuplicates: false
-                  })
-              )
-            )
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error)
-            console.error(`❌ Exception during batch upsert: ${errorMessage}`)
-            throw error
-          }
-
-          // Check for errors in this chunk
-          for (let j = 0; j < results.length; j++) {
-            if (results[j].error) {
-              const batchNum = i + j + 1
-              console.error(`❌ Error upserting ${description} batch ${batchNum}/${batches.length}:`)
-              console.error(JSON.stringify(results[j].error, null, 2))
-              const batchError = results[j].error
-              const errorMsg = batchError?.message || 'Unknown error'
-              throw new Error(`Batch ${batchNum} failed: ${errorMsg}`)
-            }
-          }
-
-          processedCount = chunkEnd
-          logElapsed()
-          console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
-        }
-
-        console.log(`✓ All ${data.length} ${description} upserted successfully`)
-        return processedCount
+      // Clear staging table before starting (in case previous sync failed)
+      console.log('Clearing staging table from any previous incomplete syncs...')
+      const { error: clearError } = await supabase.rpc('clear_portfolio_engagement_staging')
+      if (clearError) {
+        console.warn('Warning: Failed to clear staging table:', clearError)
+      } else {
+        console.log('✓ Staging table cleared')
       }
 
-      // Upsert ONLY portfolio-creator pairs in this function
-      console.log('Upserting portfolio-creator pairs to database...')
+      // Step 1: Insert all portfolio pairs into staging table (fast, no conflict checking)
+      console.log(`Step 1/3: Staging ${portfolioCreatorPairs.length} portfolio-creator pairs...`)
+      let totalStaged = 0
 
-      let portfolioCount
-      try {
-        portfolioCount = await upsertInParallelBatches(
-          portfolioCreatorPairs,
-          'user_portfolio_creator_engagement',
-          'distinct_id,portfolio_ticker,creator_id',
-          'portfolio-creator pairs'
-        )
-      } catch (error) {
-        console.error('❌ Failed to upsert portfolio pairs:', error)
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        throw new Error(`Database upsert failed: ${errorMessage}`)
+      // Insert in batches to avoid statement timeout
+      for (let i = 0; i < portfolioCreatorPairs.length; i += STAGING_BATCH_SIZE) {
+        const batch = portfolioCreatorPairs.slice(i, i + STAGING_BATCH_SIZE)
+
+        const { error: insertError } = await supabase
+          .from('portfolio_engagement_staging')
+          .insert(batch)
+
+        if (insertError) {
+          console.error('Error inserting staging batch:', insertError)
+          throw insertError
+        }
+
+        totalStaged += batch.length
+        if ((i + STAGING_BATCH_SIZE) < portfolioCreatorPairs.length) {
+          console.log(`✓ Staged ${totalStaged}/${portfolioCreatorPairs.length} records...`)
+        }
       }
 
-      // Release processed data from memory
+      logElapsed()
+      console.log(`✓ Step 1 complete: ${totalStaged} records staged`)
+
+      // Release portfolio pairs from memory before processing
       // @ts-ignore
       portfolioCreatorPairs = undefined
       console.log('✓ Released portfolio pairs from memory')
 
-      stats.totalRecordsInserted = portfolioCount
+      // Step 2: Process staged data using Postgres function (10-50x faster than JS)
+      console.log('Step 2/3: Processing staged data in Postgres...')
+      const processingStart = Date.now()
+
+      const { data: processResult, error: processError } = await supabase.rpc(
+        'process_portfolio_engagement_staging'
+      )
+
+      if (processError) {
+        console.error('Error processing staged data in Postgres:', processError)
+        throw processError
+      }
+
+      const portfolioCount = processResult[0]?.records_inserted || 0
+      const recordsProcessed = processResult[0]?.records_processed || 0
+      const processingElapsedSec = Math.round((Date.now() - processingStart) / 1000)
+
       logElapsed()
-      console.log(`✓ Portfolio pairs upsert complete: ${portfolioCount} records`)
+      console.log(`✓ Step 2 complete: ${portfolioCount} records upserted from ${recordsProcessed} staged records in ${processingElapsedSec}s`)
+
+      // Step 3: Clear staging table
+      console.log('Step 3/3: Clearing staging table...')
+      const { error: finalClearError } = await supabase.rpc('clear_portfolio_engagement_staging')
+
+      if (finalClearError) {
+        console.warn('Warning: Failed to clear staging table:', finalClearError)
+        // Don't fail the entire sync if cleanup fails
+      } else {
+        console.log('✓ Step 3 complete: Staging table cleared')
+      }
+
+      stats.totalRecordsInserted = portfolioCount
+      const totalElapsedSec = Math.round((Date.now() - startTime) / 1000)
+      console.log(`✅ Portfolio processing completed successfully in ${totalElapsedSec}s (Postgres-accelerated)`)
 
       // Note: process-creator-engagement was already triggered earlier (before upserts)
       // to ensure it runs even if upserts timeout
