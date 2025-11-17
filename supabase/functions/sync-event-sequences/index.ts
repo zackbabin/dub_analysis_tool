@@ -1,6 +1,7 @@
 // Supabase Edge Function: sync-event-sequences
 // Fetches user event sequences from Mixpanel Insights API (Chart ID: 85247935)
-// Stores raw data in event_sequences_raw table for later processing
+// Stores raw UNSORTED data in event_sequences_raw table
+// Events are sorted by Postgres (see get_sorted_event_sequences() function or event_sequences_sorted view)
 // Processing happens in separate process-event-sequences function
 // Triggered manually alongside other sync functions
 
@@ -184,7 +185,7 @@ serve(async (req) => {
       const userEntries = Array.from(userEventsMap.entries())
       const totalUsers = userEntries.length
 
-      console.log(`Sorting events for ${totalUsers} users...`)
+      console.log(`Preparing ${totalUsers} users for storage (sorting moved to database)...`)
 
       // Early return after 120 seconds (leave 30s buffer for final operations)
       const TIMEOUT_MS = 120000
@@ -200,23 +201,18 @@ serve(async (req) => {
 
         const [distinctId, events] = userEntries[i]
 
-        // Sort events by timestamp (optimized: use getTime() once)
-        events.sort((a, b) => {
-          const timeA = new Date(a.time).getTime()
-          const timeB = new Date(b.time).getTime()
-          return timeA - timeB
-        })
-
+        // Store events unsorted - Postgres will handle sorting via get_sorted_event_sequences() function
+        // This eliminates CPU bottleneck from sorting thousands of events in JavaScript
         rawEventRows.push({
           distinct_id: distinctId,
-          event_data: events, // Store raw events as JSONB (enrichment done separately)
+          event_data: events, // Store raw events as JSONB (sorting done by Postgres)
           synced_at: syncStartTime.toISOString()
         })
 
         processedUsers++
       }
 
-      console.log(`Prepared ${rawEventRows.length} raw event sequences (${processedUsers}/${totalUsers} users)`)
+      console.log(`Prepared ${rawEventRows.length} raw event sequences (${processedUsers}/${totalUsers} users) - sorting will be done by database`)
       stats.eventSequencesFetched = rawEventRows.length
 
       // Upsert raw data in batches to event_sequences_raw table
@@ -248,13 +244,17 @@ serve(async (req) => {
         total_records_inserted: stats.totalRawRecordsInserted,
       })
 
-      console.log('Event sequences sync completed successfully (raw data stored)')
+      console.log('Event sequences sync completed successfully (raw unsorted data stored)')
+      console.log('Use event_sequences_sorted view or get_sorted_event_sequences() for sorted data')
       console.log('Call enrich-event-sequences then process-event-sequences to complete workflow')
 
       return createSuccessResponse(
-        'Event sequences sync completed successfully - raw data stored',
+        'Event sequences sync completed successfully - raw data stored (unsorted)',
         stats,
-        { note: 'Call enrich-event-sequences then process-event-sequences to complete workflow' }
+        {
+          note: 'Events stored unsorted. Use event_sequences_sorted view or get_sorted_event_sequences() for sorted data.',
+          nextSteps: 'Call enrich-event-sequences then process-event-sequences to complete workflow'
+        }
       )
     } catch (error) {
       // Update sync log with failure

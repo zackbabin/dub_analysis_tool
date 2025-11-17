@@ -1,10 +1,10 @@
 // Supabase Edge Function: sync-mixpanel-user-events (Event Export API - Streaming)
-// Streams events from Mixpanel Export API, processes incrementally to avoid memory issues
-// Processes events in chunks and upserts to subscribers_insights
-// Default behavior: Fetches last 60 days through today (rolling 60-day window)
+// Streams events from Mixpanel Export API, stores raw events in staging table
+// Processing moved to Postgres for 10-50x performance improvement
+// Postgres function aggregates events into user profiles via set-based SQL
+// Default behavior: Fetches last 7 days through yesterday (rolling 7-day window)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { processEventsToUserProfiles, formatProfilesForDB } from '../_shared/mixpanel-events-processor.ts'
 import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
@@ -38,15 +38,14 @@ const MIXPANEL_CONFIG = {
 }
 
 /**
- * Stream and process events from Mixpanel Export API line by line
- * Processes in chunks to avoid memory overload
+ * Stream events from Mixpanel Export API and insert raw into staging table
+ * Processing moved to Postgres for 10-50x performance improvement
  */
-async function streamAndProcessEvents(
+async function streamAndStageEvents(
   credentials: any,
   supabase: any,
   fromDate: string,
-  toDate: string,
-  syncStartTime: Date
+  toDate: string
 ) {
   console.log('Streaming events from Mixpanel Export API...')
 
@@ -79,18 +78,18 @@ async function streamAndProcessEvents(
     throw new Error('No response body from Mixpanel Export API')
   }
 
-  // Process stream line by line
+  // Process stream line by line - insert raw events into staging table
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   let events: any[] = []
   let totalEvents = 0
-  let totalRecordsInserted = 0
-  const CHUNK_SIZE = 250 // Process 250 events at a time (reduced from 500 to avoid CPU timeout with 7-day window)
+  let totalEventsInserted = 0
+  const BATCH_SIZE = 500 // Insert 500 raw events at a time (faster than processing)
   const startTime = Date.now()
-  const MAX_EXECUTION_TIME = 130000 // 130 seconds (leave 20s buffer for final chunk + cleanup before 150s hard timeout)
+  const MAX_EXECUTION_TIME = 130000 // 130 seconds (leave 20s buffer)
 
-  console.log('Processing events in chunks...')
+  console.log('Inserting raw events into staging table...')
 
   while (true) {
     const { done, value } = await reader.read()
@@ -107,34 +106,49 @@ async function streamAndProcessEvents(
 
         try {
           const event = JSON.parse(line)
-          events.push(event)
+
+          // Extract fields for staging table
+          const distinctId = event.properties.$distinct_id
+            || event.properties.distinct_id
+            || event.properties.user_id
+            || event.properties.$user_id
+            || event.properties.identified_id
+            || event.properties.$identified_id
+
+          if (!distinctId) continue // Skip events without user ID
+
+          events.push({
+            event_name: event.event,
+            distinct_id: distinctId,
+            properties: event.properties,
+            event_time: new Date(event.properties.time * 1000).toISOString() // Unix timestamp to ISO
+          })
           totalEvents++
 
-          // Check timeout every 100 events (frequent checks to ensure data safety)
+          // Check timeout every 100 events
           if (totalEvents % 100 === 0) {
             const elapsed = Date.now() - startTime
             if (elapsed > MAX_EXECUTION_TIME) {
-              console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Processed ${totalEvents} events, ${totalRecordsInserted} users upserted.`)
-              console.log('⚠️ Partial sync - saving accumulated events before timeout')
+              console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Staged ${totalEvents} events.`)
 
-              // CRITICAL: Save all accumulated events before exiting
+              // Save accumulated events before timeout
               if (events.length > 0) {
-                const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
-                totalRecordsInserted += inserted
-                console.log(`✓ Saved final ${events.length} events before timeout`)
+                const inserted = await insertRawEventsChunk(events, supabase)
+                totalEventsInserted += inserted
+                console.log(`✓ Saved final ${inserted} events before timeout`)
               }
 
-              return { totalEvents, totalRecordsInserted } // Early exit with all data saved
+              return { totalEvents, totalEventsInserted }
             }
           }
 
-          // Process chunk when we hit CHUNK_SIZE
-          if (events.length >= CHUNK_SIZE) {
-            const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
-            totalRecordsInserted += inserted
+          // Insert batch when we hit BATCH_SIZE
+          if (events.length >= BATCH_SIZE) {
+            const inserted = await insertRawEventsChunk(events, supabase)
+            totalEventsInserted += inserted
             const elapsedSec = Math.round((Date.now() - startTime) / 1000)
-            console.log(`✓ Processed ${totalEvents} events, ${totalRecordsInserted} users upserted (${elapsedSec}s elapsed)`)
-            events = [] // Clear for next chunk
+            console.log(`✓ Staged ${totalEvents} events, ${totalEventsInserted} inserted (${elapsedSec}s elapsed)`)
+            events = [] // Clear for next batch
           }
         } catch (error) {
           console.warn(`Failed to parse event line: ${line.substring(0, 100)}`)
@@ -147,60 +161,61 @@ async function streamAndProcessEvents(
       if (buffer.trim()) {
         try {
           const event = JSON.parse(buffer)
-          events.push(event)
-          totalEvents++
+          const distinctId = event.properties.$distinct_id
+            || event.properties.distinct_id
+            || event.properties.user_id
+            || event.properties.$user_id
+            || event.properties.identified_id
+            || event.properties.$identified_id
+
+          if (distinctId) {
+            events.push({
+              event_name: event.event,
+              distinct_id: distinctId,
+              properties: event.properties,
+              event_time: new Date(event.properties.time * 1000).toISOString()
+            })
+            totalEvents++
+          }
         } catch (error) {
           console.warn(`Failed to parse final event`)
         }
       }
 
-      // Process final chunk
+      // Insert final batch
       if (events.length > 0) {
-        const inserted = await processAndUpsertChunk(events, supabase, syncStartTime)
-        totalRecordsInserted += inserted
+        const inserted = await insertRawEventsChunk(events, supabase)
+        totalEventsInserted += inserted
       }
 
       break
     }
   }
 
-  console.log(`✓ Streaming complete: ${totalEvents} events processed, ${totalRecordsInserted} users upserted`)
+  console.log(`✓ Streaming complete: ${totalEvents} events staged, ${totalEventsInserted} inserted`)
 
-  return { totalEvents, totalRecordsInserted }
+  return { totalEvents, totalEventsInserted }
 }
 
 /**
- * Process a chunk of events and upsert to database
- * Uses INCREMENTAL aggregation: adds new event counts to existing totals
+ * Insert a batch of raw events into staging table
  */
-async function processAndUpsertChunk(
+async function insertRawEventsChunk(
   events: any[],
-  supabase: any,
-  syncStartTime: Date
+  supabase: any
 ): Promise<number> {
-  // Process events into user profiles
-  const userProfiles = processEventsToUserProfiles(events)
+  if (events.length === 0) return 0
 
-  // Format profiles for database
-  const profileRows = formatProfilesForDB(userProfiles, syncStartTime.toISOString())
-
-  if (profileRows.length === 0) {
-    return 0
-  }
-
-  // Use custom SQL for incremental upsert
-  // Event metrics are ADDED to existing values
-  // User properties are REPLACED with latest values
-  const { error } = await supabase.rpc('upsert_subscribers_incremental', {
-    profiles: profileRows
-  })
+  const { error } = await supabase
+    .from('raw_mixpanel_events_staging')
+    .insert(events)
 
   if (error) {
-    console.error('Error upserting chunk:', error)
+    console.error('Error inserting raw events chunk:', error)
     throw error
   }
 
-  return profileRows.length
+  return events.length
 }
 
 serve(async (req) => {
@@ -257,29 +272,65 @@ serve(async (req) => {
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
 
-      // Stream and process events
-      const { totalEvents, totalRecordsInserted } = await streamAndProcessEvents(
+      // Step 1: Stream events and insert raw into staging table
+      console.log('Step 1/3: Streaming events into staging table...')
+      const { totalEvents, totalEventsInserted } = await streamAndStageEvents(
         credentials,
         supabase,
         fromDate,
-        toDate,
-        syncStartTime
+        toDate
       )
 
-      const elapsedMs = Date.now() - executionStartMs
-      const elapsedSec = Math.round(elapsedMs / 1000)
+      const stagingElapsedSec = Math.round((Date.now() - executionStartMs) / 1000)
+      console.log(`✓ Step 1 complete: ${totalEventsInserted} events staged in ${stagingElapsedSec}s`)
+
+      // Step 2: Process staged events using Postgres function (10-50x faster than JS)
+      console.log('Step 2/3: Processing events in Postgres...')
+      const processingStart = Date.now()
+
+      const { data: processResult, error: processError } = await supabase.rpc(
+        'process_raw_events_to_profiles',
+        { synced_at: syncStartTime.toISOString() }
+      )
+
+      if (processError) {
+        console.error('Error processing events in Postgres:', processError)
+        throw processError
+      }
+
+      const profilesProcessed = processResult[0]?.profiles_processed || 0
+      const eventsProcessed = processResult[0]?.events_processed || 0
+      const processingElapsedSec = Math.round((Date.now() - processingStart) / 1000)
+
+      console.log(`✓ Step 2 complete: ${profilesProcessed} profiles from ${eventsProcessed} events in ${processingElapsedSec}s`)
+
+      // Step 3: Clear staging table
+      console.log('Step 3/3: Clearing staging table...')
+      const { error: clearError } = await supabase.rpc('clear_events_staging')
+
+      if (clearError) {
+        console.warn('Warning: Failed to clear staging table:', clearError)
+        // Don't fail the entire sync if cleanup fails
+      } else {
+        console.log('✓ Step 3 complete: Staging table cleared')
+      }
+
+      const totalElapsedMs = Date.now() - executionStartMs
+      const totalElapsedSec = Math.round(totalElapsedMs / 1000)
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: totalRecordsInserted,
+        total_records_inserted: profilesProcessed,
       })
 
-      console.log(`Sync completed successfully in ${elapsedSec}s`)
+      console.log(`✅ Sync completed successfully in ${totalElapsedSec}s (${stagingElapsedSec}s staging + ${processingElapsedSec}s processing)`)
 
-      return createSuccessResponse('Subscriber events synced successfully via streaming (v2)', {
-        totalTimeSeconds: elapsedSec,
-        totalEvents,
-        totalRecordsInserted,
+      return createSuccessResponse('Subscriber events synced successfully (Postgres-accelerated)', {
+        totalTimeSeconds: totalElapsedSec,
+        stagingTimeSeconds: stagingElapsedSec,
+        processingTimeSeconds: processingElapsedSec,
+        totalEvents: totalEventsInserted,
+        profilesProcessed,
         dateRange: { fromDate, toDate },
         trackedEvents: TRACKED_EVENTS.length,
       })

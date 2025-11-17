@@ -55,22 +55,40 @@ serve(async (req) => {
         return (Date.now() - startTime) > TIMEOUT_BUFFER_MS
       }
 
-      // Download raw data from Storage
+      // Download raw data from Storage with error handling
       console.log('Downloading raw data from Storage...')
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .download(filename)
+      let fileData, rawDataText, rawData
 
-      if (downloadError) {
-        console.error('Error downloading from storage:', downloadError)
-        throw downloadError
+      try {
+        const { data, error: downloadError } = await supabase.storage
+          .from('mixpanel-raw-data')
+          .download(filename)
+
+        if (downloadError) {
+          console.error('❌ Storage download error:', downloadError)
+          throw new Error(`Failed to download ${filename}: ${downloadError.message}`)
+        }
+
+        if (!data) {
+          throw new Error(`No data returned from storage for ${filename}`)
+        }
+
+        fileData = data
+        console.log(`✓ Downloaded ${filename} (${(data.size / 1024 / 1024).toFixed(2)} MB)`)
+        logElapsed()
+
+        // Parse JSON with error handling
+        console.log('Parsing JSON data...')
+        rawDataText = await fileData.text()
+        console.log(`✓ Extracted text (${(rawDataText.length / 1024 / 1024).toFixed(2)} MB)`)
+
+        rawData = JSON.parse(rawDataText)
+        console.log('✓ Parsed JSON successfully')
+        logElapsed()
+      } catch (error) {
+        console.error('❌ Failed to load/parse storage data:', error)
+        throw new Error(`Storage data load failed: ${error.message}`)
       }
-
-      const rawDataText = await fileData.text()
-      const rawData = JSON.parse(rawDataText)
-
-      logElapsed()
-      console.log('✓ Raw data loaded from Storage')
 
       // Use let for variables we'll explicitly set to undefined later for garbage collection
       let { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
@@ -88,19 +106,35 @@ serve(async (req) => {
 
       // Process engagement data (both portfolio and creator pairs)
       console.log('Processing engagement pairs...')
-      const { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
-        profileViewsData,
-        pdpViewsData,
-        subscriptionsData,
-        originalSyncTime
-      )
+      console.log(`Input data sizes:`)
+      console.log(`  - profileViews series keys: ${Object.keys(profileViewsData?.series || {}).length}`)
+      console.log(`  - pdpViews series keys: ${Object.keys(pdpViewsData?.series || {}).length}`)
+      console.log(`  - subscriptions series keys: ${Object.keys(subscriptionsData?.series || {}).length}`)
+
+      let portfolioCreatorPairs, creatorPairs
+
+      try {
+        const result = processPortfolioCreatorPairs(
+          profileViewsData,
+          pdpViewsData,
+          subscriptionsData,
+          originalSyncTime
+        )
+        portfolioCreatorPairs = result.portfolioCreatorPairs
+        creatorPairs = result.creatorPairs
+      } catch (error) {
+        console.error('❌ Failed to process portfolio-creator pairs:', error)
+        console.error('Error details:', error.stack)
+        throw new Error(`Data processing failed: ${error.message}`)
+      }
+
       logElapsed()
-      console.log(`Processed ${portfolioCreatorPairs.length} portfolio pairs, ${creatorPairs.length} creator pairs`)
+      console.log(`✓ Processed ${portfolioCreatorPairs.length} portfolio pairs, ${creatorPairs.length} creator pairs`)
       console.log('This function will process portfolio pairs only, creator pairs handled by process-creator-engagement')
 
-      // Release raw data from memory immediately after processing to allow garbage collection
+      // Release raw data from memory ASAP to allow garbage collection
       // This reduces memory usage by 30-40% and prevents memory limit errors
-      console.log('Releasing raw data from memory...')
+      console.log('Releasing raw input data from memory...')
       // @ts-ignore - explicitly setting to undefined for garbage collection
       rawData = undefined
       // @ts-ignore
@@ -113,15 +147,19 @@ serve(async (req) => {
       pdpViewsData = undefined
       // @ts-ignore
       subscriptionsData = undefined
+      console.log('✓ Memory released')
 
-      // Helper function to upsert batches in parallel
+      // Helper function to upsert batches in parallel with error handling
       async function upsertInParallelBatches(
         data: any[],
         tableName: string,
         onConflictColumns: string,
         description: string
       ): Promise<number> {
-        if (data.length === 0) return 0
+        if (data.length === 0) {
+          console.log(`No ${description} to upsert`)
+          return 0
+        }
 
         console.log(`Upserting ${data.length} ${description} in batches of ${BATCH_SIZE} (${MAX_CONCURRENT_BATCHES} concurrent)...`)
 
@@ -130,6 +168,7 @@ serve(async (req) => {
         for (let i = 0; i < data.length; i += BATCH_SIZE) {
           batches.push(data.slice(i, i + BATCH_SIZE))
         }
+        console.log(`Split into ${batches.length} batches`)
 
         // Process batches in chunks of MAX_CONCURRENT_BATCHES
         let processedCount = 0
@@ -147,27 +186,36 @@ serve(async (req) => {
 
           console.log(`Processing batches ${i + 1}-${i + batchChunk.length} of ${batches.length} (records ${chunkStart}-${chunkEnd}/${data.length})...`)
 
-          // Process this chunk of batches in parallel
-          const results = await Promise.all(
-            batchChunk.map(batch =>
-              supabase
-                .from(tableName)
-                .upsert(batch, {
-                  onConflict: onConflictColumns,
-                  ignoreDuplicates: false
-                })
+          // Process this chunk of batches in parallel with error handling
+          let results
+          try {
+            results = await Promise.all(
+              batchChunk.map(batch =>
+                supabase
+                  .from(tableName)
+                  .upsert(batch, {
+                    onConflict: onConflictColumns,
+                    ignoreDuplicates: false
+                  })
+              )
             )
-          )
+          } catch (error) {
+            console.error(`❌ Exception during batch upsert: ${error.message}`)
+            throw error
+          }
 
           // Check for errors in this chunk
           for (let j = 0; j < results.length; j++) {
             if (results[j].error) {
-              console.error(`Error upserting ${description} batch ${i + j + 1}:`, results[j].error)
-              throw results[j].error
+              const batchNum = i + j + 1
+              console.error(`❌ Error upserting ${description} batch ${batchNum}/${batches.length}:`)
+              console.error(JSON.stringify(results[j].error, null, 2))
+              throw new Error(`Batch ${batchNum} failed: ${results[j].error.message}`)
             }
           }
 
           processedCount = chunkEnd
+          logElapsed()
           console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
         }
 
@@ -176,14 +224,25 @@ serve(async (req) => {
       }
 
       // Upsert ONLY portfolio-creator pairs in this function
-      console.log('Upserting portfolio-creator pairs...')
+      console.log('Upserting portfolio-creator pairs to database...')
 
-      const portfolioCount = await upsertInParallelBatches(
-        portfolioCreatorPairs,
-        'user_portfolio_creator_engagement',
-        'distinct_id,portfolio_ticker,creator_id',
-        'portfolio-creator pairs'
-      )
+      let portfolioCount
+      try {
+        portfolioCount = await upsertInParallelBatches(
+          portfolioCreatorPairs,
+          'user_portfolio_creator_engagement',
+          'distinct_id,portfolio_ticker,creator_id',
+          'portfolio-creator pairs'
+        )
+      } catch (error) {
+        console.error('❌ Failed to upsert portfolio pairs:', error)
+        throw new Error(`Database upsert failed: ${error.message}`)
+      }
+
+      // Release processed data from memory
+      // @ts-ignore
+      portfolioCreatorPairs = undefined
+      console.log('✓ Released portfolio pairs from memory')
 
       stats.totalRecordsInserted = portfolioCount
       logElapsed()
