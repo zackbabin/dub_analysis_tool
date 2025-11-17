@@ -360,10 +360,10 @@ serve(async (req) => {
 
       // Step 3: Clear staging table
       console.log('Step 3/3: Clearing staging table...')
-      const { error: clearError } = await supabase.rpc('clear_events_staging')
+      const { error: finalClearError } = await supabase.rpc('clear_events_staging')
 
-      if (clearError) {
-        console.warn('Warning: Failed to clear staging table:', clearError)
+      if (finalClearError) {
+        console.warn('Warning: Failed to clear staging table:', finalClearError)
         // Don't fail the entire sync if cleanup fails
       } else {
         console.log('✓ Step 3 complete: Staging table cleared')
