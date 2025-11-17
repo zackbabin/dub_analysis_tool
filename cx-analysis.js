@@ -229,12 +229,11 @@ class CXAnalysis {
         }).join('');
 
         return `
-            <span class="info-tooltip" style="position: relative; display: inline-block;">
+            <span class="info-tooltip cx-examples-tooltip" style="position: relative; display: inline-block;">
                 <span style="color: #212529; text-decoration: underline; cursor: pointer;">
                     See examples
                 </span>
                 <span class="tooltip-text" style="
-                    visibility: hidden;
                     width: 400px;
                     max-width: 90vw;
                     background-color: white;
@@ -242,19 +241,10 @@ class CXAnalysis {
                     text-align: left;
                     border-radius: 8px;
                     padding: 16px;
-                    position: absolute;
-                    z-index: 1000;
-                    bottom: 125%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    margin-bottom: 8px;
-                    opacity: 0;
-                    transition: opacity 0.3s, visibility 0.3s;
                     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
                     border: 1px solid #e5e7eb;
                     font-size: 0.875rem;
                     line-height: 1.5;
-                    pointer-events: none;
                 ">
                     ${examplesHTML}
                 </span>
