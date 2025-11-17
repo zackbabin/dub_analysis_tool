@@ -85,9 +85,9 @@ async function streamAndStageEvents(
   let events: any[] = []
   let totalEvents = 0
   let totalEventsInserted = 0
-  const BATCH_SIZE = 500 // Insert 500 raw events at a time (faster than processing)
+  const BATCH_SIZE = 2000 // Insert 2000 raw events at a time (reduce DB round trips)
   const startTime = Date.now()
-  const MAX_EXECUTION_TIME = 130000 // 130 seconds (leave 20s buffer)
+  const MAX_EXECUTION_TIME = 120000 // 120 seconds (leave 30s buffer for final batch)
 
   console.log('Inserting raw events into staging table...')
 
@@ -125,8 +125,8 @@ async function streamAndStageEvents(
           })
           totalEvents++
 
-          // Check timeout every 100 events
-          if (totalEvents % 100 === 0) {
+          // Check timeout every 500 events (less frequent checks = better performance)
+          if (totalEvents % 500 === 0) {
             const elapsed = Date.now() - startTime
             if (elapsed > MAX_EXECUTION_TIME) {
               console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Staged ${totalEvents} events.`)
@@ -138,7 +138,8 @@ async function streamAndStageEvents(
                 console.log(`✓ Saved final ${inserted} events before timeout`)
               }
 
-              return { totalEvents, totalEventsInserted }
+              console.log(`⚠️ EARLY EXIT: ${totalEventsInserted} events staged. Call process-mixpanel-user-events to complete processing.`)
+              return { totalEvents, totalEventsInserted, timedOut: true }
             }
           }
 
@@ -274,7 +275,7 @@ serve(async (req) => {
 
       // Step 1: Stream events and insert raw into staging table
       console.log('Step 1/3: Streaming events into staging table...')
-      const { totalEvents, totalEventsInserted } = await streamAndStageEvents(
+      const stagingResult = await streamAndStageEvents(
         credentials,
         supabase,
         fromDate,
@@ -282,7 +283,45 @@ serve(async (req) => {
       )
 
       const stagingElapsedSec = Math.round((Date.now() - executionStartMs) / 1000)
-      console.log(`✓ Step 1 complete: ${totalEventsInserted} events staged in ${stagingElapsedSec}s`)
+
+      // Check if staging timed out
+      if (stagingResult.timedOut) {
+        console.log(`⚠️ Step 1 timed out after staging ${stagingResult.totalEventsInserted} events in ${stagingElapsedSec}s`)
+        console.log(`✓ Data saved to staging table. Triggering separate processing function...`)
+
+        // Update sync log to show partial completion
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
+        })
+
+        // Trigger separate processing function
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+        if (supabaseUrl && supabaseServiceKey) {
+          fetch(`${supabaseUrl}/functions/v1/process-mixpanel-user-events`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ synced_at: syncStartTime.toISOString() })
+          }).catch((err) => {
+            console.error('⚠️ Failed to trigger process-mixpanel-user-events:', err.message)
+          })
+          console.log('✓ Processing function triggered in background')
+        }
+
+        return createSuccessResponse('Staging completed (timed out) - processing triggered separately', {
+          totalTimeSeconds: stagingElapsedSec,
+          totalEventsStaged: stagingResult.totalEventsInserted,
+          timedOut: true,
+          note: 'Processing function triggered separately to complete the sync'
+        })
+      }
+
+      console.log(`✓ Step 1 complete: ${stagingResult.totalEventsInserted} events staged in ${stagingElapsedSec}s`)
 
       // Step 2: Process staged events using Postgres function (10-50x faster than JS)
       console.log('Step 2/3: Processing events in Postgres...')
@@ -329,7 +368,7 @@ serve(async (req) => {
         totalTimeSeconds: totalElapsedSec,
         stagingTimeSeconds: stagingElapsedSec,
         processingTimeSeconds: processingElapsedSec,
-        totalEvents: totalEventsInserted,
+        totalEvents: stagingResult.totalEventsInserted,
         profilesProcessed,
         dateRange: { fromDate, toDate },
         trackedEvents: TRACKED_EVENTS.length,
