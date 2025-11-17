@@ -2,7 +2,7 @@
 // Streams events from Mixpanel Export API, stores raw events in staging table
 // Processing moved to Postgres for 10-50x performance improvement
 // Postgres function aggregates events into user profiles via set-based SQL
-// Default behavior: Fetches last 7 days through yesterday (rolling 7-day window)
+// Default behavior: Fetches last 3 days through yesterday (rolling 3-day window)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -85,7 +85,7 @@ async function streamAndStageEvents(
   let events: any[] = []
   let totalEvents = 0
   let totalEventsInserted = 0
-  const BATCH_SIZE = 2000 // Insert 2000 raw events at a time (reduce DB round trips)
+  const BATCH_SIZE = 5000 // Insert 5000 raw events at a time (reduce DB round trips)
   const startTime = Date.now()
   const MAX_EXECUTION_TIME = 120000 // 120 seconds (leave 30s buffer for final batch)
 
@@ -257,21 +257,30 @@ serve(async (req) => {
         toDate = to_date
         console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
       } else {
-        // Regular mode: last 7 days through yesterday (reduced from 15 to avoid CPU timeout)
+        // Regular mode: last 3 days through yesterday (reduced from 7 to avoid staging timeout)
         const today = new Date()
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
         toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD (yesterday)
 
-        const sevenDaysAgo = new Date(yesterday)
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        fromDate = sevenDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+        const threeDaysAgo = new Date(yesterday)
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+        fromDate = threeDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
 
-        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (7 days)`)
+        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (3 days)`)
       }
 
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
+
+      // Clear staging table before starting (in case previous sync failed)
+      console.log('Clearing staging table from any previous incomplete syncs...')
+      const { error: clearError } = await supabase.rpc('clear_events_staging')
+      if (clearError) {
+        console.warn('Warning: Failed to clear staging table:', clearError)
+      } else {
+        console.log('✓ Staging table cleared')
+      }
 
       // Step 1: Stream events and insert raw into staging table
       console.log('Step 1/3: Streaming events into staging table...')
@@ -294,23 +303,29 @@ serve(async (req) => {
           total_records_inserted: 0,
         })
 
-        // Trigger separate processing function
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+        // Trigger separate processing function using Supabase client
+        // This is more reliable than raw fetch
+        console.log('Triggering process-mixpanel-user-events via Supabase client...')
 
-        if (supabaseUrl && supabaseServiceKey) {
-          fetch(`${supabaseUrl}/functions/v1/process-mixpanel-user-events`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${supabaseServiceKey}`,
-              'apikey': supabaseServiceKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ synced_at: syncStartTime.toISOString() })
-          }).catch((err) => {
-            console.error('⚠️ Failed to trigger process-mixpanel-user-events:', err.message)
-          })
-          console.log('✓ Processing function triggered in background')
+        try {
+          const { data: triggerData, error: triggerError } = await supabase.functions.invoke(
+            'process-mixpanel-user-events',
+            { body: { synced_at: syncStartTime.toISOString() } }
+          )
+
+          if (triggerError) {
+            console.error('⚠️ Failed to trigger processing function:', triggerError)
+            console.error('Error details:', JSON.stringify(triggerError, null, 2))
+            console.log('💡 Run manual_trigger_processing.sql to process staged events')
+          } else {
+            console.log('✓ Processing function triggered successfully')
+            if (triggerData) {
+              console.log('Processing result:', JSON.stringify(triggerData, null, 2))
+            }
+          }
+        } catch (err) {
+          console.error('⚠️ Exception triggering processing function:', err.message)
+          console.log('💡 Run manual_trigger_processing.sql to process staged events')
         }
 
         return createSuccessResponse('Staging completed (timed out) - processing triggered separately', {
