@@ -45,7 +45,7 @@ serve(async (req) => {
     try {
       // Track elapsed time with timeout prevention
       const startTime = Date.now()
-      const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
+      const TIMEOUT_BUFFER_MS = 140000  // Exit after 140s (10s buffer before 150s timeout)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
         console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
@@ -87,7 +87,8 @@ serve(async (req) => {
         logElapsed()
       } catch (error) {
         console.error('❌ Failed to load/parse storage data:', error)
-        throw new Error(`Storage data load failed: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`Storage data load failed: ${errorMessage}`)
       }
 
       // Use let for variables we'll explicitly set to undefined later for garbage collection
@@ -101,7 +102,7 @@ serve(async (req) => {
 
       // Parallel batch processing configuration
       // Reduced concurrency to avoid CPU quota limits with large datasets
-      const BATCH_SIZE = 10000  // Larger batches = fewer operations
+      const BATCH_SIZE = 2000  // Smaller batches to avoid statement timeout (10k was too large)
       const MAX_CONCURRENT_BATCHES = 1  // Process sequentially to stay under CPU quota
 
       // Process engagement data (both portfolio and creator pairs)
@@ -124,8 +125,11 @@ serve(async (req) => {
         creatorPairs = result.creatorPairs
       } catch (error) {
         console.error('❌ Failed to process portfolio-creator pairs:', error)
-        console.error('Error details:', error.stack)
-        throw new Error(`Data processing failed: ${error.message}`)
+        if (error instanceof Error) {
+          console.error('Error details:', error.stack)
+        }
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`Data processing failed: ${errorMessage}`)
       }
 
       logElapsed()
@@ -148,6 +152,31 @@ serve(async (req) => {
       // @ts-ignore
       subscriptionsData = undefined
       console.log('✓ Memory released')
+
+      // Trigger process-creator-engagement BEFORE upserting to ensure it happens even if we timeout
+      // This function will handle creator pairs while we process portfolio pairs
+      console.log('Triggering process-creator-engagement function (before upserts)...')
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+      if (supabaseUrl && supabaseServiceKey) {
+        // Fire and forget - don't wait for completion
+        fetch(`${supabaseUrl}/functions/v1/process-creator-engagement`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+            'apikey': supabaseServiceKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filename })
+        }).catch((err) => {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error('⚠️ Failed to trigger process-creator-engagement:', errorMessage)
+        })
+        console.log('✓ Creator processing function triggered in background')
+      } else {
+        console.warn('⚠️ Cannot trigger creator processing function: Supabase credentials not available')
+      }
 
       // Helper function to upsert batches in parallel with error handling
       async function upsertInParallelBatches(
@@ -200,7 +229,8 @@ serve(async (req) => {
               )
             )
           } catch (error) {
-            console.error(`❌ Exception during batch upsert: ${error.message}`)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error(`❌ Exception during batch upsert: ${errorMessage}`)
             throw error
           }
 
@@ -210,7 +240,9 @@ serve(async (req) => {
               const batchNum = i + j + 1
               console.error(`❌ Error upserting ${description} batch ${batchNum}/${batches.length}:`)
               console.error(JSON.stringify(results[j].error, null, 2))
-              throw new Error(`Batch ${batchNum} failed: ${results[j].error.message}`)
+              const batchError = results[j].error
+              const errorMsg = batchError?.message || 'Unknown error'
+              throw new Error(`Batch ${batchNum} failed: ${errorMsg}`)
             }
           }
 
@@ -236,7 +268,8 @@ serve(async (req) => {
         )
       } catch (error) {
         console.error('❌ Failed to upsert portfolio pairs:', error)
-        throw new Error(`Database upsert failed: ${error.message}`)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`Database upsert failed: ${errorMessage}`)
       }
 
       // Release processed data from memory
@@ -248,28 +281,8 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Portfolio pairs upsert complete: ${portfolioCount} records`)
 
-      // Trigger process-creator-engagement to handle creator pairs
-      console.log('Triggering process-creator-engagement function...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && supabaseServiceKey) {
-        // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/process-creator-engagement`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filename })
-        }).catch((err) => {
-          console.error('⚠️ Failed to trigger process-creator-engagement:', err.message)
-        })
-        console.log('✓ Creator processing function triggered in background')
-      } else {
-        console.warn('⚠️ Cannot trigger creator processing function: Supabase credentials not available')
-      }
+      // Note: process-creator-engagement was already triggered earlier (before upserts)
+      // to ensure it runs even if upserts timeout
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
