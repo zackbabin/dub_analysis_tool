@@ -253,12 +253,15 @@ serve(async (req) => {
 
     console.log('Starting Mixpanel user sync v2 (Event Export API - Streaming)...')
 
-    // Parse request body for optional date range (for backfill)
+    // Parse request body for date range and chunking params
     const body = await req.json().catch(() => ({}))
-    const { from_date, to_date } = body
+    const { from_date, to_date, chunk_start_day } = body
+
+    // chunk_start_day: For 60-day backfill, which 15-day chunk to fetch (0, 15, 30, 45)
+    // If not provided, this is a regular daily sync (yesterday only)
 
     // Check if sync should be skipped (within 1-hour window) - only for regular daily sync
-    if (!from_date && !to_date) {
+    if (!from_date && !to_date && chunk_start_day === undefined) {
       const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_users_v2', 1)
       if (skipResponse) return skipResponse
     }
@@ -272,61 +275,70 @@ serve(async (req) => {
       // Calculate date range
       let fromDate: string
       let toDate: string
+      let isChunkedBackfill = false
+      let isFirstChunk = false
+      let isLastChunk = false
 
       if (from_date && to_date) {
-        // Backfill mode: use provided dates
+        // Manual date range mode: use provided dates
         fromDate = from_date
         toDate = to_date
-        console.log(`BACKFILL MODE: Date range ${fromDate} to ${toDate}`)
-      } else {
-        // Regular mode: last 3 days through yesterday (reduced from 7 to avoid staging timeout)
+        console.log(`MANUAL MODE: Date range ${fromDate} to ${toDate}`)
+      } else if (chunk_start_day !== undefined) {
+        // Chunked 60-day backfill mode: fetch 15-day chunks
+        const CHUNK_SIZE_DAYS = 15
+        const TOTAL_LOOKBACK_DAYS = 60
+
         const today = new Date()
         const yesterday = new Date(today)
         yesterday.setDate(yesterday.getDate() - 1)
-        toDate = yesterday.toISOString().split('T')[0] // YYYY-MM-DD (yesterday)
 
-        const threeDaysAgo = new Date(yesterday)
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-        fromDate = threeDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+        // Calculate this chunk's date range
+        // chunk_start_day: 0 (days 0-14), 15 (days 15-29), 30 (days 30-44), 45 (days 45-59)
+        const chunkEndOffset = chunk_start_day
+        const chunkStartOffset = Math.min(chunk_start_day + CHUNK_SIZE_DAYS - 1, TOTAL_LOOKBACK_DAYS - 1)
 
-        console.log(`REGULAR MODE: Date range ${fromDate} to ${toDate} (3 days)`)
+        const chunkEnd = new Date(yesterday)
+        chunkEnd.setDate(chunkEnd.getDate() - chunkEndOffset)
+        toDate = chunkEnd.toISOString().split('T')[0]
+
+        const chunkStart = new Date(yesterday)
+        chunkStart.setDate(chunkStart.getDate() - chunkStartOffset)
+        fromDate = chunkStart.toISOString().split('T')[0]
+
+        isChunkedBackfill = true
+        isFirstChunk = chunk_start_day === 0
+        isLastChunk = (chunk_start_day + CHUNK_SIZE_DAYS) >= TOTAL_LOOKBACK_DAYS
+
+        console.log(`CHUNKED BACKFILL MODE: Chunk ${Math.floor(chunk_start_day / CHUNK_SIZE_DAYS) + 1}/4`)
+        console.log(`  Date range ${fromDate} to ${toDate} (days ${chunkEndOffset}-${chunkStartOffset} from yesterday)`)
+        console.log(`  First chunk: ${isFirstChunk}, Last chunk: ${isLastChunk}`)
+      } else {
+        // Regular daily sync mode: yesterday only
+        const today = new Date()
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        fromDate = yesterday.toISOString().split('T')[0]
+        toDate = yesterday.toISOString().split('T')[0]
+
+        console.log(`DAILY SYNC MODE: Date range ${fromDate} to ${toDate} (yesterday only)`)
       }
 
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
 
-      // Check if there's leftover staging data from a previous timeout and process it first
-      console.log('Checking for leftover staging data from previous sync...')
-      const { count: stagedCount, error: countError } = await supabase
-        .from('raw_mixpanel_events_staging')
-        .select('*', { count: 'exact', head: true })
-
-      if (countError) {
-        console.warn('Warning: Failed to check staging table:', countError)
-      } else if (stagedCount && stagedCount > 0) {
-        console.log(`⚠️ Found ${stagedCount} leftover events in staging. Processing them first...`)
-
-        try {
-          const { data: triggerData, error: triggerError } = await supabase.functions.invoke(
-            'process-mixpanel-user-events',
-            { body: { synced_at: new Date().toISOString() } }
-          )
-
-          if (triggerError) {
-            console.error('⚠️ Failed to process leftover staging data:', triggerError)
-            console.log('💡 Clearing staging table to allow new sync to proceed')
-            await supabase.rpc('clear_events_staging')
-          } else {
-            console.log('✓ Leftover staging data processed successfully')
-          }
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error('⚠️ Exception processing leftover staging data:', errorMessage)
-          console.log('💡 Clearing staging table to allow new sync to proceed')
-          await supabase.rpc('clear_events_staging')
+      // Clear staging table only on first chunk or non-chunked syncs
+      // For chunked backfills, accumulate data across chunks
+      if (isFirstChunk || !isChunkedBackfill) {
+        console.log('Clearing staging table before sync...')
+        const { error: clearError } = await supabase.rpc('clear_events_staging')
+        if (clearError) {
+          console.warn('Warning: Failed to clear staging table:', clearError)
+        } else {
+          console.log('✓ Staging table cleared')
         }
       } else {
-        console.log('✓ No leftover staging data found')
+        console.log(`Accumulating data in staging (chunk ${Math.floor(chunk_start_day / 15) + 1}/4)...`)
       }
 
       // Step 1: Stream events and insert raw into staging table
@@ -404,8 +416,47 @@ serve(async (req) => {
 
       console.log(`✓ Step 1 complete: ${stagingResult.totalEventsInserted} events staged in ${stagingElapsedSec}s`)
 
+      // If this is a chunked backfill and not the last chunk, trigger next chunk
+      if (isChunkedBackfill && !isLastChunk) {
+        const nextChunkStartDay = chunk_start_day + 15
+        console.log(`🔄 Auto-triggering next chunk (chunk_start_day=${nextChunkStartDay})...`)
+
+        // Update sync log to show this chunk completed
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0, // Not processing yet, just staging
+        })
+
+        // Fire-and-forget trigger next chunk
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+        if (supabaseUrl && supabaseServiceKey) {
+          fetch(`${supabaseUrl}/functions/v1/sync-mixpanel-user-events`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+              'apikey': supabaseServiceKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ chunk_start_day: nextChunkStartDay })
+          }).catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : String(err)
+            console.error('⚠️ Failed to trigger next chunk:', errorMessage)
+          })
+
+          console.log('✅ Next chunk triggered in background')
+        }
+
+        return createSuccessResponse('Chunk staged successfully - next chunk triggered', {
+          totalTimeSeconds: stagingElapsedSec,
+          totalEventsStaged: stagingResult.totalEventsInserted,
+          chunk: Math.floor(chunk_start_day / 15) + 1,
+          nextChunk: Math.floor(nextChunkStartDay / 15) + 1,
+        })
+      }
+
       // Step 2: Process staged events using Postgres function (10-50x faster than JS)
-      console.log('Step 2/3: Processing events in Postgres...')
+      console.log('Step 2/5: Processing events in Postgres...')
       const processingStart = Date.now()
 
       const { data: processResult, error: processError } = await supabase.rpc(
@@ -469,9 +520,17 @@ serve(async (req) => {
         total_records_inserted: profilesProcessed,
       })
 
-      console.log(`✅ Sync completed successfully in ${totalElapsedSec}s (${stagingElapsedSec}s staging + ${processingElapsedSec}s processing + ${mainAnalysisElapsedSec}s main_analysis + ${copyEngagementElapsedSec}s copy_engagement)`)
+      const successMessage = isChunkedBackfill
+        ? `✅ 60-day backfill completed successfully in ${totalElapsedSec}s`
+        : `✅ Sync completed successfully in ${totalElapsedSec}s`
 
-      return createSuccessResponse('Subscriber events synced successfully (Postgres-accelerated)', {
+      console.log(`${successMessage} (${stagingElapsedSec}s staging + ${processingElapsedSec}s processing + ${mainAnalysisElapsedSec}s main_analysis + ${copyEngagementElapsedSec}s copy_engagement)`)
+
+      const responseMessage = isChunkedBackfill
+        ? '60-day backfill completed successfully (Postgres-accelerated, auto-chained)'
+        : 'Subscriber events synced successfully (Postgres-accelerated)'
+
+      return createSuccessResponse(responseMessage, {
         totalTimeSeconds: totalElapsedSec,
         stagingTimeSeconds: stagingElapsedSec,
         processingTimeSeconds: processingElapsedSec,
@@ -479,6 +538,7 @@ serve(async (req) => {
         profilesProcessed,
         dateRange: { fromDate, toDate },
         trackedEvents: TRACKED_EVENTS.length,
+        chunkedBackfill: isChunkedBackfill,
       })
     } catch (error) {
       // Update sync log with failure
