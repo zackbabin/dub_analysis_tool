@@ -168,11 +168,9 @@ class CXAnalysis {
                 // Get trigger position
                 const rect = trigger.getBoundingClientRect();
 
-                // Position tooltip with fixed positioning to escape overflow
-                tooltipBox.style.position = 'fixed';
+                // Show tooltip
                 tooltipBox.style.visibility = 'visible';
                 tooltipBox.style.opacity = '1';
-                tooltipBox.style.zIndex = '10000';
 
                 // Calculate position (above trigger, centered)
                 const tooltipWidth = 400;
@@ -300,6 +298,7 @@ class CXAnalysis {
                     See examples
                 </span>
                 <span class="tooltip-text" style="
+                    position: fixed;
                     visibility: hidden;
                     opacity: 0;
                     width: 400px;
@@ -313,6 +312,8 @@ class CXAnalysis {
                     line-height: 1.5;
                     transition: opacity 0.3s, visibility 0.3s;
                     pointer-events: auto;
+                    top: 0;
+                    left: 0;
                 ">
                     ${examplesHTML}
                 </span>
