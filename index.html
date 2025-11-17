@@ -97,16 +97,16 @@
     <script src="supabase_integration.js?v=33"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=33"></script>
+    <script src="user_analysis_tool.js?v=34"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=33"></script>
+    <script src="user_analysis_tool_supabase.js?v=34"></script>
 
     <!-- Load Creator Analysis Tool -->
     <script src="creator_analysis_tool.js?v=33"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=33"></script>
+    <script src="creator_analysis_tool_supabase.js?v=34"></script>
 
     <!-- Load Business Model Analysis Tool -->
     <script src="business-model-analysis.js?v=33"></script>
@@ -115,7 +115,7 @@
     <script src="crypto-analysis.js?v=33"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=33"></script>
+    <script src="cx-analysis.js?v=34"></script>
 
     <script>
         // Supabase Configuration
@@ -741,8 +741,53 @@
 
             // Initialize CX Analysis Tool
             const cxAnalysis = new CXAnalysis('cxResultsContainer');
-            window.cxAnalysis = cxAnalysis; // Make globally accessible for sync refresh
+
+            // Make all tools globally accessible
+            window.userTool = userTool;
+            window.creatorTool = creatorTool;
+            window.cxAnalysis = cxAnalysis;
+
             console.log('✅ CX Analysis Tool initialized');
+
+            // Global function to refresh all tabs' data from database (no sync)
+            window.refreshAllTabs = async function() {
+                console.log('🔄 Refreshing all tabs from database...');
+                const button = event?.target;
+
+                // Disable button and show loading state
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Refreshing...';
+                    button.style.opacity = '0.6';
+                }
+
+                try {
+                    // Refresh all 4 tabs
+                    await Promise.all([
+                        userTool.refreshFromDatabaseOnly(),
+                        creatorTool.refreshFromDatabaseOnly(),
+                        cxAnalysis.loadAndDisplayResults()
+                    ]);
+
+                    console.log('✅ All tabs refreshed successfully');
+
+                    // Reset button
+                    if (button) {
+                        button.textContent = 'Refresh Data';
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    }
+                } catch (error) {
+                    console.error('❌ Error refreshing tabs:', error);
+
+                    // Reset button even on error
+                    if (button) {
+                        button.textContent = 'Refresh Data';
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    }
+                }
+            };
         };
     </script>
     </div> <!-- Close main-wrapper -->

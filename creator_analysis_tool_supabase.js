@@ -356,23 +356,28 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const section = document.createElement('div');
         section.className = 'qda-result-section';
 
-        // Add H1 title with tooltip - updated to include subscription analysis
-        section.innerHTML = `<h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Premium Creator Analysis<span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>Premium Creator Analysis</strong>
-                Comprehensive analysis of premium creator engagement and subscription patterns.
-                <ul>
-                    <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
-                        Manual CSV Upload (Portfolio Returns & Capital)
-                    </li>
-                    <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution</li>
-                </ul>
-            </span>
-        </span></h1>`;
+        // Add H1 title with tooltip and refresh button
+        section.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <h1 style="margin: 0;"><span class="info-tooltip">Premium Creator Analysis<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Premium Creator Analysis</strong>
+                        Comprehensive analysis of premium creator engagement and subscription patterns.
+                        <ul>
+                            <li><strong>Data Sources:</strong>
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85725073%22" target="_blank" style="color: #17a2b8;">Chart 85725073</a> (Premium Creators),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing),
+                                <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
+                                Manual CSV Upload (Portfolio Returns & Capital)
+                            </li>
+                            <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution</li>
+                        </ul>
+                    </span>
+                </span></h1>
+                <button onclick="window.refreshAllTabs()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+            </div>
+        `;
         container.appendChild(section);
 
         // Display 4 metric cards: Median Copies, Avg Subscription CVR, Median All-Time Returns, Median Copy Capital

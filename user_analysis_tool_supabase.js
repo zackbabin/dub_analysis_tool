@@ -597,19 +597,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
                 <div class="qda-result-section">
-                    <h1 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>Behavior Analysis</strong>
-                    Copy behavior metrics showing engagement patterns and conversion rates.
-                    <ul>
-                        <li><strong>Data Sources:</strong>
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
-                        </li>
-                        <li><strong>Metrics:</strong> Copy engagement, conversion rates, hidden gems analysis</li>
-                    </ul>
-                </span>
-            </span></h1>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                        <h1 style="margin: 0;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
+                            <span class="tooltip-text">
+                                <strong>Behavior Analysis</strong>
+                                Copy behavior metrics showing engagement patterns and conversion rates.
+                                <ul>
+                                    <li><strong>Data Sources:</strong>
+                                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
+                                    </li>
+                                    <li><strong>Metrics:</strong> Copy engagement, conversion rates, hidden gems analysis</li>
+                                </ul>
+                            </span>
+                        </span></h1>
+                        <button onclick="window.refreshAllTabs()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+                    </div>
                     ${metricsHTML}
                     ${hiddenGemsHTML}
                 </div>

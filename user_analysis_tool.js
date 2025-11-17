@@ -1723,8 +1723,12 @@ function displaySummaryStatsInline(stats) {
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
 
+    // Wrapper for H1 and refresh button
+    const headerWrapper = document.createElement('div');
+    headerWrapper.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;';
+
     const title = document.createElement('h1');
-    title.style.cssText = 'margin-bottom: 0.25rem;';
+    title.style.cssText = 'margin: 0;';
     title.innerHTML = `<span class="info-tooltip">Summary Statistics<span class="info-icon">i</span>
         <span class="tooltip-text">
             <strong>Summary Statistics</strong>
@@ -1736,7 +1740,18 @@ function displaySummaryStatsInline(stats) {
             </ul>
         </span>
     </span>`;
-    resultSection.appendChild(title);
+
+    // Add refresh button
+    const refreshBtn = document.createElement('button');
+    refreshBtn.textContent = 'Refresh Data';
+    refreshBtn.style.cssText = 'padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;';
+    refreshBtn.onmouseover = () => refreshBtn.style.background = '#138496';
+    refreshBtn.onmouseout = () => refreshBtn.style.background = '#17a2b8';
+    refreshBtn.onclick = window.refreshAllTabs;
+
+    headerWrapper.appendChild(title);
+    headerWrapper.appendChild(refreshBtn);
+    resultSection.appendChild(headerWrapper);
 
     const metricSummary = document.createElement('div');
     metricSummary.className = 'qda-metric-summary';

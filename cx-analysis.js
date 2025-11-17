@@ -101,7 +101,10 @@ class CXAnalysis {
         const titleSection = document.createElement('div');
         titleSection.className = 'qda-result-section';
         titleSection.innerHTML = `
-            <h1 style="margin-bottom: 0.25rem;">CX Analysis</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                <h1 style="margin: 0;">CX Analysis</h1>
+                <button onclick="window.refreshAllTabs()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+            </div>
             <div style="color: #6c757d; font-size: 0.9rem;">
                 AI-powered analysis of the top 10 product issues and feedback
             </div>
