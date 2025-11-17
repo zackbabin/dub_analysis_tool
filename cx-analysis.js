@@ -52,6 +52,12 @@ class CXAnalysis {
         }
     }
 
+    async refresh() {
+        console.log('Refreshing CX Analysis data...');
+        this.container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6c757d;">Loading...</div>';
+        await this.loadAndDisplayResults();
+    }
+
     displayError(message) {
         this.container.innerHTML = `
             <div class="qda-analysis-results" style="padding: 40px; text-align: center;">
@@ -89,6 +95,32 @@ class CXAnalysis {
         timestamp.className = 'qda-timestamp';
         timestamp.textContent = `Analysis Date: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
+
+        // Add refresh button (next to timestamp)
+        const refreshButton = document.createElement('button');
+        refreshButton.className = 'qda-refresh-button';
+        refreshButton.innerHTML = '🔄 Refresh';
+        refreshButton.style.cssText = `
+            margin-left: 12px;
+            padding: 4px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            background: white;
+            color: #495057;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        `;
+        refreshButton.onmouseover = () => {
+            refreshButton.style.background = '#f8f9fa';
+            refreshButton.style.borderColor = '#adb5bd';
+        };
+        refreshButton.onmouseout = () => {
+            refreshButton.style.background = 'white';
+            refreshButton.style.borderColor = '#dee2e6';
+        };
+        refreshButton.onclick = () => this.refresh();
+        timestamp.appendChild(refreshButton);
 
         // Add data scope (top left)
         const dataScope = document.createElement('div');
