@@ -220,14 +220,15 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range (default: last 7 days)
-      const lookbackDays = parseInt(Deno.env.get('ANALYSIS_LOOKBACK_DAYS') || '7')
+      // Calculate date range (default: last 30 days for analysis)
+      // Note: ANALYSIS_WINDOW_DAYS is separate from sync lookback
+      const analysisWindowDays = parseInt(Deno.env.get('ANALYSIS_WINDOW_DAYS') || '30')
       const now = new Date()
-      const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
+      const startDate = new Date(now.getTime() - analysisWindowDays * 24 * 60 * 60 * 1000)
       const weekStart = startDate.toISOString().split('T')[0]
       const weekEnd = now.toISOString().split('T')[0]
 
-      console.log(`Analyzing conversations from ${weekStart} to ${weekEnd}`)
+      console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
       // Fetch enriched conversations
       const { data: conversations, error: fetchError } = await supabase
