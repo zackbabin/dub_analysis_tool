@@ -25,28 +25,93 @@ serve(async (req) => {
 
     // Step 1: Sync conversations from Zendesk and Instabug
     console.log('Step 1: Syncing support conversations...')
-    const syncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-support-conversations`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        'Content-Type': 'application/json',
-      },
-    })
+    let syncResult
+    let syncSkipped = false
 
-    if (!syncResponse.ok) {
-      const errorText = await syncResponse.text()
-      throw new Error(`Sync failed (${syncResponse.status}): ${errorText}`)
+    try {
+      const syncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-support-conversations`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!syncResponse.ok) {
+        const errorText = await syncResponse.text()
+        console.warn(`⚠️ Sync failed (${syncResponse.status}): ${errorText}`)
+        console.log('💡 Continuing to analysis with existing data...')
+        syncSkipped = true
+        syncResult = {
+          success: false,
+          stats: { conversations_synced: 0, messages_synced: 0 },
+          error: errorText,
+        }
+      } else {
+        syncResult = await syncResponse.json()
+
+        if (!syncResult.success) {
+          console.warn(`⚠️ Sync returned failure: ${syncResult.error}`)
+          console.log('💡 Continuing to analysis with existing data...')
+          syncSkipped = true
+        } else {
+          console.log('✓ Sync complete:', syncResult.stats)
+
+          // Check if sync was skipped due to recent completion
+          if (syncResult.stats?.skipped) {
+            console.log(`ℹ️ Sync was skipped: ${syncResult.stats.reason}`)
+            syncSkipped = true
+          }
+        }
+      }
+    } catch (syncError) {
+      console.error('⚠️ Sync threw exception:', syncError)
+      console.log('💡 Continuing to analysis with existing data...')
+      syncSkipped = true
+      syncResult = {
+        success: false,
+        stats: { conversations_synced: 0, messages_synced: 0 },
+        error: syncError instanceof Error ? syncError.message : String(syncError),
+      }
     }
 
-    const syncResult = await syncResponse.json()
+    // Step 2: Check if we should skip analysis (if already run today)
+    // Initialize Supabase client to check last analysis
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const supabase = createClient(supabaseUrl, serviceKey)
 
-    if (!syncResult.success) {
-      throw new Error(`Sync failed: ${syncResult.error}`)
+    const { data: lastAnalysis } = await supabase
+      .from('support_analysis_results')
+      .select('created_at, analysis_date')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    const today = new Date().toISOString().split('T')[0]
+    const lastAnalysisDate = lastAnalysis?.analysis_date
+
+    if (lastAnalysisDate === today && syncSkipped) {
+      console.log(`⏭️ Skipping analysis - already ran today (${today}) and no new data synced`)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Analysis skipped - already completed today with no new data',
+          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
+          sync_summary: syncResult.stats,
+          analysis_summary: { skipped: true, reason: 'Already ran today' },
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          status: 200,
+        }
+      )
     }
 
-    console.log('✓ Sync complete:', syncResult.stats)
-
-    // Step 2: Run Claude analysis on synced data
+    // Step 3: Run Claude analysis on synced data
     console.log('Step 2: Running Claude analysis...')
     const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
       method: 'POST',

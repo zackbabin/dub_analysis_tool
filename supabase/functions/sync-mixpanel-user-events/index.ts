@@ -200,6 +200,7 @@ async function streamAndStageEvents(
 
 /**
  * Insert a batch of raw events into staging table
+ * Uses smaller sub-batches to avoid statement timeout on large inserts
  */
 async function insertRawEventsChunk(
   events: any[],
@@ -207,16 +208,26 @@ async function insertRawEventsChunk(
 ): Promise<number> {
   if (events.length === 0) return 0
 
-  const { error } = await supabase
-    .from('raw_mixpanel_events_staging')
-    .insert(events)
+  // Split into smaller sub-batches of 1000 to avoid timeout
+  const SUB_BATCH_SIZE = 1000
+  let totalInserted = 0
 
-  if (error) {
-    console.error('Error inserting raw events chunk:', error)
-    throw error
+  for (let i = 0; i < events.length; i += SUB_BATCH_SIZE) {
+    const subBatch = events.slice(i, i + SUB_BATCH_SIZE)
+
+    const { error } = await supabase
+      .from('raw_mixpanel_events_staging')
+      .insert(subBatch)
+
+    if (error) {
+      console.error(`Error inserting sub-batch ${i}-${i + subBatch.length}:`, error)
+      throw error
+    }
+
+    totalInserted += subBatch.length
   }
 
-  return events.length
+  return totalInserted
 }
 
 serve(async (req) => {

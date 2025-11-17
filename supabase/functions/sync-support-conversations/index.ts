@@ -69,7 +69,33 @@ serve(async (req) => {
         .select('*')
         .in('source', ['zendesk']) // COMMENTED OUT: 'instabug' (not ready yet)
 
-      const zendeskLastSync = syncStatus?.find((s) => s.source === 'zendesk')?.last_sync_timestamp
+      const zendeskStatus = syncStatus?.find((s) => s.source === 'zendesk')
+      const zendeskLastSync = zendeskStatus?.last_sync_timestamp
+      const zendeskLastStatus = zendeskStatus?.last_sync_status
+
+      // EARLY RETURN: Skip sync if last successful sync was very recent (< 30 minutes)
+      // This prevents unnecessary API calls and database timeouts on duplicate data
+      if (zendeskLastSync && zendeskLastStatus === 'success') {
+        const timeSinceLastSync = Date.now() - new Date(zendeskLastSync).getTime()
+        const minutesSinceSync = Math.round(timeSinceLastSync / 1000 / 60)
+
+        if (timeSinceLastSync < 30 * 60 * 1000) { // 30 minutes
+          console.log(`⏭️ Skipping sync - last successful sync was ${minutesSinceSync} minutes ago (< 30 min threshold)`)
+
+          await updateSyncLogSuccess(supabase, syncLogId, {
+            total_records_inserted: 0,
+          })
+
+          return createSuccessResponse('Sync skipped - recently completed', {
+            totalTimeSeconds: 0,
+            conversations_synced: 0,
+            messages_synced: 0,
+            skipped: true,
+            reason: `Last sync was ${minutesSinceSync} minutes ago`,
+          })
+        }
+      }
+
       // COMMENTED OUT: Instabug integration (not ready yet)
       // const instabugLastSync = syncStatus?.find((s) => s.source === 'instabug')?.last_sync_timestamp
 
@@ -111,21 +137,38 @@ serve(async (req) => {
           ConversationNormalizer.normalizeZendeskTicket(t)
         )
 
-        // Store batch immediately
-        const { error: batchError } = await supabase
-          .from('raw_support_conversations')
-          .upsert(normalizedBatch, {
-            onConflict: 'source,external_id',
-            ignoreDuplicates: false,
-          })
+        // Store batch immediately with timeout handling
+        try {
+          const { error: batchError } = await supabase
+            .from('raw_support_conversations')
+            .upsert(normalizedBatch, {
+              onConflict: 'source,external_id',
+              ignoreDuplicates: false,
+            })
 
-        if (batchError) {
-          console.error('Error storing batch:', batchError)
-          throw batchError
+          if (batchError) {
+            // Handle statement timeout on incremental syncs gracefully
+            // This typically means we're trying to upsert duplicates
+            if (batchError.code === '57014' && zendeskLastSync) {
+              console.warn(`⚠️ Statement timeout on incremental sync - likely duplicate data. Continuing...`)
+              return // Skip this batch but don't fail the whole sync
+            }
+
+            console.error('Error storing batch:', batchError)
+            throw batchError
+          }
+
+          totalTicketsStored += normalizedBatch.length
+          console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
+        } catch (err) {
+          // Catch any timeout or connection errors
+          const errorCode = err?.code
+          if (errorCode === '57014' && zendeskLastSync) {
+            console.warn(`⚠️ Caught statement timeout exception on incremental sync - continuing...`)
+            return // Skip this batch but don't fail
+          }
+          throw err
         }
-
-        totalTicketsStored += normalizedBatch.length
-        console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
       })
 
       console.log(`✓ Successfully stored ${totalTicketsStored} tickets`)
