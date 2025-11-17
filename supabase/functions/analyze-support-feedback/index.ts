@@ -299,7 +299,7 @@ serve(async (req) => {
       // Call Claude API
       const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        max_tokens: 16384, // Increased to allow full response with 10 issues × 3 examples each
         temperature: 0.3,
         messages: [
           {
