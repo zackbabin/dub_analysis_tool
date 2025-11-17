@@ -290,6 +290,104 @@ analyze-copy-patterns         → sync-business-assumptions
 
 ---
 
+## 4. Support Feedback Analysis Tool
+
+Analyzes customer support tickets and bug reports to identify top product issues using Claude AI.
+
+### Core Analyses
+
+#### 4.1 Product Issue Identification
+**Purpose**: Automatically categorize and prioritize support feedback using AI
+
+**Data Flow**:
+```
+sync-support-conversations → raw_support_conversations table
+                           → support_conversation_messages table
+                           → enriched_support_conversations (materialized view)
+                           → analyze-support-feedback (Claude AI)
+                           → support_analysis_results table
+```
+
+**Data Sources**:
+- **Zendesk**: Support tickets and comments via Zendesk API
+- **Instabug**: Mobile bug reports via Instabug API
+- **Future**: Notion user interview notes (schema ready, implementation pending)
+
+**User Matching**: Maps users via `distinct_id`:
+- Zendesk `external_id` → `distinct_id` → `subscribers_insights`
+- Instabug `user_id` → `distinct_id` → `subscribers_insights`
+
+**What it analyzes**:
+- Issue categorization (Compliance, Money Movement, Trading, App Functionality, Feature Requests)
+- Frequency analysis and weekly volumes
+- Priority scoring based on category weight, percentage, and volume
+- User segment analysis (income, net worth, engagement levels)
+- Representative examples for each issue
+
+**PII Protection**:
+- All text redacted before storage: SSN, credit cards, phone numbers, addresses, emails, bank accounts
+- Redaction happens at ingestion time using PIIRedactor utility
+- Only user distinct_ids preserved for user matching
+
+**Issue Categories** (priority order):
+1. **Compliance** - Regulatory requirements, KYC/AML, tax reporting, legal disclosures
+2. **Money Movement** - Bank linking, deposits, withdrawals, payment processing
+3. **Trading** - Order execution, portfolio copying, trade replication
+4. **App Functionality** - UI bugs, crashes, performance, navigation
+5. **Feature Requests** - New features, enhancements, UX improvements
+
+**Priority Scoring Formula**:
+```
+Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (min(Volume, 50) / 50 × 100 × 0.3)
+
+Category Weights:
+- Compliance: 100
+- Money Movement: 80
+- Trading: 60
+- App Functionality: 40
+- Feature Request: 20
+```
+
+**Output**: Top 10 issues with:
+- Category and priority score
+- Frequency (percentage of total conversations)
+- Weekly volume
+- 3 representative examples with user context
+- Actionable insights summary
+
+#### 4.2 Weekly Analysis Workflow
+
+**Automatic** (via pg_cron - every Monday at 9 AM UTC):
+```
+trigger-support-analysis → sync-support-conversations (Zendesk + Instabug sync)
+                         → analyze-support-feedback (Claude AI analysis)
+                         → support_analysis_results (stores top 10 issues)
+```
+
+**Manual Trigger**: Can be run on-demand via edge function call
+
+**Default Lookback**: 7 days (configurable via `ANALYSIS_LOOKBACK_DAYS` env variable)
+
+**Incremental Sync**: Only fetches new/updated tickets since last successful sync
+
+**Cost Optimization**:
+- ~$0.25 per weekly analysis (estimated 500 conversations)
+- ~$13/year for weekly automated analysis
+- JSON-only output reduces token usage
+- Temperature 0.3 for consistent categorization
+
+### Support Analysis Tables
+
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `raw_support_conversations` | Normalized tickets/bugs from all sources | source, external_id, title, description, user_id (distinct_id), tags, custom_fields |
+| `support_conversation_messages` | Comments/messages within conversations | conversation_id, author_type, body (PII redacted), created_at |
+| `support_sync_status` | Tracks last sync timestamps | source, last_sync_timestamp, last_sync_status |
+| `support_analysis_results` | Claude AI analysis outputs | week_start_date, top_issues (JSONB), conversation_count, analysis_cost |
+| `enriched_support_conversations` (mat. view) | Pre-joined with user data | Joins raw_support_conversations + subscribers_insights + aggregated messages |
+
+---
+
 ## Database Schema
 
 ### User Analysis Tables
@@ -359,6 +457,14 @@ analyze-copy-patterns         → sync-business-assumptions
 |----------|---------|----------|---------|
 | `sync-business-assumptions` | Auto | 1-2s | Update model parameters |
 
+### Support Feedback Analysis Functions
+
+| Function | Trigger | Duration | Purpose |
+|----------|---------|----------|---------|
+| `sync-support-conversations` | Manual/Cron | 30-90s | Fetch and normalize tickets from Zendesk and bugs from Instabug |
+| `analyze-support-feedback` | Manual/Cron | 30-60s | Claude AI analysis of support conversations (top 10 issues) |
+| `trigger-support-analysis` | Manual/Cron | 60-150s | Orchestrates full pipeline (sync + analysis) |
+
 ---
 
 ## API Integrations
@@ -371,7 +477,23 @@ analyze-copy-patterns         → sync-business-assumptions
 
 ### Anthropic Claude API
 - **Model**: `claude-sonnet-4-20250514`
-- **Features**: Prompt caching (2k tokens cached)
-- **Cost**: ~$1.71 per event sequence analysis (600 users, 50 events each)
+- **Features**: Prompt caching, JSON-mode output
+- **Cost**:
+  - Event sequence analysis: ~$1.71 per run (600 users, 50 events each)
+  - Support feedback analysis: ~$0.25 per weekly analysis (500 conversations)
 - **Token Limits**: 200k per request (functions use ~77k tokens = 38% of limit)
 - **Rate Limits**: Handled with exponential backoff
+
+### Zendesk API
+- **Base URL**: `https://{subdomain}.zendesk.com/api/v2`
+- **Auth**: Basic auth (email/token)
+- **Endpoints Used**: `/incremental/tickets.json`, `/incremental/ticket_events.json`
+- **Rate Limiting**: 100ms delay between requests
+- **Incremental Sync**: Fetches only new/updated data since last sync
+
+### Instabug API
+- **Base URL**: `https://api.instabug.com/api/sdk/v3`
+- **Auth**: Bearer token
+- **Endpoints Used**: `/bugs`, `/bugs/{id}/comments`
+- **Rate Limiting**: 200ms delay between requests
+- **Pagination**: 100 bugs per page

@@ -23,6 +23,7 @@
         <button class="tab-btn" data-tab="portfolio">Behavior Analysis</button>
         <button class="tab-btn" data-tab="creator">Premium Creator Analysis</button>
         <button class="tab-btn" data-tab="crypto">Crypto Business Analysis</button>
+        <button class="tab-btn" data-tab="cx">CX Analysis</button>
     </div>
 
     <!-- Unified Data Source Component (shared across all tabs) -->
@@ -70,6 +71,13 @@
         </div>
     </div>
 
+    <!-- CX Analysis Tab -->
+    <div id="cx-tab" class="tab-pane">
+        <div class="tab-results-container">
+            <div id="cxResultsContainer"></div>
+        </div>
+    </div>
+
     <!-- SUPABASE VERSION: Load Supabase JavaScript Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -80,31 +88,34 @@
     <script src="version-checker.js?v=21"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=20"></script>
+    <script src="csv_utils.js?v=21"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=20"></script>
+    <script src="analysis_utils.js?v=21"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=20"></script>
+    <script src="supabase_integration.js?v=21"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=20"></script>
+    <script src="user_analysis_tool.js?v=21"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=20"></script>
+    <script src="user_analysis_tool_supabase.js?v=21"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=20"></script>
+    <script src="creator_analysis_tool.js?v=21"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
     <script src="creator_analysis_tool_supabase.js?v=21"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=20"></script>
+    <script src="business-model-analysis.js?v=21"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=20"></script>
+    <script src="crypto-analysis.js?v=21"></script>
+
+    <!-- Load CX Analysis Tool -->
+    <script src="cx-analysis.js?v=21"></script>
 
     <script>
         // Supabase Configuration
@@ -699,6 +710,10 @@
             // Initialize Crypto Analysis Tool
             const cryptoAnalysis = new CryptoAnalysis('cryptoContent');
             console.log('✅ Crypto Analysis Tool initialized');
+
+            // Initialize CX Analysis Tool
+            const cxAnalysis = new CXAnalysis('cxResultsContainer');
+            console.log('✅ CX Analysis Tool initialized');
         };
     </script>
     </div> <!-- Close main-wrapper -->
