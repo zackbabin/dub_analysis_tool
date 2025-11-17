@@ -6,7 +6,7 @@ This document explains how to set up automated daily syncs to keep your dashboar
 
 The automated sync replicates the "Sync Live Data" button workflow, running four Edge Functions in sequence:
 
-1. **sync-mixpanel-user-events** (2:00 AM UTC) - Fetches user event data from last 15 days
+1. **sync-mixpanel-user-events** (2:00 AM UTC) - Fetches user event data from last 7 days
 2. **sync-mixpanel-user-properties-v2** (2:20 AM UTC) - Fetches user properties from Mixpanel
 3. **sync-mixpanel-engagement** (2:45 AM UTC) - Fetches engagement data and triggers processing chain
 4. **sync-creator-data** (3:15 AM UTC) - Fetches creator insights data
