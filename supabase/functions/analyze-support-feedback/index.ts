@@ -254,7 +254,7 @@ serve(async (req) => {
 
       console.log(`Found ${conversations.length} conversations to analyze`)
 
-      // Format conversations for Claude (with text sanitization)
+      // Format conversations for Claude (with text sanitization and truncation)
       const formattedConversations = conversations.map((conv: EnrichedConversation, idx: number) => {
         const messages = conv.all_messages || []
         const conversationText = messages.length > 0 ? messages.join('\n---\n') : conv.description || ''
@@ -269,6 +269,13 @@ serve(async (req) => {
             .replace(/\n/g, ' ')      // Replace newlines with spaces
             .replace(/\r/g, '')       // Remove carriage returns
             .replace(/\t/g, ' ')      // Replace tabs with spaces
+        }
+
+        // Truncate conversation text to 800 chars to stay under token limit
+        const MAX_CONVERSATION_LENGTH = 800
+        let truncatedText = sanitize(conversationText)
+        if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
+          truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
         }
 
         return {
@@ -287,7 +294,7 @@ serve(async (req) => {
             total_subscriptions: conv.user_total_subscriptions,
             app_sessions: conv.user_app_sessions,
           },
-          full_conversation: sanitize(conversationText),
+          full_conversation: truncatedText,
           message_count: conv.message_count,
         }
       })

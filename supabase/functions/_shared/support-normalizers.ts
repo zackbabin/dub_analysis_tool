@@ -25,6 +25,10 @@ export interface ConversationRecord {
   tags: string[]
   custom_fields: Record<string, any>
   raw_data: Record<string, any>
+  // Linear integration fields
+  has_linear_ticket: boolean
+  linear_issue_id: string | null
+  linear_custom_field_id: string | null
 }
 
 export interface MessageRecord {
@@ -48,10 +52,35 @@ export class ConversationNormalizer {
   /**
    * Normalize Zendesk ticket to common schema with PII redaction
    * Maps Zendesk external_id to user_id for distinct_id matching
+   * Extracts Linear integration metadata from tags and custom fields
    */
   static normalizeZendeskTicket(ticket: any): ConversationRecord {
     // Extract distinct_id from Zendesk external_id field (maps to Mixpanel distinct_id)
     const distinctId = ticket.external_id || null
+
+    // Extract Linear metadata
+    // 1. Check for "linear_ticket" tag
+    const tags = ticket.tags || []
+    const hasLinearTag = tags.includes('linear_ticket')
+
+    // 2. Check custom fields for Linear issue ID (format: "DUB-123")
+    const customFields = ticket.custom_fields || []
+    let linearIssueId: string | null = null
+    let linearCustomFieldId: string | null = null
+
+    // Look for a custom field containing a Linear-style issue ID
+    for (const field of customFields) {
+      const value = field.value
+      if (value && typeof value === 'string') {
+        // Match pattern: DUB-XXX or other uppercase prefix followed by dash and number
+        const linearPattern = /^[A-Z]+-\d+$/
+        if (linearPattern.test(value)) {
+          linearIssueId = value
+          linearCustomFieldId = field.id?.toString() || null
+          break
+        }
+      }
+    }
 
     return {
       source: 'zendesk',
@@ -66,9 +95,13 @@ export class ConversationNormalizer {
       user_uuid: null, // Will be populated by database lookup
       user_id: distinctId, // Zendesk external_id maps to distinct_id
       assignee_id: ticket.assignee_id?.toString(),
-      tags: ticket.tags || [],
-      custom_fields: PIIRedactor.redactObject(ticket.custom_fields || {}, distinctId),
+      tags: tags,
+      custom_fields: PIIRedactor.redactObject(customFields, distinctId),
       raw_data: PIIRedactor.redactObject(ticket, distinctId),
+      // Linear integration
+      has_linear_ticket: hasLinearTag || linearIssueId !== null,
+      linear_issue_id: linearIssueId,
+      linear_custom_field_id: linearCustomFieldId,
     }
   }
 
@@ -124,6 +157,10 @@ export class ConversationNormalizer {
         network_logs: PIIRedactor.redactObject(bug.network_logs, distinctId),
       },
       raw_data: PIIRedactor.redactObject(bug, distinctId),
+      // Linear integration (Instabug doesn't have Linear integration)
+      has_linear_ticket: false,
+      linear_issue_id: null,
+      linear_custom_field_id: null,
     }
   }
 

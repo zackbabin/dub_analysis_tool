@@ -138,7 +138,7 @@ class CXAnalysis {
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 170px; white-space: nowrap;">Percent of Feedback</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
-                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 120px;">Status</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 160px;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -153,6 +153,7 @@ class CXAnalysis {
         // Initialize tooltips after rendering
         setTimeout(() => {
             this.initializeExamplesToolips();
+            this.initializeLinearStatusTooltips();
         }, 0);
 
         return section;
@@ -160,6 +161,66 @@ class CXAnalysis {
 
     initializeExamplesToolips() {
         const tooltips = document.querySelectorAll('.cx-examples-tooltip');
+
+        tooltips.forEach(tooltipWrapper => {
+            const trigger = tooltipWrapper.querySelector('.tooltip-trigger');
+            const tooltipBox = tooltipWrapper.querySelector('.tooltip-text');
+
+            if (!trigger || !tooltipBox) return;
+
+            trigger.addEventListener('mouseenter', () => {
+                // Get trigger position
+                const rect = trigger.getBoundingClientRect();
+
+                // Show tooltip
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+
+                // Calculate position (above trigger, centered)
+                const tooltipWidth = 400;
+                let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+                let top = rect.top - tooltipBox.offsetHeight - 8;
+
+                // Keep tooltip on screen horizontally
+                if (left < 10) left = 10;
+                if (left + tooltipWidth > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipWidth - 10;
+                }
+
+                // If tooltip goes above viewport, show below instead
+                if (top < 10) {
+                    top = rect.bottom + 8;
+                }
+
+                tooltipBox.style.left = `${left}px`;
+                tooltipBox.style.top = `${top}px`;
+            });
+
+            trigger.addEventListener('mouseleave', () => {
+                // Delay hiding to allow moving to tooltip
+                setTimeout(() => {
+                    if (!tooltipBox.matches(':hover')) {
+                        tooltipBox.style.visibility = 'hidden';
+                        tooltipBox.style.opacity = '0';
+                    }
+                }, 100);
+            });
+
+            // Keep visible when hovering tooltip
+            tooltipBox.addEventListener('mouseenter', () => {
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+            });
+
+            tooltipBox.addEventListener('mouseleave', () => {
+                tooltipBox.style.visibility = 'hidden';
+                tooltipBox.style.opacity = '0';
+            });
+        });
+    }
+
+    initializeLinearStatusTooltips() {
+        const tooltips = document.querySelectorAll('.cx-linear-status-tooltip');
 
         tooltips.forEach(tooltipWrapper => {
             const trigger = tooltipWrapper.querySelector('.tooltip-trigger');
@@ -268,11 +329,94 @@ class CXAnalysis {
                 <td style="padding: 12px 16px; text-align: center;">
                     ${examplesContent}
                 </td>
-                <td style="padding: 12px 16px; text-align: center; color: #adb5bd;">
-                    -
+                <td style="padding: 12px 16px; text-align: center;">
+                    ${this.renderLinearStatus(issue)}
                 </td>
             </tr>
         `;
+    }
+
+    renderLinearStatus(issue) {
+        // Check if Linear data exists
+        if (!issue.linear_status || !issue.linear_issues || issue.linear_issues.length === 0) {
+            return '<span style="color: #adb5bd;">-</span>'
+        }
+
+        // Status badge colors
+        const statusColors = {
+            'Backlog': { bg: '#6c757d', text: '#fff' },
+            'In Progress': { bg: '#17a2b8', text: '#fff' },
+            'Done': { bg: '#28a745', text: '#fff' }
+        }
+
+        const colors = statusColors[issue.linear_status] || { bg: '#6c757d', text: '#fff' }
+
+        // Build Linear issues tooltip content
+        const linearIssuesHTML = issue.linear_issues.map((li, idx) => {
+            return `
+                <div style="margin-bottom: ${idx < issue.linear_issues.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < issue.linear_issues.length - 1 ? '12px' : '0'}; border-bottom: ${idx < issue.linear_issues.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
+                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">
+                        <a href="${this.escapeHtml(li.url)}" target="_blank" rel="noopener noreferrer" style="color: #63b3ed; text-decoration: none;">
+                            ${this.escapeHtml(li.id)} ↗
+                        </a>
+                    </div>
+                    <div style="margin-bottom: 4px;">${this.escapeHtml(li.title)}</div>
+                    <div style="font-size: 0.8em; color: #94a3b8;">
+                        <span style="
+                            display: inline-block;
+                            padding: 2px 8px;
+                            border-radius: 8px;
+                            background: rgba(255,255,255,0.1);
+                            font-weight: 600;
+                        ">
+                            ${this.escapeHtml(li.state)}
+                        </span>
+                    </div>
+                </div>
+            `
+        }).join('')
+
+        // Return status badge with tooltip
+        return `
+            <span class="cx-linear-status-tooltip" style="position: relative; display: inline-block;">
+                <span class="tooltip-trigger" style="
+                    display: inline-block;
+                    padding: 6px 14px;
+                    border-radius: 12px;
+                    background: ${colors.bg};
+                    color: ${colors.text};
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    cursor: help;
+                    white-space: nowrap;
+                ">
+                    ${this.escapeHtml(issue.linear_status)}
+                </span>
+                <span class="tooltip-text" style="
+                    position: fixed;
+                    visibility: hidden;
+                    opacity: 0;
+                    width: 400px;
+                    background-color: #2d3748;
+                    color: #fff;
+                    text-align: left;
+                    border-radius: 8px;
+                    padding: 14px 16px;
+                    z-index: 10000;
+                    font-size: 13px;
+                    line-height: 1.5;
+                    transition: opacity 0.3s, visibility 0.3s;
+                    pointer-events: auto;
+                    top: 0;
+                    left: 0;
+                ">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #63b3ed;">
+                        ${issue.linear_issues.length} Linear Issue${issue.linear_issues.length > 1 ? 's' : ''}
+                    </div>
+                    ${linearIssuesHTML}
+                </span>
+            </span>
+        `
     }
 
     renderExamplesTooltip(examples) {

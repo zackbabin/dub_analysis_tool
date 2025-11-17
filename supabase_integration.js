@@ -1253,6 +1253,52 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger Linear issues sync via Edge Function
+     * Fetches Linear issues from "dub 3.0" team (last 6 months)
+     */
+    async triggerLinearSync() {
+        console.log('Triggering Linear issues sync...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('sync-linear-issues');
+
+            if (error) {
+                console.error('Linear sync error:', error);
+                throw new Error(`Linear sync failed: ${error.message}`);
+            }
+
+            console.log('✅ Linear sync completed:', data);
+            return data;
+        } catch (error) {
+            console.error('Error calling Linear sync Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Trigger Linear-to-feedback mapping via Edge Function
+     * Maps Linear issues to the top 10 support feedback items
+     */
+    async triggerLinearMapping() {
+        console.log('Triggering Linear-to-feedback mapping...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('map-linear-to-feedback');
+
+            if (error) {
+                console.error('Linear mapping error:', error);
+                throw new Error(`Linear mapping failed: ${error.message}`);
+            }
+
+            console.log('✅ Linear mapping completed:', data);
+            return data;
+        } catch (error) {
+            console.error('Error calling Linear mapping Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Load top copy combinations (portfolio combinations that drive copies)
      */
     async loadTopCopyCombinations(metric = 'lift', limit = 20, minExposure = 1) {
