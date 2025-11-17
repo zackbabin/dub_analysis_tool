@@ -488,7 +488,12 @@ trigger-support-analysis → sync-support-conversations (Zendesk + Instabug sync
 - **Base URL**: `https://{subdomain}.zendesk.com/api/v2`
 - **Auth**: Basic auth (email/token)
 - **Endpoints Used**: `/incremental/tickets.json`, `/incremental/ticket_events.json`
-- **Rate Limiting**: 100ms delay between requests
+- **Rate Limits**: 10 requests/minute for Incremental Exports (30 with High Volume add-on)
+- **Rate Limiting Strategy**:
+  - 7 second delay between requests (~8.5 requests/minute, safe margin)
+  - Automatic retry on 429 errors with exponential backoff
+  - Respects `Retry-After` header
+  - Monitors `X-Rate-Limit` headers and logs usage
 - **Incremental Sync**: Fetches only new/updated data since last sync
 
 ### Instabug API

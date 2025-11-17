@@ -10,11 +10,13 @@
 /**
  * Zendesk API Client
  * Fetches tickets and comments using Zendesk's incremental API
+ * Adheres to Zendesk rate limits: 10 requests/minute for Incremental Exports
  */
 export class ZendeskClient {
   private baseUrl: string
   private auth: string
-  private rateLimitDelay = 100 // milliseconds between requests
+  private rateLimitDelay = 7000 // 7 seconds between requests = ~8.5 requests/minute (safe margin under 10/min limit)
+  private maxRetries = 3
 
   constructor(subdomain: string, email: string, apiToken: string) {
     this.baseUrl = `https://${subdomain}.zendesk.com/api/v2`
@@ -34,17 +36,13 @@ export class ZendeskClient {
     console.log(`Fetching Zendesk tickets since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
     while (url) {
-      const response = await fetch(url, {
-        headers: { Authorization: `Basic ${this.auth}` },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Zendesk API error (${response.status}): ${errorText}`)
-      }
-
+      const response = await this.fetchWithRetry(url)
       const data = await response.json()
+
       tickets.push(...data.tickets)
+
+      // Log rate limit status
+      this.logRateLimitStatus(response, 'tickets')
 
       url = data.next_page
       if (url) {
@@ -70,15 +68,7 @@ export class ZendeskClient {
     console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
     while (url) {
-      const response = await fetch(url, {
-        headers: { Authorization: `Basic ${this.auth}` },
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Zendesk API error (${response.status}): ${errorText}`)
-      }
-
+      const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
       // Filter for Comment events only
@@ -87,6 +77,9 @@ export class ZendeskClient {
       )
 
       comments.push(...commentEvents)
+
+      // Log rate limit status
+      this.logRateLimitStatus(response, 'comments')
 
       url = data.next_page
       if (url) {
@@ -97,6 +90,60 @@ export class ZendeskClient {
 
     console.log(`✓ Fetched ${comments.length} Zendesk comments total`)
     return comments
+  }
+
+  /**
+   * Fetch with automatic retry on rate limit (429) errors
+   * Respects Retry-After header and implements exponential backoff
+   */
+  private async fetchWithRetry(url: string, attempt = 1): Promise<Response> {
+    const response = await fetch(url, {
+      headers: { Authorization: `Basic ${this.auth}` },
+    })
+
+    // Handle rate limiting (429)
+    if (response.status === 429) {
+      if (attempt >= this.maxRetries) {
+        throw new Error(`Zendesk rate limit exceeded after ${this.maxRetries} retries`)
+      }
+
+      // Get retry delay from Retry-After header (in seconds) or use exponential backoff
+      const retryAfter = response.headers.get('Retry-After')
+      const delaySeconds = retryAfter ? parseInt(retryAfter) : Math.pow(2, attempt) * 5
+      const delayMs = delaySeconds * 1000
+
+      console.warn(`⚠️ Zendesk rate limit hit (429). Retrying after ${delaySeconds}s (attempt ${attempt}/${this.maxRetries})`)
+      await this.sleep(delayMs)
+
+      return this.fetchWithRetry(url, attempt + 1)
+    }
+
+    // Handle other errors
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Zendesk API error (${response.status}): ${errorText}`)
+    }
+
+    return response
+  }
+
+  /**
+   * Log rate limit status from response headers
+   * Helps monitor API usage and detect approaching limits
+   */
+  private logRateLimitStatus(response: Response, context: string): void {
+    const limit = response.headers.get('X-Rate-Limit')
+    const remaining = response.headers.get('X-Rate-Limit-Remaining')
+
+    if (limit && remaining) {
+      const usage = ((parseInt(limit) - parseInt(remaining)) / parseInt(limit) * 100).toFixed(1)
+      console.log(`  Rate limit [${context}]: ${remaining}/${limit} remaining (${usage}% used)`)
+
+      // Warn if approaching limit
+      if (parseInt(remaining) < 2) {
+        console.warn(`  ⚠️ Approaching Zendesk rate limit: only ${remaining} requests remaining`)
+      }
+    }
   }
 
   private sleep(ms: number): Promise<void> {
