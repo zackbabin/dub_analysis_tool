@@ -2143,32 +2143,15 @@ UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async fun
             }))
         );
 
-        // Use upsert to replace all data (more reliable than delete+insert)
-        // First, truncate the table via RPC to clear all data atomically
-        try {
-            await this.supabaseIntegration.supabase.rpc('truncate_subscription_drivers');
-        } catch (truncateError) {
-            // If truncate RPC doesn't exist, fall back to delete
-            console.warn('Truncate RPC not available, using delete...');
-            const { error: deleteError } = await this.supabaseIntegration.supabase
-                .from('subscription_drivers')
-                .delete()
-                .gte('id', 0); // Delete all rows
+        // Use upsert RPC function to atomically replace data (avoids race conditions and duplicates)
+        const { error: upsertError } = await this.supabaseIntegration.supabase.rpc(
+            'upsert_subscription_drivers',
+            { drivers: driversData }
+        );
 
-            if (deleteError) {
-                console.error('Error deleting old subscription drivers:', deleteError);
-                return;
-            }
-        }
-
-        // Insert new data
-        const { error: insertError } = await this.supabaseIntegration.supabase
-            .from('subscription_drivers')
-            .insert(driversData);
-
-        if (insertError) {
-            console.error('Error inserting subscription drivers:', insertError);
-            console.error('Insert error details:', JSON.stringify(insertError));
+        if (upsertError) {
+            console.error('Error upserting subscription drivers:', upsertError);
+            console.error('Upsert error details:', JSON.stringify(upsertError));
             return;
         }
 
