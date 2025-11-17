@@ -91,41 +91,15 @@ class CXAnalysis {
         timestamp.textContent = `Data as of: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
 
-        // Add refresh button (next to timestamp)
-        const refreshButton = document.createElement('button');
-        refreshButton.className = 'qda-refresh-button';
-        refreshButton.innerHTML = '🔄 Refresh';
-        refreshButton.style.cssText = `
-            margin-left: 12px;
-            padding: 4px 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            background: white;
-            color: #495057;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        `;
-        refreshButton.onmouseover = () => {
-            refreshButton.style.background = '#f8f9fa';
-            refreshButton.style.borderColor = '#adb5bd';
-        };
-        refreshButton.onmouseout = () => {
-            refreshButton.style.background = 'white';
-            refreshButton.style.borderColor = '#dee2e6';
-        };
-        refreshButton.onclick = () => this.refresh();
-        timestamp.appendChild(refreshButton);
-
         // Add data scope (top left)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
         dataScope.textContent = `Data from support tickets in the last 30 days`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
-        // Add H1 title
+        // Add H1 title (using qda-result-section for consistent spacing)
         const titleSection = document.createElement('div');
-        titleSection.style.marginBottom = '30px';
+        titleSection.className = 'qda-result-section';
         titleSection.innerHTML = `
             <h1 style="margin-bottom: 0.25rem;">CX Analysis</h1>
             <div style="color: #6c757d; font-size: 0.9rem;">
@@ -156,7 +130,7 @@ class CXAnalysis {
                     <thead>
                         <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 50px; position: sticky; left: 0; background: #f8f9fa; z-index: 2;">#</th>
-                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; min-width: 300px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; min-width: 500px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; min-width: 140px;">Category</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 150px; white-space: nowrap;">Percent of Feedback</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; min-width: 130px; white-space: nowrap;">Weekly Volume</th>
@@ -256,10 +230,10 @@ class CXAnalysis {
 
         return `
             <span class="info-tooltip" style="position: relative; display: inline-block;">
-                <a href="#" onclick="return false;" style="color: #2563eb; text-decoration: none; cursor: pointer;">
+                <span style="color: #212529; text-decoration: underline; cursor: pointer;">
                     See examples
-                </a>
-                <span class="info-tooltip-text" style="
+                </span>
+                <span class="tooltip-text" style="
                     visibility: hidden;
                     width: 400px;
                     max-width: 90vw;
@@ -275,11 +249,12 @@ class CXAnalysis {
                     transform: translateX(-50%);
                     margin-bottom: 8px;
                     opacity: 0;
-                    transition: opacity 0.3s;
+                    transition: opacity 0.3s, visibility 0.3s;
                     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
                     border: 1px solid #e5e7eb;
                     font-size: 0.875rem;
                     line-height: 1.5;
+                    pointer-events: none;
                 ">
                     ${examplesHTML}
                 </span>
