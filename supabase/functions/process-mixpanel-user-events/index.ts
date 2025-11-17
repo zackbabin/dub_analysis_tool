@@ -54,15 +54,41 @@ serve(async (req) => {
 
       console.log(`✓ Step 1 complete: ${profilesProcessed} profiles from ${eventsProcessed} events in ${processingElapsedSec}s`)
 
-      // Step 2: Clear staging table
-      console.log('Step 2/2: Clearing staging table...')
+      // Step 2: Refresh dependent materialized views
+      console.log('Step 2/4: Refreshing main_analysis view...')
+      const mainAnalysisStart = Date.now()
+      const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
+
+      if (mainAnalysisError) {
+        console.error('Error refreshing main_analysis:', mainAnalysisError)
+        throw mainAnalysisError
+      }
+
+      const mainAnalysisElapsedSec = Math.round((Date.now() - mainAnalysisStart) / 1000)
+      console.log(`✓ Step 2 complete: main_analysis refreshed in ${mainAnalysisElapsedSec}s`)
+
+      // Step 3: Refresh copy_engagement_summary
+      console.log('Step 3/4: Refreshing copy_engagement_summary view...')
+      const copyEngagementStart = Date.now()
+      const { error: copyEngagementError } = await supabase.rpc('refresh_copy_engagement_summary')
+
+      if (copyEngagementError) {
+        console.error('Error refreshing copy_engagement_summary:', copyEngagementError)
+        throw copyEngagementError
+      }
+
+      const copyEngagementElapsedSec = Math.round((Date.now() - copyEngagementStart) / 1000)
+      console.log(`✓ Step 3 complete: copy_engagement_summary refreshed in ${copyEngagementElapsedSec}s`)
+
+      // Step 4: Clear staging table
+      console.log('Step 4/4: Clearing staging table...')
       const { error: clearError } = await supabase.rpc('clear_events_staging')
 
       if (clearError) {
         console.warn('Warning: Failed to clear staging table:', clearError)
         // Don't fail the entire sync if cleanup fails
       } else {
-        console.log('✓ Step 2 complete: Staging table cleared')
+        console.log('✓ Step 4 complete: Staging table cleared')
       }
 
       const totalElapsedSec = Math.round((Date.now() - startTime) / 1000)
@@ -72,7 +98,7 @@ serve(async (req) => {
         total_records_inserted: profilesProcessed,
       })
 
-      console.log(`✅ Processing completed successfully in ${totalElapsedSec}s`)
+      console.log(`✅ Processing completed successfully in ${totalElapsedSec}s (${processingElapsedSec}s processing + ${mainAnalysisElapsedSec}s main_analysis + ${copyEngagementElapsedSec}s copy_engagement)`)
 
       return createSuccessResponse('Events processed successfully from staging', {
         totalTimeSeconds: totalElapsedSec,

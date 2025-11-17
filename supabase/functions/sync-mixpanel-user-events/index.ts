@@ -87,7 +87,7 @@ async function streamAndStageEvents(
   let totalEventsInserted = 0
   const BATCH_SIZE = 5000 // Insert 5000 raw events at a time (reduce DB round trips)
   const startTime = Date.now()
-  const MAX_EXECUTION_TIME = 120000 // 120 seconds (leave 30s buffer for final batch)
+  const MAX_EXECUTION_TIME = 110000 // 110 seconds (leave 40s buffer to trigger processing and return)
 
   console.log('Inserting raw events into staging table...')
 
@@ -125,8 +125,8 @@ async function streamAndStageEvents(
           })
           totalEvents++
 
-          // Check timeout every 500 events (less frequent checks = better performance)
-          if (totalEvents % 500 === 0) {
+          // Check timeout every 100 events for earlier detection
+          if (totalEvents % 100 === 0) {
             const elapsed = Date.now() - startTime
             if (elapsed > MAX_EXECUTION_TIME) {
               console.warn(`⚠️ Approaching timeout after ${Math.round(elapsed / 1000)}s. Staged ${totalEvents} events.`)
@@ -273,13 +273,38 @@ serve(async (req) => {
       console.log(`Tracking ${TRACKED_EVENTS.length} event types:`)
       console.log(`  ${TRACKED_EVENTS.join(', ')}`)
 
-      // Clear staging table before starting (in case previous sync failed)
-      console.log('Clearing staging table from any previous incomplete syncs...')
-      const { error: clearError } = await supabase.rpc('clear_events_staging')
-      if (clearError) {
-        console.warn('Warning: Failed to clear staging table:', clearError)
+      // Check if there's leftover staging data from a previous timeout and process it first
+      console.log('Checking for leftover staging data from previous sync...')
+      const { count: stagedCount, error: countError } = await supabase
+        .from('raw_mixpanel_events_staging')
+        .select('*', { count: 'exact', head: true })
+
+      if (countError) {
+        console.warn('Warning: Failed to check staging table:', countError)
+      } else if (stagedCount && stagedCount > 0) {
+        console.log(`⚠️ Found ${stagedCount} leftover events in staging. Processing them first...`)
+
+        try {
+          const { data: triggerData, error: triggerError } = await supabase.functions.invoke(
+            'process-mixpanel-user-events',
+            { body: { synced_at: new Date().toISOString() } }
+          )
+
+          if (triggerError) {
+            console.error('⚠️ Failed to process leftover staging data:', triggerError)
+            console.log('💡 Clearing staging table to allow new sync to proceed')
+            await supabase.rpc('clear_events_staging')
+          } else {
+            console.log('✓ Leftover staging data processed successfully')
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err)
+          console.error('⚠️ Exception processing leftover staging data:', errorMessage)
+          console.log('💡 Clearing staging table to allow new sync to proceed')
+          await supabase.rpc('clear_events_staging')
+        }
       } else {
-        console.log('✓ Staging table cleared')
+        console.log('✓ No leftover staging data found')
       }
 
       // Step 1: Stream events and insert raw into staging table
@@ -303,20 +328,38 @@ serve(async (req) => {
           total_records_inserted: 0,
         })
 
-        // Trigger separate processing function using Supabase client
-        // This is more reliable than raw fetch
-        console.log('Triggering process-mixpanel-user-events via Supabase client...')
+        // Trigger separate processing function with 5-second timeout
+        // Wait briefly for initial response, then return (processing continues in background)
+        console.log('Triggering process-mixpanel-user-events (5s timeout)...')
 
         try {
-          const { data: triggerData, error: triggerError } = await supabase.functions.invoke(
+          // Race between invoke and 5-second timeout
+          const triggerPromise = supabase.functions.invoke(
             'process-mixpanel-user-events',
             { body: { synced_at: syncStartTime.toISOString() } }
           )
 
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+            setTimeout(() => resolve({
+              data: null,
+              error: { message: 'Trigger timeout (5s) - processing continues in background' }
+            }), 5000)
+          )
+
+          const { data: triggerData, error: triggerError } = await Promise.race([
+            triggerPromise,
+            timeoutPromise
+          ])
+
           if (triggerError) {
-            console.error('⚠️ Failed to trigger processing function:', triggerError)
-            console.error('Error details:', JSON.stringify(triggerError, null, 2))
-            console.log('💡 Run manual_trigger_processing.sql to process staged events')
+            if (triggerError.message.includes('Trigger timeout')) {
+              console.log('⏱️ Trigger initiated (5s wait exceeded) - processing continues in background')
+              console.log('💡 Next sync will verify processing completed. If not, leftover data will be processed.')
+            } else {
+              console.error('⚠️ Failed to trigger processing function:', triggerError)
+              console.error('Error details:', JSON.stringify(triggerError, null, 2))
+              console.log('💡 Leftover data check on next sync will process staged events')
+            }
           } else {
             console.log('✓ Processing function triggered successfully')
             if (triggerData) {
@@ -326,7 +369,7 @@ serve(async (req) => {
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err)
           console.error('⚠️ Exception triggering processing function:', errorMessage)
-          console.log('💡 Run manual_trigger_processing.sql to process staged events')
+          console.log('💡 Leftover data check on next sync will process staged events')
         }
 
         return createSuccessResponse('Staging completed (timed out) - processing triggered separately', {
@@ -359,15 +402,41 @@ serve(async (req) => {
 
       console.log(`✓ Step 2 complete: ${profilesProcessed} profiles from ${eventsProcessed} events in ${processingElapsedSec}s`)
 
-      // Step 3: Clear staging table
-      console.log('Step 3/3: Clearing staging table...')
+      // Step 3: Refresh dependent materialized views
+      console.log('Step 3/5: Refreshing main_analysis view...')
+      const mainAnalysisStart = Date.now()
+      const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
+
+      if (mainAnalysisError) {
+        console.error('Error refreshing main_analysis:', mainAnalysisError)
+        throw mainAnalysisError
+      }
+
+      const mainAnalysisElapsedSec = Math.round((Date.now() - mainAnalysisStart) / 1000)
+      console.log(`✓ Step 3 complete: main_analysis refreshed in ${mainAnalysisElapsedSec}s`)
+
+      // Step 4: Refresh copy_engagement_summary
+      console.log('Step 4/5: Refreshing copy_engagement_summary view...')
+      const copyEngagementStart = Date.now()
+      const { error: copyEngagementError } = await supabase.rpc('refresh_copy_engagement_summary')
+
+      if (copyEngagementError) {
+        console.error('Error refreshing copy_engagement_summary:', copyEngagementError)
+        throw copyEngagementError
+      }
+
+      const copyEngagementElapsedSec = Math.round((Date.now() - copyEngagementStart) / 1000)
+      console.log(`✓ Step 4 complete: copy_engagement_summary refreshed in ${copyEngagementElapsedSec}s`)
+
+      // Step 5: Clear staging table
+      console.log('Step 5/5: Clearing staging table...')
       const { error: finalClearError } = await supabase.rpc('clear_events_staging')
 
       if (finalClearError) {
         console.warn('Warning: Failed to clear staging table:', finalClearError)
         // Don't fail the entire sync if cleanup fails
       } else {
-        console.log('✓ Step 3 complete: Staging table cleared')
+        console.log('✓ Step 5 complete: Staging table cleared')
       }
 
       const totalElapsedMs = Date.now() - executionStartMs
@@ -378,7 +447,7 @@ serve(async (req) => {
         total_records_inserted: profilesProcessed,
       })
 
-      console.log(`✅ Sync completed successfully in ${totalElapsedSec}s (${stagingElapsedSec}s staging + ${processingElapsedSec}s processing)`)
+      console.log(`✅ Sync completed successfully in ${totalElapsedSec}s (${stagingElapsedSec}s staging + ${processingElapsedSec}s processing + ${mainAnalysisElapsedSec}s main_analysis + ${copyEngagementElapsedSec}s copy_engagement)`)
 
       return createSuccessResponse('Subscriber events synced successfully (Postgres-accelerated)', {
         totalTimeSeconds: totalElapsedSec,
