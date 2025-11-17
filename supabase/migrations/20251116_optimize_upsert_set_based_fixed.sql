@@ -51,7 +51,7 @@ AS $$
     -- Account properties: Use OR for linked_bank_account (once true, stays true)
     linked_bank_account = subscribers_insights.linked_bank_account OR EXCLUDED.linked_bank_account,
 
-    -- Event metrics: REPLACE with new totals (since we're fetching 30-day window each time)
+    -- Event metrics: REPLACE with new totals (since we're fetching 15-day window each time)
     total_copies = EXCLUDED.total_copies,
     total_regular_copies = EXCLUDED.total_regular_copies,
     total_premium_copies = EXCLUDED.total_premium_copies,
@@ -76,7 +76,7 @@ $$;
 GRANT EXECUTE ON FUNCTION upsert_subscribers_incremental(jsonb) TO service_role;
 
 COMMENT ON FUNCTION upsert_subscribers_incremental(jsonb) IS
-'Upserts subscriber event data using optimized set-based SQL (10-50x faster than loop version). REPLACES event counts (not incremental) since we fetch a 30-day rolling window each sync. This prevents double-counting events when running multiple syncs.';
+'Upserts subscriber event data using optimized set-based SQL (10-50x faster than loop version). REPLACES event counts (not incremental) since we fetch a 15-day rolling window each sync. This prevents double-counting events when running multiple syncs.';
 
 -- SAFETY: This is functionally IDENTICAL to the loop-based version, just much faster
 -- All logic is the same: same fields, same type casts, same conflict resolution

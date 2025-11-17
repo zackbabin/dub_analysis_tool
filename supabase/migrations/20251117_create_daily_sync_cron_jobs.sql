@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS cron_job_config (
 INSERT INTO cron_job_config (job_name, schedule, command, description) VALUES
 ('sync-user-events-daily', '0 2 * * *',
  'SELECT extensions.http_post_edge_function(''sync-mixpanel-user-events'', ''{}'')',
- 'Daily sync of user events from Mixpanel Export API (30-day rolling window)'),
+ 'Daily sync of user events from Mixpanel Export API (15-day rolling window)'),
 
 ('sync-user-properties-daily', '20 2 * * *',
  'SELECT extensions.http_post_edge_function(''sync-mixpanel-user-properties-v2'', ''{}'')',

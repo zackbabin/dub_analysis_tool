@@ -128,7 +128,7 @@ user_portfolio_creator_engagement → portfolio_creator_engagement_metrics (mate
 
 **Full Sync** (run via "Sync Live Data" button):
 ```
-1. sync-mixpanel-user-events (subscribers event data - 30-60s)
+1. sync-mixpanel-user-events (subscribers event data, 15-day window - 30-60s)
 2. [sync-mixpanel-funnels - DISABLED]
 3. sync-mixpanel-engagement (views, subs, copies - 60-90s)
    └─> Auto-triggers: analyze-subscription-patterns

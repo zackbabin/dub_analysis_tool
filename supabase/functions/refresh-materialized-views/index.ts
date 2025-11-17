@@ -67,8 +67,10 @@ serve(async (req) => {
     console.log('Triggering main_analysis CONCURRENT refresh (background)...')
 
     // Fire and forget - don't await, let it run in background
-    supabase.rpc('refresh_main_analysis').catch((error) => {
-      console.error('⚠️ main_analysis refresh error:', error)
+    supabase.rpc('refresh_main_analysis').then(({ error }) => {
+      if (error) {
+        console.error('⚠️ main_analysis refresh error:', error)
+      }
     })
 
     console.log('✓ main_analysis refresh triggered (running in background)')
