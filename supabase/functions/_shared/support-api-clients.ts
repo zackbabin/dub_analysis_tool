@@ -19,8 +19,17 @@ export class ZendeskClient {
   private maxRetries = 3
 
   constructor(subdomain: string, email: string, apiToken: string) {
-    this.baseUrl = `https://${subdomain}.zendesk.com/api/v2`
+    // Clean up subdomain in case it contains full domain or URL
+    let cleanSubdomain = subdomain
+      .replace(/^https?:\/\//i, '') // Remove protocol if present
+      .replace(/\.zendesk\.com.*/i, '') // Remove .zendesk.com and anything after
+      .replace(/\/.*$/, '') // Remove any trailing path
+      .trim()
+
+    this.baseUrl = `https://${cleanSubdomain}.zendesk.com/api/v2`
     this.auth = btoa(`${email}/token:${apiToken}`)
+
+    console.log(`Zendesk client initialized for subdomain: ${cleanSubdomain}`)
   }
 
   /**
