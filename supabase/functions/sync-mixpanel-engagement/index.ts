@@ -145,7 +145,8 @@ serve(async (req) => {
           if (data) console.log('Response:', data)
         }
       } catch (err) {
-        console.error('⚠️ Exception triggering process-portfolio-engagement:', err.message)
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        console.error('⚠️ Exception triggering process-portfolio-engagement:', errorMessage)
         // Continue anyway - don't fail the entire sync
       }
 
