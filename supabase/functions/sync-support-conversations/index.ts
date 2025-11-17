@@ -105,8 +105,13 @@ serve(async (req) => {
       console.log('Fetching Zendesk tickets...')
       const zendeskTickets = await zendeskClient.fetchTicketsSince(zendeskStartTime)
 
-      console.log('Fetching Zendesk comments...')
-      const zendeskComments = await zendeskClient.fetchCommentsSince(zendeskStartTime)
+      // TEMPORARY: Skip comments for initial sync to avoid timeout
+      // TODO: Re-enable after first successful sync
+      console.log('Skipping Zendesk comments (temporary - for initial sync only)...')
+      const zendeskComments: any[] = []
+
+      // console.log('Fetching Zendesk comments...')
+      // const zendeskComments = await zendeskClient.fetchCommentsSince(zendeskStartTime)
 
       // COMMENTED OUT: Instabug integration (not ready yet)
       /*
