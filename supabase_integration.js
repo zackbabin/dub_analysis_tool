@@ -758,18 +758,16 @@ class SupabaseIntegration {
 
     /**
      * Trigger support analysis workflow (Zendesk + Linear integration)
-     * Orchestrates: sync conversations, analyze with Claude, sync Linear, map to feedback
+     * Triggers sync-support-conversations which automatically chains:
+     * 1. sync-support-conversations → 2. sync-linear-issues → 3. analyze-support-feedback → 4. map-linear-to-feedback
      */
     async triggerSupportAnalysis() {
         console.log('Triggering support analysis workflow (Zendesk + Linear)...');
 
         try {
-            // Call trigger-support-analysis function which orchestrates the full pipeline:
-            // 1. Sync Zendesk/Instabug conversations
-            // 2. Run Claude CX analysis
-            // 3. Sync Linear issues
-            // 4. Map Linear issues to feedback
-            const result = await this.supabase.functions.invoke('trigger-support-analysis', { body: {} });
+            // Trigger the first function in the chain (sync-support-conversations)
+            // Each function automatically triggers the next one, avoiding timeout issues
+            const result = await this.supabase.functions.invoke('sync-support-conversations', { body: {} });
 
             if (result.error) {
                 console.error('Support analysis workflow error:', result.error);
@@ -780,7 +778,8 @@ class SupabaseIntegration {
                 throw new Error(result.data.error || 'Unknown error during support analysis');
             }
 
-            console.log('✅ Support analysis workflow completed:', result.data);
+            console.log('✅ Support conversations sync started. Remaining steps will execute automatically:', result.data);
+            console.log('   Chain: sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback');
 
             return result.data;
         } catch (error) {

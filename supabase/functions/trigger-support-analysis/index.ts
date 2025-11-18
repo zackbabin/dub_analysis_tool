@@ -1,8 +1,7 @@
 // Supabase Edge Function: trigger-support-analysis
-// Orchestrates the full support feedback analysis pipeline
-// 1. Syncs conversations from Zendesk and Instabug
-// 2. Runs Claude analysis on the data
-// Can be triggered manually or via pg_cron weekly schedule
+// DEPRECATED: This function is deprecated in favor of function chaining
+// The workflow now chains automatically: sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+// This function now simply triggers sync-support-conversations for backward compatibility
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { handleCorsRequest } from '../_shared/sync-helpers.ts'
@@ -13,6 +12,10 @@ serve(async (req) => {
   if (corsResponse) return corsResponse
 
   try {
+    console.log('⚠️ DEPRECATION WARNING: trigger-support-analysis is deprecated')
+    console.log('   The workflow now uses function chaining for better reliability')
+    console.log('   Redirecting to sync-support-conversations which triggers the full chain...')
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -20,215 +23,53 @@ serve(async (req) => {
       throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured')
     }
 
-    console.log('Starting support analysis pipeline...')
     const pipelineStartTime = Date.now()
 
-    // Step 1: Sync conversations from Zendesk and Instabug
-    console.log('Step 1: Syncing support conversations...')
-    let syncResult
-    let syncSkipped = false
+    // Call sync-support-conversations which will automatically trigger the chain:
+    // sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+    const response = await fetch(`${supabaseUrl}/functions/v1/sync-support-conversations`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        'Content-Type': 'application/json',
+      },
+    })
 
-    try {
-      const syncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-support-conversations`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
+    const result = await response.json()
 
-      if (!syncResponse.ok) {
-        const errorText = await syncResponse.text()
-        console.warn(`⚠️ Sync failed (${syncResponse.status}): ${errorText}`)
-        console.log('💡 Continuing to analysis with existing data...')
-        syncSkipped = true
-        syncResult = {
-          success: false,
-          stats: { conversations_synced: 0, messages_synced: 0 },
-          error: errorText,
-        }
-      } else {
-        syncResult = await syncResponse.json()
+    const pipelineElapsedSec = Math.round((Date.now() - pipelineStartTime) / 1000)
 
-        if (!syncResult.success) {
-          console.warn(`⚠️ Sync returned failure: ${syncResult.error}`)
-          console.log('💡 Continuing to analysis with existing data...')
-          syncSkipped = true
-        } else {
-          console.log('✓ Sync complete:', syncResult.stats)
-
-          // Check if sync was skipped due to recent completion
-          if (syncResult.stats?.skipped) {
-            console.log(`ℹ️ Sync was skipped: ${syncResult.stats.reason}`)
-            syncSkipped = true
-          }
-        }
-      }
-    } catch (syncError) {
-      console.error('⚠️ Sync threw exception:', syncError)
-      console.log('💡 Continuing to analysis with existing data...')
-      syncSkipped = true
-      syncResult = {
-        success: false,
-        stats: { conversations_synced: 0, messages_synced: 0 },
-        error: syncError instanceof Error ? syncError.message : String(syncError),
-      }
-    }
-
-    // Step 2: Sync Linear issues (BEFORE analysis so view includes Linear data)
-    console.log('Step 2: Syncing Linear issues...')
-    let linearSyncResult
-    let linearSyncSkipped = false
-
-    try {
-      const linearSyncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!linearSyncResponse.ok) {
-        const errorText = await linearSyncResponse.text()
-        console.warn(`⚠️ Linear sync failed (${linearSyncResponse.status}): ${errorText}`)
-        console.log('💡 Continuing without Linear data...')
-        linearSyncSkipped = true
-        linearSyncResult = { success: false, error: errorText }
-      } else {
-        linearSyncResult = await linearSyncResponse.json()
-
-        if (!linearSyncResult.success) {
-          console.warn(`⚠️ Linear sync returned failure: ${linearSyncResult.error}`)
-          linearSyncSkipped = true
-        } else {
-          console.log('✓ Linear sync complete:', linearSyncResult.stats || linearSyncResult.message)
-        }
-      }
-    } catch (linearSyncError) {
-      console.error('⚠️ Linear sync threw exception:', linearSyncError)
-      console.log('💡 Continuing without Linear data...')
-      linearSyncSkipped = true
-      linearSyncResult = {
-        success: false,
-        error: linearSyncError instanceof Error ? linearSyncError.message : String(linearSyncError),
-      }
-    }
-
-    // Step 3: Refresh enriched_support_conversations view (combines Zendesk + Linear data)
-    console.log('Step 3: Refreshing enriched support conversations view...')
-    const { createClient } = await import('npm:@supabase/supabase-js@2')
-    const supabase = createClient(supabaseUrl, serviceKey)
-
-    try {
-      const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
-
-      if (refreshError) {
-        console.error('⚠️ Failed to refresh view:', refreshError)
-        console.log('💡 Continuing with potentially stale data...')
-      } else {
-        console.log('✓ View refreshed successfully')
-      }
-    } catch (refreshException) {
-      console.error('⚠️ Exception refreshing view:', refreshException)
-      console.log('💡 Continuing with potentially stale data...')
-    }
-
-    // Step 4: Run Claude analysis on synced data (now includes Linear metadata)
-    console.log('Step 4: Running Claude analysis...')
-    let analysisResult
-
-    try {
-      const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!analysisResponse.ok) {
-        const errorText = await analysisResponse.text()
-        console.error(`⚠️ Analysis failed (${analysisResponse.status}): ${errorText}`)
-        throw new Error(`Analysis failed: ${errorText}`)
-      }
-
-      analysisResult = await analysisResponse.json()
-
-      if (!analysisResult.success) {
-        console.error(`⚠️ Analysis returned failure: ${analysisResult.error}`)
-        throw new Error(`Analysis failed: ${analysisResult.error}`)
-      }
-
-      console.log('✓ Analysis complete:', analysisResult.stats)
-    } catch (analysisError) {
-      console.error('❌ Analysis threw exception:', analysisError)
-
-      // Analysis failure is critical - return error response
+    if (!response.ok) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: analysisError instanceof Error ? analysisError.message : String(analysisError),
-          message: 'Pipeline failed at analysis step',
-          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
-          sync_summary: syncResult.stats,
-          linear_sync_summary: linearSyncResult,
+          error: result.error || 'Failed to start support analysis workflow',
+          message: 'Pipeline failed at sync-support-conversations step',
+          pipeline_duration_seconds: pipelineElapsedSec,
         }),
         {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
           },
-          status: 500,
+          status: response.status,
         }
       )
     }
 
-    // Step 5: Map Linear issues to feedback (only if analysis succeeded)
-    console.log('Step 5: Mapping Linear issues to feedback...')
-    let mappingResult
-
-    try {
-      const mappingResponse = await fetch(`${supabaseUrl}/functions/v1/map-linear-to-feedback`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!mappingResponse.ok) {
-        const errorText = await mappingResponse.text()
-        console.warn(`⚠️ Linear mapping failed (${mappingResponse.status}): ${errorText}`)
-        mappingResult = { success: false, error: errorText }
-      } else {
-        mappingResult = await mappingResponse.json()
-
-        if (!mappingResult.success) {
-          console.warn(`⚠️ Linear mapping returned failure: ${mappingResult.error}`)
-        } else {
-          console.log('✓ Linear mapping complete:', mappingResult.stats || mappingResult.message)
-        }
-      }
-    } catch (mappingError) {
-      console.error('⚠️ Linear mapping threw exception:', mappingError)
-      mappingResult = {
-        success: false,
-        error: mappingError instanceof Error ? mappingError.message : String(mappingError),
-      }
-    }
-
-    const pipelineElapsedSec = Math.round((Date.now() - pipelineStartTime) / 1000)
-
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Support analysis pipeline completed successfully',
+        message: 'Support analysis workflow started (chained execution)',
+        note: 'This function is deprecated. Use sync-support-conversations directly instead.',
         pipeline_duration_seconds: pipelineElapsedSec,
-        sync_summary: syncResult.stats,
-        analysis_summary: analysisResult.stats,
-        linear_sync_summary: linearSyncResult,
-        linear_mapping_summary: mappingResult,
+        sync_result: result,
+        workflow_chain: [
+          'sync-support-conversations (completed)',
+          'sync-linear-issues (triggered)',
+          'analyze-support-feedback (will run next)',
+          'map-linear-to-feedback (will run last)',
+        ],
       }),
       {
         headers: {

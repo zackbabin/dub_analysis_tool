@@ -184,6 +184,28 @@ serve(async (req) => {
 
       console.log(`✅ Linear sync completed successfully in ${elapsedSec}s`)
 
+      // Trigger next step in workflow: analyze-support-feedback
+      // Fire-and-forget to avoid timeout issues (don't await)
+      console.log('Triggering next step: analyze-support-feedback...')
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+      if (supabaseUrl && serviceKey) {
+        fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(err => {
+          console.warn('⚠️ Failed to trigger analyze-support-feedback:', err.message)
+          // Don't fail this function if next step fails to trigger
+        })
+        console.log('✓ Triggered analyze-support-feedback (async)')
+      } else {
+        console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
+      }
+
       // Return summary statistics
       const stateBreakdown = issues.reduce((acc: any, issue: any) => {
         acc[issue.state_name] = (acc[issue.state_name] || 0) + 1
