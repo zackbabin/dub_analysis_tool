@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-16'; // Add 4 demographic metric cards to Summary Stats (Income, Net Worth, Investing Experience, Deposits)
+const CURRENT_VERSION = '2025-11-18-17'; // Fix Refresh Data button initialization timing issue
 
 class VersionChecker {
     constructor() {
