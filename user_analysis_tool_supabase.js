@@ -500,10 +500,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
+            // Get existing cache to preserve timestamp
+            const existingCache = localStorage.getItem('dubAnalysisResults');
+            const existingData = existingCache ? JSON.parse(existingCache) : {};
+
             const cacheData = {
                 summary: this.outputContainers.summary?.innerHTML || '',
                 portfolio: this.outputContainers.portfolio?.innerHTML || '',
-                timestamp: new Date().toISOString()
+                // Preserve existing timestamp - it should only be updated during actual sync operations
+                timestamp: existingData.timestamp || new Date().toISOString()
             };
             console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
             localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
