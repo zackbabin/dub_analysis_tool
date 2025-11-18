@@ -150,41 +150,8 @@ class CXAnalysis {
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 170px; white-space: nowrap;">Percent of Feedback</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
-                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 160px;">
-                                <span class="cx-table-header-tooltip" style="position: relative; display: inline-block;">
-                                    <span class="tooltip-trigger" style="text-decoration: underline; text-decoration-style: dotted; text-decoration-color: #6c757d; text-underline-offset: 3px; cursor: help;">
-                                        Linear Status
-                                    </span>
-                                    <span class="tooltip-text" style="
-                                        position: fixed;
-                                        visibility: hidden;
-                                        opacity: 0;
-                                        width: 400px;
-                                        background-color: #2d3748;
-                                        color: #fff;
-                                        text-align: left;
-                                        border-radius: 8px;
-                                        padding: 14px 16px;
-                                        z-index: 10000;
-                                        font-size: 13px;
-                                        line-height: 1.5;
-                                        transition: opacity 0.3s, visibility 0.3s;
-                                        pointer-events: auto;
-                                        top: 0;
-                                        left: 0;
-                                    ">
-                                        <div style="font-weight: 600; margin-bottom: 10px; color: #63b3ed;">Linear Integration</div>
-                                        <div style="margin-bottom: 10px;">Shows the status of Linear issues mapped to this feedback theme via AI semantic matching.</div>
-                                        <ul style="margin: 6px 0; padding-left: 18px;">
-                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">Backlog:</strong> Issue identified but not yet started</li>
-                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">In Progress:</strong> Actively being worked on</li>
-                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">Done:</strong> Issue resolved and shipped</li>
-                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">-:</strong> No Linear issue mapped yet</li>
-                                        </ul>
-                                        <div style="margin-top: 10px; font-size: 0.9em; color: #94a3b8;">Click on status badge to see linked Linear issues with details.</div>
-                                    </span>
-                                </span>
-                            </th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 120px;">Status</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 200px;">Linear Tickets</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -199,7 +166,7 @@ class CXAnalysis {
         // Initialize tooltips after rendering
         setTimeout(() => {
             this.initializeExamplesToolips();
-            this.initializeLinearStatusTooltips();
+            this.initializeLinearTicketTooltips();
             this.initializeHeaderTooltips();
         }, 0);
 
@@ -327,8 +294,8 @@ class CXAnalysis {
         });
     }
 
-    initializeLinearStatusTooltips() {
-        const tooltips = document.querySelectorAll('.cx-linear-status-tooltip');
+    initializeLinearTicketTooltips() {
+        const tooltips = document.querySelectorAll('.cx-linear-ticket-tooltip');
 
         tooltips.forEach(tooltipWrapper => {
             const trigger = tooltipWrapper.querySelector('.tooltip-trigger');
@@ -345,7 +312,7 @@ class CXAnalysis {
                 tooltipBox.style.opacity = '1';
 
                 // Calculate position (above trigger, centered)
-                const tooltipWidth = 400;
+                const tooltipWidth = 350;
                 let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
                 let top = rect.top - tooltipBox.offsetHeight - 8;
 
@@ -365,22 +332,6 @@ class CXAnalysis {
             });
 
             trigger.addEventListener('mouseleave', () => {
-                // Delay hiding to allow moving to tooltip
-                setTimeout(() => {
-                    if (!tooltipBox.matches(':hover')) {
-                        tooltipBox.style.visibility = 'hidden';
-                        tooltipBox.style.opacity = '0';
-                    }
-                }, 100);
-            });
-
-            // Keep visible when hovering tooltip
-            tooltipBox.addEventListener('mouseenter', () => {
-                tooltipBox.style.visibility = 'visible';
-                tooltipBox.style.opacity = '1';
-            });
-
-            tooltipBox.addEventListener('mouseleave', () => {
                 tooltipBox.style.visibility = 'hidden';
                 tooltipBox.style.opacity = '0';
             });
@@ -440,14 +391,44 @@ class CXAnalysis {
                 <td style="padding: 12px 16px; text-align: center;">
                     ${this.renderLinearStatus(issue)}
                 </td>
+                <td style="padding: 12px 16px; text-align: left;">
+                    ${this.renderLinearTickets(issue)}
+                </td>
             </tr>
         `;
     }
 
     renderLinearStatus(issue) {
         // Check if Linear data exists
-        if (!issue.linear_status || !issue.linear_issues || issue.linear_issues.length === 0) {
+        if (!issue.linear_issues || issue.linear_issues.length === 0) {
             return '<span style="color: #adb5bd;">-</span>'
+        }
+
+        // Calculate status based on state_name aggregation
+        const backlogStates = ['Backlog', 'Todo', 'Triage']
+        const doneStates = ['Done', 'Canceled']
+
+        let status
+        const allBacklog = issue.linear_issues.every(li =>
+            backlogStates.includes(li.state_name)
+        )
+        const anyInProgress = issue.linear_issues.some(li =>
+            !backlogStates.includes(li.state_name) &&
+            !doneStates.includes(li.state_name)
+        )
+        const allDone = issue.linear_issues.every(li =>
+            doneStates.includes(li.state_name)
+        )
+
+        if (allDone) {
+            status = 'Done'
+        } else if (anyInProgress) {
+            status = 'In Progress'
+        } else if (allBacklog) {
+            status = 'Backlog'
+        } else {
+            // Fallback to Backlog if no clear state
+            status = 'Backlog'
         }
 
         // Status badge colors
@@ -457,74 +438,101 @@ class CXAnalysis {
             'Done': { bg: '#28a745', text: '#fff' }
         }
 
-        const colors = statusColors[issue.linear_status] || { bg: '#6c757d', text: '#fff' }
+        const colors = statusColors[status] || { bg: '#6c757d', text: '#fff' }
 
-        // Build Linear issues tooltip content
-        const linearIssuesHTML = issue.linear_issues.map((li, idx) => {
+        // Return status badge without tooltip
+        return `
+            <span style="
+                display: inline-block;
+                padding: 6px 14px;
+                border-radius: 12px;
+                background: ${colors.bg};
+                color: ${colors.text};
+                font-size: 0.85rem;
+                font-weight: 600;
+                white-space: nowrap;
+            ">
+                ${this.escapeHtml(status)}
+            </span>
+        `
+    }
+
+    renderLinearTickets(issue) {
+        // Check if Linear data exists
+        if (!issue.linear_issues || issue.linear_issues.length === 0) {
+            return '<span style="color: #adb5bd;">-</span>'
+        }
+
+        // Display first 3 issues
+        const displayIssues = issue.linear_issues.slice(0, 3)
+
+        // Build issue badges with tooltips
+        const issueHTML = displayIssues.map(li => {
+            // Truncate description to 140 characters
+            const description = li.description ?
+                (li.description.length > 140 ? li.description.substring(0, 140) + '...' : li.description) :
+                'No description'
+
             return `
-                <div style="margin-bottom: ${idx < issue.linear_issues.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < issue.linear_issues.length - 1 ? '12px' : '0'}; border-bottom: ${idx < issue.linear_issues.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
-                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">
-                        <a href="${this.escapeHtml(li.url)}" target="_blank" rel="noopener noreferrer" style="color: #63b3ed; text-decoration: none;">
-                            ${this.escapeHtml(li.id)} ↗
-                        </a>
-                    </div>
-                    <div style="margin-bottom: 4px;">${this.escapeHtml(li.title)}</div>
-                    <div style="font-size: 0.8em; color: #94a3b8;">
-                        <span style="
-                            display: inline-block;
-                            padding: 2px 8px;
-                            border-radius: 8px;
-                            background: rgba(255,255,255,0.1);
-                            font-weight: 600;
-                        ">
-                            ${this.escapeHtml(li.state)}
-                        </span>
-                    </div>
-                </div>
+                <span class="cx-linear-ticket-tooltip" style="position: relative; display: inline-block; margin-right: 8px;">
+                    <a href="${this.escapeHtml(li.url)}" target="_blank" rel="noopener noreferrer"
+                       class="tooltip-trigger"
+                       style="
+                        display: inline-block;
+                        padding: 4px 10px;
+                        border-radius: 8px;
+                        background: #e3f2fd;
+                        color: #1976d2;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        text-decoration: none;
+                        white-space: nowrap;
+                        cursor: pointer;
+                    ">
+                        ${this.escapeHtml(li.identifier)}
+                    </a>
+                    <span class="tooltip-text" style="
+                        position: fixed;
+                        visibility: hidden;
+                        opacity: 0;
+                        width: 350px;
+                        background-color: #2d3748;
+                        color: #fff;
+                        text-align: left;
+                        border-radius: 8px;
+                        padding: 12px 14px;
+                        z-index: 10000;
+                        font-size: 12px;
+                        line-height: 1.5;
+                        transition: opacity 0.3s, visibility 0.3s;
+                        pointer-events: none;
+                        top: 0;
+                        left: 0;
+                    ">
+                        <div style="font-weight: 600; margin-bottom: 6px; color: #63b3ed;">
+                            ${this.escapeHtml(li.title)}
+                        </div>
+                        <div style="margin-bottom: 6px; color: #cbd5e0; font-size: 11px;">
+                            ${this.escapeHtml(description)}
+                        </div>
+                        <div style="font-size: 11px;">
+                            <span style="
+                                display: inline-block;
+                                padding: 2px 6px;
+                                border-radius: 6px;
+                                background: rgba(255,255,255,0.1);
+                                font-weight: 600;
+                                color: #94a3b8;
+                            ">
+                                ${this.escapeHtml(li.state_name)}
+                            </span>
+                        </div>
+                    </span>
+                </span>
             `
         }).join('')
 
-        // Return status badge with tooltip
-        return `
-            <span class="cx-linear-status-tooltip" style="position: relative; display: inline-block;">
-                <span class="tooltip-trigger" style="
-                    display: inline-block;
-                    padding: 6px 14px;
-                    border-radius: 12px;
-                    background: ${colors.bg};
-                    color: ${colors.text};
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    cursor: help;
-                    white-space: nowrap;
-                ">
-                    ${this.escapeHtml(issue.linear_status)}
-                </span>
-                <span class="tooltip-text" style="
-                    position: fixed;
-                    visibility: hidden;
-                    opacity: 0;
-                    width: 400px;
-                    background-color: #2d3748;
-                    color: #fff;
-                    text-align: left;
-                    border-radius: 8px;
-                    padding: 14px 16px;
-                    z-index: 10000;
-                    font-size: 13px;
-                    line-height: 1.5;
-                    transition: opacity 0.3s, visibility 0.3s;
-                    pointer-events: auto;
-                    top: 0;
-                    left: 0;
-                ">
-                    <div style="font-weight: 600; margin-bottom: 10px; color: #63b3ed;">
-                        ${issue.linear_issues.length} Linear Issue${issue.linear_issues.length > 1 ? 's' : ''}
-                    </div>
-                    ${linearIssuesHTML}
-                </span>
-            </span>
-        `
+        return issueHTML
     }
 
     renderExamplesTooltip(examples) {
