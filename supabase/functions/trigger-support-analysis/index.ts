@@ -134,40 +134,7 @@ serve(async (req) => {
       console.log('💡 Continuing with potentially stale data...')
     }
 
-    // Step 4: Check if we should skip analysis (if already run today and no new data)
-    const { data: lastAnalysis } = await supabase
-      .from('support_analysis_results')
-      .select('created_at, analysis_date')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    const today = new Date().toISOString().split('T')[0]
-    const lastAnalysisDate = lastAnalysis?.analysis_date
-
-    if (lastAnalysisDate === today && syncSkipped && linearSyncSkipped) {
-      console.log(`⏭️ Skipping analysis - already ran today (${today}) and no new data synced`)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Analysis skipped - already completed today with no new data',
-          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
-          sync_summary: syncResult.stats,
-          linear_sync_summary: linearSyncResult,
-          analysis_summary: { skipped: true, reason: 'Already ran today' },
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-          status: 200,
-        }
-      )
-    }
-
-    // Step 5: Run Claude analysis on synced data (now includes Linear metadata)
+    // Step 4: Run Claude analysis on synced data (now includes Linear metadata)
     console.log('Step 4: Running Claude analysis...')
     let analysisResult
 
@@ -217,7 +184,7 @@ serve(async (req) => {
       )
     }
 
-    // Step 6: Map Linear issues to feedback (only if analysis succeeded)
+    // Step 5: Map Linear issues to feedback (only if analysis succeeded)
     console.log('Step 5: Mapping Linear issues to feedback...')
     let mappingResult
 
