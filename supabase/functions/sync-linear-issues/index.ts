@@ -29,6 +29,7 @@ function initializeLinearClient(): LinearClient {
 
 /**
  * Fetch issues from Linear for "dub 3.0" team, last 6 months
+ * Uses pagination to fetch all issues without limit
  */
 async function fetchLinearIssues(linearClient: LinearClient) {
   console.log('Fetching issues from Linear...')
@@ -53,21 +54,39 @@ async function fetchLinearIssues(linearClient: LinearClient) {
 
     console.log(`Found team: ${dubTeam.name} (${dubTeam.id})`)
 
-    // Fetch issues for this team, created in last 6 months
-    const issues = await linearClient.issues({
-      filter: {
-        team: { id: { eq: dubTeam.id } },
-        createdAt: { gte: sixMonthsAgo }
-      },
-      includeArchived: false,
-      first: 250 // Adjust if you have more than 250 issues
-    })
+    // Fetch all issues using pagination
+    let allIssues = []
+    let hasNextPage = true
+    let cursor = undefined
+    let pageCount = 0
+    const PAGE_SIZE = 100 // Fetch 100 issues per page
 
-    console.log(`Fetched ${issues.nodes.length} issues from Linear`)
+    while (hasNextPage) {
+      pageCount++
+      console.log(`Fetching page ${pageCount}...`)
+
+      const issuesPage = await linearClient.issues({
+        filter: {
+          team: { id: { eq: dubTeam.id } },
+          createdAt: { gte: sixMonthsAgo }
+        },
+        includeArchived: false,
+        first: PAGE_SIZE,
+        after: cursor
+      })
+
+      allIssues = allIssues.concat(issuesPage.nodes)
+      hasNextPage = issuesPage.pageInfo.hasNextPage
+      cursor = issuesPage.pageInfo.endCursor
+
+      console.log(`  Page ${pageCount}: ${issuesPage.nodes.length} issues (total: ${allIssues.length})`)
+    }
+
+    console.log(`✅ Fetched ${allIssues.length} total issues from Linear across ${pageCount} pages`)
 
     // Fetch state and assignee details for each issue
     const enrichedIssues = await Promise.all(
-      issues.nodes.map(async (issue) => {
+      allIssues.map(async (issue) => {
         const state = await issue.state
         const assignee = await issue.assignee
         const team = await issue.team
