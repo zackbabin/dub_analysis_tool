@@ -57,7 +57,7 @@ serve(async (req) => {
 
       // Download raw data from Storage
       console.log('Downloading raw data from Storage...')
-      const { data: fileData, error: downloadError } = await supabase.storage
+      const { data, error: downloadError } = await supabase.storage
         .from('mixpanel-raw-data')
         .download(filename)
 
@@ -66,8 +66,10 @@ serve(async (req) => {
         throw downloadError
       }
 
-      const rawDataText = await fileData.text()
-      const rawData = JSON.parse(rawDataText)
+      // Use let for variables we'll set to undefined later for garbage collection
+      let fileData = data
+      let rawDataText = await fileData.text()
+      let rawData = JSON.parse(rawDataText)
 
       logElapsed()
       console.log('✓ Raw data loaded from Storage')
@@ -87,7 +89,8 @@ serve(async (req) => {
 
       // Process engagement data to get creator pairs
       console.log('Processing engagement pairs...')
-      const { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
+      // Use let for variables we'll set to undefined later for garbage collection
+      let { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
         profileViewsData,
         pdpViewsData,
         subscriptionsData,

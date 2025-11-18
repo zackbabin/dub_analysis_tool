@@ -340,19 +340,25 @@ export function processPortfolioCreatorPairs(
       }
     }
 
-    // Only create record if there's activity
-    if (pdpCount === 0 && copyCount === 0 && liquidationCount === 0) return
+    // Get profile views and subscriptions for this creator from the creatorPairsMap
+    const creatorKey = `${distinctId}|${creatorId}`
+    const creatorPair = creatorPairsMap.get(creatorKey)
+    const profileViewCount = creatorPair?.profile_view_count || 0
+    const subscriptionCount = creatorPair?.subscription_count || 0
 
-    // Add portfolio-creator engagement pair
+    // Only create record if there's activity
+    if (profileViewCount === 0 && pdpCount === 0 && copyCount === 0 && liquidationCount === 0 && subscriptionCount === 0) return
+
+    // Add portfolio-creator engagement pair with correct column names for staging table
     portfolioCreatorPairs.push({
       distinct_id: distinctId,
       portfolio_ticker: portfolioTicker,
       creator_id: creatorId,
-      creator_username: creatorUsername,
-      pdp_view_count: pdpCount,
-      did_copy: didCopy,
-      copy_count: copyCount,
-      liquidation_count: liquidationCount,
+      total_profile_views: profileViewCount,
+      total_pdp_views: pdpCount,
+      total_copies: copyCount,
+      total_liquidations: liquidationCount,
+      total_subscriptions: subscriptionCount,
       synced_at: syncedAt,
     })
   })
