@@ -375,7 +375,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         </ul>
                     </span>
                 </span></h1>
-                <button onclick="window.refreshAllTabs()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+                <button onclick="window.refreshAllTabs(event)" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh</button>
             </div>
         `;
         container.appendChild(section);
