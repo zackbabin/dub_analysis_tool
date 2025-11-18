@@ -145,12 +145,26 @@ class CXAnalysis {
                     <thead>
                         <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 50px; position: sticky; left: 0; background: #f8f9fa; z-index: 2;">#</th>
-                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 500px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
+                            <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 400px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 160px;">Category</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 170px; white-space: nowrap;">Percent of Feedback</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
-                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 160px;">Status</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 160px;">
+                                <span class="info-tooltip">Linear Status<span class="info-icon">i</span>
+                                    <span class="tooltip-text">
+                                        <strong>Linear Integration</strong>
+                                        Shows the status of Linear issues mapped to this feedback theme via AI semantic matching.
+                                        <ul>
+                                            <li><strong>Backlog:</strong> Issue identified but not yet started</li>
+                                            <li><strong>In Progress:</strong> Actively being worked on</li>
+                                            <li><strong>Done:</strong> Issue resolved and shipped</li>
+                                            <li><strong>-:</strong> No Linear issue mapped yet</li>
+                                        </ul>
+                                        Click on status badge to see linked Linear issues with details.
+                                    </span>
+                                </span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>

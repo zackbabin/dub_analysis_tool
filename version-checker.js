@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-17-16'; // Update H1/H2 tooltips across first 4 tabs for accuracy
+const CURRENT_VERSION = '2025-11-18-01'; // CX Analysis table updates: reduce feedback column width, add Linear Status tooltip, limit summaries to 140 chars
 
 class VersionChecker {
     constructor() {

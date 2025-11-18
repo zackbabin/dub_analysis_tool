@@ -126,7 +126,7 @@ For each of the top 10 issues, provide:
 
 1. **Category**: ONE of: Compliance, Money Movement, Trading, App Functionality, Feature Request
 
-2. **Issue Summary**: Clear, concise description (1-2 sentences max)
+2. **Issue Summary**: Clear, concise description (140 characters or less, 1-2 sentences max)
 
 3. **Percentage of Total**: Calculate what % of all ${totalCount} conversations relate to this issue
 
@@ -198,6 +198,7 @@ Return ONLY valid JSON matching this exact structure:
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
 - Focus on actionable product feedback, not general support inquiries
 - Compliance issues automatically get highest priority due to regulatory risk
+- Keep issue_summary to 140 characters or less for UI display
 </critical_instructions>`
 }
 
