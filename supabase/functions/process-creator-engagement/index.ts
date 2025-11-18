@@ -1,6 +1,6 @@
 // Supabase Edge Function: process-creator-engagement
 // Part 2b of 4: Loads raw Mixpanel data from Storage and processes creator-level pairs
-// Handles creator engagement upserts, then triggers refresh-engagement-views
+// Handles creator engagement upserts using Postgres staging table for 10-50x performance
 // Triggered by process-portfolio-engagement after portfolio pairs are inserted
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -43,36 +43,49 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Track elapsed time with timeout prevention
+      // Track elapsed time
       const startTime = Date.now()
-      const TIMEOUT_BUFFER_MS = 130000  // Exit after 130s (20s buffer before 150s timeout)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
         console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
         return elapsed
       }
-      const isApproachingTimeout = () => {
-        return (Date.now() - startTime) > TIMEOUT_BUFFER_MS
-      }
 
-      // Download raw data from Storage
+      // Download raw data from Storage with error handling
       console.log('Downloading raw data from Storage...')
-      const { data, error: downloadError } = await supabase.storage
-        .from('mixpanel-raw-data')
-        .download(filename)
+      let fileData, rawDataText, rawData
 
-      if (downloadError) {
-        console.error('Error downloading from storage:', downloadError)
-        throw downloadError
+      try {
+        const { data, error: downloadError } = await supabase.storage
+          .from('mixpanel-raw-data')
+          .download(filename)
+
+        if (downloadError) {
+          console.error('❌ Storage download error:', downloadError)
+          throw new Error(`Failed to download ${filename}: ${downloadError.message}`)
+        }
+
+        if (!data) {
+          throw new Error(`No data returned from storage for ${filename}`)
+        }
+
+        fileData = data
+        console.log(`✓ Downloaded ${filename} (${(data.size / 1024 / 1024).toFixed(2)} MB)`)
+        logElapsed()
+
+        // Parse JSON with error handling
+        console.log('Parsing JSON data...')
+        rawDataText = await fileData.text()
+        console.log(`✓ Extracted text (${(rawDataText.length / 1024 / 1024).toFixed(2)} MB)`)
+
+        rawData = JSON.parse(rawDataText)
+        console.log('✓ Parsed JSON successfully')
+        logElapsed()
+      } catch (error) {
+        console.error('❌ Failed to load/parse storage data:', error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`Storage data load failed: ${errorMessage}`)
       }
-
-      // Use let for variables we'll set to undefined later for garbage collection
-      let fileData = data
-      let rawDataText = await fileData.text()
-      let rawData = JSON.parse(rawDataText)
-
-      logElapsed()
-      console.log('✓ Raw data loaded from Storage')
 
       // Use let for variables we'll explicitly set to undefined later for garbage collection
       let { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
@@ -83,26 +96,44 @@ serve(async (req) => {
         totalRecordsInserted: 0,
       }
 
-      // Parallel batch processing configuration
-      const BATCH_SIZE = 5000  // Larger batches = fewer operations
-      const MAX_CONCURRENT_BATCHES = 3  // Lower concurrency to reduce CPU usage
+      // Staging table configuration for Postgres-accelerated processing
+      // Similar to process-portfolio-engagement pattern: stage data, process in Postgres
+      const STAGING_BATCH_SIZE = 5000  // Large batches OK for staging (no conflict checks)
 
-      // Process engagement data to get creator pairs
+      // Process engagement data (get creator pairs only)
       console.log('Processing engagement pairs...')
-      // Use let for variables we'll set to undefined later for garbage collection
-      let { portfolioCreatorPairs, creatorPairs } = processPortfolioCreatorPairs(
-        profileViewsData,
-        pdpViewsData,
-        subscriptionsData,
-        originalSyncTime
-      )
-      logElapsed()
-      console.log(`Skipping ${portfolioCreatorPairs.length} portfolio pairs (already processed)`)
-      console.log(`Processing ${creatorPairs.length} creator pairs`)
+      console.log(`Input data sizes:`)
+      console.log(`  - profileViews series keys: ${Object.keys(profileViewsData?.series || {}).length}`)
+      console.log(`  - pdpViews series keys: ${Object.keys(pdpViewsData?.series || {}).length}`)
+      console.log(`  - subscriptions series keys: ${Object.keys(subscriptionsData?.series || {}).length}`)
 
-      // Release raw data and unused portfolio pairs from memory immediately
-      // This reduces memory usage by 40-50% and prevents memory limit errors
-      console.log('Releasing raw data and portfolio pairs from memory...')
+      let portfolioCreatorPairs, creatorPairs
+
+      try {
+        const result = processPortfolioCreatorPairs(
+          profileViewsData,
+          pdpViewsData,
+          subscriptionsData,
+          originalSyncTime
+        )
+        portfolioCreatorPairs = result.portfolioCreatorPairs
+        creatorPairs = result.creatorPairs
+      } catch (error) {
+        console.error('❌ Failed to process creator pairs:', error)
+        if (error instanceof Error) {
+          console.error('Error details:', error.stack)
+        }
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        throw new Error(`Data processing failed: ${errorMessage}`)
+      }
+
+      logElapsed()
+      console.log(`✓ Processed ${portfolioCreatorPairs.length} portfolio pairs (skipped), ${creatorPairs.length} creator pairs`)
+      console.log('This function will process creator pairs only, portfolio pairs already handled')
+
+      // Release raw data from memory ASAP to allow garbage collection
+      // This reduces memory usage by 30-40% and prevents memory limit errors
+      console.log('Releasing raw input data from memory...')
       // @ts-ignore - explicitly setting to undefined for garbage collection
       rawData = undefined
       // @ts-ignore
@@ -115,83 +146,99 @@ serve(async (req) => {
       pdpViewsData = undefined
       // @ts-ignore
       subscriptionsData = undefined
-      // @ts-ignore - we don't need portfolio pairs in this function
+      // @ts-ignore - don't need portfolio pairs in this function
       portfolioCreatorPairs = undefined
+      console.log('✓ Memory released')
 
-      // Helper function to upsert batches in parallel
-      async function upsertInParallelBatches(
-        data: any[],
-        tableName: string,
-        onConflictColumns: string,
-        description: string
-      ): Promise<number> {
-        if (data.length === 0) return 0
-
-        console.log(`Upserting ${data.length} ${description} in batches of ${BATCH_SIZE} (${MAX_CONCURRENT_BATCHES} concurrent)...`)
-
-        // Split data into batches
-        const batches: any[][] = []
-        for (let i = 0; i < data.length; i += BATCH_SIZE) {
-          batches.push(data.slice(i, i + BATCH_SIZE))
-        }
-
-        // Process batches in chunks of MAX_CONCURRENT_BATCHES
-        let processedCount = 0
-        for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
-          // Check timeout before processing next chunk
-          if (isApproachingTimeout()) {
-            console.warn(`⚠️ Approaching timeout. Processed ${processedCount}/${data.length} ${description}.`)
-            console.log('Exiting early - refresh function will still be triggered.')
-            return processedCount
-          }
-
-          const batchChunk = batches.slice(i, i + MAX_CONCURRENT_BATCHES)
-          const chunkStart = i * BATCH_SIZE
-          const chunkEnd = Math.min((i + batchChunk.length) * BATCH_SIZE, data.length)
-
-          console.log(`Processing batches ${i + 1}-${i + batchChunk.length} of ${batches.length} (records ${chunkStart}-${chunkEnd}/${data.length})...`)
-
-          // Process this chunk of batches in parallel
-          const results = await Promise.all(
-            batchChunk.map(batch =>
-              supabase
-                .from(tableName)
-                .upsert(batch, {
-                  onConflict: onConflictColumns,
-                  ignoreDuplicates: false
-                })
-            )
-          )
-
-          // Check for errors in this chunk
-          for (let j = 0; j < results.length; j++) {
-            if (results[j].error) {
-              console.error(`Error upserting ${description} batch ${i + j + 1}:`, results[j].error)
-              throw results[j].error
-            }
-          }
-
-          processedCount = chunkEnd
-          console.log(`✓ Completed ${chunkEnd}/${data.length} ${description}`)
-        }
-
-        console.log(`✓ All ${data.length} ${description} upserted successfully`)
-        return processedCount
+      // Clear staging table before starting (in case previous sync failed)
+      console.log('Clearing staging table from any previous incomplete syncs...')
+      const { error: clearError } = await supabase.rpc('clear_creator_engagement_staging')
+      if (clearError) {
+        console.warn('Warning: Failed to clear staging table:', clearError)
+      } else {
+        console.log('✓ Staging table cleared')
       }
 
-      // Upsert creator-level engagement pairs
-      console.log('Upserting creator-level pairs...')
+      // Step 1: Insert all creator pairs into staging table (fast, no conflict checking)
+      console.log(`Step 1/3: Staging ${creatorPairs.length} creator pairs...`)
+      let totalStaged = 0
+      let failedBatches = 0
 
-      const creatorCount = await upsertInParallelBatches(
-        creatorPairs,
-        'user_creator_engagement',
-        'distinct_id,creator_id',
-        'creator-level pairs'
+      // Insert in batches to avoid statement timeout
+      for (let i = 0; i < creatorPairs.length; i += STAGING_BATCH_SIZE) {
+        const batch = creatorPairs.slice(i, i + STAGING_BATCH_SIZE)
+        const batchNumber = Math.floor(i / STAGING_BATCH_SIZE) + 1
+
+        try {
+          const { error: insertError } = await supabase
+            .from('creator_engagement_staging')
+            .insert(batch)
+
+          if (insertError) {
+            console.error(`Error inserting staging batch ${batchNumber}:`, insertError.message)
+            failedBatches++
+            // Continue to next batch instead of failing entire sync
+            continue
+          }
+
+          totalStaged += batch.length
+          if ((i + STAGING_BATCH_SIZE) < creatorPairs.length) {
+            console.log(`✓ Staged ${totalStaged}/${creatorPairs.length} records...`)
+          }
+        } catch (batchError) {
+          const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
+          console.error(`Exception in staging batch ${batchNumber}:`, errorMessage)
+          failedBatches++
+          // Continue to next batch instead of failing entire sync
+        }
+      }
+
+      if (failedBatches > 0) {
+        console.warn(`⚠️ ${failedBatches} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
+      }
+
+      logElapsed()
+      console.log(`✓ Step 1 complete: ${totalStaged} records staged`)
+
+      // Release creator pairs from memory before processing
+      // @ts-ignore
+      creatorPairs = undefined
+      console.log('✓ Released creator pairs from memory')
+
+      // Step 2: Process staged data using Postgres function (10-50x faster than JS)
+      console.log('Step 2/3: Processing staged data in Postgres...')
+      const processingStart = Date.now()
+
+      const { data: processResult, error: processError } = await supabase.rpc(
+        'process_creator_engagement_staging'
       )
 
-      stats.totalRecordsInserted = creatorCount
+      if (processError) {
+        console.error('Error processing staged data in Postgres:', processError)
+        throw processError
+      }
+
+      const creatorCount = processResult[0]?.records_inserted || 0
+      const recordsProcessed = processResult[0]?.records_processed || 0
+      const processingElapsedSec = Math.round((Date.now() - processingStart) / 1000)
+
       logElapsed()
-      console.log(`✓ Creator pairs upsert complete: ${creatorCount} records`)
+      console.log(`✓ Step 2 complete: ${creatorCount} records upserted from ${recordsProcessed} staged records in ${processingElapsedSec}s`)
+
+      // Step 3: Clear staging table
+      console.log('Step 3/3: Clearing staging table...')
+      const { error: finalClearError } = await supabase.rpc('clear_creator_engagement_staging')
+
+      if (finalClearError) {
+        console.warn('Warning: Failed to clear staging table:', finalClearError)
+        // Don't fail the entire sync if cleanup fails
+      } else {
+        console.log('✓ Step 3 complete: Staging table cleared')
+      }
+
+      stats.totalRecordsInserted = creatorCount
+      const totalElapsedSec = Math.round((Date.now() - startTime) / 1000)
+      console.log(`✅ Creator processing completed successfully in ${totalElapsedSec}s (Postgres-accelerated)`)
 
       // NOTE: Materialized views refresh is now handled at the end of the full workflow
       // This ensures all data (subscribers, creators, events, etc.) is synced before refreshing

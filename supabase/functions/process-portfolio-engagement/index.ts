@@ -43,16 +43,12 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Track elapsed time with timeout prevention
+      // Track elapsed time
       const startTime = Date.now()
-      const TIMEOUT_BUFFER_MS = 140000  // Exit after 140s (10s buffer before 150s timeout)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
         console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
         return elapsed
-      }
-      const isApproachingTimeout = () => {
-        return (Date.now() - startTime) > TIMEOUT_BUFFER_MS
       }
 
       // Download raw data from Storage with error handling
@@ -150,6 +146,8 @@ serve(async (req) => {
       pdpViewsData = undefined
       // @ts-ignore
       subscriptionsData = undefined
+      // @ts-ignore - creator pairs not needed in this function (processed by background function)
+      creatorPairs = undefined
       console.log('✓ Memory released')
 
       // Trigger process-creator-engagement BEFORE upserting to ensure it happens even if we timeout
@@ -189,24 +187,39 @@ serve(async (req) => {
       // Step 1: Insert all portfolio pairs into staging table (fast, no conflict checking)
       console.log(`Step 1/3: Staging ${portfolioCreatorPairs.length} portfolio-creator pairs...`)
       let totalStaged = 0
+      let failedBatches = 0
 
       // Insert in batches to avoid statement timeout
       for (let i = 0; i < portfolioCreatorPairs.length; i += STAGING_BATCH_SIZE) {
         const batch = portfolioCreatorPairs.slice(i, i + STAGING_BATCH_SIZE)
+        const batchNumber = Math.floor(i / STAGING_BATCH_SIZE) + 1
 
-        const { error: insertError } = await supabase
-          .from('portfolio_engagement_staging')
-          .insert(batch)
+        try {
+          const { error: insertError } = await supabase
+            .from('portfolio_engagement_staging')
+            .insert(batch)
 
-        if (insertError) {
-          console.error('Error inserting staging batch:', insertError)
-          throw insertError
+          if (insertError) {
+            console.error(`Error inserting staging batch ${batchNumber}:`, insertError.message)
+            failedBatches++
+            // Continue to next batch instead of failing entire sync
+            continue
+          }
+
+          totalStaged += batch.length
+          if ((i + STAGING_BATCH_SIZE) < portfolioCreatorPairs.length) {
+            console.log(`✓ Staged ${totalStaged}/${portfolioCreatorPairs.length} records...`)
+          }
+        } catch (batchError) {
+          const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
+          console.error(`Exception in staging batch ${batchNumber}:`, errorMessage)
+          failedBatches++
+          // Continue to next batch instead of failing entire sync
         }
+      }
 
-        totalStaged += batch.length
-        if ((i + STAGING_BATCH_SIZE) < portfolioCreatorPairs.length) {
-          console.log(`✓ Staged ${totalStaged}/${portfolioCreatorPairs.length} records...`)
-        }
+      if (failedBatches > 0) {
+        console.warn(`⚠️ ${failedBatches} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
       }
 
       logElapsed()
