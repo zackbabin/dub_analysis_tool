@@ -98,15 +98,27 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 
 ### Sync Workflow
 
+**Manual Sync** (via "Sync Live Data" button):
+1. `sync-mixpanel-user-events-v2` - Event metrics from Insights API
+2. `sync-mixpanel-user-properties-v2` - User properties from Engage API
+3. `sync-creator-data` - Creator performance metrics
+4. `trigger-support-analysis` - Full support workflow:
+   - Sync Zendesk/Instabug conversations
+   - Run Claude CX analysis
+   - Sync Linear issues from "dub 3.0" team
+   - Map Linear issues to feedback themes
+5. `sync-event-sequences` - Raw event data for pattern analysis
+6. `process-event-sequences` - Join with conversion data
+7. `analyze-event-sequences` - Claude AI pattern analysis (copies only)
+8. `analyze-subscription-price` - Subscription pricing analysis
+9. `analyze-copy-patterns` - Portfolio/creator combinations
+10. `refresh-materialized-views` - Update all database views
+
 **Automatic Daily Sync** (2:00-3:00 AM UTC via cron):
 1. `sync-mixpanel-user-events-v2` - Event metrics (~2-5 min)
 2. `sync-mixpanel-user-properties-v2` - User properties (~5-10 min)
 3. `sync-mixpanel-engagement` - Granular engagement (~60-90s)
    - Auto-triggers pattern analysis functions
-
-**Manual Triggers**:
-- Event sequences analysis (via UI button)
-- Ad-hoc data refresh
 
 ---
 
@@ -117,17 +129,22 @@ Customer experience analysis powered by AI-driven support ticket categorization.
 **Data Sources**:
 - Zendesk support tickets
 - Instabug bug reports (future)
+- Linear issues (mapped to feedback themes)
 
 **What it shows**:
 - Top 10 product issues by priority (category weight + frequency + volume)
 - Issue categories: Compliance, Money Movement, Trading, App Functionality, Feature Requests
 - User segment analysis linked to support conversations
 - Representative ticket examples for each issue
+- Linear issue mappings (via AI semantic matching)
 
 **PII Protection**: All sensitive data redacted at ingestion (SSN, credit cards, phone numbers, etc.)
 
-**Automation**: Runs weekly via cron (Sundays at 3:30 AM UTC)
-**Cost**: ~$0.25 per weekly analysis (~$13/year)
+**Sync Methods**:
+- **Manual**: Included in "Sync Live Data" button (full workflow: Zendesk → Claude analysis → Linear sync → feedback mapping)
+- **Automatic**: Runs daily via cron (3:30-4:10 AM UTC)
+
+**Cost**: ~$0.25 per analysis (~$8/month for daily runs)
 
 ---
 
@@ -208,15 +225,18 @@ Configurable revenue projections based on user behavior and conversion metrics.
 Automatically maps user feedback to Linear issues for product roadmap prioritization.
 
 **Data Sources**:
-- Weekly support feedback analysis results
-- Linear issues (synced via Linear API)
+- Support feedback analysis results (top 10 issues)
+- Linear issues from "dub 3.0" team (synced via Linear API)
 
 **What it does**:
 - Matches top feedback themes to Linear issue titles using Claude AI
 - Tracks mapping confidence scores
 - Enables linking product priorities to customer pain points
+- Identifies which Linear issues address which customer problems
 
-**Automation**: Runs weekly after CX analysis (Sundays at 4:10 AM UTC)
+**Automation**:
+- **Manual**: Included in "Sync Live Data" button (part of support workflow)
+- **Automatic**: Runs daily at 4:10 AM UTC (part of support analysis pipeline)
 
 ---
 
@@ -233,13 +253,13 @@ All syncs run automatically via pg_cron:
 **Creator Analysis** (3:15 AM UTC):
 - `sync-creator-data` - Creator performance metrics
 
-**Support Analysis** (3:30-4:00 AM UTC):
-1. `sync-support-conversations` - Zendesk tickets
-2. `analyze-support-feedback` - AI categorization
+**Support Analysis** (3:30-4:10 AM UTC):
+1. `sync-support-conversations` - Zendesk/Instabug tickets
+2. `analyze-support-feedback` - Claude AI categorization and prioritization
+3. `sync-linear-issues` - Fetch issues from Linear "dub 3.0" team
+4. `map-linear-to-feedback` - AI semantic matching to feedback themes
 
-**Linear Integration** (4:00-4:10 AM UTC):
-1. `sync-linear-issues` - Linear issues sync
-2. `map-linear-to-feedback` - AI-powered feedback mapping
+**Note**: Support + Linear workflow orchestrated by `trigger-support-analysis` edge function
 
 ---
 
