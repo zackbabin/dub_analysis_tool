@@ -168,7 +168,23 @@ Analyzes premium creator performance and copy behavior patterns.
 
 **What it shows**: Month-over-month subscription renewal rates by creator
 
-**Note**: No manual file uploads - all data synced automatically from Mixpanel
+### Manual Data Uploads
+
+#### Portfolio Performance Metrics
+**Upload**: CSV files with portfolio performance data (returns, positions, inception dates)
+
+**Endpoint**: `upload-portfolio-metrics?dataType=performance`
+
+**Storage**: `portfolio_performance_metrics` table
+
+#### Portfolio Stock Holdings
+**Upload**: CSV files with stock holdings per portfolio (ticker, quantity, position count)
+
+**Endpoint**: `upload-portfolio-metrics?dataType=holdings`
+
+**Storage**: `portfolio_stock_holdings` table
+
+**Note**: Core creator metrics are synced automatically from Mixpanel daily
 
 ---
 
