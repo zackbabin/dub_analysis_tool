@@ -2128,80 +2128,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
-     * Override: Run the upload workflow using Supabase with 3 files
+     * REMOVED: 3-file creator upload workflow
+     * The upload-and-merge-creator-files Edge Function was removed in Oct 2024.
+     * Feature replaced by 2-file portfolio upload system (performance + holdings).
      */
     async runUploadWorkflow() {
-        if (!this.supabaseIntegration) {
-            throw new Error('Supabase not configured. Please check your configuration.');
-        }
-
-        try {
-            // Hide the upload form (mode section and creator content container)
-            const modeSection = document.getElementById('creatorModeSection');
-            if (modeSection) {
-                modeSection.style.display = 'none';
-            }
-
-            const creatorContent = document.getElementById('creatorContent');
-            if (creatorContent) {
-                creatorContent.style.display = 'none';
-            }
-
-            // Keep data source visible, show progress bar
-            this.clearStatus();
-            this.showProgress(0);
-
-            // Get the 3 file inputs
-            const creatorListInput = document.getElementById('creatorListFileInput');
-            const dealsInput = document.getElementById('dealsFileInput');
-            const publicCreatorsInput = document.getElementById('publicCreatorsFileInput');
-
-            if (!creatorListInput.files[0] || !dealsInput.files[0] || !publicCreatorsInput.files[0]) {
-                throw new Error('Please select all 3 CSV files before processing');
-            }
-
-            this.updateProgress(20, 'Reading files...');
-
-            // Read all 3 files
-            const creatorListCsv = await this.readFileAsText(creatorListInput.files[0]);
-            const dealsCsv = await this.readFileAsText(dealsInput.files[0]);
-            const publicCreatorsCsv = await this.readFileAsText(publicCreatorsInput.files[0]);
-
-            this.updateProgress(40, 'Merging and processing files...');
-
-            // Upload and merge through Supabase Edge Function
-            const result = await this.supabaseIntegration.uploadAndMergeCreatorFiles(
-                creatorListCsv,
-                dealsCsv,
-                publicCreatorsCsv
-            );
-
-            if (!result || !result.success) {
-                throw new Error(result?.error || 'Failed to upload and merge creator files');
-            }
-
-            console.log('✅ Creator files merged:', result.stats);
-            this.updateProgress(50, 'Upload complete! Starting sync...');
-
-            // Proceed immediately to sync (no delay)
-            await this.runSyncAndAnalyzeWorkflow();
-        } catch (error) {
-            console.error('Upload workflow error:', error);
-            // Keep progress bar visible to show error
-            const progressBar = document.getElementById('creatorProgressBar');
-            if (progressBar) {
-                const textDiv = progressBar.querySelector('div');
-                if (textDiv) {
-                    textDiv.textContent = `❌ Error: ${error.message}`;
-                }
-                progressBar.style.background = '#dc3545'; // Red for error
-            }
-
-            // Also show error in status section
-            this.addStatusMessage(`❌ Error during upload: ${error.message}`, 'error');
-
-            throw error;
-        }
+        throw new Error('3-file creator upload is no longer supported. Please use the 2-file portfolio upload (Performance + Holdings) instead.');
     }
 
     /**
