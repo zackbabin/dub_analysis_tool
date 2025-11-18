@@ -190,6 +190,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text (top left) and timestamp (top right)
         // Get the actual Mixpanel data refresh time from sync_logs (same as user analysis tabs)
         const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+        console.log('🕐 Creator Analysis displayResults timestamp:', {
+            mixpanelSyncTime: mixpanelSyncTime ? mixpanelSyncTime.toISOString() : 'null',
+            willUseFallback: !mixpanelSyncTime
+        });
         const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
@@ -513,6 +517,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Get the actual Mixpanel data refresh time from sync_logs
         const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
+        console.log('🕐 Creator Analysis timestamp update:', {
+            mixpanelSyncTime: mixpanelSyncTime ? mixpanelSyncTime.toISOString() : 'null',
+            willUseFallback: !mixpanelSyncTime
+        });
         const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
@@ -2492,8 +2500,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Re-rendering creator analysis with fresh data...');
             await this.displayResults({ summaryStats, subscriptionDistribution });
 
-            // Update timestamp and data scope with current time
-            this.updateTimestampAndDataScope();
+            // Note: displayResults() already adds timestamp from last sync
+            // No need to call updateTimestampAndDataScope() again
 
             // Save updated HTML to unified cache
             this.saveToUnifiedCache();
@@ -2564,8 +2572,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             console.log('Re-rendering creator analysis with fresh data...');
             await this.displayResults({ summaryStats, subscriptionDistribution });
 
-            // Update timestamp and data scope with current time (matching user tool pattern)
-            this.updateTimestampAndDataScope();
+            // Note: displayResults() already adds timestamp from last sync
+            // No need to call updateTimestampAndDataScope() again
 
             // Save updated HTML to unified cache
             this.saveToUnifiedCache();
@@ -2961,8 +2969,9 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
                 useHTML: true,
                 formatter: function() {
                     const creators = topCreators[this.point.index];
+                    const price = prices[this.point.index];
                     let html = `<div style="padding: 8px;">`;
-                    html += `<b>Price:</b> ${this.x}<br/>`;
+                    html += `<b>Price:</b> $${price.toFixed(2)}<br/>`;
                     html += `<b>Total Subscriptions:</b> ${this.y}<br/>`;
 
                     if (creators && creators.length > 0) {

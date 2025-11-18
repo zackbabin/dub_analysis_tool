@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-08'; // Fix Refresh Data button and improve chart tooltip debugging
+const CURRENT_VERSION = '2025-11-18-09'; // Fix tooltip price format and timestamp preservation on Refresh Data
 
 class VersionChecker {
     constructor() {
