@@ -689,6 +689,39 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger support analysis workflow (Zendesk + Linear integration)
+     * Orchestrates: sync conversations, analyze with Claude, sync Linear, map to feedback
+     */
+    async triggerSupportAnalysis() {
+        console.log('Triggering support analysis workflow (Zendesk + Linear)...');
+
+        try {
+            // Call trigger-support-analysis function which orchestrates the full pipeline:
+            // 1. Sync Zendesk/Instabug conversations
+            // 2. Run Claude CX analysis
+            // 3. Sync Linear issues
+            // 4. Map Linear issues to feedback
+            const result = await this.supabase.functions.invoke('trigger-support-analysis', { body: {} });
+
+            if (result.error) {
+                console.error('Support analysis workflow error:', result.error);
+                throw new Error(`Support analysis failed: ${result.error.message}`);
+            }
+
+            if (!result.data.success) {
+                throw new Error(result.data.error || 'Unknown error during support analysis');
+            }
+
+            console.log('✅ Support analysis workflow completed:', result.data);
+
+            return result.data;
+        } catch (error) {
+            console.error('Error calling support analysis workflow:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Load creator data from Supabase database
      * Queries the creators_insights table
      */
