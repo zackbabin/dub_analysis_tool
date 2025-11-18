@@ -100,13 +100,13 @@
     <script src="user_analysis_tool.js?v=35"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=35"></script>
+    <script src="user_analysis_tool_supabase.js?v=36"></script>
 
     <!-- Load Creator Analysis Tool -->
     <script src="creator_analysis_tool.js?v=34"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=35"></script>
+    <script src="creator_analysis_tool_supabase.js?v=36"></script>
 
     <!-- Load Business Model Analysis Tool -->
     <script src="business-model-analysis.js?v=33"></script>
@@ -708,25 +708,24 @@
             // Check for auto-refresh flag (set by version update toast)
             const autoRefreshFlag = localStorage.getItem('autoRefreshAfterVersionUpdate');
             if (autoRefreshFlag === 'true') {
-                console.log('🔄 Auto-refresh flag detected - fetching fresh data from database...');
+                console.log('🔄 Auto-refresh flag detected - reloading UI from cache...');
 
                 // Remove the flag immediately to prevent repeated refreshes
                 localStorage.removeItem('autoRefreshAfterVersionUpdate');
 
-                // Trigger automatic database refresh (no Mixpanel sync)
-                setTimeout(async () => {
+                // Reload UI from cache only (no database queries)
+                // The timestamps will remain from the last "Sync Live Data" operation
+                setTimeout(() => {
                     try {
-                        console.log('Step 1: Refreshing user analysis data...');
-                        await userTool.refreshFromDatabaseOnly();
-                        console.log('✅ User analysis data refreshed');
+                        console.log('Reloading user analysis UI from cache...');
+                        userTool.reloadUIFromCache();
 
-                        console.log('Step 2: Refreshing creator analysis data...');
-                        await creatorTool.refreshFromDatabaseOnly();
-                        console.log('✅ Creator analysis data refreshed');
+                        console.log('Reloading creator analysis UI from cache...');
+                        creatorTool.reloadUIFromCache();
 
-                        console.log('✅ Auto-refresh complete - all data updated from database');
+                        console.log('✅ UI reloaded from cache - timestamps preserved from last sync');
                     } catch (error) {
-                        console.error('❌ Auto-refresh failed:', error);
+                        console.error('❌ UI reload failed:', error);
                     }
                 }, 500); // Small delay to ensure UI is fully loaded
             }

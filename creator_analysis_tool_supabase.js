@@ -2436,6 +2436,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
     }
 
     /**
+     * Reload UI from cache only (no database queries)
+     * Used when refreshing after version updates - just reloads the cached UI
+     */
+    reloadUIFromCache() {
+        console.log('🔄 Reloading creator UI from cache...');
+        this.restoreFromUnifiedCache();
+    }
+
+    /**
      * Refresh data from database only (no Mixpanel sync)
      * Used when user clicks "Refresh" on version update toast
      */

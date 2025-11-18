@@ -388,9 +388,42 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Refresh data from database only (no Mixpanel sync)
-     * Used when user clicks "Refresh" on version update toast
+     * Reload UI from cache only (no database queries)
+     * Used when refreshing after version updates - just reloads the cached UI
      */
+    reloadUIFromCache() {
+        console.log('🔄 Reloading UI from cache...');
+
+        try {
+            const cached = localStorage.getItem('dubAnalysisResults');
+            if (!cached) {
+                console.warn('No cached data found, skipping UI reload');
+                return;
+            }
+
+            const data = JSON.parse(cached);
+
+            // Restore cached HTML to each tab
+            if (data.summary && this.outputContainers.summary) {
+                this.outputContainers.summary.innerHTML = data.summary;
+                this.removeAnchorLinks(this.outputContainers.summary);
+            }
+            if (data.portfolio && this.outputContainers.portfolio) {
+                this.outputContainers.portfolio.innerHTML = data.portfolio;
+                this.removeAnchorLinks(this.outputContainers.portfolio);
+            }
+            if (data.subscription && this.outputContainers.subscription) {
+                this.outputContainers.subscription.innerHTML = data.subscription;
+                this.removeAnchorLinks(this.outputContainers.subscription);
+            }
+
+            const cacheAge = data.timestamp ? Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000) : null;
+            console.log(`✅ UI reloaded from cache${cacheAge ? ` (${cacheAge} min ago)` : ''}`);
+        } catch (error) {
+            console.error('Failed to reload UI from cache:', error);
+        }
+    }
+
     async refreshFromDatabaseOnly() {
         this.clearStatus();
         this.showProgress(0);
