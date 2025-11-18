@@ -71,30 +71,6 @@ serve(async (req) => {
 
       const zendeskStatus = syncStatus?.find((s) => s.source === 'zendesk')
       const zendeskLastSync = zendeskStatus?.last_sync_timestamp
-      const zendeskLastStatus = zendeskStatus?.last_sync_status
-
-      // EARLY RETURN: Skip sync if last successful sync was very recent (< 30 minutes)
-      // This prevents unnecessary API calls and database timeouts on duplicate data
-      if (zendeskLastSync && zendeskLastStatus === 'success') {
-        const timeSinceLastSync = Date.now() - new Date(zendeskLastSync).getTime()
-        const minutesSinceSync = Math.round(timeSinceLastSync / 1000 / 60)
-
-        if (timeSinceLastSync < 30 * 60 * 1000) { // 30 minutes
-          console.log(`⏭️ Skipping sync - last successful sync was ${minutesSinceSync} minutes ago (< 30 min threshold)`)
-
-          await updateSyncLogSuccess(supabase, syncLogId, {
-            total_records_inserted: 0,
-          })
-
-          return createSuccessResponse('Sync skipped - recently completed', {
-            totalTimeSeconds: 0,
-            conversations_synced: 0,
-            messages_synced: 0,
-            skipped: true,
-            reason: `Last sync was ${minutesSinceSync} minutes ago`,
-          })
-        }
-      }
 
       // COMMENTED OUT: Instabug integration (not ready yet)
       // const instabugLastSync = syncStatus?.find((s) => s.source === 'instabug')?.last_sync_timestamp
