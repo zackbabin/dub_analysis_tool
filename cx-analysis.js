@@ -102,7 +102,19 @@ class CXAnalysis {
         titleSection.className = 'qda-result-section';
         titleSection.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                <h1 style="margin: 0;">CX Analysis</h1>
+                <h1 style="margin: 0;"><span class="info-tooltip">CX Analysis<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>CX Analysis</strong>
+                        AI-driven support ticket analysis identifying top product issues and customer feedback themes.
+                        <ul>
+                            <li><strong>Data Source:</strong> Zendesk support tickets (last 30 days)</li>
+                            <li><strong>AI Analysis:</strong> Claude Sonnet 4 categorizes tickets by issue type and priority</li>
+                            <li><strong>Categories:</strong> Compliance, Money Movement, Trading, App Functionality, Feature Requests</li>
+                            <li><strong>Automation:</strong> Runs weekly (Sundays at 3:30 AM UTC via cron)</li>
+                            <li><strong>Privacy:</strong> PII redacted at ingestion</li>
+                        </ul>
+                    </span>
+                </span></h1>
                 <button onclick="window.refreshAllTabs()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
             </div>
             <div style="color: #6c757d; font-size: 0.9rem;">

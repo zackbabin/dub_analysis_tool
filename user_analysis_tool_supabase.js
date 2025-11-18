@@ -601,13 +601,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <h1 style="margin: 0;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
                             <span class="tooltip-text">
                                 <strong>Behavior Analysis</strong>
-                                Copy behavior metrics showing engagement patterns and conversion rates.
+                                User behavior patterns, engagement metrics, and conversion analysis across the platform.
                                 <ul>
                                     <li><strong>Data Sources:</strong>
-                                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (PDP Views, Copies, Liquidations),
+                                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85713544%22" target="_blank" style="color: #17a2b8;">Chart 85713544</a> (User Event Metrics),
+                                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Engagement: PDP Views, Copies, Liquidations),
                                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Profile Views)
                                     </li>
-                                    <li><strong>Metrics:</strong> Copy engagement, conversion rates, hidden gems analysis</li>
+                                    <li><strong>Analyses:</strong> Behavioral drivers, high-impact combinations, hidden gems, pattern sequences</li>
                                 </ul>
                             </span>
                         </span></h1>
@@ -2190,10 +2191,11 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
             Key platform metrics for marketing and growth tracking.
             <ul>
                 <li><strong>Data Sources:</strong>
-                    <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86100814%22" target="_blank" style="color: #17a2b8;">Chart 86100814</a> (Monthly Copies),
-                    Manual CSV Upload (Portfolio Data)
+                    <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86100814%22" target="_blank" style="color: #17a2b8;">Chart 86100814</a> (Avg Monthly Copies),
+                    Manual CSV Upload (Portfolio Performance Metrics for Market-Beating count)
                 </li>
-                <li><strong>Metrics:</strong> Monthly copy trends, public portfolio count, portfolio performance</li>
+                <li><strong>Trigger:</strong> Manual "Fetch Marketing Data" button</li>
+                <li><strong>Metrics:</strong> Avg monthly copies, total investments, total public portfolios, total market-beating portfolios</li>
             </ul>
         </span>
     </span>`;

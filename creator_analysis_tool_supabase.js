@@ -369,9 +369,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
                                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing),
                                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165590%22" target="_blank" style="color: #17a2b8;">Chart 85165590</a> (Subscriptions),
-                                Manual CSV Upload (Portfolio Returns & Capital)
+                                Manual CSV Upload (Portfolio Performance & Stock Holdings)
                             </li>
-                            <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution</li>
+                            <li><strong>Metrics:</strong> Subscription patterns, engagement metrics, price distribution, copy affinity, retention</li>
                         </ul>
                     </span>
                 </span></h1>
@@ -598,7 +598,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-86055000%22" target="_blank" style="color: #17a2b8;">Chart 86055000</a> (Copies & Liquidations Aggregates),
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
-                        Manual CSV Upload (Portfolio Returns & Capital)
+                        Manual CSV Upload (Portfolio Performance & Stock Holdings)
                     </li>
                     <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
                 </ul>
