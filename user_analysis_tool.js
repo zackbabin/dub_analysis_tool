@@ -1114,9 +1114,30 @@ const ALL_VARIABLES = [
 ];
 
 const SECTION_EXCLUSIONS = {
-    'totalDeposits': ['totalWithdrawals', 'totalWithdrawalCount', 'totalDepositCount', 'hasLinkedBank', 'totalRegularCopies', 'totalPremiumCopies', 'buyingPower', 'availableCopyCredits'],
-    'totalCopies': ['hasLinkedBank', 'totalRegularCopies', 'totalPremiumCopies', 'availableCopyCredits'],
-    'totalSubscriptions': ['subscribedWithin7Days', 'totalSubscriptions']
+    'totalDeposits': [
+        'availableCopyCredits',
+        'buyingPower',
+        'activeCreatedPortfolios',
+        'lifetimeCreatedPortfolios',
+        'activeCopiedPortfolios',
+        'lifetimeCopiedPortfolios',
+        'totalDeposits',
+        'totalDepositCount',
+        'hasLinkedBank',
+        'totalCopies',
+        'totalRegularCopies',
+        'totalPremiumCopies'
+    ],
+    'totalCopies': [
+        'availableCopyCredits',
+        'activeCreatedPortfolios',
+        'lifetimeCreatedPortfolios',
+        'activeCopiedPortfolios',
+        'lifetimeCopiedPortfolios'
+    ],
+    'totalSubscriptions': [
+        'totalSubscriptions'
+    ]
 };
 
 // Expose to window for access by Supabase version
@@ -1544,6 +1565,8 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         // Portfolio Trading Metrics
         activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios'] || row['activeCreatedPortfolios']),
         lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios'] || row['lifetimeCreatedPortfolios']),
+        activeCopiedPortfolios: cleanNumeric(row['Active Copied Portfolios'] || row['activeCopiedPortfolios']),
+        lifetimeCopiedPortfolios: cleanNumeric(row['Lifetime Copied Portfolios'] || row['lifetimeCopiedPortfolios']),
         totalBuys: cleanNumeric(row['Total Buys'] || row['totalBuys']),
         totalSells: cleanNumeric(row['Total Sells'] || row['totalSells']),
         totalTrades: cleanNumeric(row['Total Trades'] || row['totalTrades']),
@@ -1693,6 +1716,8 @@ function getVariableLabel(variable) {
         'totalWithdrawalCount': 'Total Withdrawal Count',
         'activeCreatedPortfolios': 'Active Created Portfolios',
         'lifetimeCreatedPortfolios': 'Lifetime Created Portfolios',
+        'activeCopiedPortfolios': 'Active Copied Portfolios',
+        'lifetimeCopiedPortfolios': 'Lifetime Copied Portfolios',
         'totalBuys': 'Total Buys',
         'totalSells': 'Total Sells',
         'totalTrades': 'Total Trades',
