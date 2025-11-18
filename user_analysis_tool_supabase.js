@@ -2769,13 +2769,15 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
         driversData.slice(0, 10).forEach(row => {
             const tr = document.createElement('tr');
 
-            // Use variable label if available
-            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
-
-            // Variable cell
+            // Variable cell - format same as deposits/copies tables for consistency
             const varCell = document.createElement('td');
-            varCell.style.fontWeight = '600';
-            varCell.textContent = displayName;
+            // Handle acronyms like "PDP" - keep consecutive capitals together
+            const readableVar = row.variable_name
+                .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
+                .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Split before last capital in sequence
+                .trim();
+            varCell.textContent = readableVar;
+            varCell.style.width = '200px'; // Consistent variable column width across all tables
             tr.appendChild(varCell);
 
             // Correlation cell

@@ -1698,6 +1698,8 @@ function getVariableLabel(variable) {
         'uniquePortfoliosInteracted': 'Unique Portfolios Interacted',
         'regularPDPViews': 'Regular PDP Views',
         'premiumPDPViews': 'Premium PDP Views',
+        'totalPDPViews': 'Total PDP Views',
+        'totalProfileViews': 'Total Profile Views',
         'paywallViews': 'Paywall Views',
         'totalStripeViews': 'Total Stripe Views',
         'regularCreatorProfileViews': 'Regular Creator Profile Views',
