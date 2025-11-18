@@ -133,44 +133,42 @@ Customer experience analysis powered by AI-driven support ticket categorization.
 
 ## Tab 4: Premium Creator Analysis
 
-Analyzes creator performance metrics and identifies top performers.
+Analyzes premium creator performance and copy behavior patterns.
+
+**Data Sources**:
+- Mixpanel Insights API (charts 85165580, 85165590, 85154450, 85130412)
+- Synced automatically via daily cron jobs
 
 ### Core Analyses
 
-#### 2.1 Creator Insights
-**Purpose**: Track creator engagement and revenue metrics
+#### Premium Creator Copy Affinity
+**Purpose**: Identify which creators are most frequently copied together by the same users
+
+**What it shows**:
+- For each premium creator, shows top 5 other creators (premium + regular) that their copiers also copy
+- Based on actual user copy behavior patterns
+- Helps identify creator clusters and cross-promotion opportunities
+
+#### Premium Creator Breakdown
+**Purpose**: Performance metrics for each premium creator
 
 **Metrics tracked**:
 - Engagement: profile views, PDP views, paywall views
 - Revenue: subscriptions, subscription revenue, cancellations
-- Trading: total copies, investment volume
+- Trading: total copies, liquidations, copy capital
+- Performance: all-time returns
 
-#### 2.2 Subscription Price Analysis
-**Purpose**: Analyze subscription metrics by price point
+#### Subscription Price Distribution
+**Purpose**: Analyze subscription pricing across premium creators
 
-**What it tracks**: Subscriptions and paywall views at each price tier for price elasticity analysis
+**What it shows**: Distribution of subscription prices and intervals (monthly/annual)
 
-#### 2.3 Creator Data Upload (Manual)
+#### Premium Creator Retention
+**Purpose**: Track cohort retention for premium creator subscriptions
 
-**Purpose**: Enrich creator analysis with custom data for correlation analysis
+**What it shows**: Month-over-month subscription renewal rates by creator
 
-**Process**:
-1. **Upload 3 CSV files** (via UI file upload):
-   - Creator List (base creator data)
-   - Deals (deal terms and metadata)
-   - Public Creators (public/verified status)
-2. Files merged automatically using name → email matching
-3. Data stored in `creator_uploads` table (raw_data JSONB column)
-4. Click "Sync Live Data" to enrich with Mixpanel metrics
-5. `creator_analysis` view joins uploads + Mixpanel profiles + engagement data
-6. Correlation analysis runs on all numeric fields in raw_data
-
-**What gets enriched**:
-- Mixpanel user properties (deposits, portfolios, investing activity)
-- Engagement metrics (total copies, subscriptions)
-- Performance data (if available)
-
-**Use case**: Identify which creator attributes predict success (copies/subscriptions)
+**Note**: No manual file uploads - all data synced automatically from Mixpanel
 
 ---
 
