@@ -788,6 +788,7 @@ class UserAnalysisTool {
             margin: 5px 0;
             border-radius: 4px;
             font-size: 13px;
+            transition: opacity 0.5s ease-out;
             ${type === 'success' ? 'background: #d4edda; color: #155724;' : ''}
             ${type === 'error' ? 'background: #f8d7da; color: #721c24;' : ''}
             ${type === 'info' ? 'background: #d1ecf1; color: #0c5460;' : ''}
@@ -797,6 +798,18 @@ class UserAnalysisTool {
 
         // Auto-scroll to bottom
         statusSection.scrollTop = statusSection.scrollHeight;
+
+        // Auto-hide success messages after 3 seconds
+        if (type === 'success') {
+            setTimeout(() => {
+                messageDiv.style.opacity = '0';
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.remove();
+                    }
+                }, 500); // Wait for fade-out animation to complete
+            }, 3000);
+        }
     }
 
     /**
