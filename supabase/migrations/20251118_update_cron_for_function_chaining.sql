@@ -24,7 +24,7 @@ UPDATE cron_job_config
 SET
   description = 'Daily sync of Zendesk support tickets (incremental). Automatically chains: sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback.',
   estimated_duration_minutes = 35,  -- Total chain duration (~35 min)
-  dependencies = ARRAY['sync-creator-data-daily']
+  depends_on = ARRAY['sync-creator-data-daily']
 WHERE job_name = 'sync-support-conversations-daily';
 
 -- ============================================================================
