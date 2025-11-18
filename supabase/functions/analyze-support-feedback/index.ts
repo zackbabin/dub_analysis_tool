@@ -236,8 +236,8 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
-      // Fetch enriched conversations (limit to 800 to stay under 200k token limit)
-      const MAX_CONVERSATIONS = 800
+      // Fetch enriched conversations (limit to 500 to stay under 200k token limit)
+      const MAX_CONVERSATIONS = 500
       const { data: conversations, error: fetchError } = await supabase
         .from('enriched_support_conversations')
         .select('*')

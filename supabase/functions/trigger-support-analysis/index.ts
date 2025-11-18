@@ -75,67 +75,8 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Check if we should skip analysis (if already run today)
-    // Initialize Supabase client to check last analysis
-    const { createClient } = await import('npm:@supabase/supabase-js@2')
-    const supabase = createClient(supabaseUrl, serviceKey)
-
-    const { data: lastAnalysis } = await supabase
-      .from('support_analysis_results')
-      .select('created_at, analysis_date')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    const today = new Date().toISOString().split('T')[0]
-    const lastAnalysisDate = lastAnalysis?.analysis_date
-
-    if (lastAnalysisDate === today && syncSkipped) {
-      console.log(`⏭️ Skipping analysis - already ran today (${today}) and no new data synced`)
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Analysis skipped - already completed today with no new data',
-          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
-          sync_summary: syncResult.stats,
-          analysis_summary: { skipped: true, reason: 'Already ran today' },
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-          status: 200,
-        }
-      )
-    }
-
-    // Step 3: Run Claude analysis on synced data
-    console.log('Step 2: Running Claude analysis...')
-    const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!analysisResponse.ok) {
-      const errorText = await analysisResponse.text()
-      throw new Error(`Analysis failed (${analysisResponse.status}): ${errorText}`)
-    }
-
-    const analysisResult = await analysisResponse.json()
-
-    if (!analysisResult.success) {
-      throw new Error(`Analysis failed: ${analysisResult.error}`)
-    }
-
-    console.log('✓ Analysis complete:', analysisResult.stats)
-
-    // Step 4: Sync Linear issues
-    console.log('Step 3: Syncing Linear issues...')
+    // Step 2: Sync Linear issues (BEFORE analysis so view includes Linear data)
+    console.log('Step 2: Syncing Linear issues...')
     let linearSyncResult
     let linearSyncSkipped = false
 
@@ -174,43 +115,140 @@ serve(async (req) => {
       }
     }
 
-    // Step 5: Map Linear issues to feedback (only if Linear sync succeeded)
-    console.log('Step 4: Mapping Linear issues to feedback...')
+    // Step 3: Refresh enriched_support_conversations view (combines Zendesk + Linear data)
+    console.log('Step 3: Refreshing enriched support conversations view...')
+    const { createClient } = await import('npm:@supabase/supabase-js@2')
+    const supabase = createClient(supabaseUrl, serviceKey)
+
+    try {
+      const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
+
+      if (refreshError) {
+        console.error('⚠️ Failed to refresh view:', refreshError)
+        console.log('💡 Continuing with potentially stale data...')
+      } else {
+        console.log('✓ View refreshed successfully')
+      }
+    } catch (refreshException) {
+      console.error('⚠️ Exception refreshing view:', refreshException)
+      console.log('💡 Continuing with potentially stale data...')
+    }
+
+    // Step 4: Check if we should skip analysis (if already run today and no new data)
+    const { data: lastAnalysis } = await supabase
+      .from('support_analysis_results')
+      .select('created_at, analysis_date')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    const today = new Date().toISOString().split('T')[0]
+    const lastAnalysisDate = lastAnalysis?.analysis_date
+
+    if (lastAnalysisDate === today && syncSkipped && linearSyncSkipped) {
+      console.log(`⏭️ Skipping analysis - already ran today (${today}) and no new data synced`)
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Analysis skipped - already completed today with no new data',
+          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
+          sync_summary: syncResult.stats,
+          linear_sync_summary: linearSyncResult,
+          analysis_summary: { skipped: true, reason: 'Already ran today' },
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          status: 200,
+        }
+      )
+    }
+
+    // Step 5: Run Claude analysis on synced data (now includes Linear metadata)
+    console.log('Step 4: Running Claude analysis...')
+    let analysisResult
+
+    try {
+      const analysisResponse = await fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!analysisResponse.ok) {
+        const errorText = await analysisResponse.text()
+        console.error(`⚠️ Analysis failed (${analysisResponse.status}): ${errorText}`)
+        throw new Error(`Analysis failed: ${errorText}`)
+      }
+
+      analysisResult = await analysisResponse.json()
+
+      if (!analysisResult.success) {
+        console.error(`⚠️ Analysis returned failure: ${analysisResult.error}`)
+        throw new Error(`Analysis failed: ${analysisResult.error}`)
+      }
+
+      console.log('✓ Analysis complete:', analysisResult.stats)
+    } catch (analysisError) {
+      console.error('❌ Analysis threw exception:', analysisError)
+
+      // Analysis failure is critical - return error response
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: analysisError instanceof Error ? analysisError.message : String(analysisError),
+          message: 'Pipeline failed at analysis step',
+          pipeline_duration_seconds: Math.round((Date.now() - pipelineStartTime) / 1000),
+          sync_summary: syncResult.stats,
+          linear_sync_summary: linearSyncResult,
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          status: 500,
+        }
+      )
+    }
+
+    // Step 6: Map Linear issues to feedback (only if analysis succeeded)
+    console.log('Step 5: Mapping Linear issues to feedback...')
     let mappingResult
 
-    if (!linearSyncSkipped) {
-      try {
-        const mappingResponse = await fetch(`${supabaseUrl}/functions/v1/map-linear-to-feedback`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-        })
+    try {
+      const mappingResponse = await fetch(`${supabaseUrl}/functions/v1/map-linear-to-feedback`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
 
-        if (!mappingResponse.ok) {
-          const errorText = await mappingResponse.text()
-          console.warn(`⚠️ Linear mapping failed (${mappingResponse.status}): ${errorText}`)
-          mappingResult = { success: false, error: errorText }
+      if (!mappingResponse.ok) {
+        const errorText = await mappingResponse.text()
+        console.warn(`⚠️ Linear mapping failed (${mappingResponse.status}): ${errorText}`)
+        mappingResult = { success: false, error: errorText }
+      } else {
+        mappingResult = await mappingResponse.json()
+
+        if (!mappingResult.success) {
+          console.warn(`⚠️ Linear mapping returned failure: ${mappingResult.error}`)
         } else {
-          mappingResult = await mappingResponse.json()
-
-          if (!mappingResult.success) {
-            console.warn(`⚠️ Linear mapping returned failure: ${mappingResult.error}`)
-          } else {
-            console.log('✓ Linear mapping complete:', mappingResult.stats || mappingResult.message)
-          }
-        }
-      } catch (mappingError) {
-        console.error('⚠️ Linear mapping threw exception:', mappingError)
-        mappingResult = {
-          success: false,
-          error: mappingError instanceof Error ? mappingError.message : String(mappingError),
+          console.log('✓ Linear mapping complete:', mappingResult.stats || mappingResult.message)
         }
       }
-    } else {
-      console.log('⏭️ Skipping Linear mapping - sync was not successful')
-      mappingResult = { success: false, skipped: true, reason: 'Linear sync failed' }
+    } catch (mappingError) {
+      console.error('⚠️ Linear mapping threw exception:', mappingError)
+      mappingResult = {
+        success: false,
+        error: mappingError instanceof Error ? mappingError.message : String(mappingError),
+      }
     }
 
     const pipelineElapsedSec = Math.round((Date.now() - pipelineStartTime) / 1000)
