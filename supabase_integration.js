@@ -1120,34 +1120,8 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * Trigger subscription pattern analysis via Edge Function
-     * Runs exhaustive search + logistic regression to find best creator combinations
-     */
-    async triggerSubscriptionAnalysis() {
-        console.log('Triggering subscription pattern analysis...');
-
-        try {
-            const { data, error } = await this.supabase.functions.invoke('analyze-subscription-patterns', {
-                body: {}
-            });
-
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Subscription analysis failed: ${error.message}`);
-            }
-
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during subscription analysis');
-            }
-
-            console.log('✅ Subscription analysis completed successfully:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling subscription analysis Edge Function:', error);
-            throw error;
-        }
-    }
+    // REMOVED: triggerSubscriptionAnalysis() - analyze-subscription-patterns merged into analyze-conversion-patterns
+    // Use triggerCopyAnalysis() with analysis_type='subscription' if needed
 
     /**
      * Generic function to load top combinations for any analysis type (DRY)
@@ -1520,37 +1494,11 @@ class SupabaseIntegration {
      * @param {Array} creatorData - Array of cleaned creator objects with creator_id, creator_username, raw_data
      * @returns {Promise} - { success: true, stats: { uploaded: N, enriched: N } }
      */
-    /**
-     * Upload and merge 3 creator CSV files
-     * Calls upload-and-merge-creator-files Edge Function
-     */
+    // REMOVED: uploadAndMergeCreatorFiles() - Edge Function upload-and-merge-creator-files was removed
+    // WARNING: This function is still called from creator_analysis_tool_supabase.js:2173
+    // TODO: Either restore the Edge Function or update the creator upload UI
     async uploadAndMergeCreatorFiles(creatorListCsv, dealsCsv, publicCreatorsCsv) {
-        try {
-            console.log('Uploading and merging 3 creator files via Edge Function...');
-
-            const { data, error } = await this.supabase.functions.invoke('upload-and-merge-creator-files', {
-                body: {
-                    creatorListCsv,
-                    dealsCsv,
-                    publicCreatorsCsv
-                }
-            });
-
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Failed to merge creator files: ${error.message}`);
-            }
-
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during file merge');
-            }
-
-            console.log('✅ Creator files merged successfully:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling upload-and-merge Edge Function:', error);
-            throw error;
-        }
+        throw new Error('upload-and-merge-creator-files Edge Function no longer exists. Please use upload-portfolio-metrics instead or restore the removed function.');
     }
 
     /**
