@@ -515,6 +515,13 @@ body {
     opacity: 1;
 }
 
+/* Table header tooltips use fixed positioning to escape overflow containers */
+th .info-tooltip .tooltip-text {
+    position: fixed;
+    left: auto !important;
+    bottom: auto !important;
+}
+
 .info-tooltip .tooltip-text strong {
     color: #63b3ed;
     display: block;

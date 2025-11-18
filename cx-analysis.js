@@ -180,9 +180,69 @@ class CXAnalysis {
         setTimeout(() => {
             this.initializeExamplesToolips();
             this.initializeLinearStatusTooltips();
+            this.initializeTableHeaderTooltips();
         }, 0);
 
         return section;
+    }
+
+    initializeTableHeaderTooltips() {
+        // Initialize table header tooltips (like Linear Status) with fixed positioning
+        const headerTooltips = document.querySelectorAll('th .info-tooltip');
+
+        headerTooltips.forEach(tooltipWrapper => {
+            const tooltipBox = tooltipWrapper.querySelector('.tooltip-text');
+            if (!tooltipBox) return;
+
+            tooltipWrapper.addEventListener('mouseenter', () => {
+                // Get tooltip wrapper position
+                const rect = tooltipWrapper.getBoundingClientRect();
+
+                // Show tooltip
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+
+                // Calculate position (above the header, centered)
+                const tooltipWidth = 400;
+                let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
+                let top = rect.top - tooltipBox.offsetHeight - 8;
+
+                // Keep tooltip on screen horizontally
+                if (left < 10) left = 10;
+                if (left + tooltipWidth > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipWidth - 10;
+                }
+
+                // If tooltip goes above viewport, show below instead
+                if (top < 10) {
+                    top = rect.bottom + 8;
+                }
+
+                tooltipBox.style.left = `${left}px`;
+                tooltipBox.style.top = `${top}px`;
+            });
+
+            tooltipWrapper.addEventListener('mouseleave', () => {
+                // Delay hiding to allow moving to tooltip
+                setTimeout(() => {
+                    if (!tooltipBox.matches(':hover')) {
+                        tooltipBox.style.visibility = 'hidden';
+                        tooltipBox.style.opacity = '0';
+                    }
+                }, 100);
+            });
+
+            // Keep visible when hovering tooltip
+            tooltipBox.addEventListener('mouseenter', () => {
+                tooltipBox.style.visibility = 'visible';
+                tooltipBox.style.opacity = '1';
+            });
+
+            tooltipBox.addEventListener('mouseleave', () => {
+                tooltipBox.style.visibility = 'hidden';
+                tooltipBox.style.opacity = '0';
+            });
+        });
     }
 
     initializeExamplesToolips() {
