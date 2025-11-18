@@ -674,12 +674,7 @@
                 portfolio: document.getElementById('portfolioResultsContainer')
             };
 
-            // Restore cached results
-            userTool.restoreAnalysisResults();
-
-            console.log('✅ User Analysis Tool (Supabase) initialized with 3 main tabs');
-
-            // Initialize Creator Analysis Tool
+            // Initialize Creator Analysis Tool (before restoring cached results)
             const creatorTool = new CreatorAnalysisToolSupabase();
             creatorTool.createUI(
                 document.getElementById('creatorContent'),
@@ -692,10 +687,82 @@
             creatorTool.progressSection = document.getElementById('unifiedProgressSection');
             creatorTool.statusSection = document.getElementById('unifiedStatusSection');
 
-            // Restore cached results
+            // Initialize CX Analysis Tool
+            const cxAnalysis = new CXAnalysis('cxResultsContainer');
+
+            // Make all tools globally accessible
+            window.userTool = userTool;
+            window.creatorTool = creatorTool;
+            window.cxAnalysis = cxAnalysis;
+
+            console.log('✅ All analysis tools initialized');
+
+            // IMPORTANT: Define refreshAllTabs BEFORE restoring cached results
+            // Otherwise, cached buttons with onclick="window.refreshAllTabs()" won't work
+            window.refreshAllTabs = async function(event) {
+                console.log('🔄 Refreshing all tabs from database...');
+                const button = event?.target;
+
+                // Show progress bars for both user and creator tools
+                const userProgressSection = document.getElementById('unifiedProgressSection');
+                const creatorProgressSection = document.getElementById('creatorProgressSection');
+                if (userProgressSection) {
+                    userProgressSection.style.display = 'block';
+                }
+                if (creatorProgressSection) {
+                    creatorProgressSection.style.display = 'block';
+                }
+
+                // Disable button and show loading state
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Refreshing...';
+                    button.style.opacity = '0.6';
+                }
+
+                try {
+                    // Refresh tabs sequentially to show clear progress
+                    console.log('Step 1: Refreshing user analysis data...');
+                    await userTool.refreshFromDatabaseOnly();
+                    console.log('✅ User analysis refreshed');
+
+                    console.log('Step 2: Refreshing creator analysis data...');
+                    await creatorTool.refreshFromDatabaseOnly();
+                    console.log('✅ Creator analysis refreshed');
+
+                    console.log('Step 3: Refreshing CX analysis data...');
+                    await cxAnalysis.loadAndDisplayResults();
+                    console.log('✅ CX analysis refreshed');
+
+                    console.log('✅ All tabs refreshed successfully');
+
+                    // Reset button
+                    if (button) {
+                        button.textContent = 'Refresh Data';
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    }
+                } catch (error) {
+                    console.error('❌ Error refreshing tabs:', error);
+
+                    // Reset button even on error
+                    if (button) {
+                        button.textContent = 'Refresh Data';
+                        button.disabled = false;
+                        button.style.opacity = '1';
+                    }
+
+                    alert('Error refreshing data. Please check console for details.');
+                }
+            };
+
+            console.log('✅ Global refresh function defined');
+
+            // NOW restore cached results (after refreshAllTabs is defined)
+            userTool.restoreAnalysisResults();
             creatorTool.restoreFromUnifiedCache();
 
-            console.log('✅ Creator Analysis Tool (Supabase) initialized');
+            console.log('✅ Cached results restored for user and creator tabs');
 
             // Create unified data source component (for all 4 data tabs)
             const buttons = createUnifiedDataSource(userTool, creatorTool);

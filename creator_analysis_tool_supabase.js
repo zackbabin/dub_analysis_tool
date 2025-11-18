@@ -190,10 +190,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text (top left) and timestamp (top right)
         // Get the actual Mixpanel data refresh time from sync_logs (same as user analysis tabs)
         const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
-        console.log('🕐 Creator Analysis displayResults timestamp:', {
-            mixpanelSyncTime: mixpanelSyncTime ? mixpanelSyncTime.toISOString() : 'null',
-            willUseFallback: !mixpanelSyncTime
-        });
         const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
@@ -218,7 +214,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'Data from KYC approved users in the last 60 days';
+        dataScope.textContent = 'All users who have submitted KYC';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
 
         resultsDiv.style.display = 'block';
@@ -517,10 +513,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Get the actual Mixpanel data refresh time from sync_logs
         const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
-        console.log('🕐 Creator Analysis timestamp update:', {
-            mixpanelSyncTime: mixpanelSyncTime ? mixpanelSyncTime.toISOString() : 'null',
-            willUseFallback: !mixpanelSyncTime
-        });
         const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
@@ -541,7 +533,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'Data from KYC approved users in the last 60 days';
+        dataScope.textContent = 'All users who have submitted KYC';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
     }
 
@@ -2007,25 +1999,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 }
             });
 
-            console.log('Sample cleaned row keys:', Object.keys(cleanRow).slice(0, 20));
-
             return cleanRow;
         });
 
         const filteredRows = cleanedRows.filter(row => row.email || row.creatorUsername);
         console.log(`After filtering (must have email or username): ${filteredRows.length}`);
-
-        // Log sample of first row to verify all metrics are present
-        if (filteredRows.length > 0) {
-            console.log('First row sample keys:', Object.keys(filteredRows[0]));
-            console.log('First row sample values:', {
-                totalCopies: filteredRows[0].totalCopies,
-                total_deposits: filteredRows[0].total_deposits,
-                total_rebalances: filteredRows[0].total_rebalances,
-                total_sessions: filteredRows[0].total_sessions,
-                total_leaderboard_views: filteredRows[0].total_leaderboard_views
-            });
-        }
 
         return filteredRows;
     }
@@ -2928,16 +2906,6 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
         const prices = subscriptionDistribution.map(d => parseFloat(d.monthly_price));
         const counts = subscriptionDistribution.map(d => parseInt(d.total_subscriptions));
         const topCreators = subscriptionDistribution.map(d => d.top_creators || []);
-
-        // Debug: Log the first data point to verify top_creators structure
-        if (subscriptionDistribution.length > 0) {
-            console.log('Sample subscription data point:', {
-                monthly_price: subscriptionDistribution[0].monthly_price,
-                total_subscriptions: subscriptionDistribution[0].total_subscriptions,
-                top_creators: subscriptionDistribution[0].top_creators,
-                top_creators_type: typeof subscriptionDistribution[0].top_creators,
-            });
-        }
 
         const chart = Highcharts.chart(chartId, {
             chart: {

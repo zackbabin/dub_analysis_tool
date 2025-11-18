@@ -745,14 +745,6 @@ class SupabaseIntegration {
             }
 
             console.log(`✅ Loaded ${data.length} creator records from creator_analysis view`);
-            console.log(`Sample row structure:`, data[0] ? {
-                id: data[0].id,
-                email: data[0].email,
-                type: data[0].type,
-                total_copies: data[0].total_copies,
-                total_subscriptions: data[0].total_subscriptions,
-                raw_data_keys: data[0].raw_data ? Object.keys(data[0].raw_data) : []
-            } : 'No data');
 
             // Return data directly (no CSV conversion needed)
             return data;
@@ -1166,12 +1158,6 @@ class SupabaseIntegration {
                 // No runtime mapping needed - username_1, username_2, username_3 columns are populated
                 if (mapUsernames && sortedData.length > 0) {
                     console.log(`Combinations include usernames from database`);
-                    console.log('Sample combo:', {
-                        value_1: sortedData[0].value_1,
-                        username_1: sortedData[0].username_1,
-                        value_2: sortedData[0].value_2,
-                        username_2: sortedData[0].username_2
-                    });
                 }
 
                 return sortedData;

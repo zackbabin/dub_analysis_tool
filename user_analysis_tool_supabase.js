@@ -393,35 +393,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     reloadUIFromCache() {
         console.log('🔄 Reloading UI from cache...');
-
-        try {
-            const cached = localStorage.getItem('dubAnalysisResults');
-            if (!cached) {
-                console.warn('No cached data found, skipping UI reload');
-                return;
-            }
-
-            const data = JSON.parse(cached);
-
-            // Restore cached HTML to each tab
-            if (data.summary && this.outputContainers.summary) {
-                this.outputContainers.summary.innerHTML = data.summary;
-                this.removeAnchorLinks(this.outputContainers.summary);
-            }
-            if (data.portfolio && this.outputContainers.portfolio) {
-                this.outputContainers.portfolio.innerHTML = data.portfolio;
-                this.removeAnchorLinks(this.outputContainers.portfolio);
-            }
-            if (data.subscription && this.outputContainers.subscription) {
-                this.outputContainers.subscription.innerHTML = data.subscription;
-                this.removeAnchorLinks(this.outputContainers.subscription);
-            }
-
-            const cacheAge = data.timestamp ? Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000) : null;
-            console.log(`✅ UI reloaded from cache${cacheAge ? ` (${cacheAge} min ago)` : ''}`);
-        } catch (error) {
-            console.error('Failed to reload UI from cache:', error);
-        }
+        // Reuse existing restore logic to avoid duplication
+        this.restoreAnalysisResults();
     }
 
     async refreshFromDatabaseOnly() {
@@ -628,16 +601,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
 
-            // Debug: Log combinations data
-            console.log('🔍 High-Impact Combinations Debug:');
-            console.log('topCopyCombos:', topCopyCombos);
-            console.log('topCreatorCopyCombos:', topCreatorCopyCombos);
-
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
             const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
-
-            console.log('combinationsHTML length:', combinationsHTML?.length || 0);
-            console.log('creatorCombinationsHTML length:', creatorCombinationsHTML?.length || 0);
 
             const copySequenceHTML = copySequenceAnalysis ?
                 this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
@@ -833,8 +798,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Add timestamp (top right) and data scope (top left) to each container
         const tabConfigs = [
-            { container: summaryContainer, scopeText: 'Data for all Freemium users' },
-            { container: portfolioContainer, scopeText: 'Data from KYC approved users in the last 60 days' }
+            { container: summaryContainer, scopeText: 'Freemium users who have submitted KYC' },
+            { container: portfolioContainer, scopeText: 'All users who have submitted KYC' }
         ];
 
         tabConfigs.forEach(({ container, scopeText }) => {
@@ -1671,12 +1636,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Variable - convert camelCase to readable format
             const varCell = document.createElement('td');
-            // Handle acronyms (consecutive capitals) specially to avoid "P D P" → keep as "PDP"
+            // Handle acronyms like "PDP" - keep consecutive capitals together
             const readableVar = item.variable
-                .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // Split before last capital in acronym
                 .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
-                .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
+                .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Split before last capital in sequence (e.g., "PDPViews" → "PDP Views")
+                .trim();
             varCell.textContent = readableVar;
+            varCell.style.width = '200px'; // Consistent variable column width
             row.appendChild(varCell);
 
             // Correlation
@@ -1810,7 +1776,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Variable
             const varCell = document.createElement('td');
-            varCell.textContent = window.getVariableLabel?.(item.variable) || item.variable;
+            // Handle acronyms like "PDP" - keep consecutive capitals together
+            const readableVar = item.variable
+                .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
+                .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Split before last capital in sequence
+                .trim();
+            varCell.textContent = readableVar;
+            varCell.style.width = '200px'; // Consistent variable column width
             row.appendChild(varCell);
 
             // Correlation
