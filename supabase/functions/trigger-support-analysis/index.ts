@@ -77,7 +77,7 @@ serve(async (req) => {
 
     // Step 2: Check if we should skip analysis (if already run today)
     // Initialize Supabase client to check last analysis
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+    const { createClient } = await import('npm:@supabase/supabase-js@2')
     const supabase = createClient(supabaseUrl, serviceKey)
 
     const { data: lastAnalysis } = await supabase
