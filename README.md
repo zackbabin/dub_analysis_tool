@@ -25,9 +25,9 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 - 15 properties: income, net worth, investing activity, buying power, portfolios created/copied, deposits, etc.
 - Synced daily via `sync-mixpanel-user-properties-v2`
 
-**Engagement Data** (from Mixpanel JQL API):
-- Granular user-portfolio-creator engagement: views, copies, subscriptions
-- Synced daily via `sync-mixpanel-engagement`
+**Engagement Data** (from Mixpanel Insights API):
+- Granular user-portfolio-creator engagement: profile views, PDP views, copies, liquidations, subscriptions
+- Synced daily via `sync-mixpanel-engagement` (3 charts: profile views, PDP views/copies, subscriptions)
 
 ### Core Analyses
 
@@ -187,9 +187,9 @@ All syncs run automatically via pg_cron:
 ## Key Technologies
 
 **Data Pipeline**:
-- Mixpanel Insights API (pre-aggregated metrics, fast)
+- Mixpanel Insights API (pre-aggregated metrics from saved charts)
 - Mixpanel Engage API (user properties, paginated)
-- Mixpanel JQL API (granular engagement data)
+- Mixpanel Export API (deprecated - old event streaming approach)
 
 **AI/ML**:
 - Claude Sonnet 4 for pattern analysis and categorization
