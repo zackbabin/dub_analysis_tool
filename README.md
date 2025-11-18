@@ -9,9 +9,37 @@ Comprehensive analytics platform for analyzing user behavior, creator performanc
 **Data Sources**: Mixpanel Analytics API, Zendesk Support API, Linear API
 **AI Analysis**: Claude Sonnet 4 (Anthropic)
 
+## Tool Tabs
+
+1. **Summary Stats** - High-level marketing and platform metrics
+2. **Behavior Analysis** - User journey and conversion analysis
+3. **CX Analysis** - Support feedback and issue prioritization
+4. **Premium Creator Analysis** - Creator performance and correlation analysis
+5. **Crypto Business Analysis** - Revenue projections and business modeling
+
 ---
 
-## 1. User Analysis Tool
+## Tab 1: Summary Stats
+
+Displays high-level platform health metrics for marketing and executive reporting.
+
+### Marketing Metrics (Manual Fetch)
+
+**Data Source**: Mixpanel Insights API (on-demand fetch, not automated)
+
+**Metrics Displayed**:
+- **Avg Monthly Copies** - Average copies per month from chart 86100814
+- **Total Investments** - Total investment volume (future)
+- **Total Public Portfolios** - Count of public portfolios
+- **Total Market-Beating Portfolios** - Count outperforming benchmarks (future)
+
+**Trigger**: Manual "Fetch Marketing Data" button (fetches latest from Mixpanel)
+
+**Note**: These are snapshot metrics for reporting, not synced to database
+
+---
+
+## Tab 2: Behavior Analysis
 
 Analyzes user behavior patterns to identify what actions predict conversions (copies and subscriptions).
 
@@ -82,7 +110,28 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 
 ---
 
-## 2. Creator Analysis Tool
+## Tab 3: CX Analysis
+
+Customer experience analysis powered by AI-driven support ticket categorization.
+
+**Data Sources**:
+- Zendesk support tickets
+- Instabug bug reports (future)
+
+**What it shows**:
+- Top 10 product issues by priority (category weight + frequency + volume)
+- Issue categories: Compliance, Money Movement, Trading, App Functionality, Feature Requests
+- User segment analysis linked to support conversations
+- Representative ticket examples for each issue
+
+**PII Protection**: All sensitive data redacted at ingestion (SSN, credit cards, phone numbers, etc.)
+
+**Automation**: Runs weekly via cron (Sundays at 3:30 AM UTC)
+**Cost**: ~$0.25 per weekly analysis (~$13/year)
+
+---
+
+## Tab 4: Premium Creator Analysis
 
 Analyzes creator performance metrics and identifies top performers.
 
@@ -101,18 +150,31 @@ Analyzes creator performance metrics and identifies top performers.
 
 **What it tracks**: Subscriptions and paywall views at each price tier for price elasticity analysis
 
-#### 2.3 Creator Enrichment
-**Purpose**: Merge uploaded creator CSVs with Mixpanel metrics for correlation analysis
+#### 2.3 Creator Data Upload (Manual)
+
+**Purpose**: Enrich creator analysis with custom data for correlation analysis
 
 **Process**:
-1. Upload 3 CSV files (Creator List, Deals, Public Creators)
-2. Files merged using name/email matching
-3. Enriched with Mixpanel user profiles and engagement data
-4. Correlation analysis identifies predictive attributes
+1. **Upload 3 CSV files** (via UI file upload):
+   - Creator List (base creator data)
+   - Deals (deal terms and metadata)
+   - Public Creators (public/verified status)
+2. Files merged automatically using name → email matching
+3. Data stored in `creator_uploads` table (raw_data JSONB column)
+4. Click "Sync Live Data" to enrich with Mixpanel metrics
+5. `creator_analysis` view joins uploads + Mixpanel profiles + engagement data
+6. Correlation analysis runs on all numeric fields in raw_data
+
+**What gets enriched**:
+- Mixpanel user properties (deposits, portfolios, investing activity)
+- Engagement metrics (total copies, subscriptions)
+- Performance data (if available)
+
+**Use case**: Identify which creator attributes predict success (copies/subscriptions)
 
 ---
 
-## 3. Business Model Analysis Tool
+## Tab 5: Crypto Business Analysis
 
 Configurable revenue projections based on user behavior and conversion metrics.
 
@@ -125,26 +187,9 @@ Configurable revenue projections based on user behavior and conversion metrics.
 
 ---
 
-## 4. Support Feedback Analysis Tool
+## Additional Integrations
 
-AI-powered analysis of support tickets to identify and prioritize product issues.
-
-**Data Sources**:
-- Zendesk support tickets
-- Instabug bug reports (future)
-
-**What it does**:
-- Categorizes issues (Compliance, Money Movement, Trading, App Functionality, Feature Requests)
-- Calculates priority scores based on category weight, frequency, and volume
-- Links tickets to user profiles for segment analysis
-- Provides top 10 issues with representative examples
-
-**PII Protection**: All sensitive data redacted at ingestion (SSN, credit cards, phone numbers, etc.)
-
-**Automation**: Runs weekly via cron (Sundays at 3:30 AM UTC)
-**Cost**: ~$0.25 per weekly analysis (~$13/year)
-
-## 5. Linear Integration Tool
+### Linear Feedback Mapping
 
 Automatically maps user feedback to Linear issues for product roadmap prioritization.
 
@@ -157,7 +202,7 @@ Automatically maps user feedback to Linear issues for product roadmap prioritiza
 - Tracks mapping confidence scores
 - Enables linking product priorities to customer pain points
 
-**Automation**: Runs weekly after support analysis (Sundays at 4:10 AM UTC)
+**Automation**: Runs weekly after CX analysis (Sundays at 4:10 AM UTC)
 
 ---
 
