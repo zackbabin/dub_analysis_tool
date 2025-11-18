@@ -151,17 +151,37 @@ class CXAnalysis {
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 160px;">
-                                <span class="info-tooltip">Linear Status<span class="info-icon">i</span>
-                                    <span class="tooltip-text">
-                                        <strong>Linear Integration</strong>
-                                        Shows the status of Linear issues mapped to this feedback theme via AI semantic matching.
-                                        <ul>
-                                            <li><strong>Backlog:</strong> Issue identified but not yet started</li>
-                                            <li><strong>In Progress:</strong> Actively being worked on</li>
-                                            <li><strong>Done:</strong> Issue resolved and shipped</li>
-                                            <li><strong>-:</strong> No Linear issue mapped yet</li>
+                                <span class="cx-table-header-tooltip" style="position: relative; display: inline-block;">
+                                    <span class="tooltip-trigger" style="text-decoration: underline; text-decoration-style: dotted; text-decoration-color: #6c757d; text-underline-offset: 3px; cursor: help;">
+                                        Linear Status
+                                    </span>
+                                    <span class="tooltip-text" style="
+                                        position: fixed;
+                                        visibility: hidden;
+                                        opacity: 0;
+                                        width: 400px;
+                                        background-color: #2d3748;
+                                        color: #fff;
+                                        text-align: left;
+                                        border-radius: 8px;
+                                        padding: 14px 16px;
+                                        z-index: 10000;
+                                        font-size: 13px;
+                                        line-height: 1.5;
+                                        transition: opacity 0.3s, visibility 0.3s;
+                                        pointer-events: auto;
+                                        top: 0;
+                                        left: 0;
+                                    ">
+                                        <div style="font-weight: 600; margin-bottom: 10px; color: #63b3ed;">Linear Integration</div>
+                                        <div style="margin-bottom: 10px;">Shows the status of Linear issues mapped to this feedback theme via AI semantic matching.</div>
+                                        <ul style="margin: 6px 0; padding-left: 18px;">
+                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">Backlog:</strong> Issue identified but not yet started</li>
+                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">In Progress:</strong> Actively being worked on</li>
+                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">Done:</strong> Issue resolved and shipped</li>
+                                            <li style="margin-bottom: 4px;"><strong style="color: #63b3ed;">-:</strong> No Linear issue mapped yet</li>
                                         </ul>
-                                        Click on status badge to see linked Linear issues with details.
+                                        <div style="margin-top: 10px; font-size: 0.9em; color: #94a3b8;">Click on status badge to see linked Linear issues with details.</div>
                                     </span>
                                 </span>
                             </th>
@@ -180,29 +200,31 @@ class CXAnalysis {
         setTimeout(() => {
             this.initializeExamplesToolips();
             this.initializeLinearStatusTooltips();
-            this.initializeTableHeaderTooltips();
+            this.initializeHeaderTooltips();
         }, 0);
 
         return section;
     }
 
-    initializeTableHeaderTooltips() {
+    initializeHeaderTooltips() {
         // Initialize table header tooltips (like Linear Status) with fixed positioning
-        const headerTooltips = document.querySelectorAll('th .info-tooltip');
+        const headerTooltips = document.querySelectorAll('.cx-table-header-tooltip');
 
         headerTooltips.forEach(tooltipWrapper => {
+            const trigger = tooltipWrapper.querySelector('.tooltip-trigger');
             const tooltipBox = tooltipWrapper.querySelector('.tooltip-text');
-            if (!tooltipBox) return;
 
-            tooltipWrapper.addEventListener('mouseenter', () => {
-                // Get tooltip wrapper position
-                const rect = tooltipWrapper.getBoundingClientRect();
+            if (!trigger || !tooltipBox) return;
+
+            trigger.addEventListener('mouseenter', () => {
+                // Get trigger position
+                const rect = trigger.getBoundingClientRect();
 
                 // Show tooltip
                 tooltipBox.style.visibility = 'visible';
                 tooltipBox.style.opacity = '1';
 
-                // Calculate position (above the header, centered)
+                // Calculate position (above trigger, centered)
                 const tooltipWidth = 400;
                 let left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
                 let top = rect.top - tooltipBox.offsetHeight - 8;
@@ -222,7 +244,7 @@ class CXAnalysis {
                 tooltipBox.style.top = `${top}px`;
             });
 
-            tooltipWrapper.addEventListener('mouseleave', () => {
+            trigger.addEventListener('mouseleave', () => {
                 // Delay hiding to allow moving to tooltip
                 setTimeout(() => {
                     if (!tooltipBox.matches(':hover')) {
