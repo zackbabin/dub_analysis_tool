@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-18'; // Fix Top Behavioral Drivers table design: consistent column width, PDP spacing, remove bold font
+const CURRENT_VERSION = '2025-11-18-19'; // Fix demographic metric card calculations to match actual database format
 
 class VersionChecker {
     constructor() {
