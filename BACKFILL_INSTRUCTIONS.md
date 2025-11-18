@@ -23,8 +23,8 @@ The backfill process:
 - `20251117_create_all_cron_jobs_programmatically.sql` - Cron jobs
 
 ✅ Edge functions deployed:
-- `sync-mixpanel-user-events` (with 15-day chunking)
-- `sync-mixpanel-user-properties-v2` (with pagination)
+- `sync-mixpanel-user-events-v2` (Insights API - no chunking needed)
+- `sync-mixpanel-user-properties-v2` (Engage API with pagination)
 
 ✅ Environment variables set in Supabase Dashboard > Settings > Edge Functions:
 - `MIXPANEL_PROJECT_ID`
@@ -82,7 +82,7 @@ FLUSH SUCCESSFUL - All tables are empty and ready for backfill
 Deploy the updated edge functions:
 
 ```bash
-supabase functions deploy sync-mixpanel-user-events
+supabase functions deploy sync-mixpanel-user-events-v2
 supabase functions deploy sync-mixpanel-user-properties-v2
 ```
 
@@ -91,67 +91,64 @@ supabase functions deploy sync-mixpanel-user-properties-v2
 - Both functions should show "Active"
 - Check recent deployments timestamp
 
+**Note:** The new `sync-mixpanel-user-events-v2` uses the Insights API instead of Export API for better performance.
+
 ---
 
-## Step 3: Trigger 60-Day Event Backfill
+## Step 3: Trigger Event Metrics Sync (Insights API)
 
-Invoke the function with `chunk_start_day: 0` to start the auto-chaining backfill:
+Invoke the new Insights API function to fetch aggregated event metrics:
 
 ### Option A: Via Supabase Dashboard
 
-1. Go to Edge Functions > `sync-mixpanel-user-events`
+1. Go to Edge Functions > `sync-mixpanel-user-events-v2`
 2. Click "Invoke"
-3. Set body to:
-   ```json
-   {
-     "chunk_start_day": 0
-   }
-   ```
+3. Leave body empty or set to `{}`
 4. Click "Send request"
 
 ### Option B: Via curl
 
 ```bash
-curl -X POST 'https://rnpfeblxapdafrbmomix.supabase.co/functions/v1/sync-mixpanel-user-events' \
+curl -X POST 'https://rnpfeblxapdafrbmomix.supabase.co/functions/v1/sync-mixpanel-user-events-v2' \
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"chunk_start_day": 0}'
+  -d '{}'
 ```
 
 **What happens:**
-1. **Chunk 1** (days 0-14): Fetches ~180k events, triggers chunk 2
-2. **Chunk 2** (days 15-29): Fetches ~180k events, triggers chunk 3
-3. **Chunk 3** (days 30-44): Fetches ~180k events, triggers chunk 4
-4. **Chunk 4** (days 45-59): Fetches ~180k events, processes all 720k events
+- Fetches pre-aggregated metrics from Mixpanel Insights API chart 85713544
+- Syncs 17 event metrics (total bank links, copies, views, sessions, etc.)
+- Single API call - no chunking needed!
 
 **Expected timeline:**
-- Each chunk: ~5-7 minutes
-- Total: ~20-30 minutes (all 4 chunks auto-chain)
+- ~2-5 minutes (much faster than Export API approach)
 
 **Monitor progress:**
 
 ```sql
--- Check staging table growth
-SELECT COUNT(*) as total_events FROM raw_mixpanel_events_staging;
-
--- Check most recent events
-SELECT event_name, COUNT(*)
-FROM raw_mixpanel_events_staging
-GROUP BY event_name
-ORDER BY COUNT(*) DESC;
-
--- Check date range
+-- Check that event metrics are being populated
 SELECT
-  MIN(event_time) as oldest_event,
-  MAX(event_time) as newest_event,
-  COUNT(*) as total_events
-FROM raw_mixpanel_events_staging;
+  COUNT(*) as total_users,
+  COUNT(*) FILTER (WHERE total_copies > 0) as users_with_copies,
+  COUNT(*) FILTER (WHERE app_sessions > 0) as users_with_sessions,
+  COUNT(*) FILTER (WHERE total_bank_links > 0) as users_with_bank_links
+FROM subscribers_insights;
+
+-- Sample data
+SELECT
+  distinct_id,
+  total_copies,
+  total_bank_links,
+  app_sessions,
+  total_subscriptions,
+  updated_at
+FROM subscribers_insights
+WHERE total_copies > 0 OR total_subscriptions > 0
+LIMIT 10;
 ```
 
-**Expected result after all 4 chunks:**
-- `raw_mixpanel_events_staging`: ~700k-750k events
-- Date range: Last 60 days
-- `subscribers_insights`: ~15k-20k profiles with event counts
+**Expected result:**
+- `subscribers_insights`: ~15k-20k profiles with event metrics populated
 
 ---
 
@@ -209,31 +206,23 @@ After both backfills complete, verify the data:
 SELECT COUNT(*) as total_profiles FROM subscribers_insights;
 -- Expected: 15k-20k profiles
 
--- Staging table (events accumulate here)
-SELECT COUNT(*) as total_events FROM raw_mixpanel_events_staging;
--- Expected: 700k-750k events (60 days)
-
 -- Materialized view
 SELECT COUNT(*) as total_rows FROM main_analysis;
 -- Expected: Same as subscribers_insights
 ```
 
-### 5.2 Check Date Range
+**Note:** With Insights API, we no longer use `raw_mixpanel_events_staging` - metrics come pre-aggregated.
+
+### 5.2 Check Last Sync
 
 ```sql
--- Event date range
-SELECT
-  MIN(event_time) as oldest_event,
-  MAX(event_time) as newest_event,
-  EXTRACT(days FROM MAX(event_time) - MIN(event_time)) as days_span
-FROM raw_mixpanel_events_staging;
--- Expected: ~60 days span
-
 -- Last sync timestamp
 SELECT
   distinct_id,
   updated_at,
-  events_processed
+  total_copies,
+  app_sessions,
+  total_bank_links
 FROM subscribers_insights
 ORDER BY updated_at DESC
 LIMIT 10;
@@ -295,16 +284,12 @@ After successful backfill:
 | Table/View | Expected Count | Notes |
 |------------|---------------|-------|
 | `subscribers_insights` | 15k-20k | All unique users with events or properties |
-| `raw_mixpanel_events_staging` | 700k-750k | 60 days of events (accumulative) |
 | `main_analysis` | 15k-20k | Same as subscribers_insights |
 | `copy_engagement_summary` | Varies | Aggregated copy metrics |
 
-**Event distribution (approximate):**
-- `$ae_session`: ~300k-400k (most common)
-- `Viewed Portfolio Details`: ~100k-150k
-- `Viewed Creator Profile`: ~80k-120k
-- `DubAutoCopyInitiated`: ~20k-40k
-- `SubscriptionCreated`: ~5k-10k
+**Event metrics (from Insights API chart 85713544):**
+- All 17 metrics synced: total_bank_links, total_copies, app_sessions, etc.
+- Data reflects lifetime/all-time totals from Mixpanel
 
 ---
 
@@ -369,12 +354,12 @@ ORDER BY last_refresh_at DESC;
 
 1. **Monitor daily cron jobs** (they start at 2:00 AM UTC)
    - Check cron jobs in Supabase Dashboard > Database > Cron
-   - Verify `sync-user-events-daily` runs successfully
+   - Verify `sync-user-events-daily` runs successfully (now using Insights API v2)
    - Verify `sync-user-properties-daily` runs successfully
 
-2. **Verify rolling 60-day window**
-   - Tomorrow, check that event counts reflect "yesterday + last 59 days"
-   - Should NOT replace all data, should accumulate
+2. **Verify daily updates**
+   - Each day, metrics will be refreshed from the Insights API chart
+   - Metrics reflect all-time totals (not rolling windows)
 
 3. **Set up monitoring** (optional)
    ```sql

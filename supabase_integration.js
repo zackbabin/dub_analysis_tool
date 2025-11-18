@@ -335,7 +335,7 @@ class SupabaseIntegration {
 
     /**
      * Trigger Mixpanel sync via Supabase Edge Functions
-     * Part 1: sync-mixpanel-user-events (event data from Export API - streaming, incremental)
+     * Part 1: sync-mixpanel-user-events-v2 (event metrics from Insights API - pre-aggregated)
      * Part 2: sync-mixpanel-user-properties-v2 (user properties from Engage API - paginated)
      * Part 3: sync-mixpanel-engagement (views, subscriptions, copies)
      *         → Chains to process-portfolio-engagement → process-creator-engagement
@@ -346,12 +346,12 @@ class SupabaseIntegration {
         console.log('🔄 Starting Mixpanel analysis refresh...');
 
         try {
-            // Part 1: Sync user events (Export API - ~30s)
-            console.log('📊 Step 1/3: Syncing user events...');
+            // Part 1: Sync user events (Insights API - ~2-5 min)
+            console.log('📊 Step 1/3: Syncing user event metrics...');
             let userEventsData = null;
             try {
                 userEventsData = await this.invokeFunctionWithRetry(
-                    'sync-mixpanel-user-events',
+                    'sync-mixpanel-user-events-v2',
                     {},
                     'User events sync',
                     3,      // maxRetries: 3 attempts

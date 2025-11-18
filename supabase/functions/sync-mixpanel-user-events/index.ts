@@ -1,8 +1,14 @@
 // Supabase Edge Function: sync-mixpanel-user-events (Event Export API - Streaming)
+// ⚠️ DEPRECATED: This function uses the Export API approach.
+// ⚠️ Use sync-mixpanel-user-events-v2 instead (Insights API chart 85713544)
+//
+// Original approach:
 // Streams events from Mixpanel Export API, stores raw events in staging table
 // Processing moved to Postgres for 10-50x performance improvement
 // Postgres function aggregates events into user profiles via set-based SQL
 // Default behavior: Fetches yesterday only, processes last 60 days (rolling 60-day window)
+//
+// COMMENTED OUT - Keeping code for reference. Switch to sync-mixpanel-user-events-v2.
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {

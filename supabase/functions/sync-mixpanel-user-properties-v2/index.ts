@@ -21,25 +21,21 @@ const COHORT_IDS = [5825472] // Premium Creator Analysis cohort
 
 // List of Mixpanel properties to fetch
 const OUTPUT_PROPERTIES = [
-  'totalDeposits',
-  'activeCopiedPortfolios',
-  'totalDepositCount',
-  'activeCreatedPortfolios',
-  'lifetimeCreatedPortfolios',
-  'lifetimeCopiedPortfolios',
   'income',
+  'netWorth',
   'investingActivity',
   'investingExperienceYears',
   'investingObjective',
   'investmentType',
-  '$ae_total_app_sessions',
-  'availableCopyCredits',
   'acquisitionSurvey',
+  'availableCopyCredits',
   'buyingPower',
-  'netWorth',
-  'totalWithdrawalCount',
-  'totalWithdrawals',
-  'hasLinkedBank',
+  'activeCreatedPortfolios',
+  'lifetimeCreatedPortfolios',
+  'activeCopiedPortfolios',
+  'lifetimeCopiedPortfolios',
+  'totalDeposits',
+  'totalDepositCount',
 ]
 
 interface UserPropertyRow {
@@ -51,42 +47,35 @@ interface UserPropertyRow {
   investing_objective?: string
   investment_type?: string
   acquisition_survey?: string
-  linked_bank_account?: boolean
   available_copy_credits?: number
   buying_power?: number
-  total_deposits?: number
-  total_deposit_count?: number
-  total_withdrawals?: number
-  total_withdrawal_count?: number
   active_created_portfolios?: number
   lifetime_created_portfolios?: number
   active_copied_portfolios?: number
   lifetime_copied_portfolios?: number
+  total_deposits?: number
+  total_deposit_count?: number
 }
 
 /**
  * Map Mixpanel property names to database column names
  */
 const PROPERTY_MAP: Record<string, string> = {
-  'totalDeposits': 'total_deposits',
-  'activeCopiedPortfolios': 'active_copied_portfolios',
-  'totalDepositCount': 'total_deposit_count',
-  'activeCreatedPortfolios': 'active_created_portfolios',
-  'lifetimeCreatedPortfolios': 'lifetime_created_portfolios',
-  'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'income': 'income',
+  'netWorth': 'net_worth',
   'investingActivity': 'investing_activity',
   'investingExperienceYears': 'investing_experience_years',
   'investingObjective': 'investing_objective',
   'investmentType': 'investment_type',
-  '$ae_total_app_sessions': 'app_sessions',
-  'availableCopyCredits': 'available_copy_credits',
   'acquisitionSurvey': 'acquisition_survey',
+  'availableCopyCredits': 'available_copy_credits',
   'buyingPower': 'buying_power',
-  'netWorth': 'net_worth',
-  'totalWithdrawalCount': 'total_withdrawal_count',
-  'totalWithdrawals': 'total_withdrawals',
-  'hasLinkedBank': 'linked_bank_account'
+  'activeCreatedPortfolios': 'active_created_portfolios',
+  'lifetimeCreatedPortfolios': 'lifetime_created_portfolios',
+  'activeCopiedPortfolios': 'active_copied_portfolios',
+  'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
+  'totalDeposits': 'total_deposits',
+  'totalDepositCount': 'total_deposit_count',
 }
 
 /**
@@ -118,20 +107,18 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
 
         if (isInvalidValue) {
           // Set numeric fields to 0, skip string fields
-          if (dbColumn.includes('count') || dbColumn.includes('total_') ||
-              dbColumn === 'buying_power' || dbColumn === 'available_copy_credits' ||
+          if (dbColumn === 'available_copy_credits' || dbColumn === 'buying_power' ||
               dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios' ||
-              dbColumn === 'active_copied_portfolios' || dbColumn === 'lifetime_copied_portfolios') {
+              dbColumn === 'active_copied_portfolios' || dbColumn === 'lifetime_copied_portfolios' ||
+              dbColumn === 'total_deposits' || dbColumn === 'total_deposit_count') {
             (row as any)[dbColumn] = 0
           }
           continue
         }
 
         // Handle different field types
-        if (dbColumn === 'linked_bank_account') {
-          (row as any)[dbColumn] = value === 'true' || value === true
-        } else if (
-          // Explicitly defined string fields
+        if (
+          // Explicitly defined string fields (text in DB)
           dbColumn === 'income' ||
           dbColumn === 'net_worth' ||
           dbColumn === 'investing_activity' ||
@@ -143,16 +130,15 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           // String fields - keep as string
           (row as any)[dbColumn] = String(value)
         } else if (
-          // Numeric fields
-          dbColumn.includes('count') ||
-          dbColumn.includes('total_') ||
-          dbColumn === 'buying_power' ||
+          // Numeric/integer fields
           dbColumn === 'available_copy_credits' ||
+          dbColumn === 'buying_power' ||
           dbColumn === 'active_created_portfolios' ||
           dbColumn === 'lifetime_created_portfolios' ||
           dbColumn === 'active_copied_portfolios' ||
           dbColumn === 'lifetime_copied_portfolios' ||
-          dbColumn === 'app_sessions'
+          dbColumn === 'total_deposits' ||
+          dbColumn === 'total_deposit_count'
         ) {
           // Numeric fields - handle both number and string types
           if (typeof value === 'number') {
@@ -194,17 +180,14 @@ function hasUserPropertiesChanged(existing: any, incoming: UserPropertyRow): boo
     'investing_objective',
     'investment_type',
     'acquisition_survey',
-    'linked_bank_account',
     'available_copy_credits',
     'buying_power',
-    'total_deposits',
-    'total_deposit_count',
-    'total_withdrawals',
-    'total_withdrawal_count',
     'active_created_portfolios',
     'lifetime_created_portfolios',
     'active_copied_portfolios',
     'lifetime_copied_portfolios',
+    'total_deposits',
+    'total_deposit_count',
   ]
 
   // Check each field - if ANY field differs, return true (needs update)
