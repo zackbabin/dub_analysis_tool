@@ -1799,6 +1799,49 @@ function displayDemographicBreakdownInline(stats) {
     title.textContent = 'Demographic Breakdown';
     resultSection.appendChild(title);
 
+    // Metric cards grid: 4 cards showing key demographic percentages
+    const metricsGrid = document.createElement('div');
+    metricsGrid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 1rem; margin-bottom: 1.5rem;';
+
+    // Calculate metric percentages
+    const incomeBreakdown = stats.incomeBreakdown || {};
+    const netWorthBreakdown = stats.netWorthBreakdown || {};
+    const experienceBreakdown = stats.investingExperienceYearsBreakdown || {};
+    const totalUsers = stats.totalUsers || 0;
+
+    // 1. <$100k Income: <$25k, $25k-$50k, $50k-$100k
+    const lowIncomeCount = (incomeBreakdown['< $25k'] || 0) +
+                          (incomeBreakdown['$25k - $50k'] || 0) +
+                          (incomeBreakdown['$50k - $100k'] || 0);
+    const lowIncomePercent = totalUsers > 0 ? ((lowIncomeCount / totalUsers) * 100).toFixed(1) : '0.0';
+
+    // 2. <$100k Net Worth
+    const lowNetWorthCount = netWorthBreakdown['< $100k'] || 0;
+    const lowNetWorthPercent = totalUsers > 0 ? ((lowNetWorthCount / totalUsers) * 100).toFixed(1) : '0.0';
+
+    // 3. <1 Years Investing: "0" or "< 1"
+    const newInvestorCount = (experienceBreakdown['0'] || 0) + (experienceBreakdown['< 1'] || 0);
+    const newInvestorPercent = totalUsers > 0 ? ((newInvestorCount / totalUsers) * 100).toFixed(1) : '0.0';
+
+    // 4. <$1k Total Deposits: need to calculate from raw data
+    // Access the users array from stats if available, otherwise use totalUsers as denominator
+    let lowDepositsCount = 0;
+    if (stats.users && Array.isArray(stats.users)) {
+        lowDepositsCount = stats.users.filter(user => {
+            const deposits = user.totalDeposits || user.total_deposits || 0;
+            return deposits <= 1000;
+        }).length;
+    }
+    const lowDepositsPercent = totalUsers > 0 ? ((lowDepositsCount / totalUsers) * 100).toFixed(1) : '0.0';
+
+    // Create metric cards
+    metricsGrid.appendChild(createMetricCard('<$100k Income', `${lowIncomePercent}%`));
+    metricsGrid.appendChild(createMetricCard('<$100k Net Worth', `${lowNetWorthPercent}%`));
+    metricsGrid.appendChild(createMetricCard('<1 Years Investing', `${newInvestorPercent}%`));
+    metricsGrid.appendChild(createMetricCard('<$1k Total Deposits', `${lowDepositsPercent}%`));
+
+    resultSection.appendChild(metricsGrid);
+
     // First row: 4-column grid for first 4 tables
     const grid1 = document.createElement('div');
     grid1.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 20px;';
