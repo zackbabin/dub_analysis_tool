@@ -94,7 +94,7 @@ class CXAnalysis {
         // Add data scope (top left)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = `Data from support tickets in the last 30 days`;
+        dataScope.textContent = 'All users who have been KYC approved';
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title (using qda-result-section for consistent spacing)

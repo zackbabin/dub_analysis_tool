@@ -214,7 +214,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'All users who have submitted KYC';
+        dataScope.textContent = 'All users who have been KYC approved';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
 
         resultsDiv.style.display = 'block';
@@ -533,7 +533,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'All users who have submitted KYC';
+        dataScope.textContent = 'All users who have been KYC approved';
         resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
     }
 
