@@ -152,9 +152,8 @@ serve(async (req) => {
       pdpViewsData = undefined
       // @ts-ignore
       subscriptionsData = undefined
-      // @ts-ignore - creator pairs not needed in this function (processed by separate frontend call)
-      creatorPairs = undefined
-      console.log('✓ Memory released')
+      // NOTE: Keep creatorPairs in memory to pass to process-creator-engagement
+      console.log('✓ Memory released (keeping creatorPairs for next function)')
 
       // NOTE: process-creator-engagement is now called by the frontend after this completes
       // to avoid WORKER_LIMIT errors from running multiple Edge Functions concurrently
@@ -272,7 +271,12 @@ serve(async (req) => {
 
       return createSuccessResponse(
         'Portfolio engagement data processed and inserted successfully',
-        stats
+        {
+          ...stats,
+          creatorPairsCount: creatorPairs.length,
+          // Pass creatorPairs to next function to avoid re-parsing entire file
+          creatorPairs: JSON.stringify(creatorPairs)
+        }
       )
     } catch (error) {
       // Update sync log with failure

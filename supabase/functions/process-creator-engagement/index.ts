@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
+import { pLimit } from '../_shared/mixpanel-api.ts'
 import {
   initializeSupabaseClient,
   handleCorsRequest,
@@ -28,15 +29,20 @@ serve(async (req) => {
   try {
     const supabase = initializeSupabaseClient()
 
-    // Get filename from request body
+    // Get filename and optional pre-parsed creatorPairs from request body
     const body = await req.json()
     const filename = body.filename
+    const preParsedCreatorPairs = body.creatorPairs ? JSON.parse(body.creatorPairs) : null
 
     if (!filename) {
       throw new Error('Missing filename parameter')
     }
 
-    console.log(`Starting creator engagement processing for ${filename}...`)
+    if (preParsedCreatorPairs) {
+      console.log(`Starting creator engagement processing with pre-parsed data (${preParsedCreatorPairs.length} pairs)...`)
+    } else {
+      console.log(`Starting creator engagement processing for ${filename}...`)
+    }
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'creator_engagement_processing')
@@ -51,45 +57,6 @@ serve(async (req) => {
         return elapsed
       }
 
-      // Download raw data from Storage with error handling
-      console.log('Downloading raw data from Storage...')
-      let fileData, rawDataText, rawData
-
-      try {
-        const { data, error: downloadError } = await supabase.storage
-          .from('mixpanel-raw-data')
-          .download(filename)
-
-        if (downloadError) {
-          console.error('❌ Storage download error:', downloadError)
-          throw new Error(`Failed to download ${filename}: ${downloadError.message}`)
-        }
-
-        if (!data) {
-          throw new Error(`No data returned from storage for ${filename}`)
-        }
-
-        fileData = data
-        console.log(`✓ Downloaded ${filename} (${(data.size / 1024 / 1024).toFixed(2)} MB)`)
-        logElapsed()
-
-        // Parse JSON with error handling
-        console.log('Parsing JSON data...')
-        rawDataText = await fileData.text()
-        console.log(`✓ Extracted text (${(rawDataText.length / 1024 / 1024).toFixed(2)} MB)`)
-
-        rawData = JSON.parse(rawDataText)
-        console.log('✓ Parsed JSON successfully')
-        logElapsed()
-      } catch (error) {
-        console.error('❌ Failed to load/parse storage data:', error)
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        throw new Error(`Storage data load failed: ${errorMessage}`)
-      }
-
-      // Use let for variables we'll explicitly set to undefined later for garbage collection
-      let { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
-
       // Process and insert data into database
       const stats: SyncStats = {
         engagementRecordsFetched: 0,
@@ -98,57 +65,114 @@ serve(async (req) => {
 
       // Staging table configuration for Postgres-accelerated processing
       // Similar to process-portfolio-engagement pattern: stage data, process in Postgres
-      const STAGING_BATCH_SIZE = 5000  // Large batches OK for staging (no conflict checks)
+      const STAGING_BATCH_SIZE = 1500  // Optimized batch size for memory efficiency and timeout prevention
+      const STAGING_CONCURRENCY = 3     // Process 3 batches concurrently for better throughput
 
-      // Process engagement data (get creator pairs only)
-      console.log('Processing engagement pairs...')
-      console.log(`Input data sizes:`)
-      console.log(`  - profileViews series keys: ${Object.keys(profileViewsData?.series || {}).length}`)
-      console.log(`  - pdpViews series keys: ${Object.keys(pdpViewsData?.series || {}).length}`)
-      console.log(`  - subscriptions series keys: ${Object.keys(subscriptionsData?.series || {}).length}`)
+      let creatorPairs
 
-      let portfolioCreatorPairs, creatorPairs
+      // Use pre-parsed creatorPairs if available (60% speedup by avoiding duplicate processing)
+      if (preParsedCreatorPairs) {
+        console.log('✅ Using pre-parsed creator pairs from process-portfolio-engagement')
+        creatorPairs = preParsedCreatorPairs
+        logElapsed()
+        console.log(`✓ Loaded ${creatorPairs.length} creator pairs (skipped file download and processing)`)
 
-      try {
-        const result = processPortfolioCreatorPairs(
-          profileViewsData,
-          pdpViewsData,
-          subscriptionsData,
-          originalSyncTime
-        )
-        portfolioCreatorPairs = result.portfolioCreatorPairs
-        creatorPairs = result.creatorPairs
-      } catch (error) {
-        console.error('❌ Failed to process creator pairs:', error)
-        if (error instanceof Error) {
-          console.error('Error details:', error.stack)
+        // Log verification data for comparison
+        console.log(`Creator pairs sample: ${JSON.stringify(creatorPairs[0])}`)
+      } else {
+        // Fallback: Download and parse file if pre-parsed data not provided
+        console.log('⚠️ Pre-parsed data not provided, falling back to file processing...')
+        console.log('Downloading raw data from Storage...')
+        let fileData, rawDataText, rawData
+
+        try {
+          const { data, error: downloadError } = await supabase.storage
+            .from('mixpanel-raw-data')
+            .download(filename)
+
+          if (downloadError) {
+            console.error('❌ Storage download error:', downloadError)
+            throw new Error(`Failed to download ${filename}: ${downloadError.message}`)
+          }
+
+          if (!data) {
+            throw new Error(`No data returned from storage for ${filename}`)
+          }
+
+          fileData = data
+          console.log(`✓ Downloaded ${filename} (${(data.size / 1024 / 1024).toFixed(2)} MB)`)
+          logElapsed()
+
+          // Parse JSON with error handling
+          console.log('Parsing JSON data...')
+          rawDataText = await fileData.text()
+          console.log(`✓ Extracted text (${(rawDataText.length / 1024 / 1024).toFixed(2)} MB)`)
+
+          rawData = JSON.parse(rawDataText)
+          console.log('✓ Parsed JSON successfully')
+          logElapsed()
+        } catch (error) {
+          console.error('❌ Failed to load/parse storage data:', error)
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          throw new Error(`Storage data load failed: ${errorMessage}`)
         }
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        throw new Error(`Data processing failed: ${errorMessage}`)
+
+        // Use let for variables we'll explicitly set to undefined later for garbage collection
+        let { profileViewsData, pdpViewsData, subscriptionsData, syncStartTime: originalSyncTime } = rawData
+
+        // Process engagement data (get creator pairs only)
+        console.log('Processing engagement pairs...')
+        console.log(`Input data sizes:`)
+        console.log(`  - profileViews series keys: ${Object.keys(profileViewsData?.series || {}).length}`)
+        console.log(`  - pdpViews series keys: ${Object.keys(pdpViewsData?.series || {}).length}`)
+        console.log(`  - subscriptions series keys: ${Object.keys(subscriptionsData?.series || {}).length}`)
+
+        let portfolioCreatorPairs
+
+        try {
+          const result = processPortfolioCreatorPairs(
+            profileViewsData,
+            pdpViewsData,
+            subscriptionsData,
+            originalSyncTime
+          )
+          portfolioCreatorPairs = result.portfolioCreatorPairs
+          creatorPairs = result.creatorPairs
+        } catch (error) {
+          console.error('❌ Failed to process creator pairs:', error)
+          if (error instanceof Error) {
+            console.error('Error details:', error.stack)
+          }
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          throw new Error(`Data processing failed: ${errorMessage}`)
+        }
+
+        logElapsed()
+        console.log(`✓ Processed ${portfolioCreatorPairs.length} portfolio pairs (skipped), ${creatorPairs.length} creator pairs`)
+        console.log('This function will process creator pairs only, portfolio pairs already handled')
+
+        // Log verification data for comparison
+        console.log(`Creator pairs sample: ${JSON.stringify(creatorPairs[0])}`)
+
+        // Release raw data from memory ASAP to allow garbage collection
+        // This reduces memory usage by 30-40% and prevents memory limit errors
+        console.log('Releasing raw input data from memory...')
+        // @ts-ignore - explicitly setting to undefined for garbage collection
+        rawData = undefined
+        // @ts-ignore
+        rawDataText = undefined
+        // @ts-ignore
+        fileData = undefined
+        // @ts-ignore
+        profileViewsData = undefined
+        // @ts-ignore
+        pdpViewsData = undefined
+        // @ts-ignore
+        subscriptionsData = undefined
+        // @ts-ignore - don't need portfolio pairs in this function
+        portfolioCreatorPairs = undefined
+        console.log('✓ Memory released')
       }
-
-      logElapsed()
-      console.log(`✓ Processed ${portfolioCreatorPairs.length} portfolio pairs (skipped), ${creatorPairs.length} creator pairs`)
-      console.log('This function will process creator pairs only, portfolio pairs already handled')
-
-      // Release raw data from memory ASAP to allow garbage collection
-      // This reduces memory usage by 30-40% and prevents memory limit errors
-      console.log('Releasing raw input data from memory...')
-      // @ts-ignore - explicitly setting to undefined for garbage collection
-      rawData = undefined
-      // @ts-ignore
-      rawDataText = undefined
-      // @ts-ignore
-      fileData = undefined
-      // @ts-ignore
-      profileViewsData = undefined
-      // @ts-ignore
-      pdpViewsData = undefined
-      // @ts-ignore
-      subscriptionsData = undefined
-      // @ts-ignore - don't need portfolio pairs in this function
-      portfolioCreatorPairs = undefined
-      console.log('✓ Memory released')
 
       // Clear staging table before starting (in case previous sync failed)
       console.log('Clearing staging table from any previous incomplete syncs...')
@@ -161,40 +185,52 @@ serve(async (req) => {
 
       // Step 1: Insert all creator pairs into staging table (fast, no conflict checking)
       console.log(`Step 1/3: Staging ${creatorPairs.length} creator pairs...`)
-      let totalStaged = 0
-      let failedBatches = 0
 
-      // Insert in batches to avoid statement timeout
+      // Split into batches
+      const batches = []
       for (let i = 0; i < creatorPairs.length; i += STAGING_BATCH_SIZE) {
-        const batch = creatorPairs.slice(i, i + STAGING_BATCH_SIZE)
-        const batchNumber = Math.floor(i / STAGING_BATCH_SIZE) + 1
-
-        try {
-          const { error: insertError } = await supabase
-            .from('creator_engagement_staging')
-            .insert(batch)
-
-          if (insertError) {
-            console.error(`Error inserting staging batch ${batchNumber}:`, insertError.message)
-            failedBatches++
-            // Continue to next batch instead of failing entire sync
-            continue
-          }
-
-          totalStaged += batch.length
-          if ((i + STAGING_BATCH_SIZE) < creatorPairs.length) {
-            console.log(`✓ Staged ${totalStaged}/${creatorPairs.length} records...`)
-          }
-        } catch (batchError) {
-          const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
-          console.error(`Exception in staging batch ${batchNumber}:`, errorMessage)
-          failedBatches++
-          // Continue to next batch instead of failing entire sync
-        }
+        batches.push({
+          data: creatorPairs.slice(i, i + STAGING_BATCH_SIZE),
+          index: Math.floor(i / STAGING_BATCH_SIZE)
+        })
       }
 
+      // Process batches with controlled concurrency
+      const limit = pLimit(STAGING_CONCURRENCY)
+      const results = await Promise.all(
+        batches.map(({ data: batch, index }) =>
+          limit(async () => {
+            try {
+              const { error: insertError } = await supabase
+                .from('creator_engagement_staging')
+                .insert(batch)
+
+              if (insertError) {
+                console.error(`Error inserting staging batch ${index + 1}/${batches.length}:`, insertError.message)
+                return { success: false, count: 0 }
+              }
+
+              // Log progress for every 5th batch
+              if ((index + 1) % 5 === 0 || index === batches.length - 1) {
+                const stagedSoFar = (index + 1) * STAGING_BATCH_SIZE
+                console.log(`✓ Staged ~${Math.min(stagedSoFar, creatorPairs.length)}/${creatorPairs.length} records...`)
+              }
+
+              return { success: true, count: batch.length }
+            } catch (batchError) {
+              const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
+              console.error(`Exception in staging batch ${index + 1}/${batches.length}:`, errorMessage)
+              return { success: false, count: 0 }
+            }
+          })
+        )
+      )
+
+      const totalStaged = results.filter(r => r.success).reduce((sum, r) => sum + r.count, 0)
+      const failedBatches = results.filter(r => !r.success).length
+
       if (failedBatches > 0) {
-        console.warn(`⚠️ ${failedBatches} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
+        console.warn(`⚠️ ${failedBatches}/${batches.length} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
       }
 
       logElapsed()

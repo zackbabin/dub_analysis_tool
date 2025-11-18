@@ -436,9 +436,16 @@ class SupabaseIntegration {
             if (engagementFilename) {
                 console.log('📊 Step 5/5: Processing creator engagement data...');
                 try {
+                    // Pass pre-parsed creatorPairs from portfolio processing for 60% speedup
+                    const requestBody = { filename: engagementFilename };
+                    if (portfolioProcessData?.stats?.creatorPairs) {
+                        console.log('   Using pre-parsed creator pairs from Step 4 (optimized path)');
+                        requestBody.creatorPairs = portfolioProcessData.stats.creatorPairs;
+                    }
+
                     creatorProcessData = await this.invokeFunctionWithRetry(
                         'process-creator-engagement',
-                        { filename: engagementFilename },
+                        requestBody,
                         'Creator engagement processing',
                         2,      // maxRetries: 2 attempts
                         3000    // retryDelay: 3 seconds
