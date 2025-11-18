@@ -1776,12 +1776,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Variable
             const varCell = document.createElement('td');
-            // Handle acronyms like "PDP" - keep consecutive capitals together
-            const readableVar = item.variable
-                .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
-                .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Split before last capital in sequence
-                .trim();
-            varCell.textContent = readableVar;
+            // Use getVariableLabel for consistent formatting across all tables
+            const displayName = window.getVariableLabel?.(item.variable) || item.variable;
+            varCell.textContent = displayName;
             varCell.style.width = '200px'; // Consistent variable column width
             row.appendChild(varCell);
 
@@ -2769,14 +2766,10 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
         driversData.slice(0, 10).forEach(row => {
             const tr = document.createElement('tr');
 
-            // Variable cell - format same as deposits/copies tables for consistency
+            // Variable cell - use getVariableLabel for consistent formatting
             const varCell = document.createElement('td');
-            // Handle acronyms like "PDP" - keep consecutive capitals together
-            const readableVar = row.variable_name
-                .replace(/([a-z])([A-Z])/g, '$1 $2') // Split between lowercase and capital
-                .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2') // Split before last capital in sequence
-                .trim();
-            varCell.textContent = readableVar;
+            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
+            varCell.textContent = displayName;
             varCell.style.width = '200px'; // Consistent variable column width across all tables
             tr.appendChild(varCell);
 

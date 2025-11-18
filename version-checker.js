@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-19'; // Fix demographic metric card calculations to match actual database format
+const CURRENT_VERSION = '2025-11-18-20'; // Use getVariableLabel for all behavioral driver tables (proper formatting like "Total Stripe Views")
 
 class VersionChecker {
     constructor() {
