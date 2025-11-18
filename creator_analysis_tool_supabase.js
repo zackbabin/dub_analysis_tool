@@ -2439,9 +2439,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Reload UI from cache only (no database queries)
      * Used when refreshing after version updates - just reloads the cached UI
      */
-    reloadUIFromCache() {
+    async reloadUIFromCache() {
         console.log('🔄 Reloading creator UI from cache...');
         this.restoreFromUnifiedCache();
+
+        // Re-add timestamp and data scope after restoring from cache
+        // This ensures they're always visible even if cache is stale
+        await this.updateTimestampAndDataScope();
     }
 
     /**
@@ -2908,6 +2912,7 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
         // Use monthly_price and total_subscriptions from latest_subscription_distribution view
         const prices = subscriptionDistribution.map(d => parseFloat(d.monthly_price));
         const counts = subscriptionDistribution.map(d => parseInt(d.total_subscriptions));
+        const topCreators = subscriptionDistribution.map(d => d.top_creators || []);
 
         Highcharts.chart(chartId, {
             chart: {
@@ -2936,8 +2941,27 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
                 enabled: false
             },
             tooltip: {
+                useHTML: true,
                 formatter: function() {
-                    return `<b>Price:</b> ${this.x}<br/><b>Subscriptions:</b> ${this.y}`;
+                    const creators = topCreators[this.point.index];
+                    let html = `<div style="padding: 8px;">`;
+                    html += `<b>Price:</b> ${this.x}<br/>`;
+                    html += `<b>Total Subscriptions:</b> ${this.y}<br/>`;
+
+                    if (creators && creators.length > 0) {
+                        html += `<br/><b>Top Creators:</b><br/>`;
+                        html += `<table style="margin-top: 4px; font-size: 11px;">`;
+                        creators.forEach((creator, idx) => {
+                            html += `<tr>`;
+                            html += `<td style="padding: 2px 8px 2px 0;">${idx + 1}. ${creator.username}</td>`;
+                            html += `<td style="padding: 2px 0; text-align: right;">${creator.subscriptions}</td>`;
+                            html += `</tr>`;
+                        });
+                        html += `</table>`;
+                    }
+
+                    html += `</div>`;
+                    return html;
                 }
             },
             plotOptions: {

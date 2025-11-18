@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-06'; // Refresh Data button now shows progress bars clearly with sequential execution
+const CURRENT_VERSION = '2025-11-18-07'; // Subscription chart: top 5 creators tooltip, timestamp fix, Mixpanel metric update
 
 class VersionChecker {
     constructor() {

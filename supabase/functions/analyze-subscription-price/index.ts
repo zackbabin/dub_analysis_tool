@@ -190,18 +190,29 @@ function processSubscriptionPricingData(data: any): any[] {
   })
 
   // Debug: Show sample of series structure
-  if (data.series && data.series['A. Total Subscriptions']) {
-    const sampleCreatorIds = Object.keys(data.series['A. Total Subscriptions']).slice(0, 3)
-    console.log('Sample creator IDs from A. Total Subscriptions:', sampleCreatorIds)
+  const sampleMetricKey = Object.keys(data.series || {})[0]
+  if (sampleMetricKey) {
+    const sampleCreatorIds = Object.keys(data.series[sampleMetricKey] || {}).slice(0, 3)
+    console.log(`Sample creator IDs from "${sampleMetricKey}":`, sampleCreatorIds)
   }
 
   // Build a map for each creator (one row per creator, not aggregated by price)
   const creatorDataMap = new Map<string, any>()
 
-  // Process both Total Subscriptions and Total Paywall Views metrics
-  const metrics = {
-    'A. Total Subscriptions': 'total_subscriptions',
-    'B. Total Paywall Views': 'total_paywall_views',
+  // Process Total Subscriptions metric (chart 85154450)
+  // Note: Metric names vary, so we try both old and new formats
+  const metrics: Record<string, string> = {}
+
+  // Try new format first (from chart 85154450)
+  if (data.series['Total Subscriptions']) {
+    metrics['Total Subscriptions'] = 'total_subscriptions'
+  }
+  // Fallback to old format if needed
+  if (data.series['A. Total Subscriptions']) {
+    metrics['A. Total Subscriptions'] = 'total_subscriptions'
+  }
+  if (data.series['B. Total Paywall Views']) {
+    metrics['B. Total Paywall Views'] = 'total_paywall_views'
   }
 
   Object.entries(metrics).forEach(([metricName, fieldName]) => {
