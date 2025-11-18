@@ -2905,8 +2905,15 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
 
         // Destroy existing chart if it exists (prevents Highcharts error #13)
         const container = document.getElementById(chartId);
-        if (container && container.highchartsChart) {
-            container.highchartsChart.destroy();
+        if (container) {
+            if (container.highchartsChart) {
+                container.highchartsChart.destroy();
+            }
+            // Also try Highcharts.charts array cleanup
+            const existingChart = Highcharts.charts.find(chart => chart && chart.renderTo === container);
+            if (existingChart) {
+                existingChart.destroy();
+            }
         }
 
         // Use monthly_price and total_subscriptions from latest_subscription_distribution view
@@ -2914,7 +2921,17 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
         const counts = subscriptionDistribution.map(d => parseInt(d.total_subscriptions));
         const topCreators = subscriptionDistribution.map(d => d.top_creators || []);
 
-        Highcharts.chart(chartId, {
+        // Debug: Log the first data point to verify top_creators structure
+        if (subscriptionDistribution.length > 0) {
+            console.log('Sample subscription data point:', {
+                monthly_price: subscriptionDistribution[0].monthly_price,
+                total_subscriptions: subscriptionDistribution[0].total_subscriptions,
+                top_creators: subscriptionDistribution[0].top_creators,
+                top_creators_type: typeof subscriptionDistribution[0].top_creators,
+            });
+        }
+
+        const chart = Highcharts.chart(chartId, {
             chart: {
                 type: 'column',
                 backgroundColor: '#ffffff',
@@ -2982,6 +2999,13 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
                 enabled: false
             }
         });
+
+        // Store chart instance on container for future cleanup
+        if (container) {
+            container.highchartsChart = chart;
+        }
+
+        console.log('✅ Subscription price chart rendered with top creators tooltip');
 };
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');
