@@ -1491,6 +1491,9 @@ function calculateSummaryStats(data) {
 
     const totalUsers = data.length;
 
+    // Calculate count of users with non-null total deposits (for denominator)
+    const usersWithDepositData = data.filter(d => d.totalDeposits !== null && d.totalDeposits !== undefined).length;
+
     // Calculate count of users with low deposits for demographic cards
     const usersWithLowDeposits = data.filter(d => d.totalDeposits <= 1000).length;
     const personaCounts = {
@@ -1536,6 +1539,7 @@ function calculateSummaryStats(data) {
         firstCopyConversion: (usersWithCopies / totalUsers) * 100,
         depositConversion: (usersWithDeposits / totalUsers) * 100,
         subscriptionConversion: (usersWithSubscriptions / totalUsers) * 100,
+        usersWithDepositData: usersWithDepositData,
         usersWithLowDeposits: usersWithLowDeposits,
         ...demographics,
         personaStats
@@ -1838,25 +1842,30 @@ function displayDemographicBreakdownInline(stats) {
     const incomeBreakdown = stats.incomeBreakdown || {};
     const netWorthBreakdown = stats.netWorthBreakdown || {};
     const experienceBreakdown = stats.investingExperienceYearsBreakdown || {};
-    const totalUsers = stats.totalUsers || 0;
+
+    // Use same denominators as tables (users who responded to each survey question)
+    const incomeTotalResponses = stats.incomeTotalResponses || 0;
+    const netWorthTotalResponses = stats.netWorthTotalResponses || 0;
+    const experienceTotalResponses = stats.investingExperienceYearsTotalResponses || 0;
+    const usersWithDepositData = stats.usersWithDepositData || 0;
 
     // 1. <$100k Income: <25k, 25k-50k, 50k-100k (DB format: no $, no spaces)
     const lowIncomeCount = (incomeBreakdown['<25k'] || 0) +
                           (incomeBreakdown['25k-50k'] || 0) +
                           (incomeBreakdown['50k-100k'] || 0);
-    const lowIncomePercent = totalUsers > 0 ? ((lowIncomeCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const lowIncomePercent = incomeTotalResponses > 0 ? ((lowIncomeCount / incomeTotalResponses) * 100).toFixed(1) : '0.0';
 
     // 2. <$100k Net Worth (DB format: <100k - no $, no space)
     const lowNetWorthCount = netWorthBreakdown['<100k'] || 0;
-    const lowNetWorthPercent = totalUsers > 0 ? ((lowNetWorthCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const lowNetWorthPercent = netWorthTotalResponses > 0 ? ((lowNetWorthCount / netWorthTotalResponses) * 100).toFixed(1) : '0.0';
 
     // 3. <1 Years Investing: "0" or "<1" (DB format: no space after <)
     const newInvestorCount = (experienceBreakdown['0'] || 0) + (experienceBreakdown['<1'] || 0);
-    const newInvestorPercent = totalUsers > 0 ? ((newInvestorCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const newInvestorPercent = experienceTotalResponses > 0 ? ((newInvestorCount / experienceTotalResponses) * 100).toFixed(1) : '0.0';
 
-    // 4. <$1k Total Deposits: use pre-calculated count from stats
+    // 4. <$1k Total Deposits: use users with non-null deposit data as denominator
     const lowDepositsCount = stats.usersWithLowDeposits || 0;
-    const lowDepositsPercent = totalUsers > 0 ? ((lowDepositsCount / totalUsers) * 100).toFixed(1) : '0.0';
+    const lowDepositsPercent = usersWithDepositData > 0 ? ((lowDepositsCount / usersWithDepositData) * 100).toFixed(1) : '0.0';
 
     // Create metric cards
     metricsGrid.appendChild(createMetricCard('<$100k Income', `${lowIncomePercent}%`));
