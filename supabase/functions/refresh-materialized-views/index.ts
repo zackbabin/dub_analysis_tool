@@ -126,19 +126,7 @@ serve(async (req) => {
 
     console.log('✓ Copy engagement summary view refreshed (using current main_analysis data)')
 
-    // Step 7: Refresh subscription engagement summary
-    console.log('Refreshing subscription engagement summary view...')
-
-    const { error: subEngagementError } = await supabase.rpc('refresh_subscription_engagement_summary')
-
-    if (subEngagementError) {
-      console.warn('⚠️ Error refreshing subscription_engagement_summary:', subEngagementError)
-      // Non-fatal - continue with other refreshes
-    } else {
-      console.log('✓ subscription_engagement_summary refreshed successfully')
-    }
-
-    // Step 8: Refresh enriched support conversations view
+    // Step 7: Refresh enriched support conversations view
     console.log('Refreshing enriched support conversations view...')
 
     const { error: supportError } = await supabase.rpc('refresh_enriched_support_conversations')
@@ -160,7 +148,6 @@ serve(async (req) => {
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
         retention_analysis_refreshed: !retentionError,
         copy_engagement_summary_refreshed: !copyResult.error,
-        subscription_engagement_summary_refreshed: !subEngagementError,
         enriched_support_conversations_refreshed: !supportError,
         pattern_analysis_triggered: true
       }

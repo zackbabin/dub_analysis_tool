@@ -822,45 +822,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Anchor links removed - using only tab anchors for simplicity
     }
 
-    /**
-     * Generate Subscription Metrics HTML (inserted before correlation table)
-     * Uses array.join() for optimal string building performance
-     */
-    generateSubscriptionMetricsHTML(summaryData) {
-        if (!summaryData || summaryData.length !== 2) {
-            return '';
-        }
-
-        const subscribersData = summaryData.find(d => d.did_subscribe === 1 || d.did_subscribe === true) || {};
-        const nonSubscribersData = summaryData.find(d => d.did_subscribe === 0 || d.did_subscribe === false) || {};
-
-        const metrics = [
-            { label: 'Avg Profile Views', primaryValue: subscribersData.avg_profile_views || 0, secondaryValue: nonSubscribersData.avg_profile_views || 0 },
-            { label: 'Avg PDP Views', primaryValue: subscribersData.avg_pdp_views || 0, secondaryValue: nonSubscribersData.avg_pdp_views || 0 },
-            { label: 'Unique Creators', primaryValue: subscribersData.avg_unique_creators || 0, secondaryValue: nonSubscribersData.avg_unique_creators || 0 },
-            { label: 'Unique Portfolios', primaryValue: subscribersData.avg_unique_portfolios || 0, secondaryValue: nonSubscribersData.avg_unique_portfolios || 0 }
-        ];
-
-        const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
-        ];
-
-        metrics.forEach(metric => {
-            parts.push(
-                `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                    <div style="font-size: 1.5rem; font-weight: bold;">
-                        ${parseFloat(metric.primaryValue).toFixed(1)}
-                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
-                    </div>
-                </div>`
-            );
-        });
-
-        parts.push('</div>');
-        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who subscribed vs. haven\'t subscribed</p>');
-        return parts.join('');
-    }
 
     /**
      * Generate Subscription Combinations HTML (inserted after correlation table)
