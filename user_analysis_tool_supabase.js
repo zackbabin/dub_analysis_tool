@@ -44,7 +44,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Update summary and portfolio tabs in unified cache
             data.summary = this.outputContainers.summary?.innerHTML || '';
             data.portfolio = this.outputContainers.portfolio?.innerHTML || '';
-            data.timestamp = new Date().toISOString();
+            // Don't update timestamp here - it should only be updated during actual sync operations
+            // The timestamp reflects when data was last synced from source, not when cache was saved
 
             localStorage.setItem('dubAnalysisResults', JSON.stringify(data));
             console.log('✅ Saved user analysis to unified cache');
