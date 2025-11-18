@@ -753,6 +753,16 @@
                 console.log('🔄 Refreshing all tabs from database...');
                 const button = event?.target;
 
+                // Show progress bars for both user and creator tools
+                const userProgressSection = document.getElementById('unifiedProgressSection');
+                const creatorProgressSection = document.getElementById('creatorProgressSection');
+                if (userProgressSection) {
+                    userProgressSection.style.display = 'block';
+                }
+                if (creatorProgressSection) {
+                    creatorProgressSection.style.display = 'block';
+                }
+
                 // Disable button and show loading state
                 if (button) {
                     button.disabled = true;
@@ -761,12 +771,18 @@
                 }
 
                 try {
-                    // Refresh all 4 tabs
-                    await Promise.all([
-                        userTool.refreshFromDatabaseOnly(),
-                        creatorTool.refreshFromDatabaseOnly(),
-                        cxAnalysis.loadAndDisplayResults()
-                    ]);
+                    // Refresh tabs sequentially to show clear progress
+                    console.log('Step 1: Refreshing user analysis data...');
+                    await userTool.refreshFromDatabaseOnly();
+                    console.log('✅ User analysis refreshed');
+
+                    console.log('Step 2: Refreshing creator analysis data...');
+                    await creatorTool.refreshFromDatabaseOnly();
+                    console.log('✅ Creator analysis refreshed');
+
+                    console.log('Step 3: Refreshing CX analysis data...');
+                    await cxAnalysis.loadAndDisplayResults();
+                    console.log('✅ CX analysis refreshed');
 
                     console.log('✅ All tabs refreshed successfully');
 

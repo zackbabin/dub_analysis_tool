@@ -7,7 +7,7 @@
 // 1. This CURRENT_VERSION constant (for version detection)
 // 2. All ?v=X parameters in index.html script tags (for cache busting)
 // Format: YYYY-MM-DD-HH (date + hour for multiple releases per day)
-const CURRENT_VERSION = '2025-11-18-05'; // Toast refresh now reloads UI from cache only, preserving timestamps
+const CURRENT_VERSION = '2025-11-18-06'; // Refresh Data button now shows progress bars clearly with sequential execution
 
 class VersionChecker {
     constructor() {
