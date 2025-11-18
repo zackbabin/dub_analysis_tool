@@ -337,17 +337,19 @@ class SupabaseIntegration {
      * Trigger Mixpanel sync via Supabase Edge Functions
      * Part 1: sync-mixpanel-user-events-v2 (event metrics from Insights API - pre-aggregated)
      * Part 2: sync-mixpanel-user-properties-v2 (user properties from Engage API - paginated)
-     * Part 3: sync-mixpanel-engagement (views, subscriptions, copies)
-     *         → Chains to process-portfolio-engagement → process-creator-engagement
+     * Part 3: sync-mixpanel-engagement (fetch from Mixpanel and store in Storage)
+     * Part 4: process-portfolio-engagement (process portfolio data from Storage)
+     * Part 5: process-creator-engagement (process creator data from Storage)
      * Note: Materialized views are refreshed at the end of the full workflow (after all syncs)
      * Note: Credentials are stored in Supabase secrets, not passed from frontend
+     * Note: Functions are called sequentially to avoid WORKER_LIMIT errors
      */
     async triggerMixpanelSync() {
         console.log('🔄 Starting Mixpanel analysis refresh...');
 
         try {
             // Part 1: Sync user events (Insights API - ~2-5 min)
-            console.log('📊 Step 1/3: Syncing user event metrics...');
+            console.log('📊 Step 1/5: Syncing user event metrics...');
             let userEventsData = null;
             try {
                 userEventsData = await this.invokeFunctionWithRetry(
@@ -358,15 +360,15 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds
                 );
 
-                console.log('✅ Step 1/3 complete: User events synced successfully');
+                console.log('✅ Step 1/5 complete: User events synced successfully');
                 console.log('   Stats:', userEventsData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 1/3 failed: User events sync error, continuing with existing data');
+                console.warn('⚠️ Step 1/5 failed: User events sync error, continuing with existing data');
                 userEventsData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync user properties (Engage API - ~30s, auto-chains pages)
-            console.log('📊 Step 2/3: Syncing user properties...');
+            console.log('📊 Step 2/5: Syncing user properties...');
             let userPropertiesData = null;
             try {
                 userPropertiesData = await this.invokeFunctionWithRetry(
@@ -377,31 +379,80 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds
                 );
 
-                console.log('✅ Step 2/3 complete: User properties synced successfully');
+                console.log('✅ Step 2/5 complete: User properties synced successfully');
                 console.log('   Stats:', userPropertiesData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 2/3 failed: User properties sync error, continuing with existing data');
+                console.warn('⚠️ Step 2/5 failed: User properties sync error, continuing with existing data');
                 userPropertiesData = { stats: { failed: true, error: error.message } };
             }
 
-            // Part 3: Sync engagement (with retry for cold starts)
-            // Engagement uses 4 concurrent queries internally
-            console.log('📊 Step 3/3: Syncing engagement...');
-            let engagementData = null;
+            // Part 3: Sync engagement (fetch from Mixpanel and store in Storage)
+            console.log('📊 Step 3/5: Fetching engagement data from Mixpanel...');
+            let engagementFetchData = null;
+            let engagementFilename = null;
             try {
-                engagementData = await this.invokeFunctionWithRetry(
+                engagementFetchData = await this.invokeFunctionWithRetry(
                     'sync-mixpanel-engagement',
                     {},
-                    'Engagement sync',
-                    3,      // maxRetries: 3 attempts (increased from 2)
-                    5000    // retryDelay: 5 seconds (increased from 3)
+                    'Engagement fetch',
+                    3,      // maxRetries: 3 attempts
+                    5000    // retryDelay: 5 seconds
                 );
 
-                console.log('✅ Step 3/3 complete: Engagement data synced successfully');
-                console.log('   Stats:', engagementData.stats);
+                engagementFilename = engagementFetchData.stats?.filename;
+                console.log('✅ Step 3/5 complete: Engagement data fetched and stored');
+                console.log('   Filename:', engagementFilename);
             } catch (error) {
-                console.warn('⚠️ Step 3/3 failed: Engagement sync timed out, continuing with existing data');
-                engagementData = { stats: { failed: true, error: error.message } };
+                console.warn('⚠️ Step 3/5 failed: Engagement fetch error, cannot process engagement data');
+                engagementFetchData = { stats: { failed: true, error: error.message } };
+            }
+
+            // Part 4: Process portfolio engagement (only if fetch succeeded)
+            let portfolioProcessData = null;
+            if (engagementFilename) {
+                console.log('📊 Step 4/5: Processing portfolio engagement data...');
+                try {
+                    portfolioProcessData = await this.invokeFunctionWithRetry(
+                        'process-portfolio-engagement',
+                        { filename: engagementFilename },
+                        'Portfolio engagement processing',
+                        2,      // maxRetries: 2 attempts
+                        3000    // retryDelay: 3 seconds
+                    );
+
+                    console.log('✅ Step 4/5 complete: Portfolio engagement processed');
+                    console.log('   Stats:', portfolioProcessData.stats);
+                } catch (error) {
+                    console.warn('⚠️ Step 4/5 failed: Portfolio processing error, continuing with existing data');
+                    portfolioProcessData = { stats: { failed: true, error: error.message } };
+                }
+            } else {
+                console.warn('⚠️ Step 4/5 skipped: No engagement file to process');
+                portfolioProcessData = { stats: { failed: true, skipped: true } };
+            }
+
+            // Part 5: Process creator engagement (only if fetch succeeded)
+            let creatorProcessData = null;
+            if (engagementFilename) {
+                console.log('📊 Step 5/5: Processing creator engagement data...');
+                try {
+                    creatorProcessData = await this.invokeFunctionWithRetry(
+                        'process-creator-engagement',
+                        { filename: engagementFilename },
+                        'Creator engagement processing',
+                        2,      // maxRetries: 2 attempts
+                        3000    // retryDelay: 3 seconds
+                    );
+
+                    console.log('✅ Step 5/5 complete: Creator engagement processed');
+                    console.log('   Stats:', creatorProcessData.stats);
+                } catch (error) {
+                    console.warn('⚠️ Step 5/5 failed: Creator processing error, continuing with existing data');
+                    creatorProcessData = { stats: { failed: true, error: error.message } };
+                }
+            } else {
+                console.warn('⚠️ Step 5/5 skipped: No engagement file to process');
+                creatorProcessData = { stats: { failed: true, skipped: true } };
             }
 
             // Note: Pattern analyses and view refreshes happen at the end of the full workflow
@@ -412,7 +463,11 @@ class SupabaseIntegration {
             this.invalidateCache();
 
             // Return combined stats
-            const hasFailures = userEventsData?.stats?.failed || userPropertiesData?.stats?.failed || engagementData?.stats?.failed;
+            const hasFailures = userEventsData?.stats?.failed ||
+                              userPropertiesData?.stats?.failed ||
+                              engagementFetchData?.stats?.failed ||
+                              portfolioProcessData?.stats?.failed ||
+                              creatorProcessData?.stats?.failed;
             return {
                 success: !hasFailures,
                 message: !hasFailures
@@ -420,7 +475,9 @@ class SupabaseIntegration {
                     : 'Mixpanel analysis refresh completed with some failures',
                 userEvents: userEventsData?.stats,
                 userProperties: userPropertiesData?.stats,
-                engagement: engagementData?.stats
+                engagementFetch: engagementFetchData?.stats,
+                portfolioProcessing: portfolioProcessData?.stats,
+                creatorProcessing: creatorProcessData?.stats
             };
         } catch (error) {
             console.error('❌ Unexpected error during Mixpanel sync:', error);

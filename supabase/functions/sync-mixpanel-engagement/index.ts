@@ -126,31 +126,14 @@ serve(async (req) => {
 
       // Update sync log with fetch success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: 0,  // No records inserted yet - happens in processing function
+        total_records_inserted: 0,  // No records inserted yet - happens in processing functions
       })
 
-      // Trigger portfolio processing function (which will chain to creator processing)
-      // Use proper Supabase client pattern instead of raw fetch
-      console.log('Triggering process-portfolio-engagement function...')
+      // NOTE: Processing functions (process-portfolio-engagement, process-creator-engagement)
+      // are now called sequentially by the frontend to avoid WORKER_LIMIT errors.
+      // This function only fetches and stores data, then returns the filename.
 
-      try {
-        const { data, error } = await supabase.functions.invoke('process-portfolio-engagement', {
-          body: { filename }
-        })
-
-        if (error) {
-          console.error('⚠️ Failed to trigger process-portfolio-engagement:', error)
-        } else {
-          console.log('✓ Portfolio processing function triggered successfully')
-          if (data) console.log('Response:', data)
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-        console.error('⚠️ Exception triggering process-portfolio-engagement:', errorMessage)
-        // Continue anyway - don't fail the entire sync
-      }
-
-      console.log('Fetch completed successfully')
+      console.log('✅ Fetch completed successfully - ready for processing')
 
       return createSuccessResponse(
         'Mixpanel engagement data fetched and stored successfully',

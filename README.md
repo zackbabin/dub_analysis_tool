@@ -1,5 +1,7 @@
 # Dub Analysis Tool
 
+**Version**: 2.1.0 (November 2024)
+
 Comprehensive analytics platform for analyzing user behavior, creator performance, and business metrics for an investment social network.
 
 ## System Architecture

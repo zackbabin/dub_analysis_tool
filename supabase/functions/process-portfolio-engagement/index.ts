@@ -146,34 +146,12 @@ serve(async (req) => {
       pdpViewsData = undefined
       // @ts-ignore
       subscriptionsData = undefined
-      // @ts-ignore - creator pairs not needed in this function (processed by background function)
+      // @ts-ignore - creator pairs not needed in this function (processed by separate frontend call)
       creatorPairs = undefined
       console.log('✓ Memory released')
 
-      // Trigger process-creator-engagement BEFORE upserting to ensure it happens even if we timeout
-      // This function will handle creator pairs while we process portfolio pairs
-      console.log('Triggering process-creator-engagement function (before upserts)...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && supabaseServiceKey) {
-        // Fire and forget - don't wait for completion
-        fetch(`${supabaseUrl}/functions/v1/process-creator-engagement`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`,
-            'apikey': supabaseServiceKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ filename })
-        }).catch((err) => {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          console.error('⚠️ Failed to trigger process-creator-engagement:', errorMessage)
-        })
-        console.log('✓ Creator processing function triggered in background')
-      } else {
-        console.warn('⚠️ Cannot trigger creator processing function: Supabase credentials not available')
-      }
+      // NOTE: process-creator-engagement is now called by the frontend after this completes
+      // to avoid WORKER_LIMIT errors from running multiple Edge Functions concurrently
 
       // Clear staging table before starting (in case previous sync failed)
       console.log('Clearing staging table from any previous incomplete syncs...')
@@ -265,8 +243,7 @@ serve(async (req) => {
       const totalElapsedSec = Math.round((Date.now() - startTime) / 1000)
       console.log(`✅ Portfolio processing completed successfully in ${totalElapsedSec}s (Postgres-accelerated)`)
 
-      // Note: process-creator-engagement was already triggered earlier (before upserts)
-      // to ensure it runs even if upserts timeout
+      // Note: process-creator-engagement should be called next by the frontend
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
