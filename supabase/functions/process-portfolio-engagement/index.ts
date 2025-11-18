@@ -5,6 +5,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { processPortfolioCreatorPairs } from '../_shared/data-processing.ts'
+import { pLimit } from '../_shared/mixpanel-api.ts'
 import {
   initializeSupabaseClient,
   handleCorsRequest,
@@ -98,7 +99,8 @@ serve(async (req) => {
 
       // Staging table configuration for Postgres-accelerated processing
       // Similar to sync-mixpanel-user-events pattern: stage data, process in Postgres
-      const STAGING_BATCH_SIZE = 5000  // Large batches OK for staging (no conflict checks)
+      const STAGING_BATCH_SIZE = 1500  // Optimized batch size for memory efficiency and timeout prevention
+      const STAGING_CONCURRENCY = 3     // Process 3 batches concurrently for better throughput
 
       // Process engagement data (both portfolio and creator pairs)
       console.log('Processing engagement pairs...')
@@ -130,6 +132,10 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Processed ${portfolioCreatorPairs.length} portfolio pairs, ${creatorPairs.length} creator pairs`)
       console.log('This function will process portfolio pairs only, creator pairs handled by process-creator-engagement')
+
+      // Log verification data for comparison
+      console.log(`Portfolio pairs sample: ${JSON.stringify(portfolioCreatorPairs[0])}`)
+      console.log(`Creator pairs sample: ${JSON.stringify(creatorPairs[0])}`)
 
       // Release raw data from memory ASAP to allow garbage collection
       // This reduces memory usage by 30-40% and prevents memory limit errors
@@ -164,40 +170,52 @@ serve(async (req) => {
 
       // Step 1: Insert all portfolio pairs into staging table (fast, no conflict checking)
       console.log(`Step 1/3: Staging ${portfolioCreatorPairs.length} portfolio-creator pairs...`)
-      let totalStaged = 0
-      let failedBatches = 0
 
-      // Insert in batches to avoid statement timeout
+      // Split into batches
+      const batches = []
       for (let i = 0; i < portfolioCreatorPairs.length; i += STAGING_BATCH_SIZE) {
-        const batch = portfolioCreatorPairs.slice(i, i + STAGING_BATCH_SIZE)
-        const batchNumber = Math.floor(i / STAGING_BATCH_SIZE) + 1
-
-        try {
-          const { error: insertError } = await supabase
-            .from('portfolio_engagement_staging')
-            .insert(batch)
-
-          if (insertError) {
-            console.error(`Error inserting staging batch ${batchNumber}:`, insertError.message)
-            failedBatches++
-            // Continue to next batch instead of failing entire sync
-            continue
-          }
-
-          totalStaged += batch.length
-          if ((i + STAGING_BATCH_SIZE) < portfolioCreatorPairs.length) {
-            console.log(`✓ Staged ${totalStaged}/${portfolioCreatorPairs.length} records...`)
-          }
-        } catch (batchError) {
-          const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
-          console.error(`Exception in staging batch ${batchNumber}:`, errorMessage)
-          failedBatches++
-          // Continue to next batch instead of failing entire sync
-        }
+        batches.push({
+          data: portfolioCreatorPairs.slice(i, i + STAGING_BATCH_SIZE),
+          index: Math.floor(i / STAGING_BATCH_SIZE)
+        })
       }
 
+      // Process batches with controlled concurrency
+      const limit = pLimit(STAGING_CONCURRENCY)
+      const results = await Promise.all(
+        batches.map(({ data: batch, index }) =>
+          limit(async () => {
+            try {
+              const { error: insertError } = await supabase
+                .from('portfolio_engagement_staging')
+                .insert(batch)
+
+              if (insertError) {
+                console.error(`Error inserting staging batch ${index + 1}/${batches.length}:`, insertError.message)
+                return { success: false, count: 0 }
+              }
+
+              // Log progress for every 5th batch
+              if ((index + 1) % 5 === 0 || index === batches.length - 1) {
+                const stagedSoFar = (index + 1) * STAGING_BATCH_SIZE
+                console.log(`✓ Staged ~${Math.min(stagedSoFar, portfolioCreatorPairs.length)}/${portfolioCreatorPairs.length} records...`)
+              }
+
+              return { success: true, count: batch.length }
+            } catch (batchError) {
+              const errorMessage = batchError instanceof Error ? batchError.message : String(batchError)
+              console.error(`Exception in staging batch ${index + 1}/${batches.length}:`, errorMessage)
+              return { success: false, count: 0 }
+            }
+          })
+        )
+      )
+
+      const totalStaged = results.filter(r => r.success).reduce((sum, r) => sum + r.count, 0)
+      const failedBatches = results.filter(r => !r.success).length
+
       if (failedBatches > 0) {
-        console.warn(`⚠️ ${failedBatches} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
+        console.warn(`⚠️ ${failedBatches}/${batches.length} batches failed during staging, but continuing with ${totalStaged} successfully staged records`)
       }
 
       logElapsed()
