@@ -1494,12 +1494,6 @@ class SupabaseIntegration {
      * @param {Array} creatorData - Array of cleaned creator objects with creator_id, creator_username, raw_data
      * @returns {Promise} - { success: true, stats: { uploaded: N, enriched: N } }
      */
-    // REMOVED: uploadAndMergeCreatorFiles() - Edge Function upload-and-merge-creator-files was removed
-    // WARNING: This function is still called from creator_analysis_tool_supabase.js:2173
-    // TODO: Either restore the Edge Function or update the creator upload UI
-    async uploadAndMergeCreatorFiles(creatorListCsv, dealsCsv, publicCreatorsCsv) {
-        throw new Error('upload-and-merge-creator-files Edge Function no longer exists. Please use upload-portfolio-metrics instead or restore the removed function.');
-    }
 
     /**
      * Load premium creator copy affinity from database view
