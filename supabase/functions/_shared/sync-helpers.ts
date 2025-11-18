@@ -7,7 +7,7 @@
  * Used by: sync-creator-data, sync-mixpanel-user-events, sync-mixpanel-engagement, sync-event-sequences
  */
 
-import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from './mixpanel-api.ts'
 
 // ============================================================================
