@@ -577,7 +577,7 @@ class SupabaseIntegration {
 
         const rows = data.map(row => [
             row.distinct_id || '',
-            row.linked_bank_account ? '1' : '0',
+            (row.total_bank_links && row.total_bank_links > 0) ? '1' : '0',
             row.income || '',
             row.net_worth || '',
             row.available_copy_credits || 0,

@@ -235,13 +235,15 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
-      // Fetch enriched conversations
+      // Fetch enriched conversations (limit to 800 to stay under 200k token limit)
+      const MAX_CONVERSATIONS = 800
       const { data: conversations, error: fetchError } = await supabase
         .from('enriched_support_conversations')
         .select('*')
         .gte('created_at', startDate.toISOString())
         .lt('created_at', now.toISOString())
         .order('created_at', { ascending: false })
+        .limit(MAX_CONVERSATIONS)
 
       if (fetchError) throw fetchError
 
@@ -276,8 +278,8 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 700 chars to stay under token limit (with buffer for tags/custom_fields)
-        const MAX_CONVERSATION_LENGTH = 700
+        // Truncate conversation text to 500 chars to stay under token limit (with buffer for tags/custom_fields)
+        const MAX_CONVERSATION_LENGTH = 500
         let truncatedText = sanitize(conversationText)
         if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
