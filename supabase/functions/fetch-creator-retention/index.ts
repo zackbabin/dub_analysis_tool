@@ -179,9 +179,16 @@ function processRetentionChartData(chartData: any): any[] {
     return []
   }
 
+  // Debug: Log series keys to check what metrics are available
+  const seriesKeys = Object.keys(chartData.series)
+  console.log(`Chart has ${seriesKeys.length} series:`, seriesKeys)
+
   // Process both metrics
   const subscribedData = chartData.series['A. Subscribed to Creator'] || {}
   const renewedData = chartData.series['B. Renewed Subscription'] || {}
+
+  console.log(`Subscribed data keys:`, Object.keys(subscribedData).slice(0, 5))
+  console.log(`Renewed data keys:`, Object.keys(renewedData).slice(0, 5))
 
   // Process subscribed events
   processMetric(subscribedData, eventMap, 'subscribed')
@@ -194,21 +201,45 @@ function processRetentionChartData(chartData: any): any[] {
     events.push(value)
   })
 
+  console.log(`Processed ${events.length} events from ${eventMap.size} unique combinations`)
+  if (events.length > 0) {
+    console.log(`Sample event:`, JSON.stringify(events[0]))
+  }
+
   return events
 }
 
 function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 'subscribed' | 'renewed') {
+  let totalProcessed = 0
+  let skippedZero = 0
+  let skippedOverall = 0
+
   for (const [distinctId, distinctIdData] of Object.entries(metricData)) {
-    if (distinctId === '$overall' || typeof distinctIdData !== 'object') continue
+    if (distinctId === '$overall') {
+      skippedOverall++
+      continue
+    }
+    if (typeof distinctIdData !== 'object') continue
 
     for (const [creatorUsername, creatorData] of Object.entries(distinctIdData as Record<string, any>)) {
-      if (creatorUsername === '$overall' || typeof creatorData !== 'object') continue
+      if (creatorUsername === '$overall') {
+        skippedOverall++
+        continue
+      }
+      if (typeof creatorData !== 'object') continue
 
       for (const [cohortMonth, monthData] of Object.entries(creatorData as Record<string, any>)) {
-        if (cohortMonth === '$overall' || typeof monthData !== 'object') continue
+        if (cohortMonth === '$overall') {
+          skippedOverall++
+          continue
+        }
+        if (typeof monthData !== 'object') continue
 
         const count = (monthData as any).all || 0
-        if (count === 0) continue
+        if (count === 0) {
+          skippedZero++
+          continue
+        }
 
         // Create unique key
         const key = `${distinctId}|${creatorUsername}|${cohortMonth}`
@@ -230,9 +261,12 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
         } else {
           event.renewed_count += count
         }
+        totalProcessed++
       }
     }
   }
+
+  console.log(`  ${metricType}: processed ${totalProcessed} records, skipped ${skippedZero} zero-count, ${skippedOverall} $overall`)
 }
 
 /**
