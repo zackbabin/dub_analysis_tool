@@ -1254,12 +1254,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             );
         }
 
+        // Predictive Sequences Section
         parts.push(
-            // Predictive Sequences Section
             '<div class="path-analysis-section">',
             '<h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">High-Impact Event Sequences</h3>',
             '<p style="color: #6c757d; font-size: 0.9rem;">Patterns sorted by impact (lift × prevalence), showing sequences that drive conversion for the most users</p>'
-        ];
+        );
 
         // Add each predictive sequence
         analysisData.predictive_sequences.slice(0, 5).forEach((seq, idx) => {
