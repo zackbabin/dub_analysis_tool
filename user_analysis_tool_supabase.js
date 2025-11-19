@@ -777,11 +777,28 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Display Top Subscription Drivers section (load from database)
             await this.displayTopSubscriptionDrivers();
         } else {
+            // Even without copies data, create minimal structure for subscription drivers
             portfolioContentSection.innerHTML = `
                 <div class="qda-result-section">
                     <p style="color: #6c757d; font-style: italic;">Portfolio analysis data will be available after syncing.</p>
                 </div>
+                <div class="qda-result-section" style="margin-top: 3rem;">
+                    <h2>Top Behavioral Drivers</h2>
+                    <div class="behavioral-tabs-container">
+                        <div class="behavioral-tab-navigation">
+                            <button class="behavioral-tab-btn active" data-behavioral-tab="subscriptions">Subscriptions</button>
+                        </div>
+                        <div class="behavioral-tab-content">
+                            <div id="subscriptions-behavioral-tab" class="behavioral-tab-pane active">
+                                <!-- Subscriptions content will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
             `;
+
+            // Display Top Subscription Drivers section (load from database)
+            await this.displayTopSubscriptionDrivers();
         }
 
         // Add timestamp and data scope to remaining tabs (summary, portfolio)
