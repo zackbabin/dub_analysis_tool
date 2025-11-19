@@ -56,8 +56,17 @@ serve(async (req) => {
 
     console.log(`✓ Fetched ${pdpEvents.length} PDP events and ${creatorProfileEvents.length} creator profile events`)
 
+    // Log sample events for debugging
+    if (pdpEvents.length > 0) {
+      console.log('Sample PDP event:', JSON.stringify(pdpEvents[0], null, 2))
+    }
+    if (creatorProfileEvents.length > 0) {
+      console.log('Sample Creator Profile event:', JSON.stringify(creatorProfileEvents[0], null, 2))
+    }
+
     // Build lookup maps for efficient matching
     // Key format: "distinct_id|event|timestamp"
+    // IMPORTANT: Both Mixpanel and database use ISO timestamp strings
     const pdpLookup = new Map<string, { portfolioTicker?: string; creatorUsername?: string }>()
     for (const event of pdpEvents) {
       const key = `${event.distinct_id}|${event.event}|${event.time}`
@@ -102,6 +111,11 @@ serve(async (req) => {
 
     stats.totalEvents = rawEvents?.length || 0
     console.log(`Processing ${stats.totalEvents} individual events that need enrichment (max ${MAX_EVENTS_PER_RUN} per run)...`)
+
+    // Log sample database event for debugging
+    if (rawEvents && rawEvents.length > 0) {
+      console.log('Sample database event:', JSON.stringify(rawEvents[0], null, 2))
+    }
 
     if (stats.totalEvents === MAX_EVENTS_PER_RUN) {
       console.log(`⚠️ Reached max events limit - more events may need enrichment. Will resume on next run.`)
