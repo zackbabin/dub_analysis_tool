@@ -29,7 +29,7 @@ function initializeLinearClient(): LinearClient {
 
 /**
  * Fetch issues from Linear for "dub 3.0" team, last 6 months
- * Uses pagination to fetch all issues without limit
+ * Uses GraphQL directly to fetch all nested data in single request per page
  */
 async function fetchLinearIssues(linearClient: LinearClient) {
   console.log('Fetching issues from Linear...')
@@ -54,7 +54,8 @@ async function fetchLinearIssues(linearClient: LinearClient) {
 
     console.log(`Found team: ${dubTeam.name} (${dubTeam.id})`)
 
-    // Fetch all issues using pagination
+    // Fetch all issues using pagination with GraphQL client
+    // This fetches all nested fields in a single request per page
     let allIssues = []
     let hasNextPage = true
     let cursor = undefined
@@ -65,39 +66,83 @@ async function fetchLinearIssues(linearClient: LinearClient) {
       pageCount++
       console.log(`Fetching page ${pageCount}...`)
 
-      const issuesPage = await linearClient.issues({
-        filter: {
-          team: { id: { eq: dubTeam.id } },
-          createdAt: { gte: sixMonthsAgo }
-        },
-        includeArchived: false,
+      // Use raw GraphQL query to fetch all data in single request
+      const query = `
+        query($teamId: String!, $createdAt: DateTime!, $first: Int!, $after: String) {
+          issues(
+            filter: {
+              team: { id: { eq: $teamId } }
+              createdAt: { gte: $createdAt }
+            }
+            includeArchived: false
+            first: $first
+            after: $after
+          ) {
+            nodes {
+              id
+              identifier
+              title
+              description
+              priority
+              priorityLabel
+              url
+              createdAt
+              updatedAt
+              completedAt
+              canceledAt
+              state {
+                id
+                name
+                type
+              }
+              assignee {
+                id
+                name
+              }
+              team {
+                id
+                name
+              }
+            }
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+          }
+        }
+      `
+
+      const variables = {
+        teamId: dubTeam.id,
+        createdAt: sixMonthsAgo.toISOString(),
         first: PAGE_SIZE,
         after: cursor
-      })
+      }
 
-      allIssues = allIssues.concat(issuesPage.nodes)
-      hasNextPage = issuesPage.pageInfo.hasNextPage
-      cursor = issuesPage.pageInfo.endCursor
+      const response = await linearClient.client.rawRequest(query, variables)
+      const issuesData = response.data.issues
 
-      console.log(`  Page ${pageCount}: ${issuesPage.nodes.length} issues (total: ${allIssues.length})`)
+      allIssues = allIssues.concat(issuesData.nodes)
+      hasNextPage = issuesData.pageInfo.hasNextPage
+      cursor = issuesData.pageInfo.endCursor
+
+      console.log(`  Page ${pageCount}: ${issuesData.nodes.length} issues (total: ${allIssues.length})`)
     }
 
     console.log(`✅ Fetched ${allIssues.length} total issues from Linear across ${pageCount} pages`)
 
-    // Transform issues to database format
-    // Note: We process synchronously to avoid rate limits from lazy-loading relationships
-    // State/assignee/team details may be limited but that's acceptable to avoid hitting API limits
-    const enrichedIssues = allIssues.map((issue) => ({
+    // Transform issues to database format - all data already included
+    const enrichedIssues = allIssues.map((issue: any) => ({
       id: issue.id,
       identifier: issue.identifier,
       title: issue.title,
       description: issue.description || null,
-      state_name: 'Unknown', // Will be enriched from state_id later if needed
-      state_type: null,
-      team_id: null,
-      team_name: 'dub 3.0', // We already filtered by this team
-      assignee_id: null,
-      assignee_name: null,
+      state_name: issue.state?.name || 'Unknown',
+      state_type: issue.state?.type || null,
+      team_id: issue.team?.id || null,
+      team_name: issue.team?.name || 'dub 3.0',
+      assignee_id: issue.assignee?.id || null,
+      assignee_name: issue.assignee?.name || null,
       priority: issue.priority,
       priority_label: issue.priorityLabel || null,
       url: issue.url,
