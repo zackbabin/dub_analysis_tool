@@ -471,7 +471,7 @@
                     // Step 3: Support analysis (syncs Zendesk + Claude analysis + Linear integration)
                     console.log('Step 3: Running CX analysis pipeline (support feedback + Linear)...');
                     try {
-                        const response = await fetch(`${SUPABASE_URL}/functions/v1/trigger-support-analysis`, {
+                        const response = await fetch(`${SUPABASE_URL}/functions/v1/sync-support-conversations`, {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,

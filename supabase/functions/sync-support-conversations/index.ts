@@ -155,14 +155,6 @@ serve(async (req) => {
 
       // Messages skipped for now (no comment processing)
 
-      // Refresh materialized view
-      console.log('Refreshing enriched view...')
-      const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
-      if (refreshError) {
-        console.warn('Failed to refresh materialized view:', refreshError)
-        // Don't throw - this is non-critical
-      }
-
       // Trigger next step in workflow IMMEDIATELY after data is stored
       // Do this BEFORE status updates to ensure chain continues even if function times out
       console.log('Triggering next step: sync-linear-issues...')
@@ -170,6 +162,7 @@ serve(async (req) => {
       const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
       if (supabaseUrl && serviceKey) {
+        // Trigger next step in workflow (fire-and-forget)
         fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
           method: 'POST',
           headers: {
@@ -181,6 +174,17 @@ serve(async (req) => {
           // Don't fail this function if next step fails to trigger
         })
         console.log('✓ Triggered sync-linear-issues (async)')
+
+        // Also trigger materialized view refresh asynchronously (fire-and-forget)
+        // This can take a long time (30-60s), so don't wait for it
+        supabase.rpc('refresh_enriched_support_conversations').then(({ error }) => {
+          if (error) {
+            console.warn('⚠️ Failed to refresh enriched_support_conversations:', error.message)
+          } else {
+            console.log('✓ Materialized view refreshed in background')
+          }
+        })
+        console.log('✓ Triggered materialized view refresh (async)')
       } else {
         console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
       }

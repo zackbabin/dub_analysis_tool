@@ -122,16 +122,16 @@ serve(async (req) => {
 
     // Prepare data for Claude with prompt caching
     // Balance converters and non-converters to equal counts for fair analysis
-    // Cost optimization: Patterns stabilize after ~600 users, conversions happen within first 50 events
+    // Cost optimization: Patterns stabilize after ~600 users, conversions happen within first 75 events
     // Token calculation per batch:
-    // - 200 users × 50 events = 10,000 raw events
-    // - After deduplication (40-60% reduction): ~5,000 events
-    // - 5,000 events × 15 tokens/event = ~75,000 tokens
+    // - 250 users × 75 events = 18,750 raw events
+    // - After deduplication (40-60% reduction): ~9,375 events
+    // - 9,375 events × 15 tokens/event = ~140,625 tokens
     // - System prompt: ~2,000 tokens (cached)
-    // - Total: ~77,000 tokens (38% of 200k limit - safe margin)
-    const BATCH_SIZE = 100 // Per group (converters and non-converters) - 200 total users per batch
-    const EVENTS_PER_USER = 50 // Reduced from 100 - most conversions happen in first 50 events
-    const MAX_BATCHES = 3 // Process up to 300 converters + 300 non-converters total (600 users)
+    // - Total: ~142,625 tokens (71% of 200k limit - safe margin)
+    const BATCH_SIZE = 125 // Per group (converters and non-converters) - 250 total users per batch
+    const EVENTS_PER_USER = 75 // Most conversions happen within first 75 events
+    const MAX_BATCHES = 3 // Process up to 375 converters + 375 non-converters total (750 users)
 
     // Balance to equal sizes
     const minSize = Math.min(converters.length, nonConverters.length)

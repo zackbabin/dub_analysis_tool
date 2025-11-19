@@ -102,18 +102,9 @@ serve(async (req) => {
       console.log('✓ portfolio_breakdown_with_metrics refreshed successfully')
     }
 
-    // Step 5: Refresh premium_creator_breakdown
-    // Combines engagement, subscription, and performance metrics by creator
-    console.log('Refreshing premium_creator_breakdown...')
-
-    const { error: breakdownError } = await supabase.rpc('refresh_premium_creator_breakdown_view')
-
-    if (breakdownError) {
-      console.warn('⚠️ Error refreshing premium_creator_breakdown:', breakdownError)
-      // Non-fatal - continue with other refreshes
-    } else {
-      console.log('✓ premium_creator_breakdown refreshed successfully')
-    }
+    // Step 5: premium_creator_breakdown is now a regular view (not materialized)
+    // No refresh needed - updates automatically when underlying data changes
+    console.log('ℹ️ premium_creator_breakdown is a regular view - no refresh needed')
 
     // Step 6: Refresh premium_creator_retention_analysis
     // Depends on premium_creator_retention_events table
@@ -159,7 +150,7 @@ serve(async (req) => {
         main_analysis_triggered: true, // Running in background with CONCURRENT
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
-        creator_breakdown_refreshed: !breakdownError,
+        premium_creator_breakdown: 'regular_view_no_refresh_needed',
         retention_analysis_refreshed: !retentionError,
         copy_engagement_summary_refreshed: !copyResult.error,
         enriched_support_conversations_refreshed: !supportError,

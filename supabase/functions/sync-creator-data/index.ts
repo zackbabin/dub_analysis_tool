@@ -186,17 +186,17 @@ serve(async (req) => {
 
       console.log('Creator enrichment sync completed successfully')
 
-      // Refresh materialized views to incorporate new portfolio metrics data
-      console.log('Refreshing materialized views...')
-      const { error: refreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
-
-      if (refreshError) {
-        console.error('Error refreshing materialized views:', refreshError)
-        // Don't throw - sync succeeded, just log the error
-        console.log('⚠️ Materialized views may need manual refresh')
-      } else {
-        console.log('✅ Materialized views refreshed successfully')
-      }
+      // Refresh materialized views asynchronously (fire-and-forget)
+      // This can take a long time, so don't wait for it
+      console.log('Triggering materialized view refresh (async)...')
+      supabase.rpc('refresh_portfolio_engagement_views').then(({ error: refreshError }) => {
+        if (refreshError) {
+          console.error('⚠️ Error refreshing materialized views:', refreshError.message)
+        } else {
+          console.log('✅ Materialized views refreshed in background')
+        }
+      })
+      console.log('✓ Materialized view refresh triggered')
 
       // Note: Premium creator affinity is now computed via database views
       // See: premium_creator_affinity_display view
