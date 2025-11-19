@@ -1570,7 +1570,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         thead.innerHTML = `
             <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                 <th style="text-align: left; padding: 0.75rem; font-weight: 600; min-width: 250px; width: 250px; white-space: nowrap;">Creator Username</th>
-                <th style="text-align: right; padding: 0.75rem; font-weight: 600; width: 80px;">Count</th>
+                <th style="text-align: right; padding: 0.75rem; font-weight: 600; width: 120px;">Unique Subscribers</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">&lt; 1 Month</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 1</th>
                 <th style="text-align: center; padding: 0.75rem; font-weight: 600; width: 100px;">Month 2</th>
