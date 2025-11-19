@@ -101,20 +101,20 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 ### Sync Workflow
 
 **Manual Sync** (via "Sync Live Data" button):
-1. `sync-mixpanel-user-events-v2` - Event metrics from Insights API
-2. `sync-mixpanel-user-properties-v2` - User properties from Engage API
-3. `sync-creator-data` - Creator performance metrics
-4. `trigger-support-analysis` - Full support workflow:
-   - Sync Zendesk/Instabug conversations
-   - Run Claude CX analysis
-   - Sync Linear issues from "dub 3.0" team
-   - Map Linear issues to feedback themes
-5. `sync-event-sequences` - Raw event data for pattern analysis
-6. `process-event-sequences` - Join with conversion data
-7. `analyze-event-sequences` - Claude AI pattern analysis (copies only)
-8. `analyze-subscription-price` - Subscription pricing analysis
-9. `analyze-copy-patterns` - Portfolio/creator combinations
-10. `refresh-materialized-views` - Update all database views
+1. `sync-mixpanel-user-events-v2` - Event metrics from Insights API (~2-5 min)
+2. `sync-mixpanel-user-properties-v2` - User properties from Engage API (~5-10 min)
+3. `sync-mixpanel-engagement` - Granular engagement data (~60-90s)
+   - Frontend orchestrates 3 steps: fetch → process-portfolio → process-creator
+4. `sync-creator-data` - Creator performance metrics (~30s)
+5. `sync-support-conversations` - Support workflow starter (~30s)
+   - Auto-triggers 3-step chain: sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+   - Background completion: ~2-3 min total
+6. `sync-event-sequences` - Raw event data for pattern analysis
+7. `process-event-sequences` - Join with conversion data
+8. `analyze-event-sequences` - Claude AI pattern analysis (copies only)
+9. `analyze-subscription-price` - Subscription pricing analysis
+10. `analyze-copy-patterns` - Portfolio/creator combinations
+11. `refresh-materialized-views` - Update all database views (runs in finally block)
 
 **Automatic Daily Sync** (2:00-3:00 AM UTC via cron):
 1. `sync-mixpanel-user-events-v2` - Event metrics (~2-5 min)
@@ -126,27 +126,115 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 
 ## Tab 3: CX Analysis
 
-Customer experience analysis powered by AI-driven support ticket categorization.
+Customer experience analysis powered by AI-driven support ticket categorization and Linear issue mapping.
 
-**Data Sources**:
-- Zendesk support tickets
-- Instabug bug reports (future)
-- Linear issues (mapped to feedback themes)
+### Data Sources
 
-**What it shows**:
-- Top 10 product issues by priority (category weight + frequency + volume)
-- Issue categories: Compliance, Money Movement, Trading, App Functionality, Feature Requests
-- User segment analysis linked to support conversations
-- Representative ticket examples for each issue
-- Linear issue mappings (via AI semantic matching)
+**Support Tickets**:
+- Zendesk support tickets (last 30 days)
+- Instabug bug reports (mobile app)
+- User enrichment: income, net worth, investing activity, engagement metrics
 
-**PII Protection**: All sensitive data redacted at ingestion (SSN, credit cards, phone numbers, etc.)
+**Linear Issues**:
+- All issues from "dub 3.0" team
+- Mapped to feedback themes via AI semantic matching
 
-**Sync Methods**:
-- **Manual**: Included in "Sync Live Data" button (full workflow: Zendesk → Claude analysis → Linear sync → feedback mapping)
-- **Automatic**: Runs daily via cron (3:30-4:10 AM UTC)
+### Workflow Architecture
 
-**Cost**: ~$0.25 per analysis (~$8/month for daily runs)
+The CX Analysis uses a **4-step fire-and-forget chain** to avoid Edge Function timeouts:
+
+```
+Frontend: "Sync Live Data" button
+    ↓ (waits for step 1 only)
+1. sync-support-conversations (~30s)
+   - Fetches Zendesk tickets + Instabug reports
+   - Enriches with user data from subscribers_insights
+   - Stores in raw_support_conversations table
+   - Fire-and-forget trigger → Step 2
+    ↓ (background, async)
+2. sync-linear-issues (~10s)
+   - Fetches Linear issues via GraphQL API
+   - Stores in linear_issues table
+   - Fire-and-forget trigger → Step 3
+    ↓ (background, async)
+3. analyze-support-feedback (~45-60s)
+   - Reads 300 most recent conversations from enriched_support_conversations
+   - Sends to Claude Sonnet 4 (~120K input tokens)
+   - Claude categorizes into top 10 issues by priority
+   - Stores in support_analysis_results table
+   - Fire-and-forget trigger → Step 4
+    ↓ (background, async)
+4. map-linear-to-feedback (~30-45s)
+   - For each of the 10 feedback issues:
+     a. Checks for direct Zendesk-Linear integration links
+     b. If none found, uses Claude AI semantic matching
+   - Sends feedback + all Linear issues to Claude
+   - Stores mappings in linear_feedback_mapping table
+   - Updates support_analysis_results with Linear data
+```
+
+**Total workflow time**: ~2-3 minutes (steps 2-4 run in background)
+
+### What It Shows
+
+**Top 10 Product Issues**:
+- Ranked by composite priority score (0-100)
+- Priority formula: `(Category Weight × 0.4) + (Percentage × 3 × 0.3) + (min(Volume, 50) / 50 × 100 × 0.3)`
+- Categories (weighted): Compliance (100), Money Movement (80), Trading (60), App Functionality (40), Feature Request (20)
+
+**For Each Issue**:
+- Issue summary (140 chars max)
+- Weekly volume and percentage of total conversations
+- 3 representative ticket examples with user segments
+- Mapped Linear issues (if any) with status and URLs
+
+**User Segment Analysis**:
+- Income bracket, net worth, investing activity
+- Total copies, subscriptions, app sessions
+- Helps prioritize issues by affected user value
+
+### AI Configuration
+
+**analyze-support-feedback** (Zendesk analysis):
+- Model: `claude-sonnet-4-20250514`
+- Input: ~120,000 tokens (300 conversations × 400 tokens)
+- Output: `max_tokens: 16384` (structured JSON with 10 issues)
+- Temperature: `0.3`
+
+**map-linear-to-feedback** (Linear mapping):
+- Model: `claude-sonnet-4-20250514`
+- Input: ~5,000-20,000 tokens per issue (varies by # of Linear issues)
+- Output: `max_tokens: 16384` (JSON array of matches)
+- Temperature: `0.3`
+- Confidence threshold: ≥0.60 (0.60-0.74: moderate, 0.75-0.89: strong, 0.90-1.00: very strong)
+
+### Data Protection
+
+**PII Redaction**: All sensitive data automatically redacted at ingestion
+- SSN, credit card numbers, phone numbers, email addresses
+- Redaction happens in `sync-support-conversations` before storage
+
+### Sync Methods
+
+**Manual Sync** (via "Sync Live Data" button):
+- Triggers `sync-support-conversations`
+- Frontend waits for step 1 to complete (~30s)
+- Steps 2-4 continue in background (~2-3 min total)
+- Click "Refresh" button on CX tab after ~2-3 min to see results
+
+**Automatic Sync** (daily via pg_cron):
+- Runs at 3:30 AM UTC
+- Full 4-step workflow completes automatically
+- Results visible next morning
+
+### Cost Analysis
+
+**Per Analysis Run**:
+- analyze-support-feedback: ~$0.18 (120K input + 10K output tokens)
+- map-linear-to-feedback: ~$0.10 (10 calls × ~10K tokens each)
+- **Total**: ~$0.28 per analysis
+
+**Monthly Cost** (daily runs): ~$8.40
 
 ---
 
@@ -224,21 +312,36 @@ Configurable revenue projections based on user behavior and conversion metrics.
 
 ### Linear Feedback Mapping
 
-Automatically maps user feedback to Linear issues for product roadmap prioritization.
+Automatically maps user feedback to Linear issues for product roadmap prioritization using a two-phase matching strategy.
 
 **Data Sources**:
-- Support feedback analysis results (top 10 issues)
-- Linear issues from "dub 3.0" team (synced via Linear API)
+- Support feedback analysis results (top 10 issues from `support_analysis_results`)
+- Linear issues from "dub 3.0" team (from `linear_issues` table)
+- Zendesk-Linear integration metadata (direct ticket links)
 
-**What it does**:
-- Matches top feedback themes to Linear issue titles using Claude AI
-- Tracks mapping confidence scores
-- Enables linking product priorities to customer pain points
-- Identifies which Linear issues address which customer problems
+**Matching Strategy** (per feedback issue):
+
+**Phase 1: Direct Integration Links**
+- Checks if Zendesk tickets have Linear issues attached via native integration
+- Found in `enriched_support_conversations.linear_identifier` field
+- No AI needed, 100% confidence
+
+**Phase 2: AI Semantic Matching** (if no direct links found)
+- Sends feedback + all Linear issues to Claude Sonnet 4
+- Claude analyzes semantic similarity between feedback theme and Linear issue titles/descriptions
+- Returns matches with confidence scores ≥0.60
+  - 0.90-1.00: Very strong match (same feature/bug)
+  - 0.75-0.89: Strong match (related feature)
+  - 0.60-0.74: Moderate match (related area)
+
+**Output**:
+- Mappings stored in `linear_feedback_mapping` table
+- `support_analysis_results` updated with Linear issue IDs, statuses, and URLs
+- Enables tracking which Linear issues address which customer pain points
 
 **Automation**:
-- **Manual**: Included in "Sync Live Data" button (part of support workflow)
-- **Automatic**: Runs daily at 4:10 AM UTC (part of support analysis pipeline)
+- **Manual**: Part of 4-step support workflow chain (step 4)
+- **Automatic**: Runs daily at ~3:32-3:33 AM UTC (triggered by analyze-support-feedback)
 
 ---
 
@@ -255,13 +358,16 @@ All syncs run automatically via pg_cron:
 **Creator Analysis** (3:15 AM UTC):
 - `sync-creator-data` - Creator performance metrics
 
-**Support Analysis** (3:30-4:10 AM UTC):
-1. `sync-support-conversations` - Zendesk/Instabug tickets
-2. `analyze-support-feedback` - Claude AI categorization and prioritization
-3. `sync-linear-issues` - Fetch issues from Linear "dub 3.0" team
-4. `map-linear-to-feedback` - AI semantic matching to feedback themes
+**Support Analysis** (3:30 AM UTC start, ~2-3 min total):
+1. `sync-support-conversations` - Zendesk/Instabug tickets (~30s)
+   - Auto-triggers → `sync-linear-issues`
+2. `sync-linear-issues` - Linear "dub 3.0" team issues (~10s)
+   - Auto-triggers → `analyze-support-feedback`
+3. `analyze-support-feedback` - Claude AI categorization (~45-60s)
+   - Auto-triggers → `map-linear-to-feedback`
+4. `map-linear-to-feedback` - AI semantic matching (~30-45s)
 
-**Note**: Support + Linear workflow orchestrated by `trigger-support-analysis` edge function
+**Note**: Fire-and-forget chain architecture - each function triggers the next asynchronously
 
 ---
 
