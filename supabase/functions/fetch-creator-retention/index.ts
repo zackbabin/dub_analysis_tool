@@ -13,7 +13,8 @@ import {
   checkAndHandleSkipSync,
 } from '../_shared/sync-helpers.ts'
 
-const RETENTION_CHART_ID = '85857452'
+const SUBSCRIBED_CHART_ID = '85857452'  // "Subscribed to Creator" metric
+const RENEWED_CHART_ID = '86188712'      // "Renewed Subscription" metric
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -68,18 +69,27 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Fetch retention data from Mixpanel Insights Chart
-      console.log(`Fetching retention data from Mixpanel Chart ${RETENTION_CHART_ID}...`)
-      const chartData = await fetchInsightsData(
+      // Fetch retention data from TWO Mixpanel Insights Charts
+      console.log(`Fetching subscribed data from Mixpanel Chart ${SUBSCRIBED_CHART_ID}...`)
+      const subscribedChartData = await fetchInsightsData(
         credentials,
-        RETENTION_CHART_ID,
-        'Creator Retention Events'
+        SUBSCRIBED_CHART_ID,
+        'Subscribed to Creator'
       )
 
-      console.log('✅ Received retention chart data')
+      console.log(`✅ Received subscribed chart data`)
+
+      console.log(`Fetching renewal data from Mixpanel Chart ${RENEWED_CHART_ID}...`)
+      const renewedChartData = await fetchInsightsData(
+        credentials,
+        RENEWED_CHART_ID,
+        'Renewed Subscription'
+      )
+
+      console.log('✅ Received renewal chart data')
 
       // Process and store data
-      const processedEvents = processRetentionChartData(chartData)
+      const processedEvents = processRetentionChartData(subscribedChartData, renewedChartData)
       console.log(`Processed ${processedEvents.length} retention event records`)
 
       // Store in database (upsert)
@@ -164,31 +174,36 @@ serve(async (req) => {
 })
 
 /**
- * Process Mixpanel Insights Chart data into retention event records
+ * Process TWO Mixpanel Insights Charts into retention event records
  *
- * Input: Mixpanel Chart 85857452 response with nested structure:
- * series["A. Subscribed to Creator"][$distinct_id][creatorUsername]["Month Year"] = { all: count }
- * series["B. Renewed Subscription"][$distinct_id][creatorUsername]["Month Year"] = { all: count }
+ * Input:
+ * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"]
+ * - renewedChartData: Chart 86188712 with series["Renewed Subscription"]
+ *
+ * Structure: series[metric][$distinct_id][creatorUsername]["Month Year"] = { all: count }
  */
-function processRetentionChartData(chartData: any): any[] {
+function processRetentionChartData(subscribedChartData: any, renewedChartData: any): any[] {
   const events: any[] = []
   const eventMap = new Map<string, any>()
 
-  if (!chartData.series) {
-    console.warn('No series data in chart response')
+  // Validate subscribed data
+  if (!subscribedChartData.series) {
+    console.warn('No series data in subscribed chart response')
     return []
   }
 
-  // Debug: Log series keys to check what metrics are available
-  const seriesKeys = Object.keys(chartData.series)
-  console.log(`Chart has ${seriesKeys.length} series:`, seriesKeys)
+  // Validate renewed data
+  if (!renewedChartData.series) {
+    console.warn('No series data in renewed chart response')
+    return []
+  }
 
-  // Process both metrics
-  const subscribedData = chartData.series['A. Subscribed to Creator'] || {}
-  const renewedData = chartData.series['B. Renewed Subscription'] || {}
+  // Extract the actual metric data from each chart
+  const subscribedData = subscribedChartData.series['Subscribed to Creator'] || {}
+  const renewedData = renewedChartData.series['Renewed Subscription'] || {}
 
-  console.log(`Subscribed data keys:`, Object.keys(subscribedData).slice(0, 5))
-  console.log(`Renewed data keys:`, Object.keys(renewedData).slice(0, 5))
+  console.log(`Subscribed data has ${Object.keys(subscribedData).length} distinct_ids`)
+  console.log(`Renewed data has ${Object.keys(renewedData).length} distinct_ids`)
 
   // Process subscribed events
   processMetric(subscribedData, eventMap, 'subscribed')
