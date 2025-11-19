@@ -102,7 +102,20 @@ serve(async (req) => {
       console.log('✓ portfolio_breakdown_with_metrics refreshed successfully')
     }
 
-    // Step 5: Refresh premium_creator_retention_analysis
+    // Step 5: Refresh premium_creator_breakdown
+    // Combines engagement, subscription, and performance metrics by creator
+    console.log('Refreshing premium_creator_breakdown...')
+
+    const { error: breakdownError } = await supabase.rpc('refresh_premium_creator_breakdown_view')
+
+    if (breakdownError) {
+      console.warn('⚠️ Error refreshing premium_creator_breakdown:', breakdownError)
+      // Non-fatal - continue with other refreshes
+    } else {
+      console.log('✓ premium_creator_breakdown refreshed successfully')
+    }
+
+    // Step 6: Refresh premium_creator_retention_analysis
     // Depends on premium_creator_retention_events table
     console.log('Refreshing premium_creator_retention_analysis...')
 
@@ -115,7 +128,7 @@ serve(async (req) => {
       console.log('✓ premium_creator_retention_analysis refreshed successfully')
     }
 
-    // Step 6: Refresh copy engagement summary (depends on main_analysis)
+    // Step 7: Refresh copy engagement summary (depends on main_analysis)
     // Note: main_analysis is refreshing concurrently in background, so this will use
     // current (potentially slightly stale) data until main_analysis refresh completes
     console.log('Refreshing copy engagement summary view...')
@@ -126,7 +139,7 @@ serve(async (req) => {
 
     console.log('✓ Copy engagement summary view refreshed (using current main_analysis data)')
 
-    // Step 7: Refresh enriched support conversations view
+    // Step 8: Refresh enriched support conversations view
     console.log('Refreshing enriched support conversations view...')
 
     const { error: supportError } = await supabase.rpc('refresh_enriched_support_conversations')
@@ -146,6 +159,7 @@ serve(async (req) => {
         main_analysis_triggered: true, // Running in background with CONCURRENT
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
+        creator_breakdown_refreshed: !breakdownError,
         retention_analysis_refreshed: !retentionError,
         copy_engagement_summary_refreshed: !copyResult.error,
         enriched_support_conversations_refreshed: !supportError,
