@@ -940,9 +940,35 @@ class SupabaseIntegration {
         }
     }
 
-    // REMOVED: triggerEventSequenceEnrichment() - enrichment step removed from workflow
-    // The enrich-event-sequences edge function is no longer called
-    // Removed as part of performance optimization (saves 30-60s + 2 Mixpanel API calls)
+    /**
+     * Trigger event sequence enrichment via Supabase Edge Function
+     * Enriches event sequences with portfolioTicker and creatorUsername properties
+     * Required for unique views analysis
+     */
+    async triggerEventSequenceEnrichment() {
+        console.log('Triggering event sequence enrichment via Supabase Edge Function...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('enrich-event-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Event sequence enrichment failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during event sequence enrichment');
+            }
+
+            console.log('✅ Event sequence enrichment completed:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling event sequence enrichment Edge Function:', error);
+            throw error;
+        }
+    }
 
     /**
      * Fetch creator retention data from Mixpanel Retention API
