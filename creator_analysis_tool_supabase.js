@@ -925,6 +925,45 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             console.log(`✅ Loaded ${formattedData.length} portfolio records from materialized view`);
 
+            // Also query portfolio_performance_metrics directly to include uploaded data
+            // that doesn't have engagement data yet
+            console.log('Loading additional portfolios from portfolio_performance_metrics...');
+            const { data: metricsData, error: metricsError } = await this.supabaseIntegration.supabase
+                .from('portfolio_performance_metrics')
+                .select('*');
+
+            if (metricsError) {
+                console.warn('Error loading portfolio_performance_metrics:', metricsError);
+                // Continue with just the view data
+            } else if (metricsData && metricsData.length > 0) {
+                console.log(`✅ Loaded ${metricsData.length} records from portfolio_performance_metrics`);
+
+                // Create a set of portfolio tickers already in formattedData
+                const existingTickers = new Set(formattedData.map(p => p.portfolio_ticker));
+
+                // Add portfolios from metricsData that aren't in the view yet
+                const additionalPortfolios = metricsData
+                    .filter(m => !existingTickers.has(m.portfolio_ticker))
+                    .map(m => ({
+                        creator_username: 'Unknown', // No engagement data yet
+                        portfolio_ticker: m.portfolio_ticker,
+                        inception_date: m.inception_date || null,
+                        total_copies: 0, // No engagement data yet
+                        total_liquidations: 0, // No engagement data yet
+                        liquidation_rate: 0, // No engagement data yet
+                        all_time_returns: m.total_returns_percentage || null,
+                        total_copy_capital: m.total_position || null,
+                        has_engagement_data: false // Flag to indicate this is performance-only data
+                    }));
+
+                if (additionalPortfolios.length > 0) {
+                    console.log(`✅ Adding ${additionalPortfolios.length} portfolios with performance data only`);
+                    formattedData.push(...additionalPortfolios);
+                }
+            }
+
+            console.log(`✅ Total ${formattedData.length} portfolio records loaded`);
+
             // Store data for filtering
             this.portfolioBreakdownData = formattedData;
 
@@ -1347,12 +1386,17 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 inceptionDateDisplay = `${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
             }
 
+            // Format engagement metrics - show "-" if no engagement data available
+            const copiesDisplay = row.has_engagement_data === false ? '—' : (row.total_copies || 0).toLocaleString();
+            const liquidationsDisplay = row.has_engagement_data === false ? '—' : (row.total_liquidations || 0).toLocaleString();
+            const liquidationRateDisplay = row.has_engagement_data === false ? '—' : `${(row.liquidation_rate || 0).toFixed(2)}%`;
+
             tr.innerHTML = `
                 <td style="font-weight: 600;">${row.portfolio_ticker || 'N/A'}</td>
                 <td style="text-align: left;">${inceptionDateDisplay}</td>
-                <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
+                <td style="text-align: right;">${copiesDisplay}</td>
+                <td style="text-align: right;">${liquidationsDisplay}</td>
+                <td style="text-align: right;">${liquidationRateDisplay}</td>
                 <td style="${returnsStyle}">${returnsDisplay}</td>
                 <td style="text-align: right;">${capitalDisplay}</td>
             `;
