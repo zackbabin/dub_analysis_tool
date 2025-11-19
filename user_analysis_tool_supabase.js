@@ -1253,17 +1253,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             '</div>'
         ];
 
-        // Add unique views metric cards (only for copies analysis)
-        if (outcomeType === 'Copies' && (analysisData.avg_unique_portfolios_viewed_before_copy || analysisData.avg_unique_creators_viewed_before_copy)) {
+        // Add conversion path metric cards (only for copies analysis)
+        if (outcomeType === 'Copies' && (
+            analysisData.avg_premium_pdp_views_before_copy ||
+            analysisData.avg_regular_pdp_views_before_copy ||
+            analysisData.avg_premium_creator_views_before_copy ||
+            analysisData.avg_regular_creator_views_before_copy
+        )) {
             parts.push(
-                '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1.5rem 0;">',
+                '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 1.5rem 0;">',
                     '<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">',
-                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Unique Portfolios Viewed Before First Copy</div>',
-                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_unique_portfolios_viewed_before_copy ? analysisData.avg_unique_portfolios_viewed_before_copy.toFixed(1) : '-'}</div>`,
+                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Premium PDP Views Before Copy</div>',
+                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_premium_pdp_views_before_copy ? analysisData.avg_premium_pdp_views_before_copy.toFixed(1) : '-'}</div>`,
                     '</div>',
                     '<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">',
-                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Unique Creator Profiles Viewed Before First Copy</div>',
-                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_unique_creators_viewed_before_copy ? analysisData.avg_unique_creators_viewed_before_copy.toFixed(1) : '-'}</div>`,
+                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Regular PDP Views Before Copy</div>',
+                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_regular_pdp_views_before_copy ? analysisData.avg_regular_pdp_views_before_copy.toFixed(1) : '-'}</div>`,
+                    '</div>',
+                    '<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">',
+                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Premium Creator Views Before Copy</div>',
+                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_premium_creator_views_before_copy ? analysisData.avg_premium_creator_views_before_copy.toFixed(1) : '-'}</div>`,
+                    '</div>',
+                    '<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">',
+                        '<div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">Avg Regular Creator Views Before Copy</div>',
+                        `<div style="font-size: 1.5rem; font-weight: bold;">${analysisData.avg_regular_creator_views_before_copy ? analysisData.avg_regular_creator_views_before_copy.toFixed(1) : '-'}</div>`,
                     '</div>',
                 '</div>'
             );

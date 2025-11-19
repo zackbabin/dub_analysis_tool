@@ -8,7 +8,7 @@
 -- ============================================================================
 
 -- Drop existing view
-DROP MATERIALIZED VIEW IF NOT EXISTS enriched_support_conversations CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS enriched_support_conversations CASCADE;
 
 -- Recreate without user enrichment columns
 CREATE MATERIALIZED VIEW enriched_support_conversations AS

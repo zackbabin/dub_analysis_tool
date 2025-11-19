@@ -88,31 +88,22 @@ serve(async (req) => {
         throw new Error('No event sequence data available')
       }
 
-      // Fetch existing user IDs from database for incremental sync
-      console.log('Fetching existing users for incremental sync...')
-      const { data: existingUsers, error: fetchError } = await supabase
-        .from('event_sequences_raw')
-        .select('distinct_id')
-
-      if (fetchError) {
-        console.error('Error fetching existing users:', fetchError)
-        throw fetchError
-      }
-
-      const existingUserIds = new Set(existingUsers?.map(u => u.distinct_id) || [])
-      console.log(`Found ${existingUserIds.size} existing users in database - will only process new users`)
-
-      console.log('Processing event sequences...')
+      console.log('Processing event sequences (individual events, not user aggregates)...')
 
       // Parse Mixpanel Insights response structure:
       // series: { "metric_key": { "distinct_id": { "timestamp": { "all": count }, "$overall": {...} } } }
 
-      // Build user event sequences from nested structure (optimized for CPU efficiency)
-      const userEventsMap = new Map<string, Array<{event: string, time: string, count: number}>>()
-      const seriesEntries = Object.entries(eventSequencesData.series)
+      // Build individual event rows (one row per event, not per user)
+      const individualEvents: Array<{
+        distinct_id: string
+        event_name: string
+        event_time: string
+        event_count: number
+      }> = []
 
+      const seriesEntries = Object.entries(eventSequencesData.series)
       const totalMetrics = seriesEntries.length
-      console.log(`Processing ${totalMetrics} metrics...`)
+      console.log(`Processing ${totalMetrics} event types...`)
 
       for (let metricIdx = 0; metricIdx < totalMetrics; metricIdx++) {
         const [metricKey, metricData] = seriesEntries[metricIdx]
@@ -129,16 +120,6 @@ serve(async (req) => {
           // Skip $overall aggregates and focus on actual distinct_ids
           if (distinctId === '$overall') continue
 
-          // Skip users that already exist in database (incremental sync)
-          if (existingUserIds.has(distinctId)) continue
-
-          // Get or create event array for this user
-          let userEvents = userEventsMap.get(distinctId)
-          if (!userEvents) {
-            userEvents = []
-            userEventsMap.set(distinctId, userEvents)
-          }
-
           // Extract individual event occurrences with timestamps
           const timeEntries = Object.entries(userData)
           for (let timeIdx = 0; timeIdx < timeEntries.length; timeIdx++) {
@@ -149,28 +130,30 @@ serve(async (req) => {
 
             const count = (data as any)?.all || 0
             if (count > 0) {
-              userEvents.push({
-                event: eventName,
-                time: timestamp,
-                count: count
+              // Create one row per individual event
+              individualEvents.push({
+                distinct_id: distinctId,
+                event_name: eventName,
+                event_time: timestamp,
+                event_count: count
               })
             }
           }
         }
       }
 
-      console.log(`Found ${userEventsMap.size} NEW users with event sequences (${existingUserIds.size} existing users skipped)`)
+      console.log(`Found ${individualEvents.length} individual event records from Mixpanel`)
 
-      // If no new users, return early
-      if (userEventsMap.size === 0) {
-        console.log('No new users to process - sync complete')
+      // If no events, return early
+      if (individualEvents.length === 0) {
+        console.log('No events to process - sync complete')
 
         await updateSyncLogSuccess(supabase, syncLogId, {
           total_records_inserted: 0,
         })
 
         return createSuccessResponse(
-          'Event sequences sync completed - no new users to process',
+          'Event sequences sync completed - no events to process',
           {
             eventSequencesFetched: 0,
             totalRawRecordsInserted: 0,
@@ -179,45 +162,28 @@ serve(async (req) => {
         )
       }
 
-      // Convert to raw rows for database insertion (no enrichment - done separately)
-      console.log('Preparing event sequences for storage...')
-      const rawEventRows: any[] = []
-      const userEntries = Array.from(userEventsMap.entries())
-      const totalUsers = userEntries.length
-
-      console.log(`Preparing ${totalUsers} users for storage (sorting moved to database)...`)
+      // Prepare individual event rows for database insertion
+      console.log('Preparing individual events for storage...')
 
       // Early return after 120 seconds (leave 30s buffer for final operations)
       const TIMEOUT_MS = 120000
       const startTime = Date.now()
-      let processedUsers = 0
 
-      for (let i = 0; i < totalUsers; i++) {
-        // Check timeout every 1000 users to avoid excessive Date.now() calls
-        if (i > 0 && i % 1000 === 0 && (Date.now() - startTime) > TIMEOUT_MS) {
-          console.warn(`⚠️ Timeout approaching after processing ${i}/${totalUsers} users. Saving progress and will resume next sync.`)
-          break
-        }
+      const rawEventRows = individualEvents.map((event) => ({
+        distinct_id: event.distinct_id,
+        event_name: event.event_name,
+        event_time: event.event_time,
+        event_count: event.event_count,
+        synced_at: syncStartTime.toISOString()
+      }))
 
-        const [distinctId, events] = userEntries[i]
-
-        // Store events unsorted - Postgres will handle sorting via get_sorted_event_sequences() function
-        // This eliminates CPU bottleneck from sorting thousands of events in JavaScript
-        rawEventRows.push({
-          distinct_id: distinctId,
-          event_data: events, // Store raw events as JSONB (sorting done by Postgres)
-          synced_at: syncStartTime.toISOString()
-        })
-
-        processedUsers++
-      }
-
-      console.log(`Prepared ${rawEventRows.length} raw event sequences (${processedUsers}/${totalUsers} users) - sorting will be done by database`)
+      console.log(`Prepared ${rawEventRows.length} individual event records for insertion`)
       stats.eventSequencesFetched = rawEventRows.length
 
-      // Upsert raw data in batches to event_sequences_raw table
-      const batchSize = 500 // Reduced from 1000 to avoid statement timeouts on large tables
+      // Insert individual events in batches (deduplication via unique index)
+      const batchSize = 500
       let totalInserted = 0
+      let totalDuplicatesSkipped = 0
       let skippedBatches = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
@@ -226,11 +192,13 @@ serve(async (req) => {
         const totalBatches = Math.ceil(rawEventRows.length / batchSize)
 
         try {
-          const { error: insertError } = await supabase
+          // Use INSERT with ignoreDuplicates=true to leverage unique index for deduplication
+          // Unique index on (distinct_id, event_name, event_time) ensures no duplicate events
+          const { data, error: insertError, count } = await supabase
             .from('event_sequences_raw')
-            .upsert(batch, {
-              onConflict: 'distinct_id',
-              ignoreDuplicates: false
+            .insert(batch, {
+              ignoreDuplicates: true,
+              count: 'exact'
             })
 
           if (insertError) {
@@ -244,13 +212,19 @@ serve(async (req) => {
               continue // Skip this batch but don't fail the whole sync
             }
 
-            console.error('Error upserting raw event sequences batch:', insertError)
+            console.error('Error inserting event sequences batch:', insertError)
             throw insertError
           }
 
-          totalInserted += batch.length
+          // count returns number of rows actually inserted (excluding duplicates)
+          const insertedInBatch = count ?? batch.length
+          const duplicatesInBatch = batch.length - insertedInBatch
+
+          totalInserted += insertedInBatch
+          totalDuplicatesSkipped += duplicatesInBatch
+
           if (batchNum % 10 === 0 || batchNum === totalBatches) {
-            console.log(`  ✓ Processed batch ${batchNum}/${totalBatches} (${totalInserted} total)`)
+            console.log(`  ✓ Batch ${batchNum}/${totalBatches}: ${insertedInBatch} inserted, ${duplicatesInBatch} duplicates skipped (${totalInserted} total)`)
           }
         } catch (err) {
           // Catch any timeout or connection errors
@@ -270,7 +244,7 @@ serve(async (req) => {
         console.warn(`⚠️ Skipped ${skippedBatches} batch(es) due to timeouts`)
       }
 
-      console.log(`Upserted ${totalInserted} raw records in ${Math.ceil(totalInserted / batchSize)} batches`)
+      console.log(`✅ Inserted ${totalInserted} new events (${totalDuplicatesSkipped} duplicates skipped)`)
       stats.totalRawRecordsInserted = totalInserted
 
       // Update sync log with success
@@ -278,15 +252,17 @@ serve(async (req) => {
         total_records_inserted: stats.totalRawRecordsInserted,
       })
 
-      console.log('Event sequences sync completed successfully (raw unsorted data stored)')
-      console.log('Use event_sequences_sorted view or get_sorted_event_sequences() for sorted data')
+      console.log('Event sequences sync completed successfully (individual events stored)')
       console.log('Call enrich-event-sequences then process-event-sequences to complete workflow')
 
       return createSuccessResponse(
-        'Event sequences sync completed successfully - raw data stored (unsorted)',
-        stats,
+        'Event sequences sync completed successfully - individual events stored',
         {
-          note: 'Events stored unsorted. Use event_sequences_sorted view or get_sorted_event_sequences() for sorted data.',
+          ...stats,
+          totalDuplicatesSkipped
+        },
+        {
+          note: 'Events stored as individual rows with automatic deduplication.',
           nextSteps: 'Call enrich-event-sequences then process-event-sequences to complete workflow'
         }
       )

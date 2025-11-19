@@ -41,8 +41,10 @@ interface AnalysisResult {
   }>
   summary: string
   top_recommendations: string[]
-  avg_unique_portfolios_viewed_before_copy?: number
-  avg_unique_creators_viewed_before_copy?: number
+  avg_premium_pdp_views_before_copy?: number
+  avg_regular_pdp_views_before_copy?: number
+  avg_premium_creator_views_before_copy?: number
+  avg_regular_creator_views_before_copy?: number
 }
 
 serve(async (req) => {
@@ -163,11 +165,13 @@ When these properties are present, analyze which specific portfolios/creators dr
 4. TIME WINDOWS: Average time between key events in successful conversion paths
 5. CRITICAL MOMENTS: Last 2-3 events before conversion (immediate triggers)
 6. PORTFOLIO/CREATOR ANALYSIS: When events include properties like "(ticker by @username)", identify which specific portfolios and creators have the highest conversion rates
-7. UNIQUE VIEWS BEFORE CONVERSION: **CRITICAL ANALYSIS** - For users who copy (total_copies >= 3), calculate:
-   a) Average number of UNIQUE portfolios viewed (based on unique portfolioTicker values in "Viewed Premium PDP" and "Viewed Regular PDP" events) before their first copy
-   b) Average number of UNIQUE creator profiles viewed (based on unique creatorUsername values in "Viewed Premium Creator Profile" and "Viewed Regular Creator Profile" events) before their first copy
-   c) Compare these metrics between high converters and non-converters
-   d) Include these findings in your summary and recommendations
+7. AVERAGE EVENTS BEFORE FIRST COPY: **CRITICAL ANALYSIS** - For users who copy (total_copies >= 3), calculate the average count of these 4 specific events that occur BEFORE their first copy:
+   a) Average count of "Viewed Premium PDP" events before first copy
+   b) Average count of "Viewed Regular PDP" events before first copy
+   c) Average count of "Viewed Premium Creator Profile" events before first copy
+   d) Average count of "Viewed Regular Creator Profile" events before first copy
+   e) These 4 metrics will be displayed as metric cards in the UI
+   f) Include these findings in your summary and recommendations
 8. Focus on actionable patterns that product teams can optimize
 
 CONSISTENCY REQUIREMENTS:
@@ -219,15 +223,20 @@ Order from highest impact to lowest impact.
   ],
   "summary": "Overall predictive findings in 2-3 sentences",
   "top_recommendations": ["Action 1", "Action 2", "Action 3"],
-  "avg_unique_portfolios_viewed_before_copy": 5.2,
-  "avg_unique_creators_viewed_before_copy": 3.8
+  "avg_premium_pdp_views_before_copy": 4.2,
+  "avg_regular_pdp_views_before_copy": 6.8,
+  "avg_premium_creator_views_before_copy": 2.5,
+  "avg_regular_creator_views_before_copy": 3.1
 }
 
 IMPORTANT:
 1. For each predictive_sequence, include "top_portfolios" and "top_creators" arrays with the top 3 most common portfolios/creators found in that pattern (based on the enriched event properties). If no properties are present in the sequence, use empty arrays [].
-2. Calculate "avg_unique_portfolios_viewed_before_copy" as the average number of unique portfolioTicker values seen in converters' sequences before their first copy event
-3. Calculate "avg_unique_creators_viewed_before_copy" as the average number of unique creatorUsername values seen in converters' sequences before their first copy event
-4. If analyzing subscriptions (not copies), these two fields should be null
+2. Calculate these 4 metrics for users who have copied (total_copies >= 3):
+   - "avg_premium_pdp_views_before_copy": Average count of "Viewed Premium PDP" events that occurred before their first copy
+   - "avg_regular_pdp_views_before_copy": Average count of "Viewed Regular PDP" events that occurred before their first copy
+   - "avg_premium_creator_views_before_copy": Average count of "Viewed Premium Creator Profile" events that occurred before their first copy
+   - "avg_regular_creator_views_before_copy": Average count of "Viewed Regular Creator Profile" events that occurred before their first copy
+3. If analyzing subscriptions (not copies), these four fields should be null
 </output_format>`
 
     // Process users in batches with prompt caching
@@ -468,8 +477,10 @@ Analyze this batch and return the top predictive patterns found.`
         summary: analysisResult.summary,
         recommendations: analysisResult.top_recommendations,
         model_used: 'claude-sonnet-4-20250514',
-        avg_unique_portfolios_viewed_before_copy: analysisResult.avg_unique_portfolios_viewed_before_copy || null,
-        avg_unique_creators_viewed_before_copy: analysisResult.avg_unique_creators_viewed_before_copy || null
+        avg_premium_pdp_views_before_copy: analysisResult.avg_premium_pdp_views_before_copy || null,
+        avg_regular_pdp_views_before_copy: analysisResult.avg_regular_pdp_views_before_copy || null,
+        avg_premium_creator_views_before_copy: analysisResult.avg_premium_creator_views_before_copy || null,
+        avg_regular_creator_views_before_copy: analysisResult.avg_regular_creator_views_before_copy || null
       })
 
     if (insertError) {

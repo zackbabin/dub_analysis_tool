@@ -58,24 +58,31 @@ serve(async (req) => {
         totalRecordsUpserted: 0,
       }
 
-      // Fetch raw event sequences
-      console.log('Fetching raw event sequences from event_sequences_raw...')
-      const { data: rawSequences, error: rawError } = await supabase
+      // Fetch individual event rows from event_sequences_raw
+      // IMPORTANT: Only fetch unprocessed events (processed_at IS NULL)
+      // This ensures we don't keep reprocessing the same old events on every run
+      console.log('Fetching unprocessed individual events from event_sequences_raw...')
+      const { data: rawEvents, error: rawError } = await supabase
         .from('event_sequences_raw')
-        .select('*')
-        .order('synced_at', { ascending: false })
-        .limit(10000) // Process in chunks if needed
+        .select('id, distinct_id, event_name, event_time, event_count, portfolio_ticker, creator_username, synced_at')
+        .is('processed_at', null) // Only fetch unprocessed events
+        .order('event_time', { ascending: true })
+        .limit(100000) // Fetch up to 100k unprocessed events
 
       if (rawError) {
-        console.error('Failed to fetch raw sequences:', rawError)
+        console.error('Failed to fetch raw events:', rawError)
         throw rawError
       }
 
-      stats.rawRecordsFetched = rawSequences?.length || 0
-      console.log(`✓ Fetched ${stats.rawRecordsFetched} raw event sequences`)
+      stats.rawRecordsFetched = rawEvents?.length || 0
+      console.log(`✓ Fetched ${stats.rawRecordsFetched} unprocessed event records`)
 
-      if (!rawSequences || rawSequences.length === 0) {
-        console.warn('No raw event sequences found. Run sync-event-sequences first.')
+      if (stats.rawRecordsFetched === 100000) {
+        console.log(`⚠️ Reached 100k event limit - more unprocessed events may exist. Will process remaining on next run.`)
+      }
+
+      if (!rawEvents || rawEvents.length === 0) {
+        console.warn('No raw events found. Run sync-event-sequences first.')
 
         await supabase
           .from('sync_logs')
@@ -89,7 +96,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: true,
-            message: 'No raw event sequences to process',
+            message: 'No raw events to process',
             stats,
           }),
           {
@@ -118,20 +125,47 @@ serve(async (req) => {
         (subscribers || []).map(s => [s.distinct_id, s])
       )
 
+      // Group individual events by user and track event IDs for marking as processed
+      console.log('Grouping events by user...')
+      const userEventsMap = new Map<string, Array<{
+        event: string
+        time: string
+        count: number
+        portfolioTicker?: string
+        creatorUsername?: string
+      }>>()
+      const processedEventIds: number[] = []
+
+      for (const event of rawEvents) {
+        let userEvents = userEventsMap.get(event.distinct_id)
+        if (!userEvents) {
+          userEvents = []
+          userEventsMap.set(event.distinct_id, userEvents)
+        }
+
+        userEvents.push({
+          event: event.event_name,
+          time: event.event_time,
+          count: event.event_count || 1,
+          ...(event.portfolio_ticker && { portfolioTicker: event.portfolio_ticker }),
+          ...(event.creator_username && { creatorUsername: event.creator_username })
+        })
+
+        // Track event ID for marking as processed
+        processedEventIds.push(event.id)
+      }
+
+      console.log(`✓ Grouped events into ${userEventsMap.size} user sequences`)
+
       // Process event sequences
-      console.log('Processing event sequences...')
+      console.log('Building user event sequences...')
       const eventSequenceRows: any[] = []
 
-      for (const raw of rawSequences) {
-        const subscriber = subscriberMap.get(raw.distinct_id)
+      for (const [distinctId, events] of userEventsMap.entries()) {
+        const subscriber = subscriberMap.get(distinctId)
 
-        // Parse event_data JSONB field
-        const events = raw.event_data || []
-
-        // Sort events by timestamp
-        events.sort((a: any, b: any) =>
-          new Date(a.time).getTime() - new Date(b.time).getTime()
-        )
+        // Events are already sorted by event_time from query
+        // No need to sort again
 
         // Determine if user has subscribed
         const hasSubscribed =
@@ -139,18 +173,18 @@ serve(async (req) => {
           (subscriber?.stripe_modal_views || 0) > 0
 
         eventSequenceRows.push({
-          distinct_id: raw.distinct_id,
+          distinct_id: distinctId,
           event_sequence: events,
           total_copies: subscriber?.total_copies || 0,
           total_subscriptions: hasSubscribed ? 1 : 0,
-          synced_at: raw.synced_at || syncStartTime.toISOString()
+          synced_at: syncStartTime.toISOString()
         })
 
         stats.eventSequencesProcessed++
 
         // Log progress every 1000 records
         if (stats.eventSequencesProcessed % 1000 === 0) {
-          console.log(`Processed ${stats.eventSequencesProcessed}/${stats.rawRecordsFetched} sequences...`)
+          console.log(`Processed ${stats.eventSequencesProcessed}/${userEventsMap.size} sequences...`)
         }
       }
 
@@ -180,6 +214,29 @@ serve(async (req) => {
       }
 
       stats.totalRecordsUpserted = totalInserted
+
+      // Mark all processed events as processed in event_sequences_raw
+      // This prevents reprocessing the same events on future runs
+      if (processedEventIds.length > 0) {
+        console.log(`Marking ${processedEventIds.length} events as processed...`)
+        const processedAt = new Date().toISOString()
+        const markBatchSize = 1000
+
+        for (let i = 0; i < processedEventIds.length; i += markBatchSize) {
+          const idBatch = processedEventIds.slice(i, i + markBatchSize)
+          const { error: markError } = await supabase
+            .from('event_sequences_raw')
+            .update({ processed_at: processedAt })
+            .in('id', idBatch)
+
+          if (markError) {
+            console.error('Error marking events as processed:', markError)
+            // Don't throw - this is not critical, events will just be reprocessed next time
+          }
+        }
+
+        console.log(`✓ Marked ${processedEventIds.length} events as processed`)
+      }
 
       // Update sync log with success
       const syncEndTime = new Date()
