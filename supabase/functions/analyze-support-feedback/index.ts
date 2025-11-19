@@ -236,6 +236,18 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
+      // CRITICAL: Refresh materialized view to ensure fresh data from both sources
+      // This view joins raw_support_conversations + linear_issues + subscribers_insights
+      console.log('Refreshing enriched_support_conversations materialized view...')
+      const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
+
+      if (refreshError) {
+        console.warn('⚠️ Failed to refresh view:', refreshError.message)
+        // Continue anyway - better to analyze stale data than fail completely
+      } else {
+        console.log('✓ View refreshed with latest data')
+      }
+
       // Fetch enriched conversations (limit to 300 to stay under 200k token limit)
       // With all metadata, 300 conversations × ~400 tokens each ≈ 120k tokens (safe 40% margin)
       const MAX_CONVERSATIONS = 300
