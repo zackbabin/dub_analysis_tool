@@ -41,6 +41,8 @@ interface AnalysisResult {
   }>
   summary: string
   top_recommendations: string[]
+  avg_unique_portfolios_viewed_before_copy?: number
+  avg_unique_creators_viewed_before_copy?: number
 }
 
 serve(async (req) => {
@@ -216,10 +218,16 @@ Order from highest impact to lowest impact.
     }
   ],
   "summary": "Overall predictive findings in 2-3 sentences",
-  "top_recommendations": ["Action 1", "Action 2", "Action 3"]
+  "top_recommendations": ["Action 1", "Action 2", "Action 3"],
+  "avg_unique_portfolios_viewed_before_copy": 5.2,
+  "avg_unique_creators_viewed_before_copy": 3.8
 }
 
-IMPORTANT: For each predictive_sequence, include "top_portfolios" and "top_creators" arrays with the top 3 most common portfolios/creators found in that pattern (based on the enriched event properties). If no properties are present in the sequence, use empty arrays [].
+IMPORTANT:
+1. For each predictive_sequence, include "top_portfolios" and "top_creators" arrays with the top 3 most common portfolios/creators found in that pattern (based on the enriched event properties). If no properties are present in the sequence, use empty arrays [].
+2. Calculate "avg_unique_portfolios_viewed_before_copy" as the average number of unique portfolioTicker values seen in converters' sequences before their first copy event
+3. Calculate "avg_unique_creators_viewed_before_copy" as the average number of unique creatorUsername values seen in converters' sequences before their first copy event
+4. If analyzing subscriptions (not copies), these two fields should be null
 </output_format>`
 
     // Process users in batches with prompt caching
