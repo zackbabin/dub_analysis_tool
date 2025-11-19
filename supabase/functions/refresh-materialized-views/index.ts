@@ -61,19 +61,19 @@ serve(async (req) => {
       console.warn('⚠️ Cannot trigger pattern analysis: Supabase credentials not available')
     }
 
-    // Step 2: Trigger main_analysis CONCURRENT refresh (non-blocking)
-    // CONCURRENT refresh runs in background and doesn't block reads
-    // Can take 300s+ but Edge Function returns immediately
-    console.log('Triggering main_analysis CONCURRENT refresh (background)...')
+    // Step 2: Refresh main_analysis (contains unique_creators_viewed, unique_portfolios_viewed)
+    // This MUST complete before refreshing dependent views (copy_engagement_summary)
+    // Uses CONCURRENT refresh to avoid blocking reads, but we await completion
+    console.log('Refreshing main_analysis (required for dependent views)...')
 
-    // Fire and forget - don't await, let it run in background
-    supabase.rpc('refresh_main_analysis').then(({ error }) => {
-      if (error) {
-        console.error('⚠️ main_analysis refresh error:', error)
-      }
-    })
+    const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
 
-    console.log('✓ main_analysis refresh triggered (running in background)')
+    if (mainAnalysisError) {
+      console.warn('⚠️ Error refreshing main_analysis:', mainAnalysisError)
+      // Continue with other refreshes even if this fails
+    } else {
+      console.log('✓ main_analysis refreshed successfully')
+    }
 
     // Step 3: Refresh portfolio engagement views
     // Includes: portfolio_creator_engagement_metrics, hidden_gems, premium_creator_stock_holdings,
@@ -147,7 +147,7 @@ serve(async (req) => {
     return createSuccessResponse(
       'All materialized views refreshed successfully',
       {
-        main_analysis_triggered: true, // Running in background with CONCURRENT
+        main_analysis_refreshed: !mainAnalysisError,
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
         premium_creator_breakdown: 'regular_view_no_refresh_needed',

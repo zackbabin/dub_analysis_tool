@@ -354,6 +354,7 @@ export function processPortfolioCreatorPairs(
       distinct_id: distinctId,
       portfolio_ticker: portfolioTicker,
       creator_id: creatorId,
+      creator_username: creatorUsername,  // Include for hidden_gems and other views
       total_profile_views: profileViewCount,
       total_pdp_views: pdpCount,
       total_copies: copyCount,

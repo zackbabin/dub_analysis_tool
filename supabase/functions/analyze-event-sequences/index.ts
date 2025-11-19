@@ -161,7 +161,12 @@ When these properties are present, analyze which specific portfolios/creators dr
 4. TIME WINDOWS: Average time between key events in successful conversion paths
 5. CRITICAL MOMENTS: Last 2-3 events before conversion (immediate triggers)
 6. PORTFOLIO/CREATOR ANALYSIS: When events include properties like "(ticker by @username)", identify which specific portfolios and creators have the highest conversion rates
-7. Focus on actionable patterns that product teams can optimize
+7. UNIQUE VIEWS BEFORE CONVERSION: **CRITICAL ANALYSIS** - For users who copy (total_copies >= 3), calculate:
+   a) Average number of UNIQUE portfolios viewed (based on unique portfolioTicker values in "Viewed Premium PDP" and "Viewed Regular PDP" events) before their first copy
+   b) Average number of UNIQUE creator profiles viewed (based on unique creatorUsername values in "Viewed Premium Creator Profile" and "Viewed Regular Creator Profile" events) before their first copy
+   c) Compare these metrics between high converters and non-converters
+   d) Include these findings in your summary and recommendations
+8. Focus on actionable patterns that product teams can optimize
 
 CONSISTENCY REQUIREMENTS:
 - Use the EXACT event names as they appear in the data provided - do not rename, rephrase, or clean up event names
@@ -225,6 +230,29 @@ IMPORTANT: For each predictive_sequence, include "top_portfolios" and "top_creat
       MAX_BATCHES
     )
 
+    // Helper function to format event with properties into readable string
+    const formatEvent = (event: any): string => {
+      const eventName = event.event || event
+
+      // If event is already a string (legacy format), return as-is
+      if (typeof event === 'string') return eventName
+
+      // Format PDP views with properties
+      if ((eventName === 'Viewed Premium PDP' || eventName === 'Viewed Regular PDP') &&
+          event.portfolioTicker && event.creatorUsername) {
+        return `${eventName} (${event.portfolioTicker} by ${event.creatorUsername})`
+      }
+
+      // Format Creator Profile views with properties
+      if ((eventName === 'Viewed Premium Creator Profile' || eventName === 'Viewed Regular Creator Profile') &&
+          event.creatorUsername) {
+        return `${eventName} (${event.creatorUsername})`
+      }
+
+      // Return plain event name if no properties
+      return eventName
+    }
+
     // Helper function to deduplicate consecutive identical events
     // e.g., ["View", "View", "View", "Click", "Click"] -> ["View", "Click"]
     const dedupeSequence = (sequence: string[]): string[] => {
@@ -248,9 +276,11 @@ IMPORTANT: For each predictive_sequence, include "top_portfolios" and "top_creat
       let totalDedupedEvents = 0
 
       const convertersBatch = balancedConverters.slice(start, end).map(u => {
-        const rawSequence = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
-        const dedupedSequence = dedupeSequence(rawSequence)
-        totalRawEvents += rawSequence.length
+        const rawEvents = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
+        // Format events with properties, then deduplicate
+        const formattedSequence = rawEvents.map(formatEvent)
+        const dedupedSequence = dedupeSequence(formattedSequence)
+        totalRawEvents += rawEvents.length
         totalDedupedEvents += dedupedSequence.length
         return {
           id: u.distinct_id?.slice(0, 8) || 'unknown',
@@ -260,9 +290,11 @@ IMPORTANT: For each predictive_sequence, include "top_portfolios" and "top_creat
       })
 
       const nonConvertersBatch = balancedNonConverters.slice(start, end).map(u => {
-        const rawSequence = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
-        const dedupedSequence = dedupeSequence(rawSequence)
-        totalRawEvents += rawSequence.length
+        const rawEvents = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
+        // Format events with properties, then deduplicate
+        const formattedSequence = rawEvents.map(formatEvent)
+        const dedupedSequence = dedupeSequence(formattedSequence)
+        totalRawEvents += rawEvents.length
         totalDedupedEvents += dedupedSequence.length
         return {
           id: u.distinct_id?.slice(0, 8) || 'unknown',

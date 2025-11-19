@@ -292,6 +292,127 @@ export async function fetchPortfolioViewEvents(
   return events
 }
 
+/**
+ * Fetch PDP view events with properties from Mixpanel Insights API
+ * Chart 85312972: Viewed Premium PDP and Viewed Regular PDP broken down by portfolioTicker and creatorUsername
+ * Structure: series[event_name][distinct_id][timestamp][portfolioTicker][creatorId][creatorUsername][all]
+ * @param credentials - Mixpanel service account credentials
+ * @returns Array of events with properties: { distinct_id, event, time, portfolioTicker, creatorUsername }
+ */
+export async function fetchPDPViewEventsWithProperties(credentials: MixpanelCredentials) {
+  const chartId = '85312972'
+  console.log(`Fetching PDP views with properties from Insights API (Chart ${chartId})...`)
+
+  const data = await fetchInsightsData(credentials, chartId, 'PDP Views with Properties')
+
+  const events: Array<{ distinct_id: string; event: string; time: string; portfolioTicker?: string; creatorUsername?: string }> = []
+
+  if (!data.series) {
+    console.warn('No series data in PDP views response')
+    return events
+  }
+
+  // Parse structure: series[event_name][distinct_id][timestamp][portfolioTicker][creatorId][creatorUsername][all]
+  for (const [eventName, eventData] of Object.entries(data.series)) {
+    if (typeof eventData !== 'object' || eventData === null) continue
+
+    // Clean up event name (remove prefix like "A. ", "B. ")
+    const cleanEventName = eventName.replace(/^[A-Z]\.\s*/, '')
+
+    for (const [distinctId, distinctIdData] of Object.entries(eventData as Record<string, any>)) {
+      if (distinctId === '$overall' || typeof distinctIdData !== 'object') continue
+
+      for (const [timestamp, timestampData] of Object.entries(distinctIdData)) {
+        if (timestamp === '$overall' || typeof timestampData !== 'object') continue
+
+        for (const [portfolioTicker, portfolioData] of Object.entries(timestampData)) {
+          if (portfolioTicker === '$overall' || typeof portfolioData !== 'object') continue
+
+          for (const [creatorId, creatorIdData] of Object.entries(portfolioData)) {
+            if (creatorId === '$overall' || typeof creatorIdData !== 'object') continue
+
+            for (const [creatorUsername, creatorData] of Object.entries(creatorIdData)) {
+              if (creatorUsername === '$overall' || typeof creatorData !== 'object') continue
+
+              const count = (creatorData as any).all || 1
+              for (let i = 0; i < count; i++) {
+                events.push({
+                  distinct_id: distinctId,
+                  event: cleanEventName,
+                  time: timestamp,
+                  portfolioTicker: portfolioTicker,
+                  creatorUsername: creatorUsername
+                })
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`✓ Fetched ${events.length} PDP view events with properties`)
+  return events
+}
+
+/**
+ * Fetch Creator Profile view events with properties from Mixpanel Insights API
+ * Chart 85312975: Viewed Premium Creator Profile and Viewed Regular Creator Profile broken down by creatorUsername
+ * Structure: series[event_name][distinct_id][timestamp][creatorId][creatorUsername][all]
+ * @param credentials - Mixpanel service account credentials
+ * @returns Array of events with properties: { distinct_id, event, time, creatorUsername }
+ */
+export async function fetchCreatorProfileViewEventsWithProperties(credentials: MixpanelCredentials) {
+  const chartId = '85312975'
+  console.log(`Fetching Creator Profile views with properties from Insights API (Chart ${chartId})...`)
+
+  const data = await fetchInsightsData(credentials, chartId, 'Creator Profile Views with Properties')
+
+  const events: Array<{ distinct_id: string; event: string; time: string; creatorUsername?: string }> = []
+
+  if (!data.series) {
+    console.warn('No series data in Creator Profile views response')
+    return events
+  }
+
+  // Parse structure: series[event_name][distinct_id][timestamp][creatorId][creatorUsername][all]
+  for (const [eventName, eventData] of Object.entries(data.series)) {
+    if (typeof eventData !== 'object' || eventData === null) continue
+
+    // Clean up event name (remove prefix like "A. ", "B. ")
+    const cleanEventName = eventName.replace(/^[A-Z]\.\s*/, '')
+
+    for (const [distinctId, distinctIdData] of Object.entries(eventData as Record<string, any>)) {
+      if (distinctId === '$overall' || typeof distinctIdData !== 'object') continue
+
+      for (const [timestamp, timestampData] of Object.entries(distinctIdData)) {
+        if (timestamp === '$overall' || typeof timestampData !== 'object') continue
+
+        for (const [creatorId, creatorIdData] of Object.entries(timestampData)) {
+          if (creatorId === '$overall' || typeof creatorIdData !== 'object') continue
+
+          for (const [creatorUsername, creatorData] of Object.entries(creatorIdData)) {
+            if (creatorUsername === '$overall' || typeof creatorData !== 'object') continue
+
+            const count = (creatorData as any).all || 1
+            for (let i = 0; i < count; i++) {
+              events.push({
+                distinct_id: distinctId,
+                event: cleanEventName,
+                time: timestamp,
+                creatorUsername: creatorUsername
+              })
+            }
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`✓ Fetched ${events.length} Creator Profile view events with properties`)
+  return events
+}
+
 // ============================================================================
 // Mixpanel API - Engage (User Profiles with Pagination)
 // ============================================================================
