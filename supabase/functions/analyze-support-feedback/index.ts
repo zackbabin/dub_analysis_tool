@@ -227,22 +227,25 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
-      // CRITICAL: Refresh materialized view to ensure fresh data from both sources
-      // This view joins raw_support_conversations + linear_issues + subscribers_insights
+      // CRITICAL: Try to refresh materialized view to get enriched data
+      // This view joins raw_support_conversations + linear_issues
       console.log('Refreshing enriched_support_conversations materialized view...')
       const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
 
+      let conversations = null
+      let fetchError = null
+      const MAX_CONVERSATIONS = 300
+
       if (refreshError) {
         console.warn('⚠️ Failed to refresh view:', refreshError.message)
-        // Continue anyway - better to analyze stale data than fail completely
+        console.log('⚠️ Will fallback to querying raw_support_conversations directly')
       } else {
         console.log('✓ View refreshed with latest data')
       }
 
-      // Fetch enriched conversations (limit to 300 to stay under 200k token limit)
-      // With all metadata, 300 conversations × ~400 tokens each ≈ 120k tokens (safe 40% margin)
-      const MAX_CONVERSATIONS = 300
-      const { data: conversations, error: fetchError } = await supabase
+      // Try fetching from enriched view first
+      console.log('Attempting to fetch from enriched_support_conversations...')
+      const enrichedResult = await supabase
         .from('enriched_support_conversations')
         .select('*')
         .gte('created_at', startDate.toISOString())
@@ -250,18 +253,80 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(MAX_CONVERSATIONS)
 
-      if (fetchError) throw fetchError
+      if (enrichedResult.error) {
+        console.warn('⚠️ Failed to fetch from enriched view:', enrichedResult.error.message)
+      } else if (enrichedResult.data && enrichedResult.data.length > 0) {
+        console.log(`✓ Fetched ${enrichedResult.data.length} conversations from enriched view`)
+        conversations = enrichedResult.data
+      }
 
+      // FALLBACK: If enriched view is empty or failed, query raw table directly
       if (!conversations || conversations.length === 0) {
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: 0,
+        console.log('⚠️ Enriched view empty or unavailable, querying raw_support_conversations...')
+
+        const rawResult = await supabase
+          .from('raw_support_conversations')
+          .select(`
+            id,
+            external_id,
+            source,
+            title,
+            description,
+            created_at,
+            status,
+            priority,
+            tags,
+            custom_fields
+          `)
+          .gte('created_at', startDate.toISOString())
+          .lt('created_at', now.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(MAX_CONVERSATIONS)
+
+        if (rawResult.error) {
+          console.error('❌ Failed to fetch from raw table:', rawResult.error)
+          throw rawResult.error
+        }
+
+        if (!rawResult.data || rawResult.data.length === 0) {
+          console.log('No conversations found in raw table either')
+          await updateSyncLogSuccess(supabase, syncLogId, {
+            total_records_inserted: 0,
+          })
+
+          return createSuccessResponse('No conversations to analyze', {
+            conversation_count: 0,
+            week_start: weekStart,
+            week_end: weekEnd,
+          })
+        }
+
+        // Fetch messages separately for raw conversations
+        console.log(`✓ Fetched ${rawResult.data.length} conversations from raw table, fetching messages...`)
+
+        const conversationIds = rawResult.data.map(c => c.id)
+        const { data: messages } = await supabase
+          .from('support_conversation_messages')
+          .select('conversation_id, body, created_at')
+          .in('conversation_id', conversationIds)
+          .order('created_at', { ascending: true })
+
+        // Build enriched format from raw data
+        conversations = rawResult.data.map((conv: any) => {
+          const convMessages = messages?.filter(m => m.conversation_id === conv.id) || []
+          return {
+            ...conv,
+            message_count: convMessages.length,
+            all_messages: convMessages.map(m => m.body),
+            // No Linear data available in fallback mode
+            linear_identifier: null,
+            linear_title: null,
+            linear_state: null,
+            linear_url: null
+          }
         })
 
-        return createSuccessResponse('No conversations to analyze', {
-          conversation_count: 0,
-          week_start: weekStart,
-          week_end: weekEnd,
-        })
+        console.log(`✓ Built ${conversations.length} enriched conversations from raw data (without Linear metadata)`)
       }
 
       console.log(`Found ${conversations.length} conversations to analyze`)
