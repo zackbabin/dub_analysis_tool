@@ -123,10 +123,10 @@ serve(async (req) => {
             })
 
           if (batchError) {
-            // Handle statement timeout on incremental syncs gracefully
-            // This typically means we're trying to upsert duplicates
-            if (batchError.code === '57014' && zendeskLastSync) {
-              console.warn(`⚠️ Statement timeout on incremental sync - likely duplicate data. Continuing...`)
+            // Handle statement timeout gracefully for all syncs (full or incremental)
+            // This typically means we're trying to upsert duplicates or the DB is busy
+            if (batchError.code === '57014') {
+              console.warn(`⚠️ Statement timeout - likely duplicate data or DB busy. Continuing...`)
               return // Skip this batch but don't fail the whole sync
             }
 
@@ -139,8 +139,8 @@ serve(async (req) => {
         } catch (err) {
           // Catch any timeout or connection errors
           const errorCode = err?.code
-          if (errorCode === '57014' && zendeskLastSync) {
-            console.warn(`⚠️ Caught statement timeout exception on incremental sync - continuing...`)
+          if (errorCode === '57014') {
+            console.warn(`⚠️ Caught statement timeout exception - continuing with next batch...`)
             return // Skip this batch but don't fail
           }
           throw err
