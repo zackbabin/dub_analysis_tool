@@ -2245,18 +2245,24 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
     let avgMonthlyCopies = existingMetrics?.avg_monthly_copies || null;
     let totalMarketBeating = existingMetrics?.total_market_beating_portfolios || null;
 
+    // ALWAYS recalculate market-beating portfolios from current data
+    // This ensures the metric is up-to-date after manual CSV uploads
+    try {
+        const marketBeatingCount = await this.fetchMarketBeatingPortfolios();
+        if (marketBeatingCount !== null) {
+            totalMarketBeating = marketBeatingCount;
+        }
+    } catch (error) {
+        console.warn('Error fetching market-beating portfolios count:', error);
+        // Fall back to cached value if fetch fails
+    }
+
     if (fetchFromMixpanel) {
         try {
             // Fetch Avg Monthly Copies from Mixpanel
             const freshCopies = await this.fetchAvgMonthlyCopies();
             if (freshCopies !== null) {
                 avgMonthlyCopies = freshCopies;
-            }
-
-            // Fetch Market-Beating Portfolios count from portfolio_performance_metrics
-            const marketBeatingCount = await this.fetchMarketBeatingPortfolios();
-            if (marketBeatingCount !== null) {
-                totalMarketBeating = marketBeatingCount;
             }
 
             // Save updated metrics to database only when fetching fresh data
@@ -2268,6 +2274,19 @@ UserAnalysisToolSupabase.prototype.displayMarketingMetrics = async function(fetc
             });
         } catch (error) {
             console.error('Error fetching marketing metrics:', error);
+        }
+    } else {
+        // Even when not syncing from Mixpanel, save updated market-beating count
+        // This ensures manual uploads update the cached metric
+        try {
+            await this.saveMarketingMetrics({
+                avg_monthly_copies: existingMetrics?.avg_monthly_copies || null,
+                total_investments: existingMetrics?.total_investments || null,
+                total_public_portfolios: existingMetrics?.total_public_portfolios || null,
+                total_market_beating_portfolios: totalMarketBeating
+            });
+        } catch (error) {
+            console.warn('Error saving updated market-beating count:', error);
         }
     }
 
