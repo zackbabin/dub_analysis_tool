@@ -758,33 +758,61 @@ class SupabaseIntegration {
 
     /**
      * Trigger support analysis workflow (Zendesk + Linear integration)
-     * Triggers sync-support-conversations which automatically chains:
-     * 1. sync-support-conversations → 2. sync-linear-issues → 3. analyze-support-feedback → 4. map-linear-to-feedback
+     * 1. sync-support-conversations (stores tickets)
+     * 2. [Frontend triggers] sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+     *
+     * IMPORTANT: Workflow chain is triggered from frontend to ensure it runs even if
+     * sync-support-conversations times out after storing data.
      */
     async triggerSupportAnalysis() {
         console.log('Triggering support analysis workflow (Zendesk + Linear)...');
 
+        let syncResult = null;
+        let syncError = null;
+
         try {
-            // Trigger the first function in the chain (sync-support-conversations)
-            // Each function automatically triggers the next one, avoiding timeout issues
+            // Step 1: Sync support conversations (may timeout but that's OK)
+            console.log('Step 1/4: Syncing support conversations from Zendesk...');
             const result = await this.supabase.functions.invoke('sync-support-conversations', { body: {} });
 
             if (result.error) {
-                console.error('Support analysis workflow error:', result.error);
-                throw new Error(`Support analysis failed: ${result.error.message}`);
+                console.warn('⚠️ Support conversations sync error (will still trigger workflow):', result.error);
+                syncError = result.error;
+            } else {
+                console.log('✅ Support conversations synced:', result.data);
+                syncResult = result.data;
             }
-
-            if (!result.data.success) {
-                throw new Error(result.data.error || 'Unknown error during support analysis');
-            }
-
-            console.log('✅ Support conversations sync started. Remaining steps will execute automatically:', result.data);
-            console.log('   Chain: sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback');
-
-            return result.data;
         } catch (error) {
-            console.error('Error calling support analysis workflow:', error);
-            throw error;
+            console.warn('⚠️ Support conversations sync exception (will still trigger workflow):', error.message);
+            syncError = error;
+        } finally {
+            // CRITICAL: Trigger workflow chain regardless of sync success/failure/timeout
+            // All data that could be stored HAS been stored by this point
+            console.log('Step 2/4: Triggering sync-linear-issues...');
+
+            try {
+                const linearResult = await this.supabase.functions.invoke('sync-linear-issues', { body: {} });
+
+                if (linearResult.error) {
+                    console.error('❌ Linear sync failed:', linearResult.error);
+                    throw new Error(`Linear sync failed: ${linearResult.error.message}`);
+                }
+
+                console.log('✅ Linear issues synced:', linearResult.data);
+                console.log('   Remaining steps (analyze → map) will execute automatically from sync-linear-issues');
+
+                // Return combined results
+                return {
+                    success: true,
+                    support_sync: syncResult || { error: syncError?.message },
+                    linear_sync: linearResult.data,
+                    message: 'CX Analysis workflow started successfully'
+                };
+            } catch (workflowError) {
+                console.error('Error triggering workflow chain:', workflowError);
+                // Re-throw workflow errors, but include sync status
+                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: ${syncError ? 'failed' : 'succeeded'}`);
+            }
         }
     }
 

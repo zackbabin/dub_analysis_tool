@@ -2727,9 +2727,6 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
             return;
         }
 
-        // Show loading state
-        contentDiv.innerHTML = '<p style="color: #6c757d; font-style: italic;">Loading subscription drivers...</p>';
-
         // Fetch subscription drivers from database table
         const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
             .from('subscription_drivers')

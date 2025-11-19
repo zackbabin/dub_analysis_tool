@@ -106,7 +106,6 @@ serve(async (req) => {
       // Fetch and store Zendesk tickets using streaming (stores each batch immediately)
       console.log('Fetching and storing Zendesk tickets (streaming mode)...')
       let totalTicketsStored = 0
-      let workflowTriggered = false  // Track if we've triggered the workflow chain
 
       await zendeskClient.fetchTicketsSince(zendeskStartTime, async (ticketBatch) => {
         // Normalize and redact PII for this batch
@@ -140,42 +139,6 @@ serve(async (req) => {
 
           totalTicketsStored += normalizedBatch.length
           console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
-
-          // CRITICAL: Trigger workflow chain immediately after FIRST successful batch
-          // This ensures the chain starts even if this function times out during processing
-          if (!workflowTriggered && totalTicketsStored > 0) {
-            workflowTriggered = true
-            console.log('🔄 Triggering workflow chain immediately (after first batch)...')
-
-            const supabaseUrl = Deno.env.get('SUPABASE_URL')
-            const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-            if (supabaseUrl && serviceKey) {
-              // Trigger sync-linear-issues (fire-and-forget)
-              fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${serviceKey}`,
-                  'Content-Type': 'application/json',
-                },
-              }).catch(err => {
-                console.warn('⚠️ Failed to trigger sync-linear-issues:', err.message)
-              })
-              console.log('✅ Workflow chain triggered (sync-linear-issues)')
-
-              // Also trigger materialized view refresh (fire-and-forget)
-              supabase.rpc('refresh_enriched_support_conversations').then(({ error }) => {
-                if (error) {
-                  console.warn('⚠️ Failed to refresh enriched_support_conversations:', error.message)
-                } else {
-                  console.log('✓ Materialized view refreshed in background')
-                }
-              })
-              console.log('✅ View refresh triggered')
-            } else {
-              console.warn('⚠️ Cannot trigger workflow - SUPABASE_URL or SERVICE_KEY not configured')
-            }
-          }
         } catch (err) {
           // Catch any timeout or connection errors
           const errorCode = err?.code || err?.error_code || err?.message
@@ -197,9 +160,10 @@ serve(async (req) => {
 
       // Messages skipped for now (no comment processing)
 
-      // NOTE: Workflow chain is now triggered immediately after first successful batch (see line 146)
-      // This ensures the chain executes even if this function times out during processing
-      console.log(`Workflow triggered: ${workflowTriggered ? 'Yes (after first batch)' : 'No (no data stored)'}`)
+      // NOTE: Workflow chain trigger has been moved to frontend (supabase_integration.js)
+      // Frontend will trigger sync-linear-issues after this function completes OR times out
+      // This ensures the workflow runs on the complete dataset, not just first batch
+      console.log('Sync-support-conversations complete - frontend will trigger workflow chain')
 
       // Update sync status
       const now = new Date().toISOString()
@@ -239,7 +203,7 @@ serve(async (req) => {
       })
 
       console.log(`Sync completed successfully in ${elapsedSec}s`)
-      // Note: sync-linear-issues already triggered earlier (right after data storage)
+      // Note: Workflow chain will be triggered by frontend after this returns
 
       return createSuccessResponse('Support conversations synced successfully', {
         totalTimeSeconds: elapsedSec,
