@@ -79,8 +79,9 @@ serve(async (req) => {
     console.log('Fetching individual events from database...')
     // Fetch the 4 event types that need enrichment (PDP views and Creator Profile views)
     // Enrich ALL events of these types, regardless of current enrichment status
-    // IMPORTANT: Limit to 10000 events per run to avoid timeout
-    const MAX_EVENTS_PER_RUN = 10000
+    // IMPORTANT: Limit to 5000 events per run to avoid timeout
+    // Subsequent runs will process remaining events
+    const MAX_EVENTS_PER_RUN = 5000
 
     const { data: rawEvents, error: fetchError } = await supabase
       .from('event_sequences_raw')
@@ -165,7 +166,7 @@ serve(async (req) => {
       console.log('Updating enriched events in database...')
       const startTime = Date.now()
       const TIMEOUT_MS = 120000 // 120s timeout (leave 30s buffer before Edge Function 150s limit)
-      const batchSize = 500
+      const batchSize = 100 // Smaller batches for individual updates
       let totalUpdated = 0
 
       for (let i = 0; i < updatesToApply.length; i += batchSize) {
@@ -178,25 +179,29 @@ serve(async (req) => {
 
         const batch = updatesToApply.slice(i, i + batchSize)
 
-        // Update each event individually using batch update
-        for (const update of batch) {
-          const { error: updateError } = await supabase
+        // Update each event individually (Supabase doesn't support batch updates with different values per row)
+        const updatePromises = batch.map(update =>
+          supabase
             .from('event_sequences_raw')
             .update({
               portfolio_ticker: update.portfolio_ticker,
               creator_username: update.creator_username
             })
             .eq('id', update.id)
+        )
 
-          if (updateError) {
-            console.error('Error updating event:', updateError)
-            throw updateError
-          }
+        const results = await Promise.all(updatePromises)
 
-          totalUpdated++
+        // Check for errors
+        const errors = results.filter(r => r.error)
+        if (errors.length > 0) {
+          console.error(`Error updating ${errors.length} events:`, errors[0].error)
+          throw errors[0].error
         }
 
-        if (i % 5000 === 0 || i + batchSize >= updatesToApply.length) {
+        totalUpdated += batch.length
+
+        if (i % 1000 === 0 || i + batchSize >= updatesToApply.length) {
           console.log(`Updated ${totalUpdated}/${updatesToApply.length} events`)
         }
       }
