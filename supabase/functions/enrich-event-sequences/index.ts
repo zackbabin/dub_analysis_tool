@@ -56,14 +56,6 @@ serve(async (req) => {
 
     console.log(`✓ Fetched ${pdpEvents.length} PDP events and ${creatorProfileEvents.length} creator profile events`)
 
-    // Log sample events for debugging
-    if (pdpEvents.length > 0) {
-      console.log('Sample PDP event:', JSON.stringify(pdpEvents[0], null, 2))
-    }
-    if (creatorProfileEvents.length > 0) {
-      console.log('Sample Creator Profile event:', JSON.stringify(creatorProfileEvents[0], null, 2))
-    }
-
     // Build lookup maps for efficient matching
     // Key format: "distinct_id|event|timestamp"
     // IMPORTANT: Both Mixpanel and database use ISO timestamp strings
@@ -85,11 +77,10 @@ serve(async (req) => {
     }
 
     console.log('Fetching individual events from database...')
-    // Fetch events that need enrichment (PDP views and Creator Profile views)
-    // Only fetch events where portfolio_ticker or creator_username is NULL
-    // IMPORTANT: Limit to 5000 events per run to avoid timeout
-    // Subsequent runs will automatically pick up remaining NULL events
-    const MAX_EVENTS_PER_RUN = 5000
+    // Fetch the 4 event types that need enrichment (PDP views and Creator Profile views)
+    // Enrich ALL events of these types, regardless of current enrichment status
+    // IMPORTANT: Limit to 10000 events per run to avoid timeout
+    const MAX_EVENTS_PER_RUN = 10000
 
     const { data: rawEvents, error: fetchError } = await supabase
       .from('event_sequences_raw')
@@ -100,7 +91,6 @@ serve(async (req) => {
         'Viewed Premium Creator Profile',
         'Viewed Regular Creator Profile'
       ])
-      .or('portfolio_ticker.is.null,creator_username.is.null')
       .order('event_time', { ascending: false }) // Process newest events first
       .limit(MAX_EVENTS_PER_RUN)
 
@@ -110,15 +100,10 @@ serve(async (req) => {
     }
 
     stats.totalEvents = rawEvents?.length || 0
-    console.log(`Processing ${stats.totalEvents} individual events that need enrichment (max ${MAX_EVENTS_PER_RUN} per run)...`)
-
-    // Log sample database event for debugging
-    if (rawEvents && rawEvents.length > 0) {
-      console.log('Sample database event:', JSON.stringify(rawEvents[0], null, 2))
-    }
+    console.log(`Processing ${stats.totalEvents} individual events for enrichment (max ${MAX_EVENTS_PER_RUN} per run)...`)
 
     if (stats.totalEvents === MAX_EVENTS_PER_RUN) {
-      console.log(`⚠️ Reached max events limit - more events may need enrichment. Will resume on next run.`)
+      console.log(`⚠️ Reached max events limit - more events may exist. Will process remaining on next run.`)
     }
 
     // Enrich individual events
@@ -138,17 +123,18 @@ serve(async (req) => {
       let needsUpdate = false
       const updates: { portfolio_ticker?: string | null; creator_username?: string | null } = {}
 
-      // Check if this is a PDP view event - only enrich portfolioTicker
+      // Check if this is a PDP view event - enrich with portfolioTicker AND creatorUsername
       if (eventName === 'Viewed Premium PDP' || eventName === 'Viewed Regular PDP') {
         const properties = pdpLookup.get(key)
-        if (properties?.portfolioTicker) {
-          updates.portfolio_ticker = properties.portfolioTicker
+        if (properties) {
+          if (properties.portfolioTicker) updates.portfolio_ticker = properties.portfolioTicker
+          if (properties.creatorUsername) updates.creator_username = properties.creatorUsername
           needsUpdate = true
           stats.pdpEventsEnriched++
         }
       }
 
-      // Check if this is a Creator Profile view event - only enrich creatorUsername
+      // Check if this is a Creator Profile view event - enrich with creatorUsername only
       if (eventName === 'Viewed Premium Creator Profile' || eventName === 'Viewed Regular Creator Profile') {
         const properties = creatorProfileLookup.get(key)
         if (properties?.creatorUsername) {
