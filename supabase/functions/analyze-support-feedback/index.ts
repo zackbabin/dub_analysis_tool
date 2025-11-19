@@ -129,9 +129,7 @@ For each of the top 10 issues, provide:
 
 6. **Example Tickets**: Provide exactly 3 representative examples with:
    - Conversation ID (from the data)
-   - Source (zendesk or instabug)
-   - Brief excerpt (1-2 sentences from the actual conversation)
-   - User segment info if available (income, net worth, total copies)
+   - Title (from the conversation title field)
 
 </task>
 
@@ -169,8 +167,7 @@ Return ONLY valid JSON matching this exact structure:
       "examples": [
         {
           "conversation_id": "string",
-          "source": "zendesk | instabug",
-          "excerpt": "string"
+          "title": "string"
         }
       ]
     }
@@ -348,8 +345,8 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 250 chars to stay under 200k token limit (with buffer for tags/custom_fields)
-        const MAX_CONVERSATION_LENGTH = 250
+        // Truncate conversation text to 225 chars to stay under 200k token limit (with buffer for tags/custom_fields)
+        const MAX_CONVERSATION_LENGTH = 225
         let truncatedText = sanitize(conversationText)
         if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
@@ -378,7 +375,7 @@ serve(async (req) => {
       // Call Claude API
       const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 16384, // Increased to allow full response with 10 issues × 3 examples each
+        max_tokens: 8000, // Reduced to stay under 200k combined input+output limit
         temperature: 0.3,
         messages: [
           {

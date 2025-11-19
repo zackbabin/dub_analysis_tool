@@ -552,14 +552,12 @@ class CXAnalysis {
             return '-';
         }
 
-        // Build examples content for tooltip (matching Behavioral Drivers style)
+        // Build examples content for tooltip - now just showing ticket IDs and titles
         const examplesHTML = examples.map((ex, idx) => {
-            const sourceIcon = ex.source === 'zendesk' ? '🎫' : '🐛';
-
             return `
                 <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
-                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">${sourceIcon} Example ${idx + 1}</div>
-                    <div>${this.escapeHtml(ex.excerpt)}</div>
+                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">🎫 ${this.escapeHtml(ex.conversation_id)}</div>
+                    <div>${this.escapeHtml(ex.title)}</div>
                 </div>
             `;
         }).join('');
