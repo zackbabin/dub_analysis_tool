@@ -125,8 +125,11 @@ serve(async (req) => {
           if (batchError) {
             // Handle statement timeout gracefully for all syncs (full or incremental)
             // This typically means we're trying to upsert duplicates or the DB is busy
-            if (batchError.code === '57014') {
-              console.warn(`⚠️ Statement timeout - likely duplicate data or DB busy. Continuing...`)
+            const errorCode = batchError.code || batchError.error_code || batchError.message
+            console.log(`Batch error details: code=${errorCode}, message=${batchError.message}`)
+
+            if (errorCode === '57014' || errorCode?.includes('57014') || batchError.message?.includes('statement timeout')) {
+              console.warn(`⚠️ Statement timeout detected - skipping batch and continuing...`)
               return // Skip this batch but don't fail the whole sync
             }
 
@@ -138,8 +141,10 @@ serve(async (req) => {
           console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
         } catch (err) {
           // Catch any timeout or connection errors
-          const errorCode = err?.code
-          if (errorCode === '57014') {
+          const errorCode = err?.code || err?.error_code || err?.message
+          console.log(`Caught error in batch processing: code=${errorCode}, message=${err?.message}`)
+
+          if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
             console.warn(`⚠️ Caught statement timeout exception - continuing with next batch...`)
             return // Skip this batch but don't fail
           }
