@@ -498,6 +498,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Step 2.5: Save subscription regression results to database for creator tool access
         await this.saveSubscriptionDriversToDatabase(results);
 
+        // Step 2.6: Refresh subscription drivers display now that data is saved to database
+        await this.displayTopSubscriptionDrivers();
+
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
             // Get existing cache to preserve timestamp
