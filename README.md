@@ -179,8 +179,20 @@ Frontend: "Sync Live Data" button
 
 **Top 10 Product Issues**:
 - Ranked by composite priority score (0-100)
-- Priority formula: `(Category Weight × 0.4) + (Percentage × 3 × 0.3) + (min(Volume, 50) / 50 × 100 × 0.3)`
-- Categories (weighted): Compliance (100), Money Movement (80), Trading (60), App Functionality (40), Feature Request (20)
+- **Ranking Formula**:
+  ```
+  Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (Volume/50 × 100 × 0.3)
+  ```
+  Where:
+  - **Category Weight** (40% of score):
+    - Compliance: 100 (regulatory risk)
+    - Money Movement: 80 (financial operations)
+    - Trading: 60 (core functionality)
+    - App Functionality: 40 (user experience)
+    - Feature Request: 20 (enhancements)
+  - **Percentage** (30% of score): % of total conversations affected (multiplied by 3)
+  - **Volume** (30% of score): Weekly ticket count (capped at 50, normalized to 0-100)
+- Issues sorted by priority score (highest to lowest) to identify most critical problems
 
 **For Each Issue**:
 - Issue summary (140 chars max)

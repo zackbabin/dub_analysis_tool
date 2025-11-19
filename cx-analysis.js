@@ -110,6 +110,13 @@ class CXAnalysis {
                             <li><strong>Data Source:</strong> Zendesk support tickets (last 30 days)</li>
                             <li><strong>AI Analysis:</strong> Claude Sonnet 4 categorizes tickets by issue type and priority</li>
                             <li><strong>Categories:</strong> Compliance, Money Movement, Trading, App Functionality, Feature Requests</li>
+                            <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (Volume/50 × 100 × 0.3)
+                                <ul style="margin-top: 4px;">
+                                    <li>Category weights: Compliance=100, Money Movement=80, Trading=60, App=40, Feature=20</li>
+                                    <li>Percentage = % of total conversations affected</li>
+                                    <li>Volume = weekly ticket count (capped at 50)</li>
+                                </ul>
+                            </li>
                             <li><strong>Automation:</strong> Runs weekly (Sundays at 3:30 AM UTC via cron)</li>
                             <li><strong>Privacy:</strong> PII redacted at ingestion</li>
                         </ul>
