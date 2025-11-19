@@ -110,9 +110,13 @@ serve(async (req) => {
       }
 
       // Refresh materialized view
-      await supabase.rpc('refresh_materialized_view', {
-        view_name: 'premium_creator_retention_analysis'
-      })
+      console.log('Refreshing retention analysis view...')
+      const { error: refreshError } = await supabase.rpc('refresh_premium_creator_retention_analysis')
+
+      if (refreshError) {
+        console.error('❌ Error refreshing retention analysis view:', refreshError)
+        throw new Error(`Failed to refresh retention analysis view: ${refreshError.message}`)
+      }
 
       console.log('✅ Refreshed retention analysis view')
 
