@@ -467,7 +467,9 @@ Analyze this batch and return the top predictive patterns found.`
         anti_patterns: analysisResult.anti_patterns || [],
         summary: analysisResult.summary,
         recommendations: analysisResult.top_recommendations,
-        model_used: 'claude-sonnet-4-20250514'
+        model_used: 'claude-sonnet-4-20250514',
+        avg_unique_portfolios_viewed_before_copy: analysisResult.avg_unique_portfolios_viewed_before_copy || null,
+        avg_unique_creators_viewed_before_copy: analysisResult.avg_unique_creators_viewed_before_copy || null
       })
 
     if (insertError) {
