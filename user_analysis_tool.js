@@ -1494,8 +1494,8 @@ function calculateSummaryStats(data) {
     // Calculate count of users with non-null total deposits (for denominator)
     const usersWithDepositData = data.filter(d => d.totalDeposits !== null && d.totalDeposits !== undefined).length;
 
-    // Calculate count of users with low deposits for demographic cards
-    const usersWithLowDeposits = data.filter(d => d.totalDeposits <= 1000).length;
+    // Calculate count of users with low deposits for demographic cards (<$1k means strictly less than 1000)
+    const usersWithLowDeposits = data.filter(d => d.totalDeposits !== null && d.totalDeposits < 1000).length;
     const personaCounts = {
         premium: 0, aspiringPremium: 0, core: 0, activationTargets: 0,
         lowerIncome: 0, nonActivated: 0, unclassified: 0
