@@ -40,7 +40,6 @@ export interface MessageRecord {
   body: string
   is_public: boolean
   created_at: string
-  attachments: any[]
   raw_data: Record<string, any>
 }
 
@@ -122,7 +121,6 @@ export class ConversationNormalizer {
       body: PIIRedactor.redact(comment.body || comment.plain_body || '', userDistinctId),
       is_public: comment.public !== false,
       created_at: comment.created_at,
-      attachments: comment.attachments || [],
       raw_data: PIIRedactor.redactObject(comment, userDistinctId),
     }
   }
@@ -181,7 +179,6 @@ export class ConversationNormalizer {
       body: PIIRedactor.redact(comment.body || '', userDistinctId),
       is_public: true,
       created_at: comment.created_at,
-      attachments: comment.attachments || [],
       raw_data: PIIRedactor.redactObject(comment, userDistinctId),
     }
   }
