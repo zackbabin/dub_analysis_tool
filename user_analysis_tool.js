@@ -1849,10 +1849,10 @@ function displayDemographicBreakdownInline(stats) {
     const experienceTotalResponses = stats.investingExperienceYearsTotalResponses || 0;
     const usersWithDepositData = stats.usersWithDepositData || 0;
 
-    // 1. <$100k Income: <25k, 25k-50k, 50k-100k (DB format: no $, no spaces)
+    // 1. <$100k Income: <25k, 25k–50k, 50k–100k (DB format: en-dash, no $, no spaces)
     const lowIncomeCount = (incomeBreakdown['<25k'] || 0) +
-                          (incomeBreakdown['25k-50k'] || 0) +
-                          (incomeBreakdown['50k-100k'] || 0);
+                          (incomeBreakdown['25k–50k'] || 0) +
+                          (incomeBreakdown['50k–100k'] || 0);
     const lowIncomePercent = incomeTotalResponses > 0 ? ((lowIncomeCount / incomeTotalResponses) * 100).toFixed(1) : '0.0';
 
     // 2. <$100k Net Worth (DB format: <100k - no $, no space)
