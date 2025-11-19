@@ -2777,9 +2777,7 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
 
         if (!driversData || driversData.length === 0) {
             console.warn('No subscription drivers data available.');
-            contentDiv.innerHTML = `
-                <p style="color: #6c757d; font-style: italic;">No subscription drivers data available.</p>
-            `;
+            contentDiv.innerHTML = '';
             return;
         }
 
