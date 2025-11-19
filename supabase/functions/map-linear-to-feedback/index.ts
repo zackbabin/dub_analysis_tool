@@ -175,8 +175,8 @@ Rules:
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      temperature: 0.2,
+      max_tokens: 16384, // Match analyze-support-feedback for consistency
+      temperature: 0.3,  // Match analyze-support-feedback for consistency
       messages: [{ role: 'user', content: prompt }],
     })
 
