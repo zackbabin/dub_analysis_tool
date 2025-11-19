@@ -163,6 +163,28 @@ serve(async (req) => {
         // Don't throw - this is non-critical
       }
 
+      // Trigger next step in workflow IMMEDIATELY after data is stored
+      // Do this BEFORE status updates to ensure chain continues even if function times out
+      console.log('Triggering next step: sync-linear-issues...')
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+      if (supabaseUrl && serviceKey) {
+        fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            'Content-Type': 'application/json',
+          },
+        }).catch(err => {
+          console.warn('⚠️ Failed to trigger sync-linear-issues:', err.message)
+          // Don't fail this function if next step fails to trigger
+        })
+        console.log('✓ Triggered sync-linear-issues (async)')
+      } else {
+        console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
+      }
+
       // Update sync status
       const now = new Date().toISOString()
       await supabase
@@ -201,28 +223,7 @@ serve(async (req) => {
       })
 
       console.log(`Sync completed successfully in ${elapsedSec}s`)
-
-      // Trigger next step in workflow: sync-linear-issues
-      // Fire-and-forget to avoid timeout issues (don't await)
-      console.log('Triggering next step: sync-linear-issues...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && serviceKey) {
-        fetch(`${supabaseUrl}/functions/v1/sync-linear-issues`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-        }).catch(err => {
-          console.warn('⚠️ Failed to trigger sync-linear-issues:', err.message)
-          // Don't fail this function if next step fails to trigger
-        })
-        console.log('✓ Triggered sync-linear-issues (async)')
-      } else {
-        console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
-      }
+      // Note: sync-linear-issues already triggered earlier (right after data storage)
 
       return createSuccessResponse('Support conversations synced successfully', {
         totalTimeSeconds: elapsedSec,
