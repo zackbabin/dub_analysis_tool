@@ -25,12 +25,6 @@ interface EnrichedConversation {
   priority: string
   tags: string[] | null
   custom_fields: Record<string, any> | null
-  user_income: string | null
-  user_net_worth: string | null
-  user_investing_activity: string | null
-  user_total_copies: number | null
-  user_total_subscriptions: number | null
-  user_app_sessions: number | null
   message_count: number
   all_messages: string[] | null
 }
@@ -51,7 +45,6 @@ Platform: Investment copy-trading platform (Dub)
 Time Period: ${weekStart} to ${weekEnd}
 Total Conversations: ${totalCount}
 Data Sources: Zendesk support tickets + Instabug mobile bug reports
-User Segments: Based on income, net worth, investing activity, and engagement
 Metadata: Each conversation includes tags and custom_fields that may contain platform info, product areas, or other categorization hints
 </analysis_context>
 
@@ -173,13 +166,11 @@ Return ONLY valid JSON matching this exact structure:
         "percentage_contribution": number,
         "volume_contribution": number
       },
-      "affected_user_segments": ["string"],
       "examples": [
         {
           "conversation_id": "string",
           "source": "zendesk | instabug",
-          "excerpt": "string",
-          "user_info": "string"
+          "excerpt": "string"
         }
       ]
     }
@@ -309,14 +300,6 @@ serve(async (req) => {
           priority: conv.priority,
           tags: conv.tags || [],
           custom_fields: conv.custom_fields || {},
-          user_info: {
-            income: conv.user_income,
-            net_worth: conv.user_net_worth,
-            investing_activity: conv.user_investing_activity,
-            total_copies: conv.user_total_copies,
-            total_subscriptions: conv.user_total_subscriptions,
-            app_sessions: conv.user_app_sessions,
-          },
           full_conversation: truncatedText,
           message_count: conv.message_count,
         }

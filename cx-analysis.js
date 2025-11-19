@@ -543,13 +543,11 @@ class CXAnalysis {
         // Build examples content for tooltip (matching Behavioral Drivers style)
         const examplesHTML = examples.map((ex, idx) => {
             const sourceIcon = ex.source === 'zendesk' ? '🎫' : '🐛';
-            const userInfo = ex.user_info ? `<div style="font-size: 0.8em; color: #94a3b8; margin-top: 4px;">${this.escapeHtml(ex.user_info)}</div>` : '';
 
             return `
                 <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
                     <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">${sourceIcon} Example ${idx + 1}</div>
                     <div>${this.escapeHtml(ex.excerpt)}</div>
-                    ${userInfo}
                 </div>
             `;
         }).join('');
