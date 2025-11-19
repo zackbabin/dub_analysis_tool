@@ -303,8 +303,9 @@ serve(async (req) => {
         .range(page * pageSize, (page + 1) * pageSize - 1)
 
       if (loadError) {
-        console.error('Error loading engagement data:', loadError)
-        throw loadError
+        console.error(`Error loading engagement data from ${config.table}:`, loadError)
+        console.error(`Query details: table=${config.table}, filterColumn=${config.filterColumn}, page=${page}`)
+        throw new Error(`Database query failed: ${loadError.message || JSON.stringify(loadError)}`)
       }
 
       if (!pageData || pageData.length === 0) {
@@ -550,10 +551,15 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in pattern analysis:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Error type:', error.constructor.name)
+
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message || 'Unknown error occurred',
+        error_type: error.constructor.name,
+        details: error.toString(),
       }),
       { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 500 }
     )
