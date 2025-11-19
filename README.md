@@ -223,8 +223,10 @@ Frontend: "Sync Live Data" button
 ### Data Protection
 
 **PII Redaction**: All sensitive data automatically redacted at ingestion
-- SSN, credit card numbers, phone numbers, email addresses
-- Redaction happens in `sync-support-conversations` before storage
+- **Types redacted**: SSN, credit card numbers, phone numbers, email addresses, bank account numbers, physical addresses
+- **Applied to**: Ticket titles, descriptions, comments, custom fields, raw data
+- **When**: Redaction happens in `sync-support-conversations` before database storage
+- **Implementation**: Pattern-based regex matching in `pii-redactor.ts`
 
 ### Sync Methods
 

@@ -118,7 +118,12 @@ class CXAnalysis {
                                 </ul>
                             </li>
                             <li><strong>Automation:</strong> Runs weekly (Sundays at 3:30 AM UTC via cron)</li>
-                            <li><strong>Privacy:</strong> PII redacted at ingestion</li>
+                            <li><strong>Privacy:</strong> PII automatically redacted at ingestion
+                                <ul style="margin-top: 4px;">
+                                    <li>Types: SSN, credit cards, phone numbers, emails, bank accounts, addresses</li>
+                                    <li>Applied to: ticket titles, descriptions, comments, custom fields</li>
+                                </ul>
+                            </li>
                         </ul>
                     </span>
                 </span></h1>
