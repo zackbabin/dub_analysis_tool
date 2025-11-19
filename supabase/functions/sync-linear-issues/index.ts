@@ -68,7 +68,7 @@ async function fetchLinearIssues(linearClient: LinearClient) {
 
       // Use raw GraphQL query to fetch all data in single request
       const query = `
-        query($teamId: String!, $createdAt: DateTime!, $first: Int!, $after: String) {
+        query($teamId: ID!, $createdAt: DateTimeOrDuration!, $first: Int!, $after: String) {
           issues(
             filter: {
               team: { id: { eq: $teamId } }
