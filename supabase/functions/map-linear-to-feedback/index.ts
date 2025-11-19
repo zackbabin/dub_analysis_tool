@@ -74,7 +74,17 @@ function calculateLinearStatus(linearIssues: LinearIssue[]): string | null {
 }
 
 /**
- * Find Linear issues directly linked via Zendesk integration
+ * Extract Linear ticket IDs from text using pattern matching
+ * Matches patterns like: DUB-123, LINEAR-456, etc.
+ */
+function extractLinearIds(text: string | null | undefined): string[] {
+  if (!text) return []
+  const matches = text.match(/\b[A-Z]+-\d+\b/g)
+  return matches || []
+}
+
+/**
+ * Find Linear issues directly linked via Zendesk integration, tags, or custom fields
  */
 async function findDirectLinearLinks(
   supabase: any,
@@ -84,29 +94,46 @@ async function findDirectLinearLinks(
 
   // Get all conversation external IDs from examples
   const conversationIds = feedbackIssue.examples
-    .filter(ex => ex.source === 'zendesk')
     .map(ex => ex.conversation_id)
 
   if (conversationIds.length === 0) {
     return linearIdentifiers
   }
 
-  // Query enriched_support_conversations for Linear metadata
+  // Query for all conversation data including tags and custom_fields
   const { data: conversations, error } = await supabase
     .from('enriched_support_conversations')
-    .select('external_id, linear_identifier, linear_issue_id')
+    .select('external_id, linear_identifier, tags, custom_fields')
     .in('external_id', conversationIds)
-    .not('linear_identifier', 'is', null)
 
   if (error) {
     console.error('Error querying conversations for Linear links:', error)
     return linearIdentifiers
   }
 
-  // Collect all Linear identifiers
+  // Collect Linear identifiers from multiple sources
   for (const conv of conversations || []) {
+    // Source 1: Direct linear_identifier field (from Zendesk-Linear integration)
     if (conv.linear_identifier) {
       linearIdentifiers.add(conv.linear_identifier)
+    }
+
+    // Source 2: Tags array (e.g., ["DUB-123", "bug"])
+    if (conv.tags && Array.isArray(conv.tags)) {
+      for (const tag of conv.tags) {
+        const ids = extractLinearIds(tag)
+        ids.forEach(id => linearIdentifiers.add(id))
+      }
+    }
+
+    // Source 3: Custom fields object (e.g., { "linear_issue": "DUB-456", "linear_ticket": "DUB-789" })
+    if (conv.custom_fields && typeof conv.custom_fields === 'object') {
+      for (const value of Object.values(conv.custom_fields)) {
+        if (typeof value === 'string') {
+          const ids = extractLinearIds(value)
+          ids.forEach(id => linearIdentifiers.add(id))
+        }
+      }
     }
   }
 
