@@ -56,6 +56,17 @@ serve(async (req) => {
 
     console.log(`✓ Fetched ${pdpEvents.length} PDP events and ${creatorProfileEvents.length} creator profile events`)
 
+    // Debug: Show sample Mixpanel event
+    if (pdpEvents.length > 0) {
+      const sample = pdpEvents[0]
+      console.log(`[DEBUG] Sample Mixpanel PDP event:`, {
+        distinct_id: sample.distinct_id,
+        event: sample.event,
+        time: sample.time,
+        key: `${sample.distinct_id}|${sample.event}|${sample.time}`
+      })
+    }
+
     // Build lookup maps for efficient matching
     // Key format: "distinct_id|event|timestamp"
     // IMPORTANT: Both Mixpanel and database use ISO timestamp strings
@@ -95,6 +106,17 @@ serve(async (req) => {
       .order('event_time', { ascending: false }) // Process newest events first
       .limit(MAX_EVENTS_PER_RUN)
 
+    // Debug: Show sample database event
+    if (rawEvents && rawEvents.length > 0) {
+      const sample = rawEvents[0]
+      console.log(`[DEBUG] Sample database event:`, {
+        distinct_id: sample.distinct_id,
+        event_name: sample.event_name,
+        event_time: sample.event_time,
+        key: `${sample.distinct_id}|${sample.event_name}|${sample.event_time}`
+      })
+    }
+
     if (fetchError) {
       console.error('Failed to fetch event sequences:', fetchError)
       throw fetchError
@@ -114,6 +136,7 @@ serve(async (req) => {
       creator_username?: string | null
     }> = []
 
+    let debugLogCount = 0
     for (const event of rawEvents || []) {
       stats.eventsProcessed++
 
@@ -132,6 +155,9 @@ serve(async (req) => {
           if (properties.creatorUsername) updates.creator_username = properties.creatorUsername
           needsUpdate = true
           stats.pdpEventsEnriched++
+        } else if (debugLogCount < 3) {
+          console.log(`[DEBUG] No match for PDP key: ${key}`)
+          debugLogCount++
         }
       }
 
@@ -142,6 +168,9 @@ serve(async (req) => {
           updates.creator_username = properties.creatorUsername
           needsUpdate = true
           stats.creatorProfileEventsEnriched++
+        } else if (debugLogCount < 3) {
+          console.log(`[DEBUG] No match for Creator Profile key: ${key}`)
+          debugLogCount++
         }
       }
 

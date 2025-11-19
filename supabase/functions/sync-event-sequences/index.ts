@@ -174,6 +174,11 @@ serve(async (req) => {
         event_name: event.event_name,
         event_time: event.event_time,
         event_count: event.event_count,
+        event_data: {
+          event_count: event.event_count,
+          event_name: event.event_name,
+          event_time: event.event_time
+        },
         synced_at: syncStartTime.toISOString()
       }))
 
