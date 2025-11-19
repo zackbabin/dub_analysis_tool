@@ -92,7 +92,7 @@ serve(async (req) => {
         'Viewed Regular Creator Profile'
       ])
       .or('portfolio_ticker.is.null,creator_username.is.null')
-      .order('event_time', { ascending: true }) // Process oldest events first
+      .order('event_time', { ascending: false }) // Process newest events first
       .limit(MAX_EVENTS_PER_RUN)
 
     if (fetchError) {
@@ -160,13 +160,13 @@ serve(async (req) => {
     console.log(`✓ Found ${updatesToApply.length} events to enrich`)
 
     // Update database in batches with timeout protection
+    let timedOut = false // Declare outside if block so it's accessible in response
     if (updatesToApply.length > 0) {
       console.log('Updating enriched events in database...')
       const startTime = Date.now()
       const TIMEOUT_MS = 120000 // 120s timeout (leave 30s buffer before Edge Function 150s limit)
       const batchSize = 500
       let totalUpdated = 0
-      let timedOut = false
 
       for (let i = 0; i < updatesToApply.length; i += batchSize) {
         // Check timeout every batch

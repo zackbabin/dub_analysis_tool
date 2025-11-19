@@ -61,12 +61,13 @@ serve(async (req) => {
       // Fetch individual event rows from event_sequences_raw
       // IMPORTANT: Only fetch unprocessed events (processed_at IS NULL)
       // This ensures we don't keep reprocessing the same old events on every run
+      // Order by DESC (newest first) to prioritize recent user behavior
       console.log('Fetching unprocessed individual events from event_sequences_raw...')
       const { data: rawEvents, error: rawError } = await supabase
         .from('event_sequences_raw')
         .select('id, distinct_id, event_name, event_time, event_count, portfolio_ticker, creator_username, synced_at')
         .is('processed_at', null) // Only fetch unprocessed events
-        .order('event_time', { ascending: true })
+        .order('event_time', { ascending: false }) // DESC: Process newest events first
         .limit(100000) // Fetch up to 100k unprocessed events
 
       if (rawError) {
