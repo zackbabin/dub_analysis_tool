@@ -118,25 +118,29 @@ async function findDirectLinearLinks(
 }
 
 /**
- * Use Claude AI to semantically match feedback to Linear issues
+ * Use Claude AI to semantically match ALL feedback issues to Linear issues in a SINGLE API call
+ * This is 10x faster and cheaper than making 10 separate API calls
  */
-async function findAISemanticMatches(
+async function findAISemanticMatchesBatch(
   anthropic: Anthropic,
-  feedbackIssue: FeedbackIssue,
+  feedbackIssues: FeedbackIssue[],
   linearIssues: LinearIssue[]
-): Promise<Array<{ identifier: string; confidence: number }>> {
-  if (linearIssues.length === 0) {
-    return []
+): Promise<Map<number, Array<{ identifier: string; confidence: number }>>> {
+  if (linearIssues.length === 0 || feedbackIssues.length === 0) {
+    return new Map()
   }
 
   const prompt = `You are helping map customer support feedback to engineering tickets in Linear.
 
-<feedback_issue>
-Category: ${feedbackIssue.category}
-Summary: ${feedbackIssue.issue_summary}
-Weekly Volume: ${feedbackIssue.weekly_volume}
-Examples: ${feedbackIssue.examples.map(ex => `"${ex.excerpt}"`).join(', ')}
-</feedback_issue>
+<feedback_issues>
+${feedbackIssues.map(issue => `
+Issue #${issue.rank}:
+Category: ${issue.category}
+Summary: ${issue.issue_summary}
+Weekly Volume: ${issue.weekly_volume}
+Examples: ${issue.examples.map(ex => `"${ex.excerpt}"`).join(', ')}
+`).join('\n---\n')}
+</feedback_issues>
 
 <linear_issues>
 ${linearIssues.map(issue => `
@@ -148,35 +152,41 @@ State: ${issue.state_name}
 </linear_issues>
 
 <task>
-Analyze the feedback issue and determine which Linear issues (if any) are related to this customer feedback.
+For EACH feedback issue (1-${feedbackIssues.length}), analyze and determine which Linear issues (if any) are related.
 
 Consider:
 - Direct matches (e.g., feedback about "bank linking" matches Linear issue "Fix Plaid bank linking errors")
 - Indirect matches (e.g., feedback about "can't deposit money" relates to "Payment processing issues")
 - Context and intent (e.g., "app crashes on portfolio page" relates to "Portfolio rendering bug")
 
-Return ONLY a JSON array of matching Linear issue identifiers with confidence scores:
-[
-  { "identifier": "DUB-123", "confidence": 0.95 },
-  { "identifier": "DUB-456", "confidence": 0.75 }
-]
+Return ONLY a JSON object mapping issue ranks to matching Linear issues:
+{
+  "1": [
+    { "identifier": "DUB-123", "confidence": 0.95 },
+    { "identifier": "DUB-456", "confidence": 0.75 }
+  ],
+  "2": [
+    { "identifier": "DUB-789", "confidence": 0.80 }
+  ],
+  "3": []
+}
 
 Rules:
 - Only include matches with confidence >= 0.60
 - confidence: 0.90-1.00 = Very strong match (same feature/bug)
 - confidence: 0.75-0.89 = Strong match (related feature)
 - confidence: 0.60-0.74 = Moderate match (related area)
-- Return empty array [] if no good matches found
-- Return ONLY the JSON array, no markdown or explanations
+- Return empty array [] for issues with no good matches
+- Return ONLY the JSON object, no markdown or explanations
 </task>`
 
-  console.log(`  Using Claude AI to find semantic matches for issue #${feedbackIssue.rank}...`)
+  console.log(`  Using Claude AI to find semantic matches for ${feedbackIssues.length} issues (batch mode)...`)
 
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16384, // Match analyze-support-feedback for consistency
-      temperature: 0.3,  // Match analyze-support-feedback for consistency
+      max_tokens: 16384,
+      temperature: 0.3,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -186,13 +196,21 @@ Rules:
       .replace(/^```\s*/, '')
       .replace(/```\s*$/, '')
 
-    const matches = JSON.parse(cleanedText)
-    console.log(`  Found ${matches.length} AI semantic matches`)
+    const batchResults = JSON.parse(cleanedText)
 
-    return matches
+    // Convert to Map<rank, matches[]>
+    const resultsMap = new Map<number, Array<{ identifier: string; confidence: number }>>()
+    for (const [rank, matches] of Object.entries(batchResults)) {
+      resultsMap.set(parseInt(rank), matches as Array<{ identifier: string; confidence: number }>)
+    }
+
+    const totalMatches = Array.from(resultsMap.values()).reduce((sum, m) => sum + m.length, 0)
+    console.log(`  Found ${totalMatches} total AI semantic matches across ${feedbackIssues.length} issues`)
+
+    return resultsMap
   } catch (error) {
-    console.error('  Error in AI semantic matching:', error)
-    return []
+    console.error('  Error in batch AI semantic matching:', error)
+    return new Map()
   }
 }
 
@@ -242,32 +260,56 @@ async function mapLinearToFeedback(
   let totalMappings = 0
   const updatedIssues = []
 
-  // Process each feedback issue
+  // Phase 1: Find direct Zendesk-Linear links for ALL issues
+  console.log('\nPhase 1: Finding direct Zendesk-Linear links...')
+  const directLinksMap = new Map<number, Set<string>>()
+  for (const issue of topIssues) {
+    const directLinks = await findDirectLinearLinks(supabase, issue)
+    directLinksMap.set(issue.rank, directLinks)
+    if (directLinks.size > 0) {
+      console.log(`  Issue #${issue.rank}: ${directLinks.size} direct links`)
+    }
+  }
+
+  // Phase 2: Batch AI semantic matching for issues WITHOUT direct links
+  console.log('\nPhase 2: Running batch AI semantic matching...')
+  const issuesNeedingAI = topIssues.filter(issue => {
+    const directLinks = directLinksMap.get(issue.rank)
+    return !directLinks || directLinks.size === 0
+  })
+
+  let aiMatchesMap = new Map<number, Array<{ identifier: string; confidence: number }>>()
+  if (issuesNeedingAI.length > 0) {
+    console.log(`  ${issuesNeedingAI.length} issues need AI matching`)
+    aiMatchesMap = await findAISemanticMatchesBatch(anthropic, issuesNeedingAI, linearIssues)
+  } else {
+    console.log(`  All issues have direct links - skipping AI matching`)
+  }
+
+  // Phase 3: Process each issue and store mappings
+  console.log('\nPhase 3: Creating database mappings...')
   for (const issue of topIssues) {
     console.log(`\nProcessing feedback issue #${issue.rank}: ${issue.issue_summary}`)
 
     const mappings: LinearMapping[] = []
 
-    // Phase 1: Find direct Zendesk-Linear links
-    const directLinks = await findDirectLinearLinks(supabase, issue)
-
+    // Add direct links
+    const directLinks = directLinksMap.get(issue.rank) || new Set()
     for (const identifier of directLinks) {
-      // Find the Linear issue by identifier
       const linearIssue = linearIssues.find((li: LinearIssue) => li.identifier === identifier)
       if (linearIssue) {
         mappings.push({
           linear_issue_id: linearIssue.id,
           linear_identifier: linearIssue.identifier,
           mapping_source: 'zendesk_integration',
-          mapping_confidence: null, // Direct link, no confidence score
+          mapping_confidence: null,
         })
       }
     }
 
-    // Phase 2: AI semantic matching (if no direct links found)
+    // Add AI matches (if no direct links)
     if (mappings.length === 0) {
-      const aiMatches = await findAISemanticMatches(anthropic, issue, linearIssues)
-
+      const aiMatches = aiMatchesMap.get(issue.rank) || []
       for (const match of aiMatches) {
         const linearIssue = linearIssues.find((li: LinearIssue) => li.identifier === match.identifier)
         if (linearIssue) {

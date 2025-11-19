@@ -1791,7 +1791,7 @@ function displaySummaryStatsInline(stats) {
 
     // Add refresh button
     const refreshBtn = document.createElement('button');
-    refreshBtn.textContent = 'Refresh Data';
+    refreshBtn.textContent = 'Refresh';
     refreshBtn.style.cssText = 'padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;';
     refreshBtn.onmouseover = () => refreshBtn.style.background = '#138496';
     refreshBtn.onmouseout = () => refreshBtn.style.background = '#17a2b8';
