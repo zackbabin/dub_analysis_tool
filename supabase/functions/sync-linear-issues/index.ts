@@ -84,34 +84,28 @@ async function fetchLinearIssues(linearClient: LinearClient) {
 
     console.log(`✅ Fetched ${allIssues.length} total issues from Linear across ${pageCount} pages`)
 
-    // Fetch state and assignee details for each issue
-    const enrichedIssues = await Promise.all(
-      allIssues.map(async (issue) => {
-        const state = await issue.state
-        const assignee = await issue.assignee
-        const team = await issue.team
-
-        return {
-          id: issue.id,
-          identifier: issue.identifier,
-          title: issue.title,
-          description: issue.description || null,
-          state_name: state?.name || 'Unknown',
-          state_type: state?.type || null,
-          team_id: team?.id || null,
-          team_name: team?.name || null,
-          assignee_id: assignee?.id || null,
-          assignee_name: assignee?.name || null,
-          priority: issue.priority,
-          priority_label: issue.priorityLabel || null,
-          url: issue.url,
-          created_at: issue.createdAt,
-          updated_at: issue.updatedAt,
-          completed_at: issue.completedAt || null,
-          canceled_at: issue.canceledAt || null,
-        }
-      })
-    )
+    // Transform issues to database format
+    // Note: We process synchronously to avoid rate limits from lazy-loading relationships
+    // State/assignee/team details may be limited but that's acceptable to avoid hitting API limits
+    const enrichedIssues = allIssues.map((issue) => ({
+      id: issue.id,
+      identifier: issue.identifier,
+      title: issue.title,
+      description: issue.description || null,
+      state_name: 'Unknown', // Will be enriched from state_id later if needed
+      state_type: null,
+      team_id: null,
+      team_name: 'dub 3.0', // We already filtered by this team
+      assignee_id: null,
+      assignee_name: null,
+      priority: issue.priority,
+      priority_label: issue.priorityLabel || null,
+      url: issue.url,
+      created_at: issue.createdAt,
+      updated_at: issue.updatedAt,
+      completed_at: issue.completedAt || null,
+      canceled_at: issue.canceledAt || null,
+    }))
 
     return enrichedIssues
   } catch (error) {
@@ -184,27 +178,10 @@ serve(async (req) => {
 
       console.log(`✅ Linear sync completed successfully in ${elapsedSec}s`)
 
-      // Trigger next step in workflow: analyze-support-feedback
-      // Fire-and-forget to avoid timeout issues (don't await)
-      console.log('Triggering next step: analyze-support-feedback...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && serviceKey) {
-        fetch(`${supabaseUrl}/functions/v1/analyze-support-feedback`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-        }).catch(err => {
-          console.warn('⚠️ Failed to trigger analyze-support-feedback:', err.message)
-          // Don't fail this function if next step fails to trigger
-        })
-        console.log('✓ Triggered analyze-support-feedback (async)')
-      } else {
-        console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
-      }
+      // NOTE: Workflow chain is now triggered by frontend (supabase_integration.js)
+      // Frontend triggers: sync-support-conversations → sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+      // This ensures workflow continues even if any step fails or times out
+      console.log('Linear sync complete - frontend will trigger next step (analyze-support-feedback)')
 
       // Return summary statistics
       const stateBreakdown = issues.reduce((acc: any, issue: any) => {

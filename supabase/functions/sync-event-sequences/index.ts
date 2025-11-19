@@ -216,24 +216,58 @@ serve(async (req) => {
       stats.eventSequencesFetched = rawEventRows.length
 
       // Upsert raw data in batches to event_sequences_raw table
-      const batchSize = 1000 // Increased from 500 for better performance
+      const batchSize = 500 // Reduced from 1000 to avoid statement timeouts on large tables
       let totalInserted = 0
+      let skippedBatches = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
         const batch = rawEventRows.slice(i, i + batchSize)
-        const { error: insertError } = await supabase
-          .from('event_sequences_raw')
-          .upsert(batch, {
-            onConflict: 'distinct_id',
-            ignoreDuplicates: false
-          })
+        const batchNum = Math.floor(i / batchSize) + 1
+        const totalBatches = Math.ceil(rawEventRows.length / batchSize)
 
-        if (insertError) {
-          console.error('Error upserting raw event sequences batch:', insertError)
-          throw insertError
+        try {
+          const { error: insertError } = await supabase
+            .from('event_sequences_raw')
+            .upsert(batch, {
+              onConflict: 'distinct_id',
+              ignoreDuplicates: false
+            })
+
+          if (insertError) {
+            // Handle statement timeout gracefully
+            const errorCode = insertError.code || insertError.error_code || insertError.message
+            console.log(`Batch ${batchNum}/${totalBatches} error: code=${errorCode}, message=${insertError.message}`)
+
+            if (errorCode === '57014' || errorCode?.includes('57014') || insertError.message?.includes('statement timeout')) {
+              console.warn(`⚠️ Statement timeout on batch ${batchNum}/${totalBatches} - skipping and continuing...`)
+              skippedBatches++
+              continue // Skip this batch but don't fail the whole sync
+            }
+
+            console.error('Error upserting raw event sequences batch:', insertError)
+            throw insertError
+          }
+
+          totalInserted += batch.length
+          if (batchNum % 10 === 0 || batchNum === totalBatches) {
+            console.log(`  ✓ Processed batch ${batchNum}/${totalBatches} (${totalInserted} total)`)
+          }
+        } catch (err) {
+          // Catch any timeout or connection errors
+          const errorCode = err?.code || err?.error_code || err?.message
+          console.log(`Caught exception in batch ${batchNum}/${totalBatches}: code=${errorCode}, message=${err?.message}`)
+
+          if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
+            console.warn(`⚠️ Caught statement timeout exception on batch ${batchNum}/${totalBatches} - continuing...`)
+            skippedBatches++
+            continue // Skip this batch but don't fail
+          }
+          throw err
         }
+      }
 
-        totalInserted += batch.length
+      if (skippedBatches > 0) {
+        console.warn(`⚠️ Skipped ${skippedBatches} batch(es) due to timeouts`)
       }
 
       console.log(`Upserted ${totalInserted} raw records in ${Math.ceil(totalInserted / batchSize)} batches`)

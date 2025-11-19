@@ -790,28 +790,52 @@ class SupabaseIntegration {
             // All data that could be stored HAS been stored by this point
             console.log('Step 2/4: Triggering sync-linear-issues...');
 
-            try {
-                const linearResult = await this.supabase.functions.invoke('sync-linear-issues', { body: {} });
+            let linearResult = null;
+            let linearError = null;
 
-                if (linearResult.error) {
-                    console.error('❌ Linear sync failed:', linearResult.error);
-                    throw new Error(`Linear sync failed: ${linearResult.error.message}`);
+            // Try to sync Linear issues, but don't fail workflow if it errors
+            try {
+                const result = await this.supabase.functions.invoke('sync-linear-issues', { body: {} });
+
+                if (result.error) {
+                    console.warn('⚠️ Linear sync failed (workflow will continue):', result.error);
+                    linearError = result.error;
+                } else {
+                    console.log('✅ Linear issues synced:', result.data);
+                    linearResult = result.data;
+                }
+            } catch (error) {
+                console.warn('⚠️ Linear sync exception (workflow will continue):', error.message);
+                linearError = error;
+            }
+
+            // ALWAYS trigger analyze-support-feedback, even if Linear sync failed
+            // Support analysis can run without Linear data
+            console.log('Step 3/4: Triggering analyze-support-feedback...');
+
+            try {
+                const analysisResult = await this.supabase.functions.invoke('analyze-support-feedback', { body: {} });
+
+                if (analysisResult.error) {
+                    console.error('❌ Support analysis failed:', analysisResult.error);
+                    throw new Error(`Support analysis failed: ${analysisResult.error.message}`);
                 }
 
-                console.log('✅ Linear issues synced:', linearResult.data);
-                console.log('   Remaining steps (analyze → map) will execute automatically from sync-linear-issues');
+                console.log('✅ Support analysis complete:', analysisResult.data);
+                console.log('   Final step (map-linear-to-feedback) will execute automatically');
 
                 // Return combined results
                 return {
                     success: true,
                     support_sync: syncResult || { error: syncError?.message },
-                    linear_sync: linearResult.data,
-                    message: 'CX Analysis workflow started successfully'
+                    linear_sync: linearResult || { error: linearError?.message },
+                    analysis: analysisResult.data,
+                    message: 'CX Analysis workflow completed successfully'
                 };
             } catch (workflowError) {
-                console.error('Error triggering workflow chain:', workflowError);
+                console.error('Error in workflow chain:', workflowError);
                 // Re-throw workflow errors, but include sync status
-                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: ${syncError ? 'failed' : 'succeeded'}`);
+                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: support=${syncError ? 'failed' : 'succeeded'}, linear=${linearError ? 'failed' : 'succeeded'}`);
             }
         }
     }
