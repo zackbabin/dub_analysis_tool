@@ -348,8 +348,8 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 275 chars to stay under 200k token limit (with buffer for tags/custom_fields)
-        const MAX_CONVERSATION_LENGTH = 275
+        // Truncate conversation text to 250 chars to stay under 200k token limit (with buffer for tags/custom_fields)
+        const MAX_CONVERSATION_LENGTH = 250
         let truncatedText = sanitize(conversationText)
         if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
