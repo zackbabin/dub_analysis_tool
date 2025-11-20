@@ -1,7 +1,6 @@
 // Supabase Edge Function: sync-event-sequences
 // Fetches user event sequences from Mixpanel Insights API (Chart ID: 85247935)
-// Stores raw UNSORTED data in event_sequences_raw table
-// Events are sorted by Postgres (see get_sorted_event_sequences() function or event_sequences_sorted view)
+// Stores raw individual events in event_sequences_raw table
 // Processing happens in separate process-event-sequences function
 // Triggered manually alongside other sync functions
 
