@@ -90,9 +90,9 @@ serve(async (req) => {
     console.log('Fetching individual events from database...')
     // Fetch the 4 event types that need enrichment (PDP views and Creator Profile views)
     // Enrich ALL events of these types, regardless of current enrichment status
-    // IMPORTANT: Limit to 5000 events per run to avoid timeout
+    // IMPORTANT: Limit to 2000 events per run to reduce disk IO and avoid timeout
     // Subsequent runs will process remaining events
-    const MAX_EVENTS_PER_RUN = 5000
+    const MAX_EVENTS_PER_RUN = 2000
 
     const { data: rawEvents, error: fetchError } = await supabase
       .from('event_sequences_raw')
@@ -126,7 +126,7 @@ serve(async (req) => {
     console.log(`Processing ${stats.totalEvents} individual events for enrichment (max ${MAX_EVENTS_PER_RUN} per run)...`)
 
     if (stats.totalEvents === MAX_EVENTS_PER_RUN) {
-      console.log(`⚠️ Reached max events limit - more events may exist. Will process remaining on next run.`)
+      console.log(`⚠️ Reached max events limit (${MAX_EVENTS_PER_RUN}) - more events may exist. Will process remaining on next run.`)
     }
 
     // Enrich individual events
