@@ -170,12 +170,17 @@ Examples: ${issue.examples.map(ex => `"${ex.excerpt}"`).join(', ')}
 </feedback_issues>
 
 <linear_issues>
-${linearIssues.map(issue => `
+${linearIssues.map(issue => {
+  // Truncate description to 200 chars to reduce token usage
+  const desc = issue.description || 'No description'
+  const truncatedDesc = desc.length > 200 ? desc.substring(0, 200) + '...' : desc
+  return `
 ID: ${issue.identifier}
 Title: ${issue.title}
-Description: ${issue.description || 'No description'}
+Description: ${truncatedDesc}
 State: ${issue.state_name}
-`).join('\n---\n')}
+`
+}).join('\n---\n')}
 </linear_issues>
 
 <task>
