@@ -75,40 +75,80 @@ export class ZendeskClient {
   }
 
   /**
-   * Fetch ticket comments/events created/updated since a given Unix timestamp
-   * Filters for Comment events only
-   * @param unixTimestamp - Unix timestamp in seconds
-   * @returns Array of comment event objects
+   * Fetch ticket comments for a specific ticket
+   * Uses the Ticket Comments API endpoint
+   * @param ticketId - Zendesk ticket ID
+   * @returns Array of comment objects
    */
-  async fetchCommentsSince(unixTimestamp: number): Promise<any[]> {
+  async fetchTicketComments(ticketId: string): Promise<any[]> {
     const comments: any[] = []
-    let url: string | null = `${this.baseUrl}/incremental/ticket_events.json?start_time=${unixTimestamp}`
-
-    console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
+    let url: string | null = `${this.baseUrl}/tickets/${ticketId}/comments.json`
 
     while (url) {
       const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
-      // Filter for Comment events only
-      const commentEvents = data.ticket_events.filter(
-        (event: any) => event.event_type === 'Comment' && event.body
-      )
+      comments.push(...(data.comments || []))
 
-      comments.push(...commentEvents)
+      // Check for next page (pagination for tickets with >100 comments)
+      url = data.next_page || null
 
-      // Log rate limit status
-      this.logRateLimitStatus(response, 'comments')
-
-      url = data.next_page
       if (url) {
-        console.log(`  Fetched ${comments.length} comments so far, fetching next page...`)
         await this.sleep(this.rateLimitDelay)
       }
     }
 
-    console.log(`✓ Fetched ${comments.length} Zendesk comments total`)
     return comments
+  }
+
+  /**
+   * Fetch comments for all tickets that were updated since a given timestamp
+   * First fetches updated tickets, then fetches comments for each ticket
+   * @param unixTimestamp - Unix timestamp in seconds
+   * @returns Array of comment objects with ticket_id added
+   */
+  async fetchCommentsSince(unixTimestamp: number): Promise<any[]> {
+    console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
+
+    // Step 1: Get all tickets updated since the timestamp
+    const tickets = await this.fetchTicketsSince(unixTimestamp)
+    console.log(`Found ${tickets.length} tickets updated since timestamp`)
+
+    if (tickets.length === 0) {
+      console.log('No tickets to fetch comments for')
+      return []
+    }
+
+    // Step 2: Fetch comments for each ticket
+    const allComments: any[] = []
+    let processedTickets = 0
+
+    for (const ticket of tickets) {
+      try {
+        const comments = await this.fetchTicketComments(ticket.id.toString())
+
+        // Add ticket_id to each comment for reference
+        const commentsWithTicketId = comments.map(comment => ({
+          ...comment,
+          ticket_id: ticket.id
+        }))
+
+        allComments.push(...commentsWithTicketId)
+        processedTickets++
+
+        if (processedTickets % 10 === 0) {
+          console.log(`  Fetched comments from ${processedTickets}/${tickets.length} tickets (${allComments.length} total comments)`)
+        }
+
+        await this.sleep(this.rateLimitDelay)
+      } catch (error) {
+        console.warn(`⚠️ Failed to fetch comments for ticket ${ticket.id}:`, error)
+        // Continue with other tickets
+      }
+    }
+
+    console.log(`✓ Fetched ${allComments.length} Zendesk comments total from ${processedTickets} tickets`)
+    return allComments
   }
 
   /**

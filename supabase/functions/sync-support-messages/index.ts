@@ -117,12 +117,12 @@ serve(async (req) => {
       }
 
       // Normalize comments with PII redaction
-      const normalizedComments = commentEvents.map(event => {
-        const ticketId = event.ticket_id.toString()
+      const normalizedComments = commentEvents.map(comment => {
+        const ticketId = comment.ticket_id.toString()
         const userDistinctId = ticketUserMap.get(ticketId) || undefined
 
         return ConversationNormalizer.normalizeZendeskComment(
-          event.child_events?.[0] || event, // Comment data is in child_events
+          comment,
           ticketId,
           userDistinctId
         )
