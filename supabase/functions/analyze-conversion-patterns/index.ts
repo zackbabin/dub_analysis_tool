@@ -352,6 +352,24 @@ serve(async (req) => {
     const users = pairsToUserData(pairRows, config.outcomeColumn, config.entityType)
     console.log(`✓ Converted to ${users.length} unique users`)
 
+    // DIAGNOSTIC: Check user data quality
+    const usersWithMultipleEntities = users.filter(u => u.entity_ids.size >= 2).length
+    const usersWhoConverted = users.filter(u => u.did_convert).length
+    const usersWithMultipleEntitiesAndConverted = users.filter(u => u.entity_ids.size >= 2 && u.did_convert).length
+    console.log(`📊 DIAGNOSTIC - Users with 2+ entities: ${usersWithMultipleEntities}`)
+    console.log(`📊 DIAGNOSTIC - Users who converted: ${usersWhoConverted}`)
+    console.log(`📊 DIAGNOSTIC - Users with 2+ entities AND converted: ${usersWithMultipleEntitiesAndConverted}`)
+
+    // Sample a few users to verify data structure
+    const sampleUsers = users.slice(0, 3)
+    console.log(`📊 DIAGNOSTIC - Sample users:`, JSON.stringify(sampleUsers.map(u => ({
+      distinct_id: u.distinct_id,
+      entity_count: u.entity_ids.size,
+      entity_ids: Array.from(u.entity_ids),
+      did_convert: u.did_convert,
+      conversion_count: u.conversion_count
+    }))))
+
     if (users.length < 50) {
       return new Response(
         JSON.stringify({
