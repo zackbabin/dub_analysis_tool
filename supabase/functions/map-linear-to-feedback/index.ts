@@ -409,9 +409,10 @@ async function mapLinearToFeedback(
       linear_issue_ids: mappings.map(m => m.linear_identifier),
       linear_status: linearStatus,
       linear_issues: mappedLinearIssues.map(li => ({
-        id: li.identifier,
+        identifier: li.identifier,
         title: li.title,
-        state: li.state_name,
+        description: li.description,
+        state_name: li.state_name,
         url: li.url,
       })),
     }
