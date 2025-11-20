@@ -544,6 +544,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
 
+        // DIAGNOSTIC: Log the loaded data
+        console.log('🔍 DIAGNOSTIC - topCopyCombos data:', {
+            length: topCopyCombos?.length,
+            isArray: Array.isArray(topCopyCombos),
+            firstItem: topCopyCombos?.[0],
+            data: topCopyCombos
+        });
+
         // Calculate hidden gems summary from hiddenGems array
         const hiddenGemsSummary = hiddenGems && hiddenGems.length > 0 ? {
             total_hidden_gems: hiddenGems.length,
@@ -600,6 +608,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
 
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+            console.log('🔍 DIAGNOSTIC - combinationsHTML:', {
+                length: combinationsHTML?.length,
+                isEmpty: combinationsHTML === '',
+                firstChars: combinationsHTML?.substring(0, 100)
+            });
             const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
 
             const copySequenceHTML = copySequenceAnalysis ?

@@ -23,7 +23,8 @@ interface MixpanelExportEvent {
   event: string
   properties: {
     time: number
-    distinct_id: string
+    distinct_id?: string
+    $distinct_id_before_identity?: string
     $insert_id: string
     $email?: string
     portfolioTicker?: string
@@ -231,8 +232,11 @@ serve(async (req) => {
         const creatorType = event.properties.creatorType
         const internalEventName = mapEventName(exportEventName, creatorType)
 
+        // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
+        const distinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+
         return {
-          distinct_id: event.properties.distinct_id,
+          distinct_id: distinctId,
           event_name: internalEventName, // Use mapped internal event name
           event_time: eventTime,
           event_count: 1, // Each Export API event is a single occurrence
