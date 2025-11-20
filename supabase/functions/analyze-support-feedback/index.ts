@@ -180,6 +180,9 @@ Return ONLY valid JSON matching this exact structure:
 - Focus on actionable product feedback, not general support inquiries
 - Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
 - Keep issue_summary to 140 characters or less for UI display
+- IMPORTANT: Properly escape all special characters in JSON strings (quotes, backslashes, unicode characters like ellipsis …)
+- Replace ellipsis characters (…) with three dots (...) in all text fields
+- Ensure all conversation titles are properly escaped for valid JSON
 </critical_instructions>`
 }
 
@@ -326,6 +329,11 @@ serve(async (req) => {
           return text
             .replace(/\\/g, '\\\\')  // Escape backslashes
             .replace(/"/g, '\\"')     // Escape quotes
+            .replace(/…/g, '...')     // Replace ellipsis with three dots
+            .replace(/'/g, "'")       // Replace curly single quotes
+            .replace(/'/g, "'")       // Replace curly single quotes
+            .replace(/"/g, '"')       // Replace curly double quotes
+            .replace(/"/g, '"')       // Replace curly double quotes
             .replace(/\n/g, ' ')      // Replace newlines with spaces
             .replace(/\r/g, '')       // Remove carriage returns
             .replace(/\t/g, ' ')      // Replace tabs with spaces
