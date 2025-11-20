@@ -68,6 +68,8 @@ async function fetchEventsFromExportAPI(
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
   console.log(`Events: ${eventNames.length} event types`)
   console.log(`Event parameter: ${eventParam}`)
+  console.log(`Where clause: ${whereClause}`)
+  console.log(`Full URL (truncated): ${url.substring(0, 200)}...`)
 
   const response = await fetch(url, {
     method: 'GET',
@@ -90,7 +92,10 @@ async function fetchEventsFromExportAPI(
 
   // Parse JSONL response (newline-delimited JSON)
   const text = await response.text()
+  console.log(`Response text length: ${text.length} bytes`)
+
   const lines = text.trim().split('\n').filter(line => line.trim())
+  console.log(`Response lines: ${lines.length}`)
 
   const events: MixpanelExportEvent[] = []
   for (const line of lines) {
@@ -103,6 +108,14 @@ async function fetchEventsFromExportAPI(
   }
 
   console.log(`✓ Fetched ${events.length} events from Export API`)
+
+  // Log first event for debugging
+  if (events.length > 0) {
+    console.log('Sample event:', JSON.stringify(events[0]).substring(0, 200))
+  } else {
+    console.warn('⚠️ No events returned from Export API - check event names and where clause')
+  }
+
   return events
 }
 
