@@ -98,14 +98,22 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Analytics and reporting requests
 
 **RANKING METHODOLOGY:**
-Calculate a composite priority score (0-100) for each issue using this formula:
+Calculate a composite priority score (0-100) for each issue using this formula with EQUAL WEIGHT for all components:
 
-Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (min(Volume, 50) / 50 × 100 × 0.3)
+Priority Score = (Category Weight × 0.33) + (Percentage × 3 × 0.33) + (min(Volume, 50) / 50 × 100 × 0.34)
 
 Where:
 - Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40
 - Percentage: The percentage of total conversations (e.g., 15.5)
 - Volume: Number of occurrences this week (capped at 50 for calculation)
+- Each component now has equal weight (33.33% each)
+
+**MESSAGE COUNT ANALYSIS:**
+When analyzing conversations, consider the number of back-and-forth messages between user and agent as an indicator of issue complexity/severity:
+- Higher message count (5+ messages) often indicates complex issues, user frustration, or inadequate resolution
+- Lower message count (1-2 messages) may indicate simple issues or quick resolutions
+- Use message_count field from conversation data to inform your analysis
+- Include this insight in your issue_summary when relevant (e.g., "Users report X issue requiring multiple back-and-forth exchanges to resolve")
 
 Then rank all issues by priority score (highest to lowest) and return the top 10.
 
@@ -158,11 +166,14 @@ Return ONLY valid JSON matching this exact structure:
         "percentage_contribution": number,
         "volume_contribution": number
       },
+      "avg_message_count": number,
+      "message_count_insight": "string (optional: brief note if high message count indicates complexity/frustration)",
       "examples": [
         {
           "conversation_id": "string",
           "title": "string",
-          "description": "string (max 140 characters)"
+          "description": "string (max 140 characters)",
+          "message_count": number
         }
       ]
     }
@@ -175,10 +186,13 @@ Return ONLY valid JSON matching this exact structure:
 - Ensure all 10 issues have exactly 3 examples each
 - STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Trading > App Functionality > Feedback)
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
-- Calculate priority scores exactly as specified in the formula
+- Calculate priority scores exactly as specified in the formula with equal 33% weight for each component
 - Rank issues 1-10 by priority score (highest score = rank 1)
 - Show priority calculation breakdown for transparency
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
+- Include avg_message_count for each issue (average of message_count across related conversations)
+- Include message_count for each example ticket
+- Add message_count_insight when high message counts (5+) indicate issue complexity or user frustration
 - Focus on actionable product feedback, not general support inquiries
 - Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
 - Keep issue_summary to 140 characters or less for UI display

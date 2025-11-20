@@ -194,6 +194,23 @@ serve(async (req) => {
 
       console.log(`✓ Successfully stored ${totalStored} messages`)
 
+      // Update message_count in raw_support_conversations for each affected conversation
+      console.log('Updating message counts in raw_support_conversations...')
+      const conversationsToUpdate = [...externalToInternalId.keys()]
+
+      for (const conversationId of externalToInternalId.values()) {
+        const { error: countError } = await supabase.rpc('update_conversation_message_count', {
+          p_conversation_id: conversationId
+        })
+
+        if (countError) {
+          console.warn(`⚠️ Failed to update message count for conversation ${conversationId}:`, countError)
+          // Non-fatal - continue with other updates
+        }
+      }
+
+      console.log(`✓ Updated message counts for ${externalToInternalId.size} conversations`)
+
       // Update sync status with last messages sync timestamp
       const now = new Date().toISOString()
       await supabase
