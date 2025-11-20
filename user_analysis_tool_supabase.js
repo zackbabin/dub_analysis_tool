@@ -241,6 +241,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     sync_summary: supportResult.sync_summary,
                     analysis_summary: supportResult.analysis_summary
                 });
+
+                // Auto-refresh CX Analysis table with new data
+                console.log('🔄 Refreshing CX Analysis table...');
+                if (window.cxAnalysis) {
+                    await window.cxAnalysis.refresh();
+                    console.log('✅ CX Analysis table refreshed');
+                } else {
+                    console.warn('⚠️ CX Analysis not initialized yet');
+                }
             } catch (error) {
                 console.warn('⚠️ Support analysis workflow failed, continuing:', error.message);
                 // Continue with workflow - support analysis failure is not fatal
