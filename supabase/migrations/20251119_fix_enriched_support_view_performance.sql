@@ -53,14 +53,6 @@ SELECT
   c.linear_issue_id,
   c.linear_custom_field_id,
 
-  -- User enrichment from subscribers_insights
-  u.income as user_income,
-  u.net_worth as user_net_worth,
-  u.investing_activity as user_investing_activity,
-  u.total_copies as user_total_copies,
-  u.total_subscriptions as user_total_subscriptions,
-  u.app_sessions as user_app_sessions,
-
   -- Message aggregation (replaces slow subqueries)
   COUNT(m.id) as message_count,
   ARRAY_AGG(m.body ORDER BY m.created_at) FILTER (WHERE m.body IS NOT NULL) as all_messages,
@@ -71,7 +63,6 @@ SELECT
   li.state_name as linear_state,
   li.url as linear_url
 FROM raw_support_conversations c
-LEFT JOIN subscribers_insights u ON c.user_id = u.distinct_id
 LEFT JOIN support_conversation_messages m ON c.id = m.conversation_id
 LEFT JOIN linear_issues li ON c.linear_issue_id = li.id
 GROUP BY
@@ -96,12 +87,6 @@ GROUP BY
   c.has_linear_ticket,
   c.linear_issue_id,
   c.linear_custom_field_id,
-  u.income,
-  u.net_worth,
-  u.investing_activity,
-  u.total_copies,
-  u.total_subscriptions,
-  u.app_sessions,
   li.identifier,
   li.title,
   li.state_name,
