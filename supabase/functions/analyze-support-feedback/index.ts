@@ -60,15 +60,7 @@ Analyze all conversations and identify the top 10 most significant product issue
 **CATEGORIZATION RULES:**
 You MUST assign each issue to exactly ONE of these categories, in this priority order:
 
-1. **Compliance** - Issues related to:
-   - Regulatory requirements (SEC, FINRA, state regulations)
-   - KYC/AML verification and identity checks
-   - Legal disclosures and risk warnings
-   - Tax reporting (1099s, cost basis)
-   - Accredited investor verification
-   - Data privacy and GDPR compliance
-
-2. **Money Movement** - Issues related to:
+1. **Money Movement** - If a user cannot deposit or withdraw money from the platform:
    - Bank account linking (Plaid integration)
    - Deposits and funding accounts
    - Withdrawals and cash-outs
@@ -77,7 +69,7 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Refunds and chargebacks
    - Account balance discrepancies
 
-3. **Trading** - Issues related to:
+2. **Trading** - If a user is unable to trade or sell:
    - Order execution and fills
    - Portfolio copying and synchronization
    - Trade replication from creators
@@ -86,7 +78,7 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Market data and quotes
    - Trade timing and latency
 
-4. **App Functionality** - Issues related to:
+3. **App Functionality** - If the user cannot access the app or faces broken functionality:
    - UI bugs and crashes
    - App performance and loading times
    - Navigation and user flow problems
@@ -96,7 +88,9 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Settings and preferences
    - Mobile app vs. web app issues
 
-5. **Feature Request** - Issues related to:
+4. **Feedback** - If user gets frustrated or provides feedback about the app experience or new features:
+   - User frustration or complaints
+   - General feedback about the app experience
    - New feature suggestions
    - Enhancement requests for existing features
    - User experience improvements
@@ -109,7 +103,7 @@ Calculate a composite priority score (0-100) for each issue using this formula:
 Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (min(Volume, 50) / 50 × 100 × 0.3)
 
 Where:
-- Category Weight: Compliance=100, Money Movement=80, Trading=60, App Functionality=40, Feature Request=20
+- Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40
 - Percentage: The percentage of total conversations (e.g., 15.5)
 - Volume: Number of occurrences this week (capped at 50 for calculation)
 
@@ -117,7 +111,7 @@ Then rank all issues by priority score (highest to lowest) and return the top 10
 
 For each of the top 10 issues, provide:
 
-1. **Category**: ONE of: Compliance, Money Movement, Trading, App Functionality, Feature Request
+1. **Category**: ONE of: Money Movement, Trading, App Functionality, Feedback
 
 2. **Issue Summary**: Clear, concise description (140 characters or less, 1-2 sentences max)
 
@@ -142,18 +136,17 @@ Return ONLY valid JSON matching this exact structure:
     "week_start": "YYYY-MM-DD",
     "week_end": "YYYY-MM-DD",
     "category_breakdown": {
-      "compliance": number,
       "money_movement": number,
       "trading": number,
       "app_functionality": number,
-      "feature_request": number
+      "feedback": number
     },
     "key_insights": "2-3 sentence high-level summary"
   },
   "top_issues": [
     {
       "rank": 1,
-      "category": "Compliance | Money Movement | Trading | App Functionality | Feature Request",
+      "category": "Money Movement | Trading | App Functionality | Feedback",
       "issue_summary": "string",
       "percentage_of_total": number,
       "weekly_volume": number,
@@ -178,14 +171,14 @@ Return ONLY valid JSON matching this exact structure:
 <critical_instructions>
 - Return ONLY the JSON object, no markdown formatting or code blocks
 - Ensure all 10 issues have exactly 3 examples each
-- STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Compliance > Money Movement > Trading > App Functionality > Feature Request)
+- STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Trading > App Functionality > Feedback)
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
 - Calculate priority scores exactly as specified in the formula
 - Rank issues 1-10 by priority score (highest score = rank 1)
 - Show priority calculation breakdown for transparency
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
 - Focus on actionable product feedback, not general support inquiries
-- Compliance issues automatically get highest priority due to regulatory risk
+- Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
 - Keep issue_summary to 140 characters or less for UI display
 </critical_instructions>`
 }
@@ -231,7 +224,7 @@ serve(async (req) => {
 
       let conversations = null
       let fetchError = null
-      const MAX_CONVERSATIONS = 300
+      const MAX_CONVERSATIONS = 250
 
       // Try fetching from enriched view first
       console.log('Attempting to fetch from enriched_support_conversations...')
