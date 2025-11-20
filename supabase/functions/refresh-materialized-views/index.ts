@@ -131,16 +131,9 @@ serve(async (req) => {
     console.log('✓ Copy engagement summary view refreshed (using current main_analysis data)')
 
     // Step 8: Refresh enriched support conversations view
-    console.log('Refreshing enriched support conversations view...')
-
-    const { error: supportError } = await supabase.rpc('refresh_enriched_support_conversations')
-
-    if (supportError) {
-      console.warn('⚠️ Error refreshing enriched_support_conversations:', supportError)
-      // Non-fatal - continue with other refreshes
-    } else {
-      console.log('✓ enriched_support_conversations refreshed successfully')
-    }
+    // DISABLED: This view is expensive and causes database performance issues
+    // Refresh manually when needed via direct RPC call
+    console.log('ℹ️ enriched_support_conversations refresh skipped (refresh manually if needed)')
 
     console.log('✅ All materialized views refreshed successfully')
 
@@ -153,7 +146,7 @@ serve(async (req) => {
         premium_creator_breakdown: 'regular_view_no_refresh_needed',
         retention_analysis_refreshed: !retentionError,
         copy_engagement_summary_refreshed: !copyResult.error,
-        enriched_support_conversations_refreshed: !supportError,
+        enriched_support_conversations_refreshed: 'skipped_manual_refresh_required',
         pattern_analysis_triggered: true
       }
     )
