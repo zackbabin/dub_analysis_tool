@@ -104,10 +104,10 @@ class CXAnalysis {
         timestamp.textContent = `Data as of: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
 
-        // Add data scope (top left)
+        // Add data scope (top left) - dynamic based on actual conversation count analyzed
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = 'All users who have been KYC approved';
+        dataScope.textContent = `Analysis of the ${data.conversation_count} most recent Zendesk tickets`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title (using qda-result-section for consistent spacing)

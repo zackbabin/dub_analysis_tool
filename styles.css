@@ -478,8 +478,9 @@ body {
     padding: 14px 16px;
     position: absolute;
     z-index: 1000;
-    bottom: calc(100% + 8px);
-    left: 0;
+    top: 50%;
+    left: calc(100% + 12px);
+    transform: translateY(-50%);
     opacity: 0;
     transition: opacity 0.3s, visibility 0.3s;
     font-size: 13px;
@@ -496,11 +497,12 @@ body {
 .info-tooltip .tooltip-text::after {
     content: "";
     position: absolute;
-    top: 100%;
-    left: 8px;
+    top: 50%;
+    right: 100%;
+    transform: translateY(-50%);
     border-width: 6px;
     border-style: solid;
-    border-color: #2d3748 transparent transparent transparent;
+    border-color: transparent #2d3748 transparent transparent;
 }
 
 .info-tooltip:hover .tooltip-text {
