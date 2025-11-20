@@ -1,6 +1,6 @@
 # Dub Analysis Tool
 
-**Version**: 2.1.0 (November 2024)
+**Version**: 2.2.0 (November 2024)
 
 Comprehensive analytics platform for analyzing user behavior, creator performance, and business metrics for an investment social network.
 
@@ -185,11 +185,10 @@ Frontend: "Sync Live Data" button
   ```
   Where:
   - **Category Weight** (40% of score):
-    - Compliance: 100 (regulatory risk)
-    - Money Movement: 80 (financial operations)
-    - Trading: 60 (core functionality)
-    - App Functionality: 40 (user experience)
-    - Feature Request: 20 (enhancements)
+    - Money Movement: 100 (users cannot deposit or withdraw money)
+    - Trading: 80 (users unable to trade or sell)
+    - App Functionality: 60 (users cannot access app or face broken functionality)
+    - Feedback: 40 (user frustration or feedback about app experience/features)
   - **Percentage** (30% of score): % of total conversations affected (multiplied by 3)
   - **Volume** (30% of score): Weekly ticket count (capped at 50, normalized to 0-100)
 - Issues sorted by priority score (highest to lowest) to identify most critical problems

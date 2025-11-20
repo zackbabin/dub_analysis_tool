@@ -109,10 +109,17 @@ class CXAnalysis {
                         <ul>
                             <li><strong>Data Source:</strong> Zendesk support tickets (last 30 days)</li>
                             <li><strong>AI Analysis:</strong> Claude Sonnet 4 categorizes tickets by issue type and priority</li>
-                            <li><strong>Categories:</strong> Compliance, Money Movement, Trading, App Functionality, Feature Requests</li>
+                            <li><strong>Categories (by priority):</strong>
+                                <ul style="margin-top: 4px;">
+                                    <li>Money Movement - user cannot deposit or withdraw money</li>
+                                    <li>Trading - user unable to trade or sell</li>
+                                    <li>App Functionality - user cannot access app or faces broken functionality</li>
+                                    <li>Feedback - user frustration or feedback about app experience/features</li>
+                                </ul>
+                            </li>
                             <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (Volume/50 × 100 × 0.3)
                                 <ul style="margin-top: 4px;">
-                                    <li>Category weights: Compliance=100, Money Movement=80, Trading=60, App=40, Feature=20</li>
+                                    <li>Category weights: Money Movement=100, Trading=80, App=60, Feedback=40</li>
                                     <li>Percentage = % of total conversations affected</li>
                                     <li>Volume = weekly ticket count (capped at 50)</li>
                                 </ul>
@@ -353,11 +360,10 @@ class CXAnalysis {
     renderIssueRow(issue, index) {
         // Determine category color/badge
         const categoryColors = {
-            'Compliance': '#dc3545',
-            'Money Movement': '#fd7e14',
-            'Trading': '#ffc107',
-            'App Functionality': '#17a2b8',
-            'Feature Request': '#28a745'
+            'Money Movement': '#dc3545',
+            'Trading': '#fd7e14',
+            'App Functionality': '#ffc107',
+            'Feedback': '#17a2b8'
         };
 
         const categoryColor = categoryColors[issue.category] || '#6c757d';
