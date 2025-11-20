@@ -5,6 +5,7 @@ class CXAnalysis {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.supabase = null;
+        this.supabaseIntegration = null;
 
         this.init();
     }
@@ -12,6 +13,7 @@ class CXAnalysis {
     async init() {
         // Wait for Supabase to be available
         if (window.supabaseIntegration) {
+            this.supabaseIntegration = window.supabaseIntegration;
             this.supabase = window.supabaseIntegration.supabase;
             await this.loadAndDisplayResults();
         } else {
@@ -69,8 +71,8 @@ class CXAnalysis {
         console.log('Refreshing CX Analysis data...');
 
         // Clear query cache to ensure fresh data (same as user/creator tools)
-        if (window.supabaseIntegration) {
-            window.supabaseIntegration.invalidateCache();
+        if (this.supabaseIntegration) {
+            this.supabaseIntegration.invalidateCache();
             console.log('🗑️ Query cache cleared');
         }
 

@@ -124,6 +124,7 @@ For each of the top 10 issues, provide:
 6. **Example Tickets**: Provide exactly 3 representative examples with:
    - Conversation ID (from the data)
    - Title (from the conversation title field)
+   - Description (up to 140 characters from the conversation content, truncated if longer)
 
 </task>
 
@@ -160,7 +161,8 @@ Return ONLY valid JSON matching this exact structure:
       "examples": [
         {
           "conversation_id": "string",
-          "title": "string"
+          "title": "string",
+          "description": "string (max 140 characters)"
         }
       ]
     }
@@ -369,7 +371,7 @@ serve(async (req) => {
       // Call Claude API
       const message = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000, // Reduced to stay under 200k combined input+output limit
+        max_tokens: 10000, // Increased to accommodate descriptions in examples (10 issues x 3 examples x 140 chars)
         temperature: 0.3,
         messages: [
           {
