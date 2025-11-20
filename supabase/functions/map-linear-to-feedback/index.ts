@@ -118,18 +118,32 @@ async function findDirectLinearLinks(
       linearIdentifiers.add(conv.linear_identifier)
     }
 
-    // Source 2: Tags array (e.g., ["DUB-123", "bug"])
+    // Source 2: Tags array (e.g., ["DUB-123", "linear_ticket_DUB-456", "bug"])
+    // Look for both direct Linear IDs in tags AND tags containing "linear_ticket"
     if (conv.tags && Array.isArray(conv.tags)) {
       for (const tag of conv.tags) {
+        // Direct Linear ID pattern match (e.g., "DUB-123")
         const ids = extractLinearIds(tag)
         ids.forEach(id => linearIdentifiers.add(id))
+
+        // Also check for tags containing "linear_ticket" substring
+        if (tag.toLowerCase().includes('linear_ticket')) {
+          // Extract Linear ID from tag like "linear_ticket_DUB-456" or "DUB-456_linear_ticket"
+          const idsInTag = extractLinearIds(tag)
+          idsInTag.forEach(id => linearIdentifiers.add(id))
+        }
       }
     }
 
     // Source 3: Custom fields object (e.g., { "linear_issue": "DUB-456", "linear_ticket": "DUB-789" })
     if (conv.custom_fields && typeof conv.custom_fields === 'object') {
-      for (const value of Object.values(conv.custom_fields)) {
+      for (const [key, value] of Object.entries(conv.custom_fields)) {
         if (typeof value === 'string') {
+          const ids = extractLinearIds(value)
+          ids.forEach(id => linearIdentifiers.add(id))
+        }
+        // Also check if the custom field key contains "linear_ticket"
+        if (key.toLowerCase().includes('linear_ticket') && typeof value === 'string') {
           const ids = extractLinearIds(value)
           ids.forEach(id => linearIdentifiers.add(id))
         }
