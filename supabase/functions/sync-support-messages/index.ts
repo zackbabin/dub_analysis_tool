@@ -11,6 +11,7 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
+  TimeoutGuard,
 } from '../_shared/sync-helpers.ts'
 import { ZendeskClient } from '../_shared/support-api-clients.ts'
 import { ConversationNormalizer } from '../_shared/support-normalizers.ts'
@@ -46,6 +47,7 @@ serve(async (req) => {
 
     // Create sync log entry
     const executionStartMs = Date.now()
+    const timeoutGuard = new TimeoutGuard(executionStartMs)
     const { syncLog } = await createSyncLog(supabase, 'support', 'support_messages')
     const syncLogId = syncLog.id
 
@@ -81,6 +83,22 @@ serve(async (req) => {
       const commentEvents = await zendeskClient.fetchCommentsSince(startTime)
 
       console.log(`✓ Fetched ${commentEvents.length} comment events from Zendesk`)
+
+      // Check timeout after fetch
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn('⏱️ Approaching 140s timeout after comment fetch - returning early')
+        timeoutGuard.logStatus('Post-Comment-Fetch')
+
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
+        })
+
+        return createSuccessResponse('Sync stopped early due to timeout (no comments processed)', {
+          timeout_triggered: true,
+          elapsed_seconds: timeoutGuard.getElapsedSeconds(),
+          comments_synced: 0,
+        })
+      }
 
       if (commentEvents.length === 0) {
         console.log('No new comments to sync')
@@ -194,22 +212,53 @@ serve(async (req) => {
 
       console.log(`✓ Successfully stored ${totalStored} messages`)
 
-      // Update message_count in raw_support_conversations for each affected conversation
-      console.log('Updating message counts in raw_support_conversations...')
-      const conversationsToUpdate = [...externalToInternalId.keys()]
+      // Check timeout before updating counts
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn('⏱️ Approaching 140s timeout - skipping message count updates')
+        timeoutGuard.logStatus('Pre-Count-Update')
 
-      for (const conversationId of externalToInternalId.values()) {
-        const { error: countError } = await supabase.rpc('update_conversation_message_count', {
-          p_conversation_id: conversationId
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: totalStored,
         })
 
-        if (countError) {
-          console.warn(`⚠️ Failed to update message count for conversation ${conversationId}:`, countError)
-          // Non-fatal - continue with other updates
-        }
+        return createSuccessResponse('Messages synced (counts skipped due to timeout)', {
+          timeout_triggered: true,
+          elapsed_seconds: timeoutGuard.getElapsedSeconds(),
+          comments_synced: totalStored,
+          tickets_affected: ticketIds.length,
+          message_counts_updated: false,
+        })
       }
 
-      console.log(`✓ Updated message counts for ${externalToInternalId.size} conversations`)
+      // Update message_count in raw_support_conversations for each affected conversation
+      // Count messages per conversation in the Edge Function (more efficient than DB queries)
+      console.log('Calculating message counts per conversation...')
+      const conversationMessageCounts = new Map()
+
+      for (const msg of messagesForDB) {
+        const count = conversationMessageCounts.get(msg.conversation_id) || 0
+        conversationMessageCounts.set(msg.conversation_id, count + 1)
+      }
+
+      console.log(`Updating message counts for ${conversationMessageCounts.size} conversations in batch...`)
+
+      // Batch update message counts (much faster than individual RPC calls)
+      const updatePromises = Array.from(conversationMessageCounts.entries()).map(([conversationId, count]) =>
+        supabase
+          .from('raw_support_conversations')
+          .update({ message_count: count })
+          .eq('id', conversationId)
+      )
+
+      const updateResults = await Promise.allSettled(updatePromises)
+      const successCount = updateResults.filter(r => r.status === 'fulfilled').length
+      const failCount = updateResults.filter(r => r.status === 'rejected').length
+
+      console.log(`✓ Updated message counts: ${successCount} succeeded, ${failCount} failed`)
+
+      if (failCount > 0) {
+        console.warn(`⚠️ ${failCount} conversations failed to update message count (non-fatal)`)
+      }
 
       // Update sync status with last messages sync timestamp
       const now = new Date().toISOString()
