@@ -33,22 +33,33 @@ class CXAnalysis {
                 .single();
 
             if (error) {
-                console.error('Error loading CX analysis:', error);
-                this.displayError('No analysis results available yet. Run the support analysis pipeline first.');
+                console.error('❌ Error loading CX analysis:', error);
+                console.error('Error details:', JSON.stringify(error, null, 2));
+                this.displayError(`Database error: ${error.message || 'Unknown error'}. Check console for details.`);
                 return;
             }
 
             if (!data) {
+                console.warn('⚠️ No data returned from support_analysis_results');
                 this.displayError('No analysis results available yet. Run the support analysis pipeline first.');
                 return;
             }
 
             console.log('✅ Loaded CX analysis:', data);
+
+            // Validate data structure
+            if (!data.top_issues || !Array.isArray(data.top_issues)) {
+                console.error('❌ Invalid data structure - top_issues missing or not an array:', data);
+                this.displayError('Invalid analysis data format. Please re-run the analysis pipeline.');
+                return;
+            }
+
             this.displayResults(data);
 
         } catch (error) {
-            console.error('Error in loadAndDisplayResults:', error);
-            this.displayError('Failed to load analysis results.');
+            console.error('❌ Exception in loadAndDisplayResults:', error);
+            console.error('Stack trace:', error.stack);
+            this.displayError(`Failed to load analysis results: ${error.message}`);
         }
     }
 
