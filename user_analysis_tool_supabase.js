@@ -238,10 +238,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             try {
                 const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
                 console.log('✅ Support analysis workflow completed:', {
-                    sync: supportResult.sync_summary,
-                    analysis: supportResult.analysis_summary,
-                    linear_sync: supportResult.linear_sync_summary,
-                    linear_mapping: supportResult.linear_mapping_summary
+                    sync_summary: supportResult.sync_summary,
+                    analysis_summary: supportResult.analysis_summary
                 });
             } catch (error) {
                 console.warn('⚠️ Support analysis workflow failed, continuing:', error.message);

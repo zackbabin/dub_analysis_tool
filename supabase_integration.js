@@ -772,7 +772,7 @@ class SupabaseIntegration {
 
         try {
             // Step 1: Sync support conversations (may timeout but that's OK)
-            console.log('Step 1/4: Syncing support conversations from Zendesk...');
+            console.log('Step 1/5: Syncing support conversations from Zendesk...');
             const result = await this.supabase.functions.invoke('sync-support-conversations', { body: {} });
 
             if (result.error) {
@@ -786,9 +786,32 @@ class SupabaseIntegration {
             console.warn('⚠️ Support conversations sync exception (will still trigger workflow):', error.message);
             syncError = error;
         } finally {
+            // Step 2: Sync support messages (may timeout but that's OK)
+            // This fetches the actual message content from Zendesk tickets
+            console.log('Step 2/5: Syncing support messages from Zendesk...');
+
+            let messagesResult = null;
+            let messagesError = null;
+
+            try {
+                const result = await this.supabase.functions.invoke('sync-support-messages', { body: {} });
+
+                if (result.error) {
+                    console.warn('⚠️ Support messages sync error (workflow will continue):', result.error);
+                    messagesError = result.error;
+                } else {
+                    console.log('✅ Support messages synced:', result.data);
+                    messagesResult = result.data;
+                }
+            } catch (error) {
+                console.warn('⚠️ Support messages sync exception (workflow will continue):', error.message);
+                messagesError = error;
+            }
+
+            // Step 3: Sync Linear issues
             // CRITICAL: Trigger workflow chain regardless of sync success/failure/timeout
             // All data that could be stored HAS been stored by this point
-            console.log('Step 2/4: Triggering sync-linear-issues...');
+            console.log('Step 3/5: Triggering sync-linear-issues...');
 
             let linearResult = null;
             let linearError = null;
@@ -811,7 +834,7 @@ class SupabaseIntegration {
 
             // ALWAYS trigger analyze-support-feedback, even if Linear sync failed
             // Support analysis can run without Linear data
-            console.log('Step 3/4: Triggering analyze-support-feedback...');
+            console.log('Step 4/5: Triggering analyze-support-feedback...');
 
             try {
                 const analysisResult = await this.supabase.functions.invoke('analyze-support-feedback', { body: {} });
@@ -827,15 +850,18 @@ class SupabaseIntegration {
                 // Return combined results
                 return {
                     success: true,
-                    support_sync: syncResult || { error: syncError?.message },
-                    linear_sync: linearResult || { error: linearError?.message },
-                    analysis: analysisResult.data,
+                    sync_summary: {
+                        conversations: syncResult || { error: syncError?.message },
+                        messages: messagesResult || { error: messagesError?.message },
+                        linear: linearResult || { error: linearError?.message }
+                    },
+                    analysis_summary: analysisResult.data,
                     message: 'CX Analysis workflow completed successfully'
                 };
             } catch (workflowError) {
                 console.error('Error in workflow chain:', workflowError);
                 // Re-throw workflow errors, but include sync status
-                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: support=${syncError ? 'failed' : 'succeeded'}, linear=${linearError ? 'failed' : 'succeeded'}`);
+                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: conversations=${syncError ? 'failed' : 'succeeded'}, messages=${messagesError ? 'failed' : 'succeeded'}, linear=${linearError ? 'failed' : 'succeeded'}`);
             }
         }
     }
