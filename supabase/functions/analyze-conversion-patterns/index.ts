@@ -296,11 +296,14 @@ serve(async (req) => {
     let hasMore = true
 
     while (hasMore) {
+      const offset = page * pageSize
+
+      // Build query with explicit headers to bypass PostgREST default 1000 row limit
       const { data: pageData, error: loadError } = await supabaseClient
         .from(config.table)
-        .select(config.select)
+        .select(config.select, { count: 'exact' })
         .gt(config.filterColumn, 0)
-        .range(page * pageSize, (page + 1) * pageSize - 1)
+        .range(offset, offset + pageSize - 1)
 
       if (loadError) {
         console.error(`Error loading engagement data from ${config.table}:`, loadError)
