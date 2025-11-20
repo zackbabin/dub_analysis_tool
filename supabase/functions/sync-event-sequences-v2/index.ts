@@ -53,14 +53,17 @@ async function fetchEventsFromExportAPI(
   // Build where clause to filter by email existence
   const whereClause = encodeURIComponent('(properties["$email"])')
 
-  // Build event parameter as a single JSON array (per Mixpanel API docs)
+  // Build event parameter as a JSON array without URL encoding the brackets
   // The API expects: event=["event1","event2","event3"]
-  const eventParam = `event=${encodeURIComponent(JSON.stringify(eventNames))}`
+  // Note: Only encode the individual event names, not the array structure
+  const encodedEventNames = eventNames.map(name => `"${encodeURIComponent(name)}"`).join(',')
+  const eventParam = `event=[${encodedEventNames}]`
 
   const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}&where=${whereClause}`
 
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
   console.log(`Events: ${eventNames.length} event types`)
+  console.log(`Event parameter: ${eventParam}`)
 
   const response = await fetch(url, {
     method: 'GET',
