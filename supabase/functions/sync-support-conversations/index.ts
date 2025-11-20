@@ -12,6 +12,7 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
+  TimeoutGuard,
 } from '../_shared/sync-helpers.ts'
 import { ZendeskClient, InstabugClient } from '../_shared/support-api-clients.ts'
 import { ConversationNormalizer } from '../_shared/support-normalizers.ts'
@@ -59,6 +60,7 @@ serve(async (req) => {
 
     // Create sync log entry
     const executionStartMs = Date.now()
+    const timeoutGuard = new TimeoutGuard(executionStartMs)
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'support', 'support_conversations')
     const syncLogId = syncLog.id
 
@@ -108,6 +110,13 @@ serve(async (req) => {
       let totalTicketsStored = 0
 
       await zendeskClient.fetchTicketsSince(zendeskStartTime, async (ticketBatch) => {
+        // Check timeout before processing batch
+        if (timeoutGuard.isApproachingTimeout()) {
+          console.warn('⏱️ Approaching 140s timeout during Zendesk fetch - stopping early')
+          timeoutGuard.logStatus('During-Zendesk-Fetch')
+          throw new Error('TIMEOUT_PREEMPTIVE: Stopped early to avoid 150s timeout')
+        }
+
         // Normalize and redact PII for this batch
         const normalizedBatch = ticketBatch.map((t) =>
           ConversationNormalizer.normalizeZendeskTicket(t)
@@ -143,6 +152,12 @@ serve(async (req) => {
           // Catch any timeout or connection errors
           const errorCode = err?.code || err?.error_code || err?.message
           console.log(`Caught error in batch processing: code=${errorCode}, message=${err?.message}`)
+
+          // Handle preemptive timeout (our 140s check)
+          if (err?.message?.includes('TIMEOUT_PREEMPTIVE')) {
+            console.warn(`⏱️ Preemptive timeout triggered - stopping batch processing`)
+            throw err // Propagate to outer catch for graceful handling
+          }
 
           if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
             console.warn(`⚠️ Caught statement timeout exception - continuing with next batch...`)
@@ -221,6 +236,33 @@ serve(async (req) => {
         streaming_mode: true,
       })
     } catch (error) {
+      // Handle preemptive timeout gracefully (partial success)
+      if (error?.message?.includes('TIMEOUT_PREEMPTIVE')) {
+        console.warn('⏱️ Function stopped due to approaching timeout - returning partial results')
+
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: totalTicketsStored + (totalMessagesStored || 0),
+        })
+
+        return createSuccessResponse(
+          'Support sync completed with partial results (timeout prevented)',
+          {
+            timeout_triggered: true,
+            elapsed_seconds: timeoutGuard.getElapsedSeconds(),
+            conversationsSynced: {
+              tickets: totalTicketsStored,
+              bugs: 0,
+              comments: totalMessagesStored || 0,
+            },
+            total_conversations: totalTicketsStored,
+            total_messages: totalMessagesStored || 0,
+            pii_redacted: true,
+            streaming_mode: true,
+            partial_sync: true,
+          }
+        )
+      }
+
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
       throw error

@@ -11,6 +11,71 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from './mixpanel-api.ts'
 
 // ============================================================================
+// 0. TIMEOUT MANAGEMENT
+// ============================================================================
+
+// Edge Functions have a 150-second hard timeout
+// We check at 140 seconds to gracefully handle timeout and return partial results
+export const EDGE_FUNCTION_TIMEOUT_MS = 150000 // 150 seconds (hard limit)
+export const PREEMPTIVE_TIMEOUT_MS = 140000    // 140 seconds (our check threshold)
+
+/**
+ * Timeout Guard - Tracks execution time and checks if we're approaching timeout
+ *
+ * Usage:
+ *   const timeoutGuard = new TimeoutGuard(startTime);
+ *   if (timeoutGuard.isApproachingTimeout()) {
+ *     console.warn('⏱️ Approaching timeout, returning partial results');
+ *     return createSuccessResponse(...);
+ *   }
+ */
+export class TimeoutGuard {
+  private startTime: number
+
+  constructor(startTime: number = Date.now()) {
+    this.startTime = startTime
+  }
+
+  /**
+   * Check if we're within 10 seconds of the hard timeout (140+ seconds elapsed)
+   */
+  isApproachingTimeout(): boolean {
+    const elapsed = Date.now() - this.startTime
+    return elapsed >= PREEMPTIVE_TIMEOUT_MS
+  }
+
+  /**
+   * Get elapsed time in milliseconds
+   */
+  getElapsedMs(): number {
+    return Date.now() - this.startTime
+  }
+
+  /**
+   * Get elapsed time in seconds
+   */
+  getElapsedSeconds(): number {
+    return Math.round(this.getElapsedMs() / 1000)
+  }
+
+  /**
+   * Get remaining time before preemptive timeout in milliseconds
+   */
+  getRemainingMs(): number {
+    return Math.max(0, PREEMPTIVE_TIMEOUT_MS - this.getElapsedMs())
+  }
+
+  /**
+   * Log current timeout status
+   */
+  logStatus(context: string): void {
+    const elapsed = this.getElapsedSeconds()
+    const remaining = Math.round(this.getRemainingMs() / 1000)
+    console.log(`⏱️ [${context}] Elapsed: ${elapsed}s, Remaining: ${remaining}s`)
+  }
+}
+
+// ============================================================================
 // 1. INITIALIZATION UTILITIES
 // ============================================================================
 

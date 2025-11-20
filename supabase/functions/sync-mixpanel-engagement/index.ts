@@ -21,6 +21,7 @@ import {
   handleRateLimitError,
   createSuccessResponse,
   createErrorResponse,
+  TimeoutGuard,
 } from '../_shared/sync-helpers.ts'
 
 const CHART_IDS = {
@@ -51,8 +52,9 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Track elapsed time
+      // Track elapsed time and timeout
       const startTime = Date.now()
+      const timeoutGuard = new TimeoutGuard(startTime)
       const logElapsed = () => {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
         console.log(`⏱️  Elapsed: ${elapsed}s / 150s`)
@@ -88,6 +90,12 @@ serve(async (req) => {
         ])
         logElapsed()
         console.log('✓ Engagement data fetched successfully from Mixpanel')
+
+        // Check timeout after fetch
+        if (timeoutGuard.isApproachingTimeout()) {
+          console.warn('⏱️ Approaching 140s timeout after Mixpanel fetch - proceeding to storage')
+          timeoutGuard.logStatus('Post-Mixpanel-Fetch')
+        }
       } catch (error: any) {
         // Handle Mixpanel rate limit errors gracefully
         const rateLimitResponse = await handleRateLimitError(supabase, syncLogId, error, {
