@@ -268,15 +268,17 @@ async function mapLinearToFeedback(
 
   console.log(`Found ${topIssues.length} feedback issues to map`)
 
-  // Load all Linear issues from database
+  // Load recent Linear issues from database (limit to 200 to avoid token limits)
+  // This includes all recently updated issues which are most likely to be relevant
   const { data: linearIssues, error: linearError } = await supabase
     .from('linear_issues')
     .select('*')
     .order('updated_at', { ascending: false })
+    .limit(200)
 
   if (linearError) throw linearError
 
-  console.log(`Loaded ${linearIssues.length} Linear issues`)
+  console.log(`Loaded ${linearIssues.length} Linear issues (limited to 200 most recent)`)
 
   // Clear existing mappings for this week
   await supabase
