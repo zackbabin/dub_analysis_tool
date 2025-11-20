@@ -13,8 +13,8 @@ import { CORS_HEADERS } from '../_shared/mixpanel-api.ts'
 // - 'creator_copy': Creator combinations that drive copies (uses creator_id/username)
 const ANALYSIS_CONFIGS = {
   copy: {
-    table: 'user_portfolio_creator_copies',  // Use view instead of base table for correct did_copy values
-    select: 'distinct_id, portfolio_ticker, creator_id, creator_username, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
+    table: 'user_portfolio_creator_copies',  // Aggregated view by (distinct_id, portfolio_ticker)
+    select: 'distinct_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
     filterColumn: 'pdp_view_count',
     outcomeColumn: 'did_copy',
     entityType: 'portfolio',
@@ -292,16 +292,17 @@ serve(async (req) => {
 
     let allPairRows: any[] = []
     let page = 0
-    const pageSize = 10000
+    // Use 1000 to match PostgREST default limit - ensures pagination works correctly
+    const pageSize = 1000
     let hasMore = true
 
     while (hasMore) {
       const offset = page * pageSize
 
-      // Build query with explicit headers to bypass PostgREST default 1000 row limit
+      // Query with pagination (PostgREST has 1000 row default limit)
       const { data: pageData, error: loadError } = await supabaseClient
         .from(config.table)
-        .select(config.select, { count: 'exact' })
+        .select(config.select)
         .gt(config.filterColumn, 0)
         .range(offset, offset + pageSize - 1)
 
