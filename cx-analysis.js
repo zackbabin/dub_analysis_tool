@@ -67,6 +67,13 @@ class CXAnalysis {
 
     async refresh() {
         console.log('Refreshing CX Analysis data...');
+
+        // Clear query cache to ensure fresh data (same as user/creator tools)
+        if (window.supabaseIntegration) {
+            window.supabaseIntegration.invalidateCache();
+            console.log('🗑️ Query cache cleared');
+        }
+
         this.container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6c757d;">Loading...</div>';
         await this.loadAndDisplayResults();
     }
@@ -104,10 +111,19 @@ class CXAnalysis {
         timestamp.textContent = `Data as of: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
 
-        // Add data scope (top left) - dynamic based on actual conversation count analyzed
+        // Add data scope (top left) - shows week start date
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
-        dataScope.textContent = `Analysis of the ${data.conversation_count} most recent Zendesk tickets`;
+
+        // Format week_start_date as MM/DD/YYYY
+        const weekStartDate = new Date(data.week_start_date);
+        const formattedWeekStart = weekStartDate.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+        });
+
+        dataScope.textContent = `Analysis of Zendesk tickets since ${formattedWeekStart}`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title (using qda-result-section for consistent spacing)
@@ -432,7 +448,21 @@ class CXAnalysis {
     renderLinearStatus(issue) {
         // Check if Linear data exists
         if (!issue.linear_issues || issue.linear_issues.length === 0) {
-            return '<span style="color: #adb5bd;">-</span>'
+            // Return "Not Started" badge when no Linear tickets mapped
+            return `
+                <span style="
+                    display: inline-block;
+                    padding: 6px 14px;
+                    border-radius: 12px;
+                    background: #e9ecef;
+                    color: #495057;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    white-space: nowrap;
+                ">
+                    Not Started
+                </span>
+            `
         }
 
         // Calculate status based on state_name aggregation
@@ -497,7 +527,7 @@ class CXAnalysis {
         // Display first 3 issues
         const displayIssues = issue.linear_issues.slice(0, 3)
 
-        // Build issue badges with tooltips
+        // Build issue links with tooltips
         const issueHTML = displayIssues.map(li => {
             // Truncate description to 140 characters
             const description = li.description ?
@@ -505,18 +535,14 @@ class CXAnalysis {
                 'No description'
 
             return `
-                <span class="cx-linear-ticket-tooltip" style="position: relative; display: inline-block; margin-right: 8px;">
+                <span class="cx-linear-ticket-tooltip" style="position: relative; display: inline-block; margin-right: 12px;">
                     <a href="${this.escapeHtml(li.url)}" target="_blank" rel="noopener noreferrer"
                        class="tooltip-trigger"
                        style="
-                        display: inline-block;
-                        padding: 4px 10px;
-                        border-radius: 8px;
-                        background: #e3f2fd;
                         color: #1976d2;
-                        font-size: 0.8rem;
-                        font-weight: 600;
-                        text-decoration: none;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        text-decoration: underline;
                         white-space: nowrap;
                         cursor: pointer;
                     ">
@@ -541,7 +567,7 @@ class CXAnalysis {
                         left: 0;
                     ">
                         <div style="font-weight: 600; margin-bottom: 6px; color: #63b3ed;">
-                            ${this.escapeHtml(li.title)}
+                            ${this.escapeHtml(li.identifier)}: ${this.escapeHtml(li.title)}
                         </div>
                         <div style="margin-bottom: 6px; color: #cbd5e0; font-size: 11px;">
                             ${this.escapeHtml(description)}
@@ -571,12 +597,18 @@ class CXAnalysis {
             return '-';
         }
 
-        // Build examples content for tooltip - now just showing ticket IDs and titles
+        // Build examples content for tooltip - showing ticket IDs, titles, and descriptions
         const examplesHTML = examples.map((ex, idx) => {
+            // Truncate description to 140 characters if needed
+            const description = ex.description ?
+                (ex.description.length > 140 ? ex.description.substring(0, 140) + '...' : ex.description) :
+                '';
+
             return `
                 <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
                     <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">🎫 ${this.escapeHtml(ex.conversation_id)}</div>
-                    <div>${this.escapeHtml(ex.title)}</div>
+                    <div style="margin-bottom: 4px; font-weight: 500;">${this.escapeHtml(ex.title)}</div>
+                    ${description ? `<div style="color: #cbd5e0; font-size: 11px;">${this.escapeHtml(description)}</div>` : ''}
                 </div>
             `;
         }).join('');
