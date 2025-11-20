@@ -8,8 +8,19 @@
 // Constants
 // ============================================================================
 
+// Get project ID from environment variable (Supabase secret)
+const getProjectId = () => {
+  const projectId = Deno.env.get('MIXPANEL_PROJECT_ID')
+  if (!projectId) {
+    throw new Error('MIXPANEL_PROJECT_ID not configured in Supabase secrets')
+  }
+  return projectId
+}
+
 export const MIXPANEL_CONFIG = {
-  PROJECT_ID: '2599235',
+  get PROJECT_ID() {
+    return getProjectId()
+  },
   API_BASE: 'https://mixpanel.com/api',
   EXPORT_API_BASE: 'https://data.mixpanel.com/api/2.0',
 }

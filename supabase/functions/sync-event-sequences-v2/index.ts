@@ -17,6 +17,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
 } from '../_shared/sync-helpers.ts'
+import { MIXPANEL_CONFIG } from '../_shared/mixpanel-api.ts'
 
 interface MixpanelExportEvent {
   event: string
@@ -43,12 +44,15 @@ interface SyncStats {
  * https://developer.mixpanel.com/reference/raw-event-export
  */
 async function fetchEventsFromExportAPI(
-  credentials: { projectId: string; serviceAccountUsername: string; serviceAccountSecret: string },
+  credentials: { username: string; secret: string },
   fromDate: string,
   toDate: string,
   eventNames: string[]
 ): Promise<MixpanelExportEvent[]> {
-  const { projectId, serviceAccountUsername, serviceAccountSecret } = credentials
+  const { username, secret } = credentials
+
+  // Get project ID from shared config (reads from MIXPANEL_PROJECT_ID env var)
+  const projectId = MIXPANEL_CONFIG.PROJECT_ID
 
   // Build where clause to filter by email existence
   const whereClause = encodeURIComponent('(properties["$email"])')
@@ -69,7 +73,7 @@ async function fetchEventsFromExportAPI(
     method: 'GET',
     headers: {
       'Accept': 'application/json',
-      'Authorization': `Basic ${btoa(`${serviceAccountUsername}:${serviceAccountSecret}`)}`,
+      'Authorization': `Basic ${btoa(`${username}:${secret}`)}`,
     },
   })
 
