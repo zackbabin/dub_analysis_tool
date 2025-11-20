@@ -195,7 +195,7 @@ serve(async (req) => {
       console.log('Updating enriched events in database...')
       const startTime = Date.now()
       const TIMEOUT_MS = 120000 // 120s timeout (leave 30s buffer before Edge Function 150s limit)
-      const batchSize = 100 // Smaller batches for individual updates
+      const batchSize = 50 // Reduced from 100 to lower disk IO per batch
       let totalUpdated = 0
 
       for (let i = 0; i < updatesToApply.length; i += batchSize) {
@@ -209,6 +209,7 @@ serve(async (req) => {
         const batch = updatesToApply.slice(i, i + batchSize)
 
         // Update each event individually (Supabase doesn't support batch updates with different values per row)
+        // Use smaller concurrent batches to reduce disk IO pressure
         const updatePromises = batch.map(update =>
           supabase
             .from('event_sequences_raw')

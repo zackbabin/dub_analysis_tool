@@ -224,21 +224,14 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
-      // CRITICAL: Try to refresh materialized view to get enriched data
-      // This view joins raw_support_conversations + linear_issues
-      console.log('Refreshing enriched_support_conversations materialized view...')
-      const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
+      // NOTE: We skip refreshing the materialized view here to reduce disk IO
+      // The view is refreshed by a scheduled job (refresh-materialized-views cron)
+      // This prevents expensive full table scans on every analysis run
+      console.log('Skipping materialized view refresh (handled by cron job)')
 
       let conversations = null
       let fetchError = null
       const MAX_CONVERSATIONS = 300
-
-      if (refreshError) {
-        console.warn('⚠️ Failed to refresh view:', refreshError.message)
-        console.log('⚠️ Will fallback to querying raw_support_conversations directly')
-      } else {
-        console.log('✓ View refreshed with latest data')
-      }
 
       // Try fetching from enriched view first
       console.log('Attempting to fetch from enriched_support_conversations...')
