@@ -3,8 +3,8 @@
 -- Now: One row per (user, portfolio) - matches creator_copy view structure
 -- Using MATERIALIZED VIEW for performance (aggregation is expensive)
 
-DROP VIEW IF EXISTS user_portfolio_creator_copies;
-DROP MATERIALIZED VIEW IF EXISTS user_portfolio_creator_copies;
+DROP MATERIALIZED VIEW IF EXISTS user_portfolio_creator_copies CASCADE;
+DROP VIEW IF EXISTS user_portfolio_creator_copies CASCADE;
 
 CREATE MATERIALIZED VIEW user_portfolio_creator_copies AS
 SELECT
