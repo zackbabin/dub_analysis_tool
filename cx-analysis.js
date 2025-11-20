@@ -24,13 +24,12 @@ class CXAnalysis {
         try {
             console.log('Loading CX Analysis results from Supabase...');
 
-            // Fetch most recent analysis
+            // Fetch most recent analysis - use limit(1) without .single() to handle empty results
             const { data, error } = await this.supabase
                 .from('support_analysis_results')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+                .limit(1);
 
             if (error) {
                 console.error('❌ Error loading CX analysis:', error);
@@ -39,22 +38,25 @@ class CXAnalysis {
                 return;
             }
 
-            if (!data) {
-                console.warn('⚠️ No data returned from support_analysis_results');
+            // Check if we got any results
+            if (!data || data.length === 0) {
+                console.warn('⚠️ No analysis results found in support_analysis_results table');
                 this.displayError('No analysis results available yet. Run the support analysis pipeline first.');
                 return;
             }
 
-            console.log('✅ Loaded CX analysis:', data);
+            // Get the first (most recent) result
+            const analysisResult = data[0];
+            console.log('✅ Loaded CX analysis:', analysisResult);
 
             // Validate data structure
-            if (!data.top_issues || !Array.isArray(data.top_issues)) {
-                console.error('❌ Invalid data structure - top_issues missing or not an array:', data);
+            if (!analysisResult.top_issues || !Array.isArray(analysisResult.top_issues)) {
+                console.error('❌ Invalid data structure - top_issues missing or not an array:', analysisResult);
                 this.displayError('Invalid analysis data format. Please re-run the analysis pipeline.');
                 return;
             }
 
-            this.displayResults(data);
+            this.displayResults(analysisResult);
 
         } catch (error) {
             console.error('❌ Exception in loadAndDisplayResults:', error);
