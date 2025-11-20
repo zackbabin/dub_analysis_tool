@@ -958,36 +958,37 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger event sequence sync via Supabase Edge Function
-     * Fetches user event sequences from Mixpanel and joins with conversion outcomes
+     * Trigger event sequence sync v2 via Supabase Edge Function (Export API)
+     * Fetches raw events from Mixpanel Export API with all properties included
+     * No enrichment step needed - portfolioTicker and creatorUsername come from API
      * Skips sync if data was synced within the last hour
      */
-    async triggerEventSequenceSync() {
-        console.log('Triggering event sequence sync via Supabase Edge Function...');
+    async triggerEventSequenceSyncV2() {
+        console.log('Triggering event sequence sync v2 (Export API) via Supabase Edge Function...');
 
         try {
-            const { data, error } = await this.supabase.functions.invoke('sync-event-sequences', {
+            const { data, error } = await this.supabase.functions.invoke('sync-event-sequences-v2', {
                 body: {}
             });
 
             if (error) {
                 console.error('Edge Function error:', error);
-                throw new Error(`Event sequence sync failed: ${error.message}`);
+                throw new Error(`Event sequence sync v2 failed: ${error.message}`);
             }
 
             if (!data.success) {
-                throw new Error(data.error || 'Unknown error during event sequence sync');
+                throw new Error(data.error || 'Unknown error during event sequence sync v2');
             }
 
             if (data.skipped) {
-                console.log('⏭️ Event sequence sync skipped (data refreshed within last hour)');
+                console.log('⏭️ Event sequence sync v2 skipped (data refreshed within last hour)');
             } else {
-                console.log('✅ Event sequence sync completed successfully:', data.stats);
+                console.log('✅ Event sequence sync v2 completed successfully:', data.stats);
             }
 
             return data;
         } catch (error) {
-            console.error('Error calling event sequence sync Edge Function:', error);
+            console.error('Error calling event sequence sync v2 Edge Function:', error);
             throw error;
         }
     }

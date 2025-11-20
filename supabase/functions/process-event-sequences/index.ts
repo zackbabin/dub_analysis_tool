@@ -65,7 +65,7 @@ serve(async (req) => {
       console.log('Fetching unprocessed individual events from event_sequences_raw...')
       const { data: rawEvents, error: rawError } = await supabase
         .from('event_sequences_raw')
-        .select('id, distinct_id, event_name, event_time, event_count, portfolio_ticker, creator_username, synced_at')
+        .select('id, distinct_id, event_name, event_time, event_count, portfolio_ticker, creator_username, creator_type, synced_at')
         .is('processed_at', null) // Only fetch unprocessed events
         .order('event_time', { ascending: false }) // DESC: Process newest events first
         .limit(100000) // Fetch up to 100k unprocessed events
@@ -134,6 +134,7 @@ serve(async (req) => {
         count: number
         portfolioTicker?: string
         creatorUsername?: string
+        creatorType?: string
       }>>()
       const processedEventIds: number[] = []
 
@@ -149,7 +150,8 @@ serve(async (req) => {
           time: event.event_time,
           count: event.event_count || 1,
           ...(event.portfolio_ticker && { portfolioTicker: event.portfolio_ticker }),
-          ...(event.creator_username && { creatorUsername: event.creator_username })
+          ...(event.creator_username && { creatorUsername: event.creator_username }),
+          ...(event.creator_type && { creatorType: event.creator_type })
         })
 
         // Track event ID for marking as processed
