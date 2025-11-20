@@ -2,6 +2,10 @@
 -- Created: 2025-11-19
 -- Purpose: Add missing indexes and optimize for upsert operations to reduce disk IO
 
+-- NOTE: This migration uses regular CREATE INDEX (not CONCURRENTLY) because
+-- CONCURRENTLY cannot run in a transaction block. These indexes are small enough
+-- that the brief lock is acceptable.
+
 -- ============================================================================
 -- CRITICAL: Add indexes for upsert conflict resolution
 -- ============================================================================
@@ -9,25 +13,14 @@
 -- Index for support_conversation_messages upsert conflict
 -- Current upsert uses: onConflict: 'conversation_id,external_id'
 -- Without a proper index, PostgreSQL does full table scans on every upsert
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_support_messages_upsert_conflict
+CREATE INDEX IF NOT EXISTS idx_support_messages_upsert_conflict
 ON support_conversation_messages(conversation_id, external_id)
 WHERE external_id IS NOT NULL;
 
 -- Index for raw_support_conversations upsert conflict
 -- Current upsert uses: onConflict: 'source,external_id'
--- The UNIQUE constraint creates an index, but we want to ensure it exists
--- This is likely already created by the UNIQUE constraint, but verify
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes
-    WHERE tablename = 'raw_support_conversations'
-    AND indexdef LIKE '%source%external_id%'
-  ) THEN
-    CREATE INDEX CONCURRENTLY idx_raw_conversations_upsert_conflict
-    ON raw_support_conversations(source, external_id);
-  END IF;
-END $$;
+-- The UNIQUE constraint already creates an index, so this is redundant
+-- (Skipping to avoid duplicate index)
 
 -- ============================================================================
 -- Add indexes for frequently joined columns
@@ -35,13 +28,13 @@ END $$;
 
 -- Index for event_sequences_raw enrichment queries
 -- These queries filter by event_name and check for null portfolio_ticker/creator_username
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_sequences_enrichment
+CREATE INDEX IF NOT EXISTS idx_event_sequences_enrichment
 ON event_sequences_raw(event_name, event_time DESC)
 WHERE portfolio_ticker IS NULL OR creator_username IS NULL;
 
 -- Index for event_sequences lookup by distinct_id + event_name + time
 -- Used in enrich-event-sequences for matching Mixpanel data to database events
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_event_sequences_lookup
+CREATE INDEX IF NOT EXISTS idx_event_sequences_lookup
 ON event_sequences_raw(distinct_id, event_name, event_time);
 
 -- ============================================================================
@@ -50,7 +43,7 @@ ON event_sequences_raw(distinct_id, event_name, event_time);
 
 -- Composite index for fetching messages by conversation (ordered by time)
 -- Already exists from previous migration, but ensure it's optimal
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_support_messages_conv_time
+CREATE INDEX IF NOT EXISTS idx_support_messages_conv_time
 ON support_conversation_messages(conversation_id, created_at ASC);
 
 -- ============================================================================
