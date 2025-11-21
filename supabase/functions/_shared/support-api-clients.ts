@@ -102,53 +102,55 @@ export class ZendeskClient {
   }
 
   /**
-   * Fetch comments for all tickets that were updated since a given timestamp
-   * First fetches updated tickets, then fetches comments for each ticket
+   * Fetch comment events since a given timestamp using Incremental Ticket Events API
+   * Uses the comment_events sideload to get full comment details in child_events
+   * This is much more efficient than fetching comments per ticket
    * @param unixTimestamp - Unix timestamp in seconds
-   * @returns Array of comment objects with ticket_id added
+   * @returns Array of comment objects with ticket_id
+   * @see https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/
    */
   async fetchCommentsSince(unixTimestamp: number): Promise<any[]> {
     console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
-    // Step 1: Get all tickets updated since the timestamp
-    const tickets = await this.fetchTicketsSince(unixTimestamp)
-    console.log(`Found ${tickets.length} tickets updated since timestamp`)
+    const comments: any[] = []
+    let url: string | null = `${this.baseUrl}/incremental/ticket_events.json?start_time=${unixTimestamp}&include=comment_events`
 
-    if (tickets.length === 0) {
-      console.log('No tickets to fetch comments for')
-      return []
-    }
+    while (url) {
+      const response = await this.fetchWithRetry(url)
+      const data = await response.json()
 
-    // Step 2: Fetch comments for each ticket
-    const allComments: any[] = []
-    let processedTickets = 0
-
-    for (const ticket of tickets) {
-      try {
-        const comments = await this.fetchTicketComments(ticket.id.toString())
-
-        // Add ticket_id to each comment for reference
-        const commentsWithTicketId = comments.map(comment => ({
-          ...comment,
-          ticket_id: ticket.id
-        }))
-
-        allComments.push(...commentsWithTicketId)
-        processedTickets++
-
-        if (processedTickets % 10 === 0) {
-          console.log(`  Fetched comments from ${processedTickets}/${tickets.length} tickets (${allComments.length} total comments)`)
+      // Process each ticket event
+      for (const event of data.ticket_events || []) {
+        // Check if this event has comment child_events
+        if (event.child_events && Array.isArray(event.child_events)) {
+          // Each child_event is a comment
+          for (const childEvent of event.child_events) {
+            // child_event should have comment data when comment_events sideload is used
+            if (childEvent.id) {
+              comments.push({
+                ...childEvent,
+                ticket_id: event.ticket_id, // Add ticket_id from parent event
+              })
+            }
+          }
         }
+      }
 
+      if (comments.length % 1000 === 0 && comments.length > 0) {
+        console.log(`  Fetched ${comments.length} comments so far...`)
+      }
+
+      // Log rate limit status
+      this.logRateLimitStatus(response, 'comment_events')
+
+      url = data.next_page
+      if (url) {
         await this.sleep(this.rateLimitDelay)
-      } catch (error) {
-        console.warn(`⚠️ Failed to fetch comments for ticket ${ticket.id}:`, error)
-        // Continue with other tickets
       }
     }
 
-    console.log(`✓ Fetched ${allComments.length} Zendesk comments total from ${processedTickets} tickets`)
-    return allComments
+    console.log(`✓ Fetched ${comments.length} Zendesk comments total`)
+    return comments
   }
 
   /**

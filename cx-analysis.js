@@ -200,7 +200,7 @@ class CXAnalysis {
         // Create scrollable table container (similar to Premium Creator Copy Affinity)
         const tableHTML = `
             <div class="cx-table-wrapper" style="position: relative; overflow-x: auto; margin-top: 20px; max-width: 100%;">
-                <table class="qda-results-table" style="min-width: 1620px; border-collapse: collapse; font-size: 0.9rem;">
+                <table class="qda-results-table" style="min-width: 1500px; border-collapse: collapse; font-size: 0.9rem;">
                     <thead>
                         <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 50px; position: sticky; left: 0; background: #f8f9fa; z-index: 2;">#</th>
@@ -210,7 +210,6 @@ class CXAnalysis {
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 120px; white-space: nowrap;">Avg Messages</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
-                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 120px;">Status</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 200px;">Linear Tickets</th>
                         </tr>
                     </thead>
@@ -449,9 +448,6 @@ class CXAnalysis {
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     ${examplesContent}
-                </td>
-                <td style="padding: 12px 16px; text-align: center;">
-                    ${this.renderLinearStatus(issue)}
                 </td>
                 <td style="padding: 12px 16px; text-align: left;">
                     ${this.renderLinearTickets(issue)}
