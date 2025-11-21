@@ -128,6 +128,10 @@ serve(async (req) => {
   const corsResponse = handleCorsRequest(req)
   if (corsResponse) return corsResponse
 
+  // Initialize timeout guard at the very start of execution
+  const executionStartMs = Date.now()
+  const timeoutGuard = new TimeoutGuard(executionStartMs)
+
   try {
     // Initialize Mixpanel credentials and Supabase client
     const credentials = initializeMixpanelCredentials()
@@ -147,9 +151,6 @@ serve(async (req) => {
       // Calculate date range (last 7 days to avoid API limits)
       // Mixpanel Export API can timeout or return empty responses for large date ranges
       const now = new Date()
-      // Initialize timeout guard to ensure we complete before 150s hard limit
-      const executionStartMs = Date.now()
-      const timeoutGuard = new TimeoutGuard(executionStartMs)
 
       const lookbackDays = 7 // Reduced from 30 to avoid API limits
       const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
@@ -214,6 +215,20 @@ serve(async (req) => {
         eventsFetched: events.length,
         eventsInserted: 0,
         duplicatesSkipped: 0,
+      }
+
+      // Check if we're approaching timeout after Mixpanel fetch
+      // If so, we won't have time to insert data, so return with warning
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn(`⚠️ Approaching timeout after fetching ${events.length} events - no time for inserts`)
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
+        })
+        return createSuccessResponse(
+          `Fetched ${events.length} events but timed out before insert - run again to store data`,
+          { ...stats, warning: 'Timeout after fetch - events not stored' },
+          { note: 'Function timed out after fetching events. Run again to complete.' }
+        )
       }
 
       if (events.length === 0) {
