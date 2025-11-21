@@ -577,36 +577,42 @@ serve(async (req) => {
 
     // Insert final batch
     if (streamBatch.length > 0) {
-      const batchToInsert = streamBatch.map((r, idx) => ({
-        analysis_type: analysisType,
-        combination_rank: keptCount - streamBatch.length + idx + 1,
-        value_1: r.combination[0],
-        value_2: r.combination[1],
-        username_1: entityIdToDisplayName.get(r.combination[0]) || null,
-        username_2: entityIdToDisplayName.get(r.combination[1]) || null,
-        total_views_1: r.total_views_1,  // Per-combination metric (users who viewed BOTH entities)
-        total_views_2: r.total_views_2,  // Per-combination metric (users who viewed BOTH entities)
-        total_copies: r.total_copies,     // Per-combination metric (users who viewed BOTH entities)
-        log_likelihood: r.log_likelihood,
-        aic: r.aic,
-        odds_ratio: r.odds_ratio,
-        precision: r.precision,
-        recall: r.recall,
-        lift: r.lift,
-        users_with_exposure: r.users_with_exposure,
-        conversion_rate_in_group: r.conversion_rate_in_group,
-        overall_conversion_rate: r.overall_conversion_rate,
-        total_conversions: r.total_conversions,
-        analyzed_at: analyzedAt,
-      }))
+      // Check timeout before final insert
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn(`⏱️ Approaching 140s timeout - skipping final batch insert of ${streamBatch.length} results`)
+        timeoutGuard.logStatus('Before-Final-Insert')
+      } else {
+        const batchToInsert = streamBatch.map((r, idx) => ({
+          analysis_type: analysisType,
+          combination_rank: keptCount - streamBatch.length + idx + 1,
+          value_1: r.combination[0],
+          value_2: r.combination[1],
+          username_1: entityIdToDisplayName.get(r.combination[0]) || null,
+          username_2: entityIdToDisplayName.get(r.combination[1]) || null,
+          total_views_1: r.total_views_1,  // Per-combination metric (users who viewed BOTH entities)
+          total_views_2: r.total_views_2,  // Per-combination metric (users who viewed BOTH entities)
+          total_copies: r.total_copies,     // Per-combination metric (users who viewed BOTH entities)
+          log_likelihood: r.log_likelihood,
+          aic: r.aic,
+          odds_ratio: r.odds_ratio,
+          precision: r.precision,
+          recall: r.recall,
+          lift: r.lift,
+          users_with_exposure: r.users_with_exposure,
+          conversion_rate_in_group: r.conversion_rate_in_group,
+          overall_conversion_rate: r.overall_conversion_rate,
+          total_conversions: r.total_conversions,
+          analyzed_at: analyzedAt,
+        }))
 
-      const { error: insertError } = await supabaseClient
-        .from('conversion_pattern_combinations')
-        .insert(batchToInsert)
+        const { error: insertError } = await supabaseClient
+          .from('conversion_pattern_combinations')
+          .insert(batchToInsert)
 
-      if (insertError) {
-        console.error('Error inserting final batch:', insertError)
-        throw insertError
+        if (insertError) {
+          console.error('Error inserting final batch:', insertError)
+          throw insertError
+        }
       }
     }
 
