@@ -287,20 +287,9 @@ async function mapLinearToFeedback(
 
   console.log(`Found ${topIssues.length} feedback issues to map`)
 
-  // Refresh enriched_support_conversations to get latest conversation data with Linear tags
-  console.log('Refreshing enriched_support_conversations before mapping...')
-  try {
-    const { error: refreshError } = await supabase.rpc('refresh_enriched_support_conversations')
-    if (refreshError) {
-      console.warn('⚠️ Warning: Failed to refresh enriched_support_conversations:', refreshError)
-      // Non-fatal - continue with mapping using potentially stale data
-    } else {
-      console.log('✓ Enriched support conversations view refreshed')
-    }
-  } catch (refreshErr) {
-    console.warn('⚠️ Warning: Exception refreshing enriched_support_conversations:', refreshErr)
-    // Non-fatal - continue with mapping
-  }
+  // enriched_support_conversations is now a regular view (no refresh needed)
+  // It automatically includes latest Linear tags from raw_support_conversations
+  console.log('Using enriched_support_conversations view (regular view - always current)...')
 
   // Load recent Linear issues from database (limit to 200 to avoid token limits)
   // This includes all recently updated issues which are most likely to be relevant

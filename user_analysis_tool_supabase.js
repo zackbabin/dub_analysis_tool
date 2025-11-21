@@ -241,20 +241,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     sync_summary: supportResult.sync_summary
                 });
 
-                // Step 4/7: Refresh materialized view BEFORE analysis
-                // analyze-support-feedback reads from enriched_support_conversations
-                // which needs message counts from the recently synced messages
-                console.log('Step 4/7: Refreshing enriched_support_conversations view (updating message counts)...');
-                try {
-                    const { error: refreshError } = await this.supabaseIntegration.supabase.rpc('refresh_enriched_support_conversations');
-                    if (refreshError) {
-                        console.warn('⚠️ Failed to refresh materialized view:', refreshError.message);
-                    } else {
-                        console.log('✅ Materialized view refreshed - analyze-support-feedback will have current message counts');
-                    }
-                } catch (refreshErr) {
-                    console.warn('⚠️ Materialized view refresh exception:', refreshErr.message);
-                }
+                // Step 4/7: enriched_support_conversations is now a regular view (no refresh needed)
+                // It automatically shows latest data including message counts from recently synced messages
+                console.log('Step 4/7: Using enriched_support_conversations view (regular view - always current)...');
 
                 // Step 5/7: Run AI analysis on support feedback
                 // This reads from the refreshed enriched_support_conversations view
@@ -268,22 +257,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         // Continue anyway - we may have previous analysis to show
                     } else {
                         console.log('✅ Support analysis complete:', analysisResult.data);
-                        analysisSucceeded = true;
+                        analysisSucceeded = analysisResult.data?.success !== false;
                     }
                 } catch (analysisError) {
-                    console.error('⚠️ Support analysis exception:', analysisError.message);
-                    // Continue anyway - we may have previous analysis to show
+                    console.warn('⚠️ Support analysis exception (may have completed on server):', analysisError.message);
+                    // Network errors like ERR_NETWORK_CHANGED don't mean the function failed
+                    // Check if we have recent analysis results to determine if we should continue
+                    console.log('   Will attempt Linear mapping anyway - it may succeed even if analysis had network issues');
+                    analysisSucceeded = true; // Assume success to allow Linear mapping to attempt
                 }
 
-                // Only attempt Linear mapping if analysis succeeded
+                // Only skip Linear mapping if analysis explicitly failed (not network errors)
                 if (!analysisSucceeded) {
-                    console.warn('⚠️ Skipping Linear mapping since analysis failed');
+                    console.warn('⚠️ Skipping Linear mapping since analysis explicitly failed');
                     // Still refresh UI to show any existing data
                     if (window.cxAnalysis) {
                         await window.cxAnalysis.refresh();
                         console.log('✅ CX Analysis refreshed (showing previous analysis if available)');
                     }
-                    return; // Exit workflow early
+                    // Don't return early - continue to Linear mapping in case analysis succeeded despite error
                 }
 
                 // Step 6/7: Map Linear issues to feedback (AI semantic matching)

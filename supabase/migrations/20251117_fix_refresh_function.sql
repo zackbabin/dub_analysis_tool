@@ -5,7 +5,13 @@ DROP FUNCTION IF EXISTS refresh_enriched_support_conversations();
 
 CREATE OR REPLACE FUNCTION refresh_enriched_support_conversations()
 RETURNS void AS $$
+DECLARE
+  old_timeout text;
 BEGIN
+  -- Save current timeout and extend to 5 minutes for this operation
+  SELECT current_setting('statement_timeout') INTO old_timeout;
+  SET LOCAL statement_timeout = '300s';
+
   -- Try concurrent refresh first (safer, but requires unique index)
   BEGIN
     REFRESH MATERIALIZED VIEW CONCURRENTLY enriched_support_conversations;
@@ -17,5 +23,8 @@ BEGIN
       REFRESH MATERIALIZED VIEW enriched_support_conversations;
       RAISE NOTICE 'Refreshed materialized view (non-concurrent mode)';
   END;
+
+  -- Restore original timeout
+  EXECUTE 'SET LOCAL statement_timeout = ' || quote_literal(old_timeout);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

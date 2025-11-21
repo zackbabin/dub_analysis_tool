@@ -289,21 +289,26 @@ class SupabaseIntegration {
                 const { data, error } = await this.supabase.functions.invoke(functionName, { body });
 
                 if (error) {
-                    // Check if it's a cold start / network error / timeout worth retrying
+                    // Check if it's a cold start / network error / timeout / CORS error worth retrying
                     const isRetryableError = error.message?.includes('Failed to send') ||
                                             error.message?.includes('Failed to fetch') ||
                                             error.message?.includes('non-2xx status code') ||
+                                            error.message?.includes('CORS') ||
+                                            error.message?.includes('Access-Control-Allow-Origin') ||
+                                            error.message?.includes('ERR_NETWORK') ||
                                             error.name === 'FunctionsFetchError' ||
-                                            error.name === 'FunctionsHttpError';
+                                            error.name === 'FunctionsHttpError' ||
+                                            error.name === 'NetworkError';
 
                     if (isRetryableError && attempt < maxRetries) {
-                        console.warn(`⚠️ ${label} failed (likely cold start or timeout), will retry...`);
+                        console.warn(`⚠️ ${label} failed (network/CORS/timeout error), will retry in ${retryDelay}ms...`);
+                        console.warn(`   Error: ${error.message || error.name}`);
                         lastError = error;
                         continue;
                     }
 
                     // Not retryable or max retries reached
-                    console.error(`❌ ${label} error:`, error);
+                    console.error(`❌ ${label} error (after ${attempt + 1} attempts):`, error);
                     if (error.message?.includes('Failed to send')) {
                         throw new Error(`${label} failed: Edge Function '${functionName}' is not reachable. Please ensure it's deployed: supabase functions deploy ${functionName}`);
                     }
@@ -323,6 +328,21 @@ class SupabaseIntegration {
 
                 return data;
             } catch (error) {
+                // Check if this is a network error that might be transient
+                const isNetworkError = error.message?.includes('Failed to fetch') ||
+                                      error.message?.includes('ERR_NETWORK') ||
+                                      error.message?.includes('CORS') ||
+                                      error.name === 'TypeError' && error.message?.includes('fetch');
+
+                if (isNetworkError && attempt < maxRetries) {
+                    console.warn(`⚠️ ${label} network exception, will retry in ${retryDelay}ms...`);
+                    console.warn(`   Error: ${error.message}`);
+                    lastError = error;
+                    // Don't rethrow yet - loop will continue with retry
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue;
+                }
+
                 lastError = error;
                 if (attempt >= maxRetries) {
                     throw error;
@@ -349,7 +369,7 @@ class SupabaseIntegration {
 
         try {
             // Part 1: Sync user events (Insights API - ~2-5 min)
-            console.log('📊 Step 1/5: Syncing user event metrics...');
+            console.log('📊 Step 1/6: Syncing user event metrics...');
             let userEventsData = null;
             try {
                 userEventsData = await this.invokeFunctionWithRetry(
@@ -360,15 +380,15 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds
                 );
 
-                console.log('✅ Step 1/5 complete: User events synced successfully');
+                console.log('✅ Step 1/6 complete: User events synced successfully');
                 console.log('   Stats:', userEventsData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 1/5 failed: User events sync error, continuing with existing data');
+                console.warn('⚠️ Step 1/6 failed: User events sync error, continuing with existing data');
                 userEventsData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync user properties (Engage API - ~30s, auto-chains pages)
-            console.log('📊 Step 2/5: Syncing user properties...');
+            console.log('📊 Step 2/6: Syncing user properties...');
             let userPropertiesData = null;
             try {
                 userPropertiesData = await this.invokeFunctionWithRetry(
@@ -379,15 +399,15 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds
                 );
 
-                console.log('✅ Step 2/5 complete: User properties synced successfully');
+                console.log('✅ Step 2/6 complete: User properties synced successfully');
                 console.log('   Stats:', userPropertiesData.stats);
             } catch (error) {
-                console.warn('⚠️ Step 2/5 failed: User properties sync error, continuing with existing data');
+                console.warn('⚠️ Step 2/6 failed: User properties sync error, continuing with existing data');
                 userPropertiesData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 3: Sync engagement (fetch from Mixpanel and store in Storage)
-            console.log('📊 Step 3/5: Fetching engagement data from Mixpanel...');
+            console.log('📊 Step 3/6: Fetching engagement data from Mixpanel...');
             let engagementFetchData = null;
             let engagementFilename = null;
             try {
@@ -400,17 +420,17 @@ class SupabaseIntegration {
                 );
 
                 engagementFilename = engagementFetchData.stats?.filename;
-                console.log('✅ Step 3/5 complete: Engagement data fetched and stored');
+                console.log('✅ Step 3/6 complete: Engagement data fetched and stored');
                 console.log('   Filename:', engagementFilename);
             } catch (error) {
-                console.warn('⚠️ Step 3/5 failed: Engagement fetch error, cannot process engagement data');
+                console.warn('⚠️ Step 3/6 failed: Engagement fetch error, cannot process engagement data');
                 engagementFetchData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 4: Process portfolio engagement (only if fetch succeeded)
             let portfolioProcessData = null;
             if (engagementFilename) {
-                console.log('📊 Step 4/5: Processing portfolio engagement data...');
+                console.log('📊 Step 4/6: Processing portfolio engagement data...');
                 try {
                     portfolioProcessData = await this.invokeFunctionWithRetry(
                         'process-portfolio-engagement',
@@ -420,21 +440,21 @@ class SupabaseIntegration {
                         3000    // retryDelay: 3 seconds
                     );
 
-                    console.log('✅ Step 4/5 complete: Portfolio engagement processed');
+                    console.log('✅ Step 4/6 complete: Portfolio engagement processed');
                     console.log('   Stats:', portfolioProcessData.stats);
                 } catch (error) {
-                    console.warn('⚠️ Step 4/5 failed: Portfolio processing error, continuing with existing data');
+                    console.warn('⚠️ Step 4/6 failed: Portfolio processing error, continuing with existing data');
                     portfolioProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.warn('⚠️ Step 4/5 skipped: No engagement file to process');
+                console.warn('⚠️ Step 4/6 skipped: No engagement file to process');
                 portfolioProcessData = { stats: { failed: true, skipped: true } };
             }
 
             // Part 5: Process creator engagement (only if fetch succeeded)
             let creatorProcessData = null;
             if (engagementFilename) {
-                console.log('📊 Step 5/5: Processing creator engagement data...');
+                console.log('📊 Step 5/6: Processing creator engagement data...');
                 try {
                     // Pass pre-parsed creatorPairs from portfolio processing for 60% speedup
                     const requestBody = { filename: engagementFilename };
@@ -451,15 +471,34 @@ class SupabaseIntegration {
                         3000    // retryDelay: 3 seconds
                     );
 
-                    console.log('✅ Step 5/5 complete: Creator engagement processed');
+                    console.log('✅ Step 5/6 complete: Creator engagement processed');
                     console.log('   Stats:', creatorProcessData.stats);
                 } catch (error) {
-                    console.warn('⚠️ Step 5/5 failed: Creator processing error, continuing with existing data');
+                    console.warn('⚠️ Step 5/6 failed: Creator processing error, continuing with existing data');
                     creatorProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.warn('⚠️ Step 5/5 skipped: No engagement file to process');
+                console.warn('⚠️ Step 5/6 skipped: No engagement file to process');
                 creatorProcessData = { stats: { failed: true, skipped: true } };
+            }
+
+            // Part 6: Sync event sequences v2 (Export API) for unique views analysis
+            console.log('📊 Step 6/6: Syncing event sequences (Export API)...');
+            let eventSequencesData = null;
+            try {
+                eventSequencesData = await this.invokeFunctionWithRetry(
+                    'sync-event-sequences-v2',
+                    {},
+                    'Event sequences sync v2',
+                    2,      // maxRetries: 2 attempts
+                    3000    // retryDelay: 3 seconds
+                );
+
+                console.log('✅ Step 6/6 complete: Event sequences synced successfully');
+                console.log('   Stats:', eventSequencesData.stats);
+            } catch (error) {
+                console.warn('⚠️ Step 6/6 failed: Event sequences sync error, continuing with existing data');
+                eventSequencesData = { stats: { failed: true, error: error.message } };
             }
 
             // Note: Pattern analyses and view refreshes happen at the end of the full workflow
@@ -474,7 +513,8 @@ class SupabaseIntegration {
                               userPropertiesData?.stats?.failed ||
                               engagementFetchData?.stats?.failed ||
                               portfolioProcessData?.stats?.failed ||
-                              creatorProcessData?.stats?.failed;
+                              creatorProcessData?.stats?.failed ||
+                              eventSequencesData?.stats?.failed;
             return {
                 success: !hasFailures,
                 message: !hasFailures
@@ -484,7 +524,8 @@ class SupabaseIntegration {
                 userProperties: userPropertiesData?.stats,
                 engagementFetch: engagementFetchData?.stats,
                 portfolioProcessing: portfolioProcessData?.stats,
-                creatorProcessing: creatorProcessData?.stats
+                creatorProcessing: creatorProcessData?.stats,
+                eventSequences: eventSequencesData?.stats
             };
         } catch (error) {
             console.error('❌ Unexpected error during Mixpanel sync:', error);
