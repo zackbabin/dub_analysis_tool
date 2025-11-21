@@ -477,28 +477,7 @@ serve(async (req) => {
       })
 
       console.log(`Analysis completed successfully in ${elapsedSec}s`)
-
-      // Trigger next step in workflow: map-linear-to-feedback
-      // Fire-and-forget to avoid timeout issues (don't await)
-      console.log('Triggering next step: map-linear-to-feedback...')
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')
-      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-      if (supabaseUrl && serviceKey) {
-        fetch(`${supabaseUrl}/functions/v1/map-linear-to-feedback`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-          },
-        }).catch(err => {
-          console.warn('⚠️ Failed to trigger map-linear-to-feedback:', err.message)
-          // Don't fail this function if next step fails to trigger
-        })
-        console.log('✓ Triggered map-linear-to-feedback (async)')
-      } else {
-        console.warn('⚠️ Cannot trigger next step - SUPABASE_URL or SERVICE_KEY not configured')
-      }
+      console.log('✓ Frontend will trigger map-linear-to-feedback to complete workflow')
 
       return createSuccessResponse('Support feedback analyzed successfully', {
         totalTimeSeconds: elapsedSec,

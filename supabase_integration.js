@@ -829,37 +829,20 @@ class SupabaseIntegration {
                 linearError = linearSettled.reason;
             }
 
-            // ALWAYS trigger analyze-support-feedback, even if Linear sync failed
-            // Support analysis can run without Linear data
-            console.log('Step 4/5: Triggering analyze-support-feedback...');
+            // Return sync results - frontend will handle analysis workflow
+            // Frontend controls: refresh materialized view → analyze-support-feedback → map-linear-to-feedback
+            console.log('✅ Support data sync complete (conversations, messages, Linear issues)');
+            console.log('   Frontend will now refresh view → analyze → map Linear tickets');
 
-            try {
-                const analysisResult = await this.supabase.functions.invoke('analyze-support-feedback', { body: {} });
-
-                if (analysisResult.error) {
-                    console.error('❌ Support analysis failed:', analysisResult.error);
-                    throw new Error(`Support analysis failed: ${analysisResult.error.message}`);
-                }
-
-                console.log('✅ Support analysis complete:', analysisResult.data);
-                console.log('   Final step (map-linear-to-feedback) will execute automatically');
-
-                // Return combined results
-                return {
-                    success: true,
-                    sync_summary: {
-                        conversations: syncResult || { error: syncError?.message },
-                        messages: messagesResult || { error: messagesError?.message },
-                        linear: linearResult || { error: linearError?.message }
-                    },
-                    analysis_summary: analysisResult.data,
-                    message: 'CX Analysis workflow completed successfully'
-                };
-            } catch (workflowError) {
-                console.error('Error in workflow chain:', workflowError);
-                // Re-throw workflow errors, but include sync status
-                throw new Error(`Workflow chain failed: ${workflowError.message}. Sync status: conversations=${syncError ? 'failed' : 'succeeded'}, messages=${messagesError ? 'failed' : 'succeeded'}, linear=${linearError ? 'failed' : 'succeeded'}`);
-            }
+            return {
+                success: true,
+                sync_summary: {
+                    conversations: syncResult || { error: syncError?.message },
+                    messages: messagesResult || { error: messagesError?.message },
+                    linear: linearResult || { error: linearError?.message }
+                },
+                message: 'Support data sync completed - frontend will continue with analysis workflow'
+            };
         }
     }
 

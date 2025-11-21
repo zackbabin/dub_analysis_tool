@@ -118,6 +118,9 @@ serve(async (req) => {
       console.log(`Comments span ${ticketIds.length} unique tickets`)
 
       // Fetch ticket data for user_id context (for PII redaction)
+      console.log(`Fetching ticket data for ${ticketIds.length} ticket IDs...`)
+      console.log(`Sample ticket IDs: ${ticketIds.slice(0, 5).join(', ')}`)
+
       const { data: tickets, error: ticketError } = await supabase
         .from('raw_support_conversations')
         .select('id, user_id')
@@ -125,7 +128,14 @@ serve(async (req) => {
         .in('id', ticketIds)
 
       if (ticketError) {
-        console.warn('⚠️ Could not fetch ticket context for PII redaction:', ticketError.message)
+        console.error('❌ Could not fetch ticket context for PII redaction:', ticketError)
+        console.error('   Error code:', ticketError.code)
+        console.error('   Error details:', ticketError.details)
+      } else {
+        console.log(`✅ Found ${tickets?.length || 0} tickets in database`)
+        if (tickets && tickets.length > 0) {
+          console.log(`   Sample ticket: ${JSON.stringify(tickets[0])}`)
+        }
       }
 
       // Build ticket ID -> user_id lookup map
@@ -149,37 +159,64 @@ serve(async (req) => {
 
       // Verify all tickets exist in database
       const ticketsInDb = new Set((tickets || []).map(t => t.id))
+      console.log(`Tickets in DB: ${ticketsInDb.size} tickets`)
+      console.log(`Normalized comments: ${normalizedComments.length} comments`)
+
+      let filteredCount = 0
       const messagesForDB = normalizedComments.filter(msg => {
         if (!ticketsInDb.has(msg.conversation_id)) {
-          console.warn(`⚠️ No conversation found for ticket ID ${msg.conversation_id}`)
+          filteredCount++
+          if (filteredCount <= 5) {
+            // Only log first 5 to avoid spam
+            console.warn(`⚠️ No conversation found for ticket ID ${msg.conversation_id}`)
+          }
           return false
         }
         return true
       })
 
-      console.log(`Mapped ${messagesForDB.length} comments to database schema`)
+      if (filteredCount > 5) {
+        console.warn(`⚠️ Total ${filteredCount} messages filtered due to missing tickets`)
+      }
+
+      console.log(`Mapped ${messagesForDB.length}/${normalizedComments.length} comments to database schema`)
 
       // Store messages in batches (to handle large volumes)
       const BATCH_SIZE = 500
       let totalStored = 0
 
+      if (messagesForDB.length === 0) {
+        console.warn('⚠️ No messages to store - all messages were filtered out')
+      } else {
+        console.log(`Starting batch insert for ${messagesForDB.length} messages...`)
+        console.log(`Sample message record: ${JSON.stringify(messagesForDB[0])}`)
+      }
+
       for (let i = 0; i < messagesForDB.length; i += BATCH_SIZE) {
         const batch = messagesForDB.slice(i, i + BATCH_SIZE)
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(messagesForDB.length / BATCH_SIZE)
 
-        const { error: insertError } = await supabase
+        console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} messages)...`)
+
+        const { data, error: insertError, count } = await supabase
           .from('support_conversation_messages')
           .upsert(batch, {
             onConflict: 'conversation_source,conversation_id,external_id',
             ignoreDuplicates: false,
+            count: 'exact'
           })
 
         if (insertError) {
-          console.error('Error storing message batch:', insertError)
+          console.error(`❌ Error storing message batch ${batchNum}/${totalBatches}:`, insertError)
+          console.error('   Error code:', insertError.code)
+          console.error('   Error details:', insertError.details)
+          console.error('   Sample record from failed batch:', JSON.stringify(batch[0]))
           throw insertError
         }
 
         totalStored += batch.length
-        console.log(`  ✓ Stored batch ${Math.floor(i / BATCH_SIZE) + 1} (${totalStored}/${messagesForDB.length} total)`)
+        console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete: ${totalStored}/${messagesForDB.length} total messages stored`)
       }
 
       console.log(`✓ Successfully stored ${totalStored} messages`)

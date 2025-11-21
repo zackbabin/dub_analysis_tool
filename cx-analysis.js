@@ -50,6 +50,14 @@ class CXAnalysis {
             // Get the first (most recent) result
             const analysisResult = data[0];
             console.log('✅ Loaded CX analysis:', analysisResult);
+            console.log('   Analysis ID:', analysisResult.id);
+            console.log('   Created at:', analysisResult.created_at);
+            console.log('   Number of issues:', analysisResult.top_issues?.length);
+
+            // DEBUG: Check first issue for linear_issues
+            if (analysisResult.top_issues && analysisResult.top_issues.length > 0) {
+                console.log('🔍 First issue linear_issues:', analysisResult.top_issues[0].linear_issues);
+            }
 
             // Validate data structure
             if (!analysisResult.top_issues || !Array.isArray(analysisResult.top_issues)) {
@@ -526,11 +534,19 @@ class CXAnalysis {
     }
 
     renderLinearTickets(issue) {
+        // DEBUG: Log what we're receiving
+        console.log('🔍 renderLinearTickets called for issue:', issue.issue_summary);
+        console.log('   linear_issues:', issue.linear_issues);
+        console.log('   Has linear_issues?', 'linear_issues' in issue);
+        console.log('   linear_issues length:', issue.linear_issues?.length);
+
         // Check if Linear data exists
         if (!issue.linear_issues || issue.linear_issues.length === 0) {
+            console.log('   ❌ No linear_issues - returning dash');
             return '<span style="color: #adb5bd;">-</span>'
         }
 
+        console.log('   ✅ Has linear_issues - rendering tickets');
         // Display first 3 issues
         const displayIssues = issue.linear_issues.slice(0, 3)
 

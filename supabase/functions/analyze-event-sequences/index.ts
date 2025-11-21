@@ -456,12 +456,42 @@ Analyze this batch and return the top predictive patterns found.`
       const allRecommendations = results.flatMap(r => r.top_recommendations || [])
       const uniqueRecommendations = [...new Set(allRecommendations)].slice(0, 5)
 
+      // Average the metrics across all batches
+      const avgMetrics: {
+        avg_premium_pdp_views_before_copy?: number
+        avg_regular_pdp_views_before_copy?: number
+        avg_premium_creator_views_before_copy?: number
+        avg_regular_creator_views_before_copy?: number
+      } = {}
+
+      // Only calculate averages if we're analyzing copies (not subscriptions)
+      if (results.length > 0 && results[0].avg_premium_pdp_views_before_copy !== undefined) {
+        const validResults = results.filter(r =>
+          r.avg_premium_pdp_views_before_copy !== undefined &&
+          r.avg_regular_pdp_views_before_copy !== undefined &&
+          r.avg_premium_creator_views_before_copy !== undefined &&
+          r.avg_regular_creator_views_before_copy !== undefined
+        )
+
+        if (validResults.length > 0) {
+          avgMetrics.avg_premium_pdp_views_before_copy =
+            validResults.reduce((sum, r) => sum + (r.avg_premium_pdp_views_before_copy || 0), 0) / validResults.length
+          avgMetrics.avg_regular_pdp_views_before_copy =
+            validResults.reduce((sum, r) => sum + (r.avg_regular_pdp_views_before_copy || 0), 0) / validResults.length
+          avgMetrics.avg_premium_creator_views_before_copy =
+            validResults.reduce((sum, r) => sum + (r.avg_premium_creator_views_before_copy || 0), 0) / validResults.length
+          avgMetrics.avg_regular_creator_views_before_copy =
+            validResults.reduce((sum, r) => sum + (r.avg_regular_creator_views_before_copy || 0), 0) / validResults.length
+        }
+      }
+
       return {
         predictive_sequences: sortedSequences,
         critical_triggers: allTriggers,
         anti_patterns: allAntiPatterns,
         summary: combinedSummary,
-        top_recommendations: uniqueRecommendations
+        top_recommendations: uniqueRecommendations,
+        ...avgMetrics
       }
     }
 

@@ -237,16 +237,64 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('🔄 Starting support analysis workflow (Zendesk + Linear)...');
             try {
                 const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
-                console.log('✅ Support analysis workflow completed:', {
-                    sync_summary: supportResult.sync_summary,
-                    analysis_summary: supportResult.analysis_summary
+                console.log('✅ Support analysis data sync completed:', {
+                    sync_summary: supportResult.sync_summary
                 });
 
-                // Auto-refresh CX Analysis table with new data
-                console.log('🔄 Refreshing CX Analysis table...');
+                // Step 4/7: Refresh materialized view BEFORE analysis
+                // analyze-support-feedback reads from enriched_support_conversations
+                // which needs message counts from the recently synced messages
+                console.log('Step 4/7: Refreshing enriched_support_conversations view (updating message counts)...');
+                try {
+                    const { error: refreshError } = await this.supabaseIntegration.supabase.rpc('refresh_enriched_support_conversations');
+                    if (refreshError) {
+                        console.warn('⚠️ Failed to refresh materialized view:', refreshError.message);
+                    } else {
+                        console.log('✅ Materialized view refreshed - analyze-support-feedback will have current message counts');
+                    }
+                } catch (refreshErr) {
+                    console.warn('⚠️ Materialized view refresh exception:', refreshErr.message);
+                }
+
+                // Step 5/7: Run AI analysis on support feedback
+                // This reads from the refreshed enriched_support_conversations view
+                console.log('Step 5/7: Analyzing support feedback with Claude AI...');
+                try {
+                    const analysisResult = await this.supabaseIntegration.supabase.functions.invoke('analyze-support-feedback', { body: {} });
+
+                    if (analysisResult.error) {
+                        console.error('❌ Support analysis failed:', analysisResult.error);
+                        throw new Error(`Support analysis failed: ${analysisResult.error.message}`);
+                    }
+
+                    console.log('✅ Support analysis complete:', analysisResult.data);
+                } catch (analysisError) {
+                    console.error('⚠️ Support analysis exception:', analysisError.message);
+                    throw analysisError; // Don't continue if analysis fails
+                }
+
+                // Step 6/7: Map Linear issues to feedback (AI semantic matching)
+                // This updates support_analysis_results with Linear ticket data
+                console.log('Step 6/7: Mapping Linear issues to feedback (AI semantic matching)...');
+                try {
+                    const mappingResult = await this.supabaseIntegration.supabase.functions.invoke('map-linear-to-feedback', { body: {} });
+
+                    if (mappingResult.error) {
+                        console.error('❌ Linear mapping failed:', mappingResult.error);
+                        // Continue anyway - we can still show analysis without Linear mappings
+                    } else {
+                        console.log('✅ Linear mapping complete:', mappingResult.data);
+                    }
+                } catch (mappingError) {
+                    console.warn('⚠️ Linear mapping exception (analysis will show without Linear data):', mappingError.message);
+                }
+
+                // Step 7/7: Refresh CX Analysis UI with complete data
+                // Now includes: message counts + AI categorization + Linear ticket mappings
+                console.log('Step 7/7: Refreshing CX Analysis table with complete data...');
                 if (window.cxAnalysis) {
                     await window.cxAnalysis.refresh();
-                    console.log('✅ CX Analysis table refreshed');
+                    console.log('✅ CX Analysis table refreshed - showing complete data');
                 } else {
                     console.warn('⚠️ CX Analysis not initialized yet');
                 }
