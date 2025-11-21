@@ -64,6 +64,10 @@ serve(async (req) => {
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'support', 'support_conversations')
     const syncLogId = syncLog.id
 
+    // Declare counters outside try block so they're accessible in catch block
+    let totalTicketsStored = 0
+    let totalMessagesStored = 0
+
     try {
       // Get last sync timestamps for incremental sync
       const { data: syncStatus } = await supabase
@@ -107,7 +111,6 @@ serve(async (req) => {
 
       // Fetch and store Zendesk tickets using streaming (stores each batch immediately)
       console.log('Fetching and storing Zendesk tickets (streaming mode)...')
-      let totalTicketsStored = 0
 
       await zendeskClient.fetchTicketsSince(zendeskStartTime, async (ticketBatch) => {
         // Check timeout before processing batch
@@ -171,7 +174,7 @@ serve(async (req) => {
 
       // TEMPORARY: Skip comments for initial sync
       console.log('Skipping comments (temporary)...')
-      const totalMessagesStored = 0
+      totalMessagesStored = 0
 
       // Messages skipped for now (no comment processing)
 

@@ -786,50 +786,47 @@ class SupabaseIntegration {
             console.warn('⚠️ Support conversations sync exception (will still trigger workflow):', error.message);
             syncError = error;
         } finally {
-            // Step 2: Sync support messages (may timeout but that's OK)
-            // This fetches the actual message content from Zendesk tickets
-            console.log('Step 2/5: Syncing support messages from Zendesk...');
+            // Step 2 & 3: Sync support messages AND Linear issues IN PARALLEL
+            // These don't depend on each other, so run them simultaneously for better performance
+            console.log('Step 2-3/5: Syncing support messages AND Linear issues in parallel...');
 
             let messagesResult = null;
             let messagesError = null;
-
-            try {
-                const result = await this.supabase.functions.invoke('sync-support-messages', { body: {} });
-
-                if (result.error) {
-                    console.warn('⚠️ Support messages sync error (workflow will continue):', result.error);
-                    messagesError = result.error;
-                } else {
-                    console.log('✅ Support messages synced:', result.data);
-                    messagesResult = result.data;
-                }
-            } catch (error) {
-                console.warn('⚠️ Support messages sync exception (workflow will continue):', error.message);
-                messagesError = error;
-            }
-
-            // Step 3: Sync Linear issues
-            // CRITICAL: Trigger workflow chain regardless of sync success/failure/timeout
-            // All data that could be stored HAS been stored by this point
-            console.log('Step 3/5: Triggering sync-linear-issues...');
-
             let linearResult = null;
             let linearError = null;
 
-            // Try to sync Linear issues, but don't fail workflow if it errors
-            try {
-                const result = await this.supabase.functions.invoke('sync-linear-issues', { body: {} });
+            // Run both functions in parallel using Promise.allSettled
+            const [messagesSettled, linearSettled] = await Promise.allSettled([
+                this.supabase.functions.invoke('sync-support-messages', { body: {} }),
+                this.supabase.functions.invoke('sync-linear-issues', { body: {} })
+            ]);
 
-                if (result.error) {
-                    console.warn('⚠️ Linear sync failed (workflow will continue):', result.error);
-                    linearError = result.error;
+            // Process messages sync result
+            if (messagesSettled.status === 'fulfilled') {
+                if (messagesSettled.value.error) {
+                    console.warn('⚠️ Support messages sync error (workflow will continue):', messagesSettled.value.error);
+                    messagesError = messagesSettled.value.error;
                 } else {
-                    console.log('✅ Linear issues synced:', result.data);
-                    linearResult = result.data;
+                    console.log('✅ Support messages synced:', messagesSettled.value.data);
+                    messagesResult = messagesSettled.value.data;
                 }
-            } catch (error) {
-                console.warn('⚠️ Linear sync exception (workflow will continue):', error.message);
-                linearError = error;
+            } else {
+                console.warn('⚠️ Support messages sync exception (workflow will continue):', messagesSettled.reason);
+                messagesError = messagesSettled.reason;
+            }
+
+            // Process Linear sync result
+            if (linearSettled.status === 'fulfilled') {
+                if (linearSettled.value.error) {
+                    console.warn('⚠️ Linear sync failed (workflow will continue):', linearSettled.value.error);
+                    linearError = linearSettled.value.error;
+                } else {
+                    console.log('✅ Linear issues synced:', linearSettled.value.data);
+                    linearResult = linearSettled.value.data;
+                }
+            } else {
+                console.warn('⚠️ Linear sync exception (workflow will continue):', linearSettled.reason);
+                linearError = linearSettled.reason;
             }
 
             // ALWAYS trigger analyze-support-feedback, even if Linear sync failed
