@@ -27,8 +27,6 @@ class SupabaseIntegration {
         // Initialize request deduplication tracker
         // Prevents duplicate in-flight requests for same query
         this.inFlightRequests = new Map();
-
-        console.log('✅ Supabase Integration initialized');
     }
 
     /**
@@ -49,18 +47,13 @@ class SupabaseIntegration {
 
         // Return cached data if valid
         if (cached && (now - cached.timestamp) < this.cacheTTL) {
-            console.log(`📦 Cache hit: ${cacheKey} (${Math.round((now - cached.timestamp) / 1000)}s old)`);
             return cached.data;
         }
 
         // Check if this request is already in-flight (deduplication)
         if (this.inFlightRequests.has(cacheKey)) {
-            console.log(`🔗 Request deduplication: ${cacheKey} (waiting for in-flight request)`);
             return this.inFlightRequests.get(cacheKey);
         }
-
-        // Cache miss or expired - fetch fresh data
-        console.log(`🔄 Cache miss: ${cacheKey}`);
 
         // Create promise and track it
         const promise = queryFn().then(data => {
@@ -98,7 +91,6 @@ class SupabaseIntegration {
             }
         }
         keysToDelete.forEach(key => this.queryCache.delete(key));
-        console.log(`🗑️ Cleared ${keysToDelete.length} combination cache entries`);
     }
 
     /**
@@ -110,11 +102,9 @@ class SupabaseIntegration {
         if (cacheKey) {
             this.queryCache.delete(cacheKey);
             this.inFlightRequests.delete(cacheKey);
-            console.log(`🗑️ Cache invalidated: ${cacheKey}`);
         } else {
             this.queryCache.clear();
             this.inFlightRequests.clear();
-            console.log('🗑️ All cache cleared');
         }
     }
 
@@ -365,11 +355,11 @@ class SupabaseIntegration {
      * Note: Functions are called sequentially to avoid WORKER_LIMIT errors
      */
     async triggerMixpanelSync() {
-        console.log('🔄 Starting Mixpanel analysis refresh...');
+        console.log('🔄 Mixpanel Sync: Starting...');
 
         try {
             // Part 1: Sync user events (Insights API - ~2-5 min)
-            console.log('📊 Step 1/6: Syncing user event metrics...');
+            console.log('→ 1/6: User event metrics');
             let userEventsData = null;
             try {
                 userEventsData = await this.invokeFunctionWithRetry(
@@ -379,16 +369,14 @@ class SupabaseIntegration {
                     3,      // maxRetries: 3 attempts
                     5000    // retryDelay: 5 seconds
                 );
-
-                console.log('✅ Step 1/6 complete: User events synced successfully');
-                console.log('   Stats:', userEventsData.stats);
+                console.log('  ✓ 1/6: User events synced');
             } catch (error) {
-                console.warn('⚠️ Step 1/6 failed: User events sync error, continuing with existing data');
+                console.warn('  ⚠ 1/6: User events sync failed, continuing with existing data');
                 userEventsData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync user properties (Engage API - ~30s, auto-chains pages)
-            console.log('📊 Step 2/6: Syncing user properties...');
+            console.log('→ 2/6: User properties');
             let userPropertiesData = null;
             try {
                 userPropertiesData = await this.invokeFunctionWithRetry(
@@ -398,16 +386,14 @@ class SupabaseIntegration {
                     3,      // maxRetries: 3 attempts
                     5000    // retryDelay: 5 seconds
                 );
-
-                console.log('✅ Step 2/6 complete: User properties synced successfully');
-                console.log('   Stats:', userPropertiesData.stats);
+                console.log('  ✓ 2/6: User properties synced');
             } catch (error) {
-                console.warn('⚠️ Step 2/6 failed: User properties sync error, continuing with existing data');
+                console.warn('  ⚠ 2/6: User properties sync failed, continuing with existing data');
                 userPropertiesData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 3: Sync engagement (fetch from Mixpanel and store in Storage)
-            console.log('📊 Step 3/6: Fetching engagement data from Mixpanel...');
+            console.log('→ 3/6: Engagement data fetch');
             let engagementFetchData = null;
             let engagementFilename = null;
             try {
@@ -418,19 +404,17 @@ class SupabaseIntegration {
                     3,      // maxRetries: 3 attempts
                     5000    // retryDelay: 5 seconds
                 );
-
                 engagementFilename = engagementFetchData.stats?.filename;
-                console.log('✅ Step 3/6 complete: Engagement data fetched and stored');
-                console.log('   Filename:', engagementFilename);
+                console.log('  ✓ 3/6: Engagement data fetched');
             } catch (error) {
-                console.warn('⚠️ Step 3/6 failed: Engagement fetch error, cannot process engagement data');
+                console.warn('  ⚠ 3/6: Engagement fetch failed, skipping processing steps');
                 engagementFetchData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 4: Process portfolio engagement (only if fetch succeeded)
             let portfolioProcessData = null;
             if (engagementFilename) {
-                console.log('📊 Step 4/6: Processing portfolio engagement data...');
+                console.log('→ 4/6: Portfolio engagement processing');
                 try {
                     portfolioProcessData = await this.invokeFunctionWithRetry(
                         'process-portfolio-engagement',
@@ -439,27 +423,24 @@ class SupabaseIntegration {
                         2,      // maxRetries: 2 attempts
                         3000    // retryDelay: 3 seconds
                     );
-
-                    console.log('✅ Step 4/6 complete: Portfolio engagement processed');
-                    console.log('   Stats:', portfolioProcessData.stats);
+                    console.log('  ✓ 4/6: Portfolio engagement processed');
                 } catch (error) {
-                    console.warn('⚠️ Step 4/6 failed: Portfolio processing error, continuing with existing data');
+                    console.warn('  ⚠ 4/6: Portfolio processing failed, continuing with existing data');
                     portfolioProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.warn('⚠️ Step 4/6 skipped: No engagement file to process');
+                console.log('  ⊘ 4/6: Skipped (no engagement file)');
                 portfolioProcessData = { stats: { failed: true, skipped: true } };
             }
 
             // Part 5: Process creator engagement (only if fetch succeeded)
             let creatorProcessData = null;
             if (engagementFilename) {
-                console.log('📊 Step 5/6: Processing creator engagement data...');
+                console.log('→ 5/6: Creator engagement processing');
                 try {
                     // Pass pre-parsed creatorPairs from portfolio processing for 60% speedup
                     const requestBody = { filename: engagementFilename };
                     if (portfolioProcessData?.stats?.creatorPairs) {
-                        console.log('   Using pre-parsed creator pairs from Step 4 (optimized path)');
                         requestBody.creatorPairs = portfolioProcessData.stats.creatorPairs;
                     }
 
@@ -470,20 +451,18 @@ class SupabaseIntegration {
                         2,      // maxRetries: 2 attempts
                         3000    // retryDelay: 3 seconds
                     );
-
-                    console.log('✅ Step 5/6 complete: Creator engagement processed');
-                    console.log('   Stats:', creatorProcessData.stats);
+                    console.log('  ✓ 5/6: Creator engagement processed');
                 } catch (error) {
-                    console.warn('⚠️ Step 5/6 failed: Creator processing error, continuing with existing data');
+                    console.warn('  ⚠ 5/6: Creator processing failed, continuing with existing data');
                     creatorProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.warn('⚠️ Step 5/6 skipped: No engagement file to process');
+                console.log('  ⊘ 5/6: Skipped (no engagement file)');
                 creatorProcessData = { stats: { failed: true, skipped: true } };
             }
 
             // Part 6: Sync event sequences v2 (Export API) for unique views analysis
-            console.log('📊 Step 6/6: Syncing event sequences (Export API)...');
+            console.log('→ 6/6: Event sequences (Export API)');
             let eventSequencesData = null;
             try {
                 eventSequencesData = await this.invokeFunctionWithRetry(
@@ -493,17 +472,13 @@ class SupabaseIntegration {
                     2,      // maxRetries: 2 attempts
                     3000    // retryDelay: 3 seconds
                 );
-
-                console.log('✅ Step 6/6 complete: Event sequences synced successfully');
-                console.log('   Stats:', eventSequencesData.stats);
+                console.log('  ✓ 6/6: Event sequences synced');
             } catch (error) {
-                console.warn('⚠️ Step 6/6 failed: Event sequences sync error, continuing with existing data');
+                console.warn('  ⚠ 6/6: Event sequences sync failed, continuing with existing data');
                 eventSequencesData = { stats: { failed: true, error: error.message } };
             }
 
-            // Note: Pattern analyses and view refreshes happen at the end of the full workflow
-
-            console.log('🎉 Mixpanel analysis refresh completed successfully!');
+            console.log('✅ Mixpanel Sync: Complete');
 
             // Invalidate all cached queries since data has been refreshed
             this.invalidateCache();
@@ -528,7 +503,7 @@ class SupabaseIntegration {
                 eventSequences: eventSequencesData?.stats
             };
         } catch (error) {
-            console.error('❌ Unexpected error during Mixpanel sync:', error);
+            console.error('❌ Mixpanel Sync: Unexpected error -', error.message);
             // Return partial success instead of throwing
             return {
                 success: false,
@@ -576,8 +551,6 @@ class SupabaseIntegration {
      * Replaces: loadGitHubData() - instead of fetching CSV files from GitHub
      */
     async loadDataFromSupabase() {
-        console.log('Loading data from Supabase...');
-
         try {
             // IMPORTANT: We must paginate to ensure we get ALL records
             // Using .limit() alone can miss records or get duplicates without ordering
@@ -599,7 +572,6 @@ class SupabaseIntegration {
 
                 if (data && data.length > 0) {
                     allData = allData.concat(data);
-                    console.log(`✅ Loaded page ${page + 1}: ${data.length} records (total: ${allData.length})`);
                     hasMore = data.length === pageSize; // Continue if we got a full page
                     page++;
                 } else {
@@ -607,12 +579,12 @@ class SupabaseIntegration {
                 }
             }
 
-            console.log(`✅ Finished loading ${allData.length} total records from Supabase`);
+            console.log(`📊 Loaded ${allData.length} records from database`);
 
             // Convert to CSV format for compatibility with existing analysis code
             return this.convertToCSVFormat(allData);
         } catch (error) {
-            console.error('Error loading data from Supabase:', error);
+            console.error('❌ Error loading data from Supabase:', error);
             throw error;
         }
     }
@@ -769,16 +741,12 @@ class SupabaseIntegration {
      * Fetches creator insights, portfolio copies, and profile subscriptions
      */
     async triggerCreatorSync() {
-        console.log('Triggering Creator sync via Supabase Edge Functions...');
+        console.log('→ Syncing creator data');
 
         try {
-            // Call sync-creator-data function
-            console.log('Syncing creator data...');
             const creatorDataResult = await this.supabase.functions.invoke('sync-creator-data', { body: {} });
 
-            // Check creator data sync
             if (creatorDataResult.error) {
-                console.error('Creator data sync error:', creatorDataResult.error);
                 throw new Error(`Creator sync failed: ${creatorDataResult.error.message}`);
             }
 
@@ -786,13 +754,11 @@ class SupabaseIntegration {
                 throw new Error(creatorDataResult.data.error || 'Unknown error during creator sync');
             }
 
-            console.log('✅ Creator data sync completed:', creatorDataResult.data.stats);
-
             return {
                 creatorData: creatorDataResult.data
             };
         } catch (error) {
-            console.error('Error calling Creator sync Edge Functions:', error);
+            console.error('  ✗ Creator sync error:', error.message);
             throw error;
         }
     }
@@ -806,37 +772,33 @@ class SupabaseIntegration {
      * sync-support-conversations times out after storing data.
      */
     async triggerSupportAnalysis() {
-        console.log('Triggering support analysis workflow (Zendesk + Linear)...');
-
         let syncResult = null;
         let syncError = null;
 
         try {
-            // Step 1: Sync support conversations (may timeout but that's OK)
-            console.log('Step 1/5: Syncing support conversations from Zendesk...');
+            // Step 1: Sync support conversations
+            console.log('→ 1/3: Support conversations (Zendesk)');
             const result = await this.supabase.functions.invoke('sync-support-conversations', { body: {} });
 
             if (result.error) {
-                console.warn('⚠️ Support conversations sync error (will still trigger workflow):', result.error);
+                console.warn('  ⚠ 1/3: Conversations sync error, continuing');
                 syncError = result.error;
             } else {
-                console.log('✅ Support conversations synced:', result.data);
+                console.log('  ✓ 1/3: Conversations synced');
                 syncResult = result.data;
             }
         } catch (error) {
-            console.warn('⚠️ Support conversations sync exception (will still trigger workflow):', error.message);
+            console.warn('  ⚠ 1/3: Conversations sync exception, continuing');
             syncError = error;
         } finally {
-            // Step 2 & 3: Sync support messages AND Linear issues IN PARALLEL
-            // These don't depend on each other, so run them simultaneously for better performance
-            console.log('Step 2-3/5: Syncing support messages AND Linear issues in parallel...');
+            // Step 2 & 3: Sync messages and Linear issues in parallel
+            console.log('→ 2-3/3: Support messages + Linear issues (parallel)');
 
             let messagesResult = null;
             let messagesError = null;
             let linearResult = null;
             let linearError = null;
 
-            // Run both functions in parallel using Promise.allSettled
             const [messagesSettled, linearSettled] = await Promise.allSettled([
                 this.supabase.functions.invoke('sync-support-messages', { body: {} }),
                 this.supabase.functions.invoke('sync-linear-issues', { body: {} })
@@ -845,35 +807,32 @@ class SupabaseIntegration {
             // Process messages sync result
             if (messagesSettled.status === 'fulfilled') {
                 if (messagesSettled.value.error) {
-                    console.warn('⚠️ Support messages sync error (workflow will continue):', messagesSettled.value.error);
                     messagesError = messagesSettled.value.error;
                 } else {
-                    console.log('✅ Support messages synced:', messagesSettled.value.data);
                     messagesResult = messagesSettled.value.data;
                 }
             } else {
-                console.warn('⚠️ Support messages sync exception (workflow will continue):', messagesSettled.reason);
                 messagesError = messagesSettled.reason;
             }
 
             // Process Linear sync result
             if (linearSettled.status === 'fulfilled') {
                 if (linearSettled.value.error) {
-                    console.warn('⚠️ Linear sync failed (workflow will continue):', linearSettled.value.error);
                     linearError = linearSettled.value.error;
                 } else {
-                    console.log('✅ Linear issues synced:', linearSettled.value.data);
                     linearResult = linearSettled.value.data;
                 }
             } else {
-                console.warn('⚠️ Linear sync exception (workflow will continue):', linearSettled.reason);
                 linearError = linearSettled.reason;
             }
 
-            // Return sync results - frontend will handle analysis workflow
-            // Frontend controls: refresh materialized view → analyze-support-feedback → map-linear-to-feedback
-            console.log('✅ Support data sync complete (conversations, messages, Linear issues)');
-            console.log('   Frontend will now refresh view → analyze → map Linear tickets');
+            if (messagesResult && linearResult) {
+                console.log('  ✓ 2-3/3: Both synced');
+            } else if (messagesResult || linearResult) {
+                console.warn('  ⚠ 2-3/3: Partial sync');
+            } else {
+                console.warn('  ⚠ 2-3/3: Both failed');
+            }
 
             return {
                 success: true,

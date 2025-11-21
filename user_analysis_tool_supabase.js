@@ -216,189 +216,140 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             throw new Error('Supabase not configured. Please save your Supabase credentials first.');
         }
 
-        console.log('Triggering Supabase Edge Functions (User + Creator data)...');
+        console.log('🔄 Sync Live Data: Starting workflow...');
 
         try {
-            // Sync user data first (populates engagement tables)
+            // Step 1: Sync user data (Mixpanel)
+            console.log('\n═══ Step 1: User Data (Mixpanel) ═══');
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
-            console.log('✅ User data sync completed:', userResult);
 
-            // Then sync creator data (now that engagement tables are populated)
+            // Step 2: Sync creator data
+            console.log('\n═══ Step 2: Creator Data ═══');
             let creatorResult = null;
             try {
                 creatorResult = await this.supabaseIntegration.triggerCreatorSync();
-                console.log('✅ Creator data sync completed:', creatorResult.creatorData.stats);
+                console.log('✅ Creator Sync: Complete');
             } catch (error) {
-                console.warn('⚠️ Creator data sync failed, continuing with existing data:', error.message);
-                // Continue with workflow - creator sync failure is not fatal
+                console.warn('⚠ Creator Sync: Failed, continuing with existing data');
             }
 
-            // Trigger support analysis workflow (Zendesk + Linear integration)
-            console.log('🔄 Starting support analysis workflow (Zendesk + Linear)...');
+            // Step 3: Support analysis workflow (Zendesk + Linear)
+            console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
             try {
                 const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
-                console.log('✅ Support analysis data sync completed:', {
-                    sync_summary: supportResult.sync_summary
-                });
+                console.log('✅ Support Data Sync: Complete');
 
-                // Step 4/7: enriched_support_conversations is now a regular view (no refresh needed)
-                // It automatically shows latest data including message counts from recently synced messages
-                console.log('Step 4/7: Using enriched_support_conversations view (regular view - always current)...');
-
-                // Step 5/7: Run AI analysis on support feedback
-                // This reads from the refreshed enriched_support_conversations view
-                console.log('Step 5/7: Analyzing support feedback with Claude AI...');
+                // Step 3a: Analyze support feedback
+                console.log('→ 3a: Analyzing support feedback with Claude AI');
                 let analysisSucceeded = false;
                 try {
                     const analysisResult = await this.supabaseIntegration.supabase.functions.invoke('analyze-support-feedback', { body: {} });
 
                     if (analysisResult.error) {
-                        console.error('❌ Support analysis failed:', analysisResult.error);
-                        // Continue anyway - we may have previous analysis to show
+                        console.warn('  ⚠ 3a: Analysis failed, continuing');
                     } else {
-                        console.log('✅ Support analysis complete:', analysisResult.data);
+                        console.log('  ✓ 3a: Analysis complete');
                         analysisSucceeded = analysisResult.data?.success !== false;
                     }
                 } catch (analysisError) {
-                    console.warn('⚠️ Support analysis exception (may have completed on server):', analysisError.message);
-                    // Network errors like ERR_NETWORK_CHANGED don't mean the function failed
-                    // Check if we have recent analysis results to determine if we should continue
-                    console.log('   Will attempt Linear mapping anyway - it may succeed even if analysis had network issues');
-                    analysisSucceeded = true; // Assume success to allow Linear mapping to attempt
+                    console.warn('  ⚠ 3a: Network error, will attempt Linear mapping');
+                    analysisSucceeded = true;
                 }
 
-                // Only skip Linear mapping if analysis explicitly failed (not network errors)
-                if (!analysisSucceeded) {
-                    console.warn('⚠️ Skipping Linear mapping since analysis explicitly failed');
-                    // Still refresh UI to show any existing data
-                    if (window.cxAnalysis) {
-                        await window.cxAnalysis.refresh();
-                        console.log('✅ CX Analysis refreshed (showing previous analysis if available)');
-                    }
-                    // Don't return early - continue to Linear mapping in case analysis succeeded despite error
-                }
-
-                // Step 6/7: Map Linear issues to feedback (AI semantic matching)
-                // This updates support_analysis_results with Linear ticket data
-                console.log('Step 6/7: Mapping Linear issues to feedback (AI semantic matching)...');
+                // Step 3b: Map Linear issues to feedback
+                console.log('→ 3b: Mapping Linear issues to feedback');
                 try {
                     const mappingResult = await this.supabaseIntegration.supabase.functions.invoke('map-linear-to-feedback', { body: {} });
-
                     if (mappingResult.error) {
-                        console.error('❌ Linear mapping failed:', mappingResult.error);
-                        // Continue anyway - we can still show analysis without Linear mappings
+                        console.warn('  ⚠ 3b: Linear mapping failed');
                     } else {
-                        console.log('✅ Linear mapping complete:', mappingResult.data);
+                        console.log('  ✓ 3b: Linear mapping complete');
                     }
                 } catch (mappingError) {
-                    console.warn('⚠️ Linear mapping exception (analysis will show without Linear data):', mappingError.message);
+                    console.warn('  ⚠ 3b: Linear mapping exception');
                 }
 
-                // Step 7/7: Refresh CX Analysis UI with complete data
-                // Now includes: message counts + AI categorization + Linear ticket mappings
-                console.log('Step 7/7: Refreshing CX Analysis table with complete data...');
+                // Step 3c: Refresh CX Analysis UI
+                console.log('→ 3c: Refreshing CX Analysis table');
                 if (window.cxAnalysis) {
                     await window.cxAnalysis.refresh();
-                    console.log('✅ CX Analysis table refreshed - showing complete data');
-                } else {
-                    console.warn('⚠️ CX Analysis not initialized yet');
+                    console.log('  ✓ 3c: CX Analysis refreshed');
                 }
             } catch (error) {
-                console.warn('⚠️ Support analysis workflow failed, continuing:', error.message);
-                // Continue with workflow - support analysis failure is not fatal
+                console.warn('⚠ Support Analysis: Workflow failed, continuing');
             }
 
-            // Event sequence workflow v2 - Using Export API (no enrichment needed)
-        console.log('🔄 Starting event sequence workflow v2 (Export API)...');
-        console.log('Step 1/3: Triggering event sequence sync v2 (fetching events with properties from Mixpanel Export API)...');
+            // Step 4: Event sequence workflow
+            console.log('\n═══ Step 4: Event Sequences ═══');
+            try {
+                console.log('→ 4a: Syncing event sequences (Export API)');
+                const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
+                if (seqSyncResult?.success) {
+                    console.log('  ✓ 4a: Event sequences synced');
+                } else {
+                    console.warn('  ⚠ 4a: Sync failed, using existing data');
+                }
 
-        let syncSuccess = false;
-        try {
-            const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
-            console.log('Event sequence sync v2 result:', seqSyncResult);
+                console.log('→ 4b: Processing event sequences');
+                const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
+                if (processResult?.success) {
+                    console.log('  ✓ 4b: Event sequences processed');
+                } else {
+                    console.warn('  ⚠ 4b: Processing failed');
+                }
 
-            if (seqSyncResult && seqSyncResult.success) {
-                console.log('✅ Step 1/3 complete - Event sequence sync v2:', seqSyncResult.stats);
-                syncSuccess = true;
-            } else {
-                console.error('❌ Step 1/3 failed - Event sequence sync v2 returned unsuccessful:', seqSyncResult);
+                console.log('→ 4c: Analyzing copy patterns with Claude AI');
+                const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
+                if (copyAnalysisResult?.success) {
+                    console.log('  ✓ 4c: Copy analysis complete');
+                } else {
+                    console.warn('  ⚠ 4c: Analysis failed');
+                }
+            } catch (error) {
+                console.warn('⚠ Event Sequences: Workflow failed, continuing');
             }
-        } catch (error) {
-            console.error('❌ Event sequence workflow failed at Step 1:', error);
-            console.error('Error details:', error.message, error.stack);
-            // Continue to next steps even if sync fails - processing/analysis may work with existing data
-        }
 
-        // Process raw event sequences (proceed even if sync failed - may have existing data)
-        console.log('Step 2/3: Processing event sequences (aggregating by user and joining with conversion data)...');
-        let processSuccess = false;
-        try {
-            const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
-            console.log('Event sequence processing result:', processResult);
-
-            if (processResult && processResult.success) {
-                console.log('✅ Step 2/3 complete - Event sequence processing:', processResult.stats);
-                processSuccess = true;
-            } else {
-                console.error('❌ Step 2/3 failed - Event sequence processing returned unsuccessful:', processResult);
+            // Step 5: Subscription price analysis
+            console.log('\n═══ Step 5: Subscription Pricing ═══');
+            try {
+                const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
+                if (priceResult?.success) {
+                    console.log('✅ Subscription Pricing: Complete');
+                } else {
+                    console.warn('⚠ Subscription Pricing: Failed');
+                }
+            } catch (error) {
+                console.warn('⚠ Subscription Pricing: Failed, continuing');
             }
-        } catch (processError) {
-            console.error('❌ Step 2/3 failed - Event sequence processing error:', processError);
-            console.error('Error details:', processError.message, processError.stack);
-        }
 
-        // Trigger Claude AI analysis (proceed even if processing failed - may have existing processed data)
-        console.log('Step 3/3: Triggering event sequence analysis for copies...');
-        try {
-            const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
-            if (copyAnalysisResult && copyAnalysisResult.success) {
-                console.log('✅ Step 3/3 complete - Copy sequence analysis:', copyAnalysisResult.stats);
-            } else {
-                console.warn('⚠️ Copy sequence analysis returned unsuccessful:', copyAnalysisResult);
-            }
-        } catch (copyError) {
-            console.error('❌ Step 3/3 failed - Copy analysis error:', copyError);
-        }
-
-        console.log('✅ Event sequence workflow v2 completed (3 steps: sync v2 → process → analyze copies)');
-
-        // Trigger subscription price analysis after event sequence to avoid rate limiting
-        console.log('Triggering subscription price analysis...');
-        try {
-            const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
-            if (priceResult && priceResult.success) {
-                console.log('✅ Subscription price analysis completed:', priceResult.stats);
-            }
-        } catch (error) {
-            console.warn('⚠️ Subscription price analysis failed:', error.message);
-            // Continue even if price analysis fails - it's supplementary data
-        }
-
-            // Trigger copy pattern analysis (portfolio + creator combinations)
-            console.log('Triggering copy pattern analysis...');
+            // Step 6: Copy pattern analysis
+            console.log('\n═══ Step 6: Copy Pattern Analysis ═══');
             try {
                 const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
-                if (copyResult && copyResult.success) {
-                    console.log('✅ Copy pattern analysis completed:', copyResult.stats);
+                if (copyResult?.success) {
+                    console.log('✅ Copy Pattern Analysis: Complete');
+                } else {
+                    console.warn('⚠ Copy Pattern Analysis: Failed');
                 }
             } catch (error) {
-                console.warn('⚠️ Copy pattern analysis failed:', error.message);
-                // Continue even if analysis fails - it's supplementary data
+                console.warn('⚠ Copy Pattern Analysis: Failed, continuing');
             }
 
         } finally {
-            // ALWAYS refresh materialized views at the end, even if some syncs failed
-            // This ensures views have the latest data from whichever syncs succeeded
-            console.log('🔄 Final refresh: Refreshing all materialized views with latest data...');
+            // Step 7: Refresh materialized views
+            console.log('\n═══ Step 7: Materialized Views ═══');
             try {
                 const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
-                if (refreshResult && refreshResult.success) {
-                    console.log('✅ Final materialized views refresh completed');
+                if (refreshResult?.success) {
+                    console.log('✅ Materialized Views: Refreshed');
+                } else {
+                    console.warn('⚠ Materialized Views: Refresh failed');
                 }
             } catch (error) {
-                console.warn('⚠️ Final materialized views refresh failed:', error.message);
-                // Non-fatal - user can manually refresh if needed
+                console.warn('⚠ Materialized Views: Refresh failed, continuing');
             }
+
+            console.log('\n✅ Sync Live Data: Workflow complete\n');
         }
 
         return true;
@@ -421,12 +372,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             throw new Error('Supabase not configured. Please save your Supabase credentials first.');
         }
 
-        console.log('Loading data from Supabase database...');
-
         // Load from Supabase database (returns CSV format for compatibility)
         const contents = await this.supabaseIntegration.loadDataFromSupabase();
-
-        console.log('✅ Data loaded from Supabase');
         return contents;
     }
 
@@ -435,7 +382,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Used when refreshing after version updates - just reloads the cached UI
      */
     reloadUIFromCache() {
-        console.log('🔄 Reloading UI from cache...');
         // Reuse existing restore logic to avoid duplication
         this.restoreAnalysisResults();
     }
@@ -445,7 +391,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         this.showProgress(0);
 
         try {
-            console.log('🔄 Refreshing data from database (no Mixpanel sync)...');
+            console.log('🔄 Refreshing from database (no sync)...');
 
             // Clear query cache to ensure fresh data
             if (this.supabaseIntegration) {
