@@ -75,19 +75,9 @@ serve(async (req) => {
       console.log('✓ main_analysis refreshed successfully')
     }
 
-    // Step 3: Refresh user_portfolio_creator_copies materialized view
-    // This aggregates user_portfolio_creator_engagement by (distinct_id, portfolio_ticker)
-    // Required for analyze-conversion-patterns portfolio combinations
-    console.log('Refreshing user_portfolio_creator_copies...')
-
-    const { error: portfolioCopiesError } = await supabase.rpc('refresh_portfolio_copies')
-
-    if (portfolioCopiesError) {
-      console.warn('⚠️ Error refreshing user_portfolio_creator_copies:', portfolioCopiesError)
-      // Non-fatal - continue with other refreshes
-    } else {
-      console.log('✓ user_portfolio_creator_copies refreshed successfully')
-    }
+    // Step 3: user_portfolio_creator_copies is now a regular view (not materialized)
+    // No refresh needed - updates automatically when underlying data changes
+    console.log('ℹ️ user_portfolio_creator_copies is a regular view - no refresh needed')
 
     // Step 4: Refresh portfolio engagement views
     // Includes: portfolio_creator_engagement_metrics, hidden_gems, premium_creator_stock_holdings,
@@ -155,6 +145,7 @@ serve(async (req) => {
       'All materialized views refreshed successfully',
       {
         main_analysis_refreshed: !mainAnalysisError,
+        user_portfolio_creator_copies: 'regular_view_no_refresh_needed',
         portfolio_views_refreshed: !portfolioRefreshError,
         portfolio_breakdown_refreshed: !portfolioBreakdownError,
         premium_creator_breakdown: 'regular_view_no_refresh_needed',

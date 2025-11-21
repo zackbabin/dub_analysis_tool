@@ -14,22 +14,20 @@ import { TimeoutGuard } from '../_shared/sync-helpers.ts'
 // - 'creator_copy': Creator combinations that drive copies (uses creator_id/username)
 const ANALYSIS_CONFIGS = {
   copy: {
-    table: 'user_portfolio_creator_copies',  // Aggregated view by (distinct_id, portfolio_ticker)
+    table: 'user_portfolio_creator_copies',  // Regular view (converted from materialized) - always current
     select: 'distinct_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
     filterColumn: 'pdp_view_count',
     outcomeColumn: 'did_copy',
     entityType: 'portfolio',
     entityIdColumn: 'portfolio_ticker',  // Key identifier for this entity type
-    refreshView: 'refresh_portfolio_copies',  // Refreshes user_portfolio_creator_copies materialized view
   },
   creator_copy: {
-    table: 'user_creator_profile_copies',
+    table: 'user_creator_profile_copies',  // Regular view - always current
     select: 'distinct_id, creator_id, creator_username, profile_view_count, did_copy, copy_count',
     filterColumn: 'profile_view_count',
     outcomeColumn: 'did_copy',
     entityType: 'creator',
     entityIdColumn: 'creator_id',  // Key identifier for this entity type
-    refreshView: null,
   },
 }
 
@@ -335,6 +333,13 @@ serve(async (req) => {
     // Step 1: Load stored engagement data from Supabase
     console.log(`Loading stored ${analysisType} data from ${config.table}...`)
 
+    // Calculate 90-day cutoff date to limit data scope
+    const ninetyDaysAgo = new Date()
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+    const cutoffDate = ninetyDaysAgo.toISOString()
+
+    console.log(`Only loading engagement data from last 90 days (since ${cutoffDate.split('T')[0]})`)
+
     let allPairRows: any[] = []
     let page = 0
     // Use 1000 to match PostgREST default limit - ensures pagination works correctly
@@ -349,6 +354,7 @@ serve(async (req) => {
         .from(config.table)
         .select(config.select)
         .gt(config.filterColumn, 0)
+        .gte('synced_at', cutoffDate) // Only load engagement from last 90 days
         .range(offset, offset + pageSize - 1)
 
       if (loadError) {
@@ -385,15 +391,8 @@ serve(async (req) => {
 
     console.log(`✓ Loaded ${pairRows.length} pairs from database`)
 
-    // Refresh materialized view if configured
-    if (config.refreshView) {
-      try {
-        await supabaseClient.rpc(config.refreshView)
-        console.log(`✓ Materialized view refreshed (${config.refreshView})`)
-      } catch (err) {
-        console.warn('Warning: Failed to refresh materialized view:', err)
-      }
-    }
+    // Note: user_portfolio_creator_copies is now a regular view (no refresh needed)
+    // Data is always current from the underlying user_portfolio_creator_engagement table
 
     // Step 2: Run pattern analysis
     console.log('Starting pattern analysis...')
