@@ -63,10 +63,19 @@ serve(async (req) => {
       // This ensures we don't keep reprocessing the same old events on every run
       // Order by DESC (newest first) to prioritize recent user behavior
       console.log('Fetching unprocessed individual events from event_sequences_raw...')
+
+      // Calculate 60-day cutoff date to limit processing scope
+      const sixtyDaysAgo = new Date()
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+      const cutoffDate = sixtyDaysAgo.toISOString()
+
+      console.log(`Only processing events from last 60 days (since ${cutoffDate.split('T')[0]})`)
+
       const { data: rawEvents, error: rawError } = await supabase
         .from('event_sequences_raw')
         .select('id, distinct_id, event_name, event_time, event_count, portfolio_ticker, creator_username, creator_type, synced_at')
         .is('processed_at', null) // Only fetch unprocessed events
+        .gte('event_time', cutoffDate) // Only process events from last 60 days
         .order('event_time', { ascending: false }) // DESC: Process newest events first
         .limit(100000) // Fetch up to 100k unprocessed events
 

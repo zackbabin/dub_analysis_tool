@@ -279,61 +279,83 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 console.warn('⚠ Support Analysis: Workflow failed, continuing');
             }
 
-            // Step 4: Event sequence workflow
-            console.log('\n═══ Step 4: Event Sequences ═══');
-            try {
-                console.log('→ 4a: Syncing event sequences (Export API)');
-                const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
-                if (seqSyncResult?.success) {
-                    console.log('  ✓ 4a: Event sequences synced');
-                } else {
-                    console.warn('  ⚠ 4a: Sync failed, using existing data');
-                }
+            // Steps 4-6: Run in parallel (independent operations)
+            console.log('\n═══ Steps 4-6: Analysis Workflows (Parallel) ═══');
 
-                console.log('→ 4b: Processing event sequences');
-                const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
-                if (processResult?.success) {
-                    console.log('  ✓ 4b: Event sequences processed');
-                } else {
-                    console.warn('  ⚠ 4b: Processing failed');
-                }
+            const [step4Result, step5Result, step6Result] = await Promise.allSettled([
+                // Step 4: Event sequence workflow
+                (async () => {
+                    console.log('→ Step 4: Event Sequences (starting in parallel)');
+                    try {
+                        console.log('  → 4a: Syncing event sequences (Export API)');
+                        const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
+                        if (seqSyncResult?.success) {
+                            console.log('    ✓ 4a: Event sequences synced');
+                        } else {
+                            console.warn('    ⚠ 4a: Sync failed, using existing data');
+                        }
 
-                console.log('→ 4c: Analyzing copy patterns with Claude AI');
-                const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
-                if (copyAnalysisResult?.success) {
-                    console.log('  ✓ 4c: Copy analysis complete');
-                } else {
-                    console.warn('  ⚠ 4c: Analysis failed');
-                }
-            } catch (error) {
-                console.warn('⚠ Event Sequences: Workflow failed, continuing');
-            }
+                        console.log('  → 4b: Processing event sequences');
+                        const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
+                        if (processResult?.success) {
+                            console.log('    ✓ 4b: Event sequences processed');
+                        } else {
+                            console.warn('    ⚠ 4b: Processing failed');
+                        }
 
-            // Step 5: Subscription price analysis
-            console.log('\n═══ Step 5: Subscription Pricing ═══');
-            try {
-                const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
-                if (priceResult?.success) {
-                    console.log('✅ Subscription Pricing: Complete');
-                } else {
-                    console.warn('⚠ Subscription Pricing: Failed');
-                }
-            } catch (error) {
-                console.warn('⚠ Subscription Pricing: Failed, continuing');
-            }
+                        console.log('  → 4c: Analyzing copy patterns with Claude AI');
+                        const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
+                        if (copyAnalysisResult?.success) {
+                            console.log('    ✓ 4c: Copy analysis complete');
+                        } else {
+                            console.warn('    ⚠ 4c: Analysis failed');
+                        }
 
-            // Step 6: Copy pattern analysis
-            console.log('\n═══ Step 6: Copy Pattern Analysis ═══');
-            try {
-                const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
-                if (copyResult?.success) {
-                    console.log('✅ Copy Pattern Analysis: Complete');
-                } else {
-                    console.warn('⚠ Copy Pattern Analysis: Failed');
-                }
-            } catch (error) {
-                console.warn('⚠ Copy Pattern Analysis: Failed, continuing');
-            }
+                        console.log('✅ Step 4: Event Sequences - Complete');
+                        return { success: true };
+                    } catch (error) {
+                        console.warn('⚠ Step 4: Event Sequences - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })(),
+
+                // Step 5: Subscription price analysis
+                (async () => {
+                    console.log('→ Step 5: Subscription Pricing (starting in parallel)');
+                    try {
+                        const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
+                        if (priceResult?.success) {
+                            console.log('✅ Step 5: Subscription Pricing - Complete');
+                        } else {
+                            console.warn('⚠ Step 5: Subscription Pricing - Failed');
+                        }
+                        return priceResult;
+                    } catch (error) {
+                        console.warn('⚠ Step 5: Subscription Pricing - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })(),
+
+                // Step 6: Copy pattern analysis
+                (async () => {
+                    console.log('→ Step 6: Copy Pattern Analysis (starting in parallel)');
+                    try {
+                        const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
+                        if (copyResult?.success) {
+                            console.log('✅ Step 6: Copy Pattern Analysis - Complete');
+                        } else {
+                            console.warn('⚠ Step 6: Copy Pattern Analysis - Failed');
+                        }
+                        return copyResult;
+                    } catch (error) {
+                        console.warn('⚠ Step 6: Copy Pattern Analysis - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })()
+            ]);
+
+            // Log parallel completion
+            console.log('\n✅ Parallel workflows (Steps 4-6) completed');
 
         } finally {
             // Step 7: Refresh materialized views
