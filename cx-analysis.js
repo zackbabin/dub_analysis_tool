@@ -24,8 +24,6 @@ class CXAnalysis {
 
     async loadAndDisplayResults() {
         try {
-            console.log('Loading CX Analysis results from Supabase...');
-
             // Fetch most recent analysis - use limit(1) without .single() to handle empty results
             const { data, error } = await this.supabase
                 .from('support_analysis_results')
@@ -35,29 +33,19 @@ class CXAnalysis {
 
             if (error) {
                 console.error('❌ Error loading CX analysis:', error);
-                console.error('Error details:', JSON.stringify(error, null, 2));
                 this.displayError(`Database error: ${error.message || 'Unknown error'}. Check console for details.`);
                 return;
             }
 
             // Check if we got any results
             if (!data || data.length === 0) {
-                console.warn('⚠️ No analysis results found in support_analysis_results table');
+                console.warn('⚠️ No CX analysis results found');
                 this.displayError('No analysis results available yet. Run the support analysis pipeline first.');
                 return;
             }
 
             // Get the first (most recent) result
             const analysisResult = data[0];
-            console.log('✅ Loaded CX analysis:', analysisResult);
-            console.log('   Analysis ID:', analysisResult.id);
-            console.log('   Created at:', analysisResult.created_at);
-            console.log('   Number of issues:', analysisResult.top_issues?.length);
-
-            // DEBUG: Check first issue for linear_issues
-            if (analysisResult.top_issues && analysisResult.top_issues.length > 0) {
-                console.log('🔍 First issue linear_issues:', analysisResult.top_issues[0].linear_issues);
-            }
 
             // Validate data structure
             if (!analysisResult.top_issues || !Array.isArray(analysisResult.top_issues)) {
@@ -76,12 +64,9 @@ class CXAnalysis {
     }
 
     async refresh() {
-        console.log('Refreshing CX Analysis data...');
-
         // Clear query cache to ensure fresh data (same as user/creator tools)
         if (this.supabaseIntegration) {
             this.supabaseIntegration.invalidateCache();
-            console.log('🗑️ Query cache cleared');
         }
 
         this.container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6c757d;">Loading...</div>';
@@ -530,19 +515,10 @@ class CXAnalysis {
     }
 
     renderLinearTickets(issue) {
-        // DEBUG: Log what we're receiving
-        console.log('🔍 renderLinearTickets called for issue:', issue.issue_summary);
-        console.log('   linear_issues:', issue.linear_issues);
-        console.log('   Has linear_issues?', 'linear_issues' in issue);
-        console.log('   linear_issues length:', issue.linear_issues?.length);
-
         // Check if Linear data exists
         if (!issue.linear_issues || issue.linear_issues.length === 0) {
-            console.log('   ❌ No linear_issues - returning dash');
             return '<span style="color: #adb5bd;">-</span>'
         }
-
-        console.log('   ✅ Has linear_issues - rendering tickets');
         // Display first 3 issues
         const displayIssues = issue.linear_issues.slice(0, 3)
 

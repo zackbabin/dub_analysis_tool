@@ -2505,25 +2505,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.updateProgress(50, 'Loading Premium Creator Copy Affinity...');
 
             // Invalidate affinity cache to ensure fresh display
-            console.log('Invalidating affinity cache...');
             this.supabaseIntegration.invalidateCache('premium_creator_affinity_display');
 
             // Clear the output container completely
             this.outputContainer.innerHTML = '';
 
             // Fetch summary stats for metric cards
-            console.log('Fetching summary stats for metric cards...');
             const summaryStats = await this.fetchPremiumCreatorMetrics() || {};
 
             // Load subscription analysis data
-            console.log('Loading subscription analysis data...');
             const subscriptionDistribution = await this.supabaseIntegration.loadSubscriptionDistribution().catch(e => {
                 console.warn('Failed to load subscription distribution:', e);
                 return [];
             });
 
             // Re-render the entire creator analysis display
-            console.log('Re-rendering creator analysis with fresh data...');
             await this.displayResults({ summaryStats, subscriptionDistribution });
 
             // Note: displayResults() already adds timestamp from last sync

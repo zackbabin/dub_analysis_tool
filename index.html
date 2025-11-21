@@ -85,34 +85,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=92"></script>
+    <script src="csv_utils.js?v=93"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=92"></script>
+    <script src="analysis_utils.js?v=93"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=92"></script>
+    <script src="supabase_integration.js?v=93"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=92"></script>
+    <script src="user_analysis_tool.js?v=93"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=92"></script>
+    <script src="user_analysis_tool_supabase.js?v=93"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=92"></script>
+    <script src="creator_analysis_tool.js?v=93"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=92"></script>
+    <script src="creator_analysis_tool_supabase.js?v=93"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=92"></script>
+    <script src="business-model-analysis.js?v=93"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=92"></script>
+    <script src="crypto-analysis.js?v=93"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=92"></script>
+    <script src="cx-analysis.js?v=93"></script>
 
     <script>
         // Supabase Configuration
@@ -458,45 +458,10 @@
                 descDiv.textContent = 'Please wait, this may take a few minutes';
 
                 try {
-                    // Run user sync first (populates engagement tables that affinity views depend on)
-                    console.log('Step 1: Running user analysis sync...');
+                    // Run the complete 7-step workflow (includes user data, creator data, support analysis, and materialized views)
+                    console.log('🔄 Starting complete data sync workflow...');
                     await userTool.runWorkflow('github');
-                    console.log('✅ User analysis sync completed');
-
-                    // Then run creator sync (refreshes affinity views from populated tables)
-                    console.log('Step 2: Refreshing creator analysis...');
-                    await creatorTool.runSyncWorkflow();
-                    console.log('✅ Creator analysis refresh completed');
-
-                    // Step 3: Support analysis (syncs Zendesk + Claude analysis + Linear integration)
-                    console.log('Step 3: Running CX analysis pipeline (support feedback + Linear)...');
-                    try {
-                        const response = await fetch(`${SUPABASE_URL}/functions/v1/sync-support-conversations`, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                'Content-Type': 'application/json'
-                            }
-                        });
-
-                        if (response.ok) {
-                            const result = await response.json();
-                            console.log('✅ CX analysis pipeline completed:', result);
-
-                            // Refresh CX analysis tab to show updated data with Linear integration
-                            if (window.cxAnalysis) {
-                                await window.cxAnalysis.loadAndDisplayResults();
-                            }
-                        } else {
-                            const errorText = await response.text();
-                            console.warn('⚠️ CX analysis pipeline failed (non-critical):', errorText);
-                        }
-                    } catch (cxError) {
-                        console.warn('⚠️ CX analysis pipeline failed (non-critical):', cxError);
-                        // Don't throw - CX analysis failure shouldn't break the main sync
-                    }
-
-                    console.log('✅ All sync workflows completed successfully');
+                    console.log('✅ Complete data sync workflow finished');
 
                     // Show success state briefly
                     titleDiv.textContent = '✓ Sync Complete';
