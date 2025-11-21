@@ -126,10 +126,12 @@ serve(async (req) => {
 
       // Normalize comments with PII redaction
       // NOTE: ticket_external_id is already included in comment events from Zendesk API
-      // No need to query database for user context - we have it directly from the API
       console.log(`Normalizing ${commentEvents.length} comments with PII redaction...`)
 
-      const normalizedComments = commentEvents.map(comment => {
+      const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
+      console.log(`Comments span ${ticketIds.length} unique tickets`)
+
+      const messagesForDB = commentEvents.map(comment => {
         const ticketId = comment.ticket_id.toString()
         const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
 
@@ -140,51 +142,7 @@ serve(async (req) => {
         )
       })
 
-      console.log(`✓ Normalized ${normalizedComments.length} comments`)
-
-      // Verify all tickets exist in database by checking which ticket IDs we have
-      const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
-      console.log(`Comments span ${ticketIds.length} unique tickets - verifying they exist in DB...`)
-
-      // Check in batches to avoid URL length limits
-      const TICKET_BATCH_SIZE = 1000
-      const ticketsInDb = new Set<string>()
-
-      for (let i = 0; i < ticketIds.length; i += TICKET_BATCH_SIZE) {
-        const batchIds = ticketIds.slice(i, i + TICKET_BATCH_SIZE)
-
-        const { data } = await supabase
-          .from('raw_support_conversations')
-          .select('id')
-          .eq('source', 'zendesk')
-          .in('id', batchIds)
-
-        if (data) {
-          data.forEach(t => ticketsInDb.add(t.id))
-        }
-      }
-
-      console.log(`Found ${ticketsInDb.size}/${ticketIds.length} tickets in database`)
-
-      // Filter out comments for tickets that don't exist in our DB
-      let filteredCount = 0
-      const messagesForDB = normalizedComments.filter(msg => {
-        if (!ticketsInDb.has(msg.conversation_id)) {
-          filteredCount++
-          if (filteredCount <= 5) {
-            // Only log first 5 to avoid spam
-            console.warn(`⚠️ No conversation found for ticket ID ${msg.conversation_id}`)
-          }
-          return false
-        }
-        return true
-      })
-
-      if (filteredCount > 5) {
-        console.warn(`⚠️ Total ${filteredCount} messages filtered due to missing tickets`)
-      }
-
-      console.log(`Ready to store: ${messagesForDB.length}/${normalizedComments.length} messages`)
+      console.log(`✓ Normalized ${messagesForDB.length} comments, ready to store`)
 
       // Store messages in batches (to handle large volumes)
       const BATCH_SIZE = 500
