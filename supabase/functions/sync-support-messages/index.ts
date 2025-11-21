@@ -124,65 +124,14 @@ serve(async (req) => {
         })
       }
 
-      // Group comments by ticket to get user context
-      const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
-      console.log(`Comments span ${ticketIds.length} unique tickets`)
-
-      // Fetch ticket data for user_id context (for PII redaction)
-      // Batch the ticket ID lookups to avoid URL length limits (max ~1000 IDs per batch)
-      console.log(`Fetching ticket data for ${ticketIds.length} ticket IDs in batches...`)
-      console.log(`  Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
-
-      const ticketFetchStartMs = Date.now()
-      const TICKET_BATCH_SIZE = 1000
-      const tickets: any[] = []
-      let ticketError: any = null
-
-      for (let i = 0; i < ticketIds.length; i += TICKET_BATCH_SIZE) {
-        const batchIds = ticketIds.slice(i, i + TICKET_BATCH_SIZE)
-        const batchNum = Math.floor(i / TICKET_BATCH_SIZE) + 1
-        const totalBatches = Math.ceil(ticketIds.length / TICKET_BATCH_SIZE)
-
-        console.log(`  Fetching ticket batch ${batchNum}/${totalBatches} (${batchIds.length} IDs)...`)
-
-        const { data, error } = await supabase
-          .from('raw_support_conversations')
-          .select('id, user_id')
-          .eq('source', 'zendesk')
-          .in('id', batchIds)
-
-        if (error) {
-          console.error(`❌ Error fetching ticket batch ${batchNum}/${totalBatches}:`, error)
-          ticketError = error
-          break // Stop on first error
-        }
-
-        if (data) {
-          tickets.push(...data)
-          console.log(`  ✓ Batch ${batchNum}/${totalBatches}: found ${data.length} tickets`)
-        }
-      }
-
-      const ticketFetchElapsedSec = Math.round((Date.now() - ticketFetchStartMs) / 1000)
-      console.log(`  Ticket fetch completed in ${ticketFetchElapsedSec}s`)
-
-      if (ticketError) {
-        console.error('❌ Could not fetch ticket context for PII redaction (batch failed)')
-      } else {
-        console.log(`✅ Found ${tickets.length} tickets in database across all batches`)
-      }
-
-      // Build ticket ID -> user_id lookup map
-      const ticketUserMap = new Map<string, string | null>()
-      for (const ticket of tickets || []) {
-        ticketUserMap.set(ticket.id, ticket.user_id)
-      }
-
       // Normalize comments with PII redaction
-      // NOTE: normalizeZendeskComment now returns MessageRecord with conversation_source and conversation_id
+      // NOTE: ticket_external_id is already included in comment events from Zendesk API
+      // No need to query database for user context - we have it directly from the API
+      console.log(`Normalizing ${commentEvents.length} comments with PII redaction...`)
+
       const normalizedComments = commentEvents.map(comment => {
         const ticketId = comment.ticket_id.toString()
-        const userDistinctId = ticketUserMap.get(ticketId) || undefined
+        const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
 
         return ConversationNormalizer.normalizeZendeskComment(
           comment,
@@ -191,11 +140,33 @@ serve(async (req) => {
         )
       })
 
-      // Verify all tickets exist in database
-      const ticketsInDb = new Set((tickets || []).map(t => t.id))
-      console.log(`Tickets in DB: ${ticketsInDb.size} tickets`)
-      console.log(`Normalized comments: ${normalizedComments.length} comments`)
+      console.log(`✓ Normalized ${normalizedComments.length} comments`)
 
+      // Verify all tickets exist in database by checking which ticket IDs we have
+      const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
+      console.log(`Comments span ${ticketIds.length} unique tickets - verifying they exist in DB...`)
+
+      // Check in batches to avoid URL length limits
+      const TICKET_BATCH_SIZE = 1000
+      const ticketsInDb = new Set<string>()
+
+      for (let i = 0; i < ticketIds.length; i += TICKET_BATCH_SIZE) {
+        const batchIds = ticketIds.slice(i, i + TICKET_BATCH_SIZE)
+
+        const { data } = await supabase
+          .from('raw_support_conversations')
+          .select('id')
+          .eq('source', 'zendesk')
+          .in('id', batchIds)
+
+        if (data) {
+          data.forEach(t => ticketsInDb.add(t.id))
+        }
+      }
+
+      console.log(`Found ${ticketsInDb.size}/${ticketIds.length} tickets in database`)
+
+      // Filter out comments for tickets that don't exist in our DB
       let filteredCount = 0
       const messagesForDB = normalizedComments.filter(msg => {
         if (!ticketsInDb.has(msg.conversation_id)) {
@@ -213,7 +184,7 @@ serve(async (req) => {
         console.warn(`⚠️ Total ${filteredCount} messages filtered due to missing tickets`)
       }
 
-      console.log(`Mapped ${messagesForDB.length}/${normalizedComments.length} comments to database schema`)
+      console.log(`Ready to store: ${messagesForDB.length}/${normalizedComments.length} messages`)
 
       // Store messages in batches (to handle large volumes)
       const BATCH_SIZE = 500

@@ -157,6 +157,7 @@ export class ZendeskClient {
               comments.push({
                 ...childEvent,
                 ticket_id: event.ticket_id, // Add ticket_id from parent event
+                ticket_external_id: event.ticket_external_id, // Mixpanel distinct_id from ticket
               })
             }
           }
