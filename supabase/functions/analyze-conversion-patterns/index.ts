@@ -20,7 +20,7 @@ const ANALYSIS_CONFIGS = {
     outcomeColumn: 'did_copy',
     entityType: 'portfolio',
     entityIdColumn: 'portfolio_ticker',  // Key identifier for this entity type
-    refreshView: 'refresh_copy_engagement_summary',
+    refreshView: 'refresh_portfolio_copies',  // Refreshes user_portfolio_creator_copies materialized view
   },
   creator_copy: {
     table: 'user_creator_profile_copies',
@@ -52,6 +52,9 @@ interface CombinationResult {
   conversion_rate_in_group: number
   overall_conversion_rate: number
   total_conversions: number
+  total_views_1: number  // Total views for entity 1 (only users who viewed BOTH)
+  total_views_2: number  // Total views for entity 2 (only users who viewed BOTH)
+  total_copies: number   // Total copies by users who viewed BOTH entities
 }
 
 /**
@@ -129,21 +132,32 @@ function fitLogisticRegression(
 
 /**
  * Evaluate a single combination
+ * Now also calculates per-combination metrics for users who viewed BOTH entities
  */
 function evaluateCombination(
   combination: string[],
-  users: UserData[]
+  users: UserData[],
+  pairRows: any[],
+  entityType: string,
+  filterColumn: string
 ): CombinationResult {
   const combinationSet = new Set(combination)
 
   const X: number[] = []
   const y: number[] = []
 
+  // Track users who viewed BOTH entities for per-combination metrics
+  const usersWithBothExposures = new Set<string>()
+
   for (const user of users) {
     // Check if user viewed BOTH entities in the combination
     const hasExposure = combination.every(id => user.entity_ids.has(id))
     X.push(hasExposure ? 1 : 0)
     y.push(user.did_convert ? 1 : 0)
+
+    if (hasExposure) {
+      usersWithBothExposures.add(user.distinct_id)
+    }
   }
 
   const model = fitLogisticRegression(X, y)
@@ -185,6 +199,29 @@ function evaluateCombination(
   const conversionRateInGroup = exposedTotal > 0 ? exposedConverters / exposedTotal : 0
   const lift = overallConversionRate > 0 ? conversionRateInGroup / overallConversionRate : 0
 
+  // Calculate per-combination metrics for users who viewed BOTH entities
+  let totalViewsEntity1 = 0
+  let totalViewsEntity2 = 0
+  let totalCopies = 0
+
+  for (const pair of pairRows) {
+    // Only include rows for users who viewed BOTH entities in this combination
+    if (!usersWithBothExposures.has(pair.distinct_id)) continue
+
+    const entityId = entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
+
+    if (entityId === combination[0]) {
+      totalViewsEntity1 += (pair[filterColumn] || 0)
+    }
+    if (entityId === combination[1]) {
+      totalViewsEntity2 += (pair[filterColumn] || 0)
+    }
+
+    // Count copies (avoid double-counting same user)
+    const copyCount = pair.copy_count || pair.subscription_count || 0
+    totalCopies += copyCount
+  }
+
   return {
     combination: combination as [string, string],
     log_likelihood: model.log_likelihood,
@@ -197,6 +234,9 @@ function evaluateCombination(
     conversion_rate_in_group: conversionRateInGroup,
     overall_conversion_rate: overallConversionRate,
     total_conversions: exposedConverters,
+    total_views_1: totalViewsEntity1,
+    total_views_2: totalViewsEntity2,
+    total_copies: totalCopies,
   }
 }
 
@@ -441,28 +481,6 @@ serve(async (req) => {
       console.log(`✓ Mapped ${entityIdToDisplayName.size} portfolio tickers`)
     }
 
-    // Build entity ID to unique user count map (NOT sum of all views)
-    // This represents "Total Users" not "Total Views" - a more meaningful metric
-    console.log('Building entity unique user count map...')
-    const entityIdToTotalViews = new Map<string, number>()
-    const entityIdToUserSet = new Map<string, Set<string>>()
-
-    for (const pair of pairRows) {
-      const entityId = config.entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
-      if (entityId) {
-        if (!entityIdToUserSet.has(entityId)) {
-          entityIdToUserSet.set(entityId, new Set())
-        }
-        entityIdToUserSet.get(entityId)!.add(pair.distinct_id)
-      }
-    }
-
-    // Convert user sets to counts
-    for (const [entityId, userSet] of entityIdToUserSet.entries()) {
-      entityIdToTotalViews.set(entityId, userSet.size)
-    }
-    console.log(`✓ Calculated unique user counts for ${entityIdToTotalViews.size} entities`)
-
     // Clear old data before streaming new results
     await supabaseClient
       .from('conversion_pattern_combinations')
@@ -503,7 +521,7 @@ serve(async (req) => {
 
       // Evaluate chunk in parallel
       const chunkResults = await Promise.all(
-        chunk.map(combo => Promise.resolve(evaluateCombination(combo, users)))
+        chunk.map(combo => Promise.resolve(evaluateCombination(combo, users, pairRows, config.entityType, config.filterColumn)))
       )
 
       // Filter and collect results
@@ -521,8 +539,9 @@ serve(async (req) => {
               value_2: r.combination[1],
               username_1: entityIdToDisplayName.get(r.combination[0]) || null,
               username_2: entityIdToDisplayName.get(r.combination[1]) || null,
-              total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
-              total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
+              total_views_1: r.total_views_1,  // Per-combination metric (users who viewed BOTH entities)
+              total_views_2: r.total_views_2,  // Per-combination metric (users who viewed BOTH entities)
+              total_copies: r.total_copies,     // Per-combination metric (users who viewed BOTH entities)
               log_likelihood: r.log_likelihood,
               aic: r.aic,
               odds_ratio: r.odds_ratio,
@@ -565,8 +584,9 @@ serve(async (req) => {
         value_2: r.combination[1],
         username_1: entityIdToDisplayName.get(r.combination[0]) || null,
         username_2: entityIdToDisplayName.get(r.combination[1]) || null,
-        total_views_1: entityIdToTotalViews.get(r.combination[0]) || null,
-        total_views_2: entityIdToTotalViews.get(r.combination[1]) || null,
+        total_views_1: r.total_views_1,  // Per-combination metric (users who viewed BOTH entities)
+        total_views_2: r.total_views_2,  // Per-combination metric (users who viewed BOTH entities)
+        total_copies: r.total_copies,     // Per-combination metric (users who viewed BOTH entities)
         log_likelihood: r.log_likelihood,
         aic: r.aic,
         odds_ratio: r.odds_ratio,
