@@ -359,7 +359,7 @@ class SupabaseIntegration {
 
         try {
             // Part 1: Sync user events (Insights API - ~2-5 min)
-            console.log('→ 1/6: User event metrics');
+            console.log('→ 1/5: User event metrics');
             let userEventsData = null;
             try {
                 userEventsData = await this.invokeFunctionWithRetry(
@@ -369,14 +369,14 @@ class SupabaseIntegration {
                     3,      // maxRetries: 3 attempts
                     5000    // retryDelay: 5 seconds
                 );
-                console.log('  ✓ 1/6: User events synced');
+                console.log('  ✓ 1/5: User events synced');
             } catch (error) {
-                console.warn('  ⚠ 1/6: User events sync failed, continuing with existing data');
+                console.warn('  ⚠ 1/5: User events sync failed, continuing with existing data');
                 userEventsData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 2: Sync user properties (Engage API - ~30s, auto-chains pages)
-            console.log('→ 2/6: User properties');
+            console.log('→ 2/5: User properties');
             let userPropertiesData = null;
             try {
                 userPropertiesData = await this.invokeFunctionWithRetry(
@@ -386,14 +386,14 @@ class SupabaseIntegration {
                     3,      // maxRetries: 3 attempts
                     5000    // retryDelay: 5 seconds
                 );
-                console.log('  ✓ 2/6: User properties synced');
+                console.log('  ✓ 2/5: User properties synced');
             } catch (error) {
-                console.warn('  ⚠ 2/6: User properties sync failed, continuing with existing data');
+                console.warn('  ⚠ 2/5: User properties sync failed, continuing with existing data');
                 userPropertiesData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 3: Sync engagement (fetch from Mixpanel and store in Storage)
-            console.log('→ 3/6: Engagement data fetch');
+            console.log('→ 3/5: Engagement data fetch');
             let engagementFetchData = null;
             let engagementFilename = null;
             try {
@@ -405,16 +405,16 @@ class SupabaseIntegration {
                     5000    // retryDelay: 5 seconds
                 );
                 engagementFilename = engagementFetchData.stats?.filename;
-                console.log('  ✓ 3/6: Engagement data fetched');
+                console.log('  ✓ 3/5: Engagement data fetched');
             } catch (error) {
-                console.warn('  ⚠ 3/6: Engagement fetch failed, skipping processing steps');
+                console.warn('  ⚠ 3/5: Engagement fetch failed, skipping processing steps');
                 engagementFetchData = { stats: { failed: true, error: error.message } };
             }
 
             // Part 4: Process portfolio engagement (only if fetch succeeded)
             let portfolioProcessData = null;
             if (engagementFilename) {
-                console.log('→ 4/6: Portfolio engagement processing');
+                console.log('→ 4/5: Portfolio engagement processing');
                 try {
                     portfolioProcessData = await this.invokeFunctionWithRetry(
                         'process-portfolio-engagement',
@@ -423,20 +423,20 @@ class SupabaseIntegration {
                         2,      // maxRetries: 2 attempts
                         3000    // retryDelay: 3 seconds
                     );
-                    console.log('  ✓ 4/6: Portfolio engagement processed');
+                    console.log('  ✓ 4/5: Portfolio engagement processed');
                 } catch (error) {
-                    console.warn('  ⚠ 4/6: Portfolio processing failed, continuing with existing data');
+                    console.warn('  ⚠ 4/5: Portfolio processing failed, continuing with existing data');
                     portfolioProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.log('  ⊘ 4/6: Skipped (no engagement file)');
+                console.log('  ⊘ 4/5: Skipped (no engagement file)');
                 portfolioProcessData = { stats: { failed: true, skipped: true } };
             }
 
             // Part 5: Process creator engagement (only if fetch succeeded)
             let creatorProcessData = null;
             if (engagementFilename) {
-                console.log('→ 5/6: Creator engagement processing');
+                console.log('→ 5/5: Creator engagement processing');
                 try {
                     // Pass pre-parsed creatorPairs from portfolio processing for 60% speedup
                     const requestBody = { filename: engagementFilename };
@@ -451,31 +451,15 @@ class SupabaseIntegration {
                         2,      // maxRetries: 2 attempts
                         3000    // retryDelay: 3 seconds
                     );
-                    console.log('  ✓ 5/6: Creator engagement processed');
+                    console.log('  ✓ 5/5: Creator engagement processed');
                 } catch (error) {
-                    console.warn('  ⚠ 5/6: Creator processing failed, continuing with existing data');
+                    console.warn('  ⚠ 5/5: Creator processing failed, continuing with existing data');
                     creatorProcessData = { stats: { failed: true, error: error.message } };
                 }
             } else {
-                console.log('  ⊘ 5/6: Skipped (no engagement file)');
-                creatorProcessData = { stats: { failed: true, skipped: true } };
-            }
+                console.log('  ⊘ 5/5: Skipped (no engagement file)');
 
-            // Part 6: Sync event sequences v2 (Export API) for unique views analysis
-            console.log('→ 6/6: Event sequences (Export API)');
-            let eventSequencesData = null;
-            try {
-                eventSequencesData = await this.invokeFunctionWithRetry(
-                    'sync-event-sequences-v2',
-                    {},
-                    'Event sequences sync v2',
-                    2,      // maxRetries: 2 attempts
-                    3000    // retryDelay: 3 seconds
-                );
-                console.log('  ✓ 6/6: Event sequences synced');
-            } catch (error) {
-                console.warn('  ⚠ 6/6: Event sequences sync failed, continuing with existing data');
-                eventSequencesData = { stats: { failed: true, error: error.message } };
+                creatorProcessData = { stats: { failed: true, skipped: true } };
             }
 
             console.log('✅ Mixpanel Sync: Complete');
@@ -488,8 +472,7 @@ class SupabaseIntegration {
                               userPropertiesData?.stats?.failed ||
                               engagementFetchData?.stats?.failed ||
                               portfolioProcessData?.stats?.failed ||
-                              creatorProcessData?.stats?.failed ||
-                              eventSequencesData?.stats?.failed;
+                              creatorProcessData?.stats?.failed;
             return {
                 success: !hasFailures,
                 message: !hasFailures
@@ -499,8 +482,7 @@ class SupabaseIntegration {
                 userProperties: userPropertiesData?.stats,
                 engagementFetch: engagementFetchData?.stats,
                 portfolioProcessing: portfolioProcessData?.stats,
-                creatorProcessing: creatorProcessData?.stats,
-                eventSequences: eventSequencesData?.stats
+                creatorProcessing: creatorProcessData?.stats
             };
         } catch (error) {
             console.error('❌ Mixpanel Sync: Unexpected error -', error.message);
