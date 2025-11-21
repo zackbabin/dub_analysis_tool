@@ -200,7 +200,7 @@ function evaluateCombination(
   // Calculate per-combination metrics for users who viewed BOTH entities
   let totalViewsEntity1 = 0
   let totalViewsEntity2 = 0
-  let totalCopies = 0
+  const userCopiesMap = new Map<string, number>() // Track copies per user to avoid double-counting
 
   for (const pair of pairRows) {
     // Only include rows for users who viewed BOTH entities in this combination
@@ -215,10 +215,14 @@ function evaluateCombination(
       totalViewsEntity2 += (pair[filterColumn] || 0)
     }
 
-    // Count copies (avoid double-counting same user)
+    // Track copies per user (take max to avoid counting same copy multiple times)
     const copyCount = pair.copy_count || pair.subscription_count || 0
-    totalCopies += copyCount
+    const currentUserCopies = userCopiesMap.get(pair.distinct_id) || 0
+    userCopiesMap.set(pair.distinct_id, Math.max(currentUserCopies, copyCount))
   }
+
+  // Sum unique user copies
+  const totalCopies = Array.from(userCopiesMap.values()).reduce((sum, copies) => sum + copies, 0)
 
   return {
     combination: combination as [string, string],
