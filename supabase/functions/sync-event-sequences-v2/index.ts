@@ -75,17 +75,34 @@ async function fetchEventsFromExportAPI(
   console.log(`Where clause: DISABLED (testing)`)
   console.log(`Full URL (truncated): ${url.substring(0, 200)}...`)
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'text/plain',
-      'Authorization': `Basic ${btoa(`${username}:${secret}`)}`,
-    },
-  })
+  let response: Response
+  try {
+    // Add 120s timeout for Mixpanel API call (leaves 30s buffer for processing)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 120000)
+
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/plain',
+        'Authorization': `Basic ${btoa(`${username}:${secret}`)}`,
+      },
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+  } catch (fetchError: any) {
+    if (fetchError.name === 'AbortError') {
+      console.error('❌ Mixpanel API request timed out after 120s')
+      throw new Error('Mixpanel Export API request timed out after 120 seconds')
+    }
+    console.error('❌ Mixpanel API fetch error:', fetchError.message)
+    throw new Error(`Mixpanel Export API fetch failed: ${fetchError.message}`)
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error(`Mixpanel Export API error (${response.status}):`, errorText)
+    console.error(`❌ Mixpanel Export API error (${response.status}):`, errorText)
 
     if (response.status === 429) {
       throw new Error('RATE_LIMIT_EXCEEDED: Mixpanel API rate limit reached')

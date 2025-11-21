@@ -83,6 +83,7 @@ serve(async (req) => {
       const commentEvents = await zendeskClient.fetchCommentsSince(startTime)
 
       console.log(`✓ Fetched ${commentEvents.length} comment events from Zendesk`)
+      console.log(`Sample comment event:`, JSON.stringify(commentEvents[0] || {}))
 
       // Check timeout after fetch
       if (timeoutGuard.isApproachingTimeout()) {
