@@ -255,17 +255,17 @@ serve(async (req) => {
 
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
-      // NOTE: We skip refreshing the materialized view here to reduce disk IO
-      // The view is refreshed by a scheduled job (refresh-materialized-views cron)
-      // This prevents expensive full table scans on every analysis run
-      console.log('Skipping materialized view refresh (handled by cron job)')
+      // NOTE: enriched_support_conversations is a regular view (not materialized)
+      // It automatically shows latest data from support conversations and messages
+      // No refresh needed - queries are fast with indexed date filters
+      console.log('Querying enriched_support_conversations (regular view - always current)...')
 
       let conversations = null
       let fetchError = null
       const MAX_CONVERSATIONS = 250
 
-      // Try fetching from enriched view first
-      console.log('Attempting to fetch from enriched_support_conversations...')
+      // Query enriched view with date filter
+      console.log('Fetching from enriched_support_conversations...')
       const enrichedResult = await supabase
         .from('enriched_support_conversations')
         .select('*')
