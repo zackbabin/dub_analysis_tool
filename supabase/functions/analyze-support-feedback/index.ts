@@ -54,7 +54,13 @@ ${JSON.stringify(conversations, null, 2)}
 <task>
 Analyze all conversations and identify the top 10 most significant product issues and feedback themes, ranked by a composite priority score.
 
-**Consider tags and custom_fields** in each conversation for additional context about the issue type, platform, or product area.
+**ANALYSIS APPROACH:**
+- Look for recurring patterns and common root causes across conversations
+- Group similar issues together (e.g., "ACH transfer delays" not "payment issues" and "transfer problems" separately)
+- Be specific: identify the exact feature, flow, or technical problem users are experiencing
+- Consider tags and custom_fields in each conversation for additional context about the issue type, platform, or product area
+- Focus on the core underlying issue, not superficial variations in how users describe it
+- Maintain consistent terminology across analyses - use the same names for recurring issues
 
 **CATEGORIZATION RULES:**
 You MUST assign each issue to exactly ONE of these categories, in this priority order:
@@ -149,7 +155,7 @@ Return ONLY valid JSON matching this exact structure:
       "app_functionality": number,
       "feedback": number
     },
-    "key_insights": "2-3 sentence high-level summary"
+    "key_insights": "2-3 sentence high-level summary focusing on the most significant patterns and trends. Be specific about what issues are affecting users."
   },
   "top_issues": [
     {
@@ -187,6 +193,20 @@ Return ONLY valid JSON matching this exact structure:
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
 - Calculate priority scores exactly as specified in the formula with equal 33% weight for each component
 - Rank issues 1-10 by priority score (highest score = rank 1)
+
+**SPECIFICITY REQUIREMENTS:**
+- Be specific and concrete in your issue summaries - avoid vague descriptions
+- Reference specific features, user flows, or technical problems when possible
+- For example, instead of "Users having payment issues", say "Users unable to link bank accounts via Plaid integration"
+- Include specific error types, feature names, or user actions in your summaries
+
+**CONSISTENCY REQUIREMENTS:**
+- Your analysis should remain stable and consistent across runs when analyzing similar data
+- If the ticket data hasn't changed significantly day-to-day, your top issues should remain largely the same
+- Focus on identifying the true underlying patterns rather than minor variations in how users describe problems
+- Group related issues together consistently (e.g., all ACH transfer delays should be one issue, not split across multiple issues)
+- Use the same terminology and phrasing for recurring issues across different analysis runs
+- Prioritize consistency in issue identification over finding new variations of the same problem
 - Show priority calculation breakdown for transparency
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
 - Include avg_message_count for each issue (average of message_count across related conversations)
