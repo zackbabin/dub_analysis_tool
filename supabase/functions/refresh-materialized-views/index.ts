@@ -97,7 +97,8 @@ serve(async (req) => {
 
     // Step 4: Refresh portfolio engagement views (includes stock holdings)
     // Refreshes: portfolio_creator_engagement_metrics, hidden_gems_portfolios,
-    //            premium_creator_stock_holdings, top_stocks_all_premium_creators, premium_creator_top_5_stocks
+    //            premium_creator_stock_holdings, top_stocks_all_premium_creators
+    // Note: premium_creator_top_5_stocks is now a regular view (no refresh needed)
     // Note: Stock holdings views are also refreshed in upload-portfolio-metrics after CSV uploads
     console.log('Refreshing portfolio engagement and stock holdings views...')
 
