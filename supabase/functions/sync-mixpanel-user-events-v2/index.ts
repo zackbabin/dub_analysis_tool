@@ -210,18 +210,9 @@ serve(async (req) => {
       const mainAnalysisElapsedSec = Math.round((Date.now() - mainAnalysisStart) / 1000)
       console.log(`✓ main_analysis refreshed in ${mainAnalysisElapsedSec}s`)
 
-      // Refresh copy_engagement_summary
-      console.log('Refreshing copy_engagement_summary view...')
-      const copyEngagementStart = Date.now()
-      const { error: copyEngagementError } = await supabase.rpc('refresh_copy_engagement_summary')
-
-      if (copyEngagementError) {
-        console.error('Error refreshing copy_engagement_summary:', copyEngagementError)
-        throw copyEngagementError
-      }
-
-      const copyEngagementElapsedSec = Math.round((Date.now() - copyEngagementStart) / 1000)
-      console.log(`✓ copy_engagement_summary refreshed in ${copyEngagementElapsedSec}s`)
+      // Note: copy_engagement_summary is now a regular view (not materialized)
+      // No refresh needed - it automatically reflects changes to main_analysis
+      console.log('ℹ️ copy_engagement_summary is a regular view - no refresh needed')
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)

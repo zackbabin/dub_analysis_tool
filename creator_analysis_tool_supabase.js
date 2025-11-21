@@ -898,9 +898,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading premium portfolio breakdown from materialized view...');
+            console.log('Loading premium portfolio breakdown from view...');
 
-            // Query the materialized view - single query with all data pre-joined
+            // Query the view - single query with all data pre-joined
             const { data: portfolioData, error } = await this.supabaseIntegration.supabase
                 .from('portfolio_breakdown_with_metrics')
                 .select('*')
@@ -2611,18 +2611,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 console.warn('Upload function timed out, but data may have been partially saved');
                 this.addStatusMessage('⚠️ Upload timed out - checking for saved data...', 'warning');
 
-                // Continue to refresh display to show whatever data was saved
-                this.updateProgress(60, 'Refreshing materialized view...');
-
-                // Refresh the portfolio_breakdown_with_metrics materialized view
-                console.log('Refreshing portfolio_breakdown_with_metrics materialized view...');
-                const { error: refreshError } = await this.supabaseIntegration.supabase.rpc('refresh_portfolio_breakdown_view');
-
-                if (refreshError) {
-                    console.error('Error refreshing portfolio breakdown view:', refreshError);
-                }
-
-                this.updateProgress(80, 'Loading saved data...');
+                // Continue to load display to show whatever data was saved
+                // Note: portfolio_breakdown_with_metrics is now a regular view - no refresh needed
+                this.updateProgress(70, 'Loading saved data...');
 
                 // Only refresh the Portfolio Breakdown table to show saved data
                 await this.loadAndDisplayPremiumPortfolioBreakdown();
@@ -2656,23 +2647,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Add delay before final step
             await new Promise(resolve => setTimeout(resolve, 300));
-            this.updateProgress(60, 'Refreshing materialized view...');
+            // Note: portfolio_breakdown_with_metrics is now a regular view - no refresh needed
+            this.updateProgress(70, 'Loading updated data...');
 
-            // Refresh the portfolio_breakdown_with_metrics materialized view
-            console.log('Refreshing portfolio_breakdown_with_metrics materialized view...');
-            const { error: refreshError } = await this.supabaseIntegration.supabase.rpc('refresh_portfolio_breakdown_view');
-
-            if (refreshError) {
-                console.error('Error refreshing portfolio breakdown view:', refreshError);
-                this.addStatusMessage('⚠️ Warning: Could not refresh view, data may be stale', 'warning');
-            } else {
-                console.log('✅ Portfolio breakdown view refreshed');
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 300));
-            this.updateProgress(80, 'Loading updated data...');
-
-            // Now query the refreshed view to display updated data
+            // Now query the view to display updated data
             await this.loadAndDisplayPremiumPortfolioBreakdown();
 
             // Save updated HTML to cache

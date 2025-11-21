@@ -1,7 +1,24 @@
 // Supabase Edge Function: refresh-materialized-views
-// Refreshes ALL materialized views after data sync operations
+// Refreshes materialized views after data sync operations
 // Triggered by sync-mixpanel-engagement and other sync functions
-// Ensures dashboard displays latest data from underlying tables
+//
+// MATERIALIZED VIEWS REFRESHED:
+//   1. main_analysis - Primary user engagement view
+//   2. portfolio_creator_engagement_metrics - Portfolio engagement aggregations
+//   3. hidden_gems_portfolios - Low-copy high-engagement portfolios
+//   4. premium_creator_stock_holdings - Stock holdings by creator (depends on engagement + CSV)
+//   5. top_stocks_all_premium_creators - Top stocks across all creators
+//   6. premium_creator_top_5_stocks - Top 5 stocks per creator
+//   7. premium_creator_retention_analysis - Cohort retention analysis
+//
+// REGULAR VIEWS (no refresh needed):
+//   - user_portfolio_creator_copies - Aggregates engagement by (user, portfolio)
+//   - portfolio_breakdown_with_metrics - Joins engagement + CSV performance data
+//   - premium_creator_breakdown - Aggregates portfolio_creator_engagement_metrics
+//   - copy_engagement_summary - Aggregates main_analysis by did_copy
+//
+// NOTE: Stock holdings views (4-6) are refreshed both here AND in upload-portfolio-metrics
+//       because they depend on engagement data (synced) AND CSV uploads (manual)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -62,9 +79,8 @@ serve(async (req) => {
     }
 
     // Step 2: Refresh main_analysis (contains unique_creators_viewed, unique_portfolios_viewed)
-    // This MUST complete before refreshing dependent views (copy_engagement_summary)
-    // Uses CONCURRENT refresh to avoid blocking reads, but we await completion
-    console.log('Refreshing main_analysis (required for dependent views)...')
+    // This is the primary materialized view for user engagement data
+    console.log('Refreshing main_analysis...')
 
     const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
 
@@ -79,10 +95,11 @@ serve(async (req) => {
     // No refresh needed - updates automatically when underlying data changes
     console.log('ℹ️ user_portfolio_creator_copies is a regular view - no refresh needed')
 
-    // Step 4: Refresh portfolio engagement views
-    // Includes: portfolio_creator_engagement_metrics, hidden_gems, premium_creator_stock_holdings,
-    //           top_stocks_all_premium_creators, premium_creator_top_5_stocks
-    console.log('Refreshing portfolio engagement views...')
+    // Step 4: Refresh portfolio engagement views (includes stock holdings)
+    // Refreshes: portfolio_creator_engagement_metrics, hidden_gems_portfolios,
+    //            premium_creator_stock_holdings, top_stocks_all_premium_creators, premium_creator_top_5_stocks
+    // Note: Stock holdings views are also refreshed in upload-portfolio-metrics after CSV uploads
+    console.log('Refreshing portfolio engagement and stock holdings views...')
 
     const { error: portfolioRefreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
 
@@ -91,24 +108,12 @@ serve(async (req) => {
       throw portfolioRefreshError
     }
 
-    console.log('✓ Portfolio engagement views refreshed successfully')
+    console.log('✓ Portfolio engagement and stock holdings views refreshed successfully')
 
-    // Step 5: Refresh portfolio_breakdown_with_metrics
-    // Depends on portfolio_creator_engagement_metrics (refreshed in step 4)
-    console.log('Refreshing portfolio_breakdown_with_metrics...')
-
-    const { error: portfolioBreakdownError } = await supabase.rpc('refresh_portfolio_breakdown_view')
-
-    if (portfolioBreakdownError) {
-      console.warn('⚠️ Error refreshing portfolio_breakdown_with_metrics:', portfolioBreakdownError)
-      // Non-fatal - continue with other refreshes
-    } else {
-      console.log('✓ portfolio_breakdown_with_metrics refreshed successfully')
-    }
-
-    // Step 5: premium_creator_breakdown is now a regular view (not materialized)
-    // No refresh needed - updates automatically when underlying data changes
-    console.log('ℹ️ premium_creator_breakdown is a regular view - no refresh needed')
+    // Step 5: Regular views (no refresh needed)
+    // - portfolio_breakdown_with_metrics: joins materialized views with CSV upload data
+    // - premium_creator_breakdown: aggregates portfolio_creator_engagement_metrics
+    console.log('ℹ️ portfolio_breakdown_with_metrics and premium_creator_breakdown are regular views - no refresh needed')
 
     // Step 6: Refresh premium_creator_retention_analysis
     // Depends on premium_creator_retention_events table
@@ -123,16 +128,9 @@ serve(async (req) => {
       console.log('✓ premium_creator_retention_analysis refreshed successfully')
     }
 
-    // Step 7: Refresh copy engagement summary (depends on main_analysis)
-    // Note: main_analysis is refreshing concurrently in background, so this will use
-    // current (potentially slightly stale) data until main_analysis refresh completes
-    console.log('Refreshing copy engagement summary view...')
-
-    const copyResult = await supabase.rpc('refresh_copy_engagement_summary')
-
-    if (copyResult.error) console.error('Error refreshing copy summary:', copyResult.error)
-
-    console.log('✓ Copy engagement summary view refreshed (using current main_analysis data)')
+    // Step 7: copy_engagement_summary is now a regular view (not materialized)
+    // No refresh needed - updates automatically when main_analysis (materialized) changes
+    console.log('ℹ️ copy_engagement_summary is a regular view - no refresh needed')
 
     // Step 8: Refresh enriched support conversations view
     // DISABLED: This view is expensive and causes database performance issues
@@ -147,10 +145,10 @@ serve(async (req) => {
         main_analysis_refreshed: !mainAnalysisError,
         user_portfolio_creator_copies: 'regular_view_no_refresh_needed',
         portfolio_views_refreshed: !portfolioRefreshError,
-        portfolio_breakdown_refreshed: !portfolioBreakdownError,
+        portfolio_breakdown_with_metrics: 'regular_view_no_refresh_needed',
         premium_creator_breakdown: 'regular_view_no_refresh_needed',
         retention_analysis_refreshed: !retentionError,
-        copy_engagement_summary_refreshed: !copyResult.error,
+        copy_engagement_summary: 'regular_view_no_refresh_needed',
         enriched_support_conversations_refreshed: 'skipped_manual_refresh_required',
         pattern_analysis_triggered: true
       }

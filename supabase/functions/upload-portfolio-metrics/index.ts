@@ -166,15 +166,9 @@ async function handlePerformanceUpload(supabase: any, csvContent: string) {
     console.warn(`⚠️ ${errors.length} batch(es) had errors:`, errors)
   }
 
-  // Refresh the materialized view to include new metrics
-  console.log('Refreshing portfolio breakdown materialized view...')
-  try {
-    await supabase.rpc('refresh_portfolio_breakdown_view')
-    console.log('✅ Materialized view refreshed')
-  } catch (error) {
-    console.warn('⚠️ Failed to refresh materialized view:', error)
-    // Don't fail the whole upload if view refresh fails
-  }
+  // Note: portfolio_breakdown_with_metrics is now a regular view (not materialized)
+  // No refresh needed - it automatically reflects changes to portfolio_performance_metrics table
+  console.log('ℹ️ portfolio_breakdown_with_metrics is a regular view - data immediately available')
 
   return new Response(
     JSON.stringify({
