@@ -119,6 +119,23 @@ export class ZendeskClient {
       const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
+      // Debug: Log API response structure for first page
+      if (comments.length === 0) {
+        console.log(`  API response structure:`)
+        console.log(`    - ticket_events array length: ${(data.ticket_events || []).length}`)
+        if (data.ticket_events && data.ticket_events.length > 0) {
+          const firstEvent = data.ticket_events[0]
+          console.log(`    - First event keys: ${Object.keys(firstEvent).join(', ')}`)
+          console.log(`    - First event has child_events: ${!!firstEvent.child_events}`)
+          if (firstEvent.child_events) {
+            console.log(`    - child_events length: ${firstEvent.child_events.length}`)
+            if (firstEvent.child_events.length > 0) {
+              console.log(`    - First child_event keys: ${Object.keys(firstEvent.child_events[0]).join(', ')}`)
+            }
+          }
+        }
+      }
+
       // Process each ticket event
       for (const event of data.ticket_events || []) {
         // Check if this event has comment child_events
