@@ -397,6 +397,9 @@ class UserAnalysisTool {
      * Implements incremental analysis: skips re-processing if data unchanged
      */
     async processAndAnalyze(contents) {
+        // Reset cached new variables at the start of each analysis
+        cachedNewVariables = null;
+
         // Step 1: Merge data
         const mergedData = processComprehensiveData(contents);
 
@@ -1191,10 +1194,14 @@ function detectNewVariables(cleanData) {
 
 /**
  * Helper: Get all variables (known + new)
+ * Cache the result to avoid duplicate detection logs
  */
+let cachedNewVariables = null;
 function getAllVariables(cleanData) {
-    const newVariables = detectNewVariables(cleanData);
-    return [...ALL_VARIABLES, ...newVariables];
+    if (cachedNewVariables === null) {
+        cachedNewVariables = detectNewVariables(cleanData);
+    }
+    return [...ALL_VARIABLES, ...cachedNewVariables];
 }
 
 /**

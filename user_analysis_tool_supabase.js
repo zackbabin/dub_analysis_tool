@@ -543,13 +543,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
 
-        // DIAGNOSTIC: Log the loaded data
-        console.log('🔍 DIAGNOSTIC - topCopyCombos data:', {
-            length: topCopyCombos?.length,
-            isArray: Array.isArray(topCopyCombos),
-            firstItem: topCopyCombos?.[0],
-            data: topCopyCombos
-        });
+        // Data loaded successfully
 
         // Calculate hidden gems summary from hiddenGems array
         const hiddenGemsSummary = hiddenGems && hiddenGems.length > 0 ? {
@@ -607,11 +601,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
 
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-            console.log('🔍 DIAGNOSTIC - combinationsHTML:', {
-                length: combinationsHTML?.length,
-                isEmpty: combinationsHTML === '',
-                firstChars: combinationsHTML?.substring(0, 100)
-            });
             const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
 
             const copySequenceHTML = copySequenceAnalysis ?
@@ -1923,6 +1912,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Render Highcharts bar chart
         Highcharts.chart(chartId, {
+            accessibility: {
+                enabled: false  // Disable accessibility module warning
+            },
             chart: {
                 type: 'column',
                 backgroundColor: 'transparent'
@@ -2379,7 +2371,7 @@ UserAnalysisToolSupabase.prototype.saveMarketingMetrics = async function(metrics
             return;
         }
 
-        console.log('✅ Marketing metrics saved to database');
+        // Marketing metrics saved successfully
     } catch (error) {
         console.error('Error in saveMarketingMetrics:', error);
     }
@@ -2394,8 +2386,6 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
             console.warn('Supabase integration not available');
             return null;
         }
-
-        console.log('Fetching avg monthly copies from Mixpanel...');
 
         const response = await this.supabaseIntegration.fetchMixpanelInsights('86100814');
 
@@ -2424,8 +2414,6 @@ UserAnalysisToolSupabase.prototype.fetchAvgMonthlyCopies = async function() {
         const completedMonths = monthlyValues.slice(0, -1);
         const sum = completedMonths.reduce((acc, val) => acc + val, 0);
         const average = Math.round(sum / completedMonths.length);
-
-        console.log(`✅ Calculated avg monthly copies: ${average} (${completedMonths.length} months)`);
         return average;
     } catch (error) {
         console.error('Error fetching avg monthly copies:', error);
@@ -2444,8 +2432,6 @@ UserAnalysisToolSupabase.prototype.fetchMarketBeatingPortfolios = async function
             return null;
         }
 
-        console.log('Fetching market-beating portfolios count...');
-
         const { count, error } = await this.supabaseIntegration.supabase
             .from('portfolio_performance_metrics')
             .select('*', { count: 'exact', head: true })
@@ -2455,8 +2441,6 @@ UserAnalysisToolSupabase.prototype.fetchMarketBeatingPortfolios = async function
             console.error('Error fetching market-beating portfolios:', error);
             return null;
         }
-
-        console.log(`✅ Found ${count} market-beating portfolios (>=15% returns)`);
         return count;
     } catch (error) {
         console.error('Error fetching market-beating portfolios:', error);

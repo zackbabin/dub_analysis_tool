@@ -2922,6 +2922,9 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
         const topCreators = subscriptionDistribution.map(d => d.top_creators || []);
 
         const chart = Highcharts.chart(chartId, {
+            accessibility: {
+                enabled: false  // Disable accessibility module warning
+            },
             chart: {
                 type: 'column',
                 backgroundColor: '#ffffff',
@@ -2996,7 +2999,7 @@ CreatorAnalysisToolSupabase.prototype.renderSubscriptionPriceChart = function(ch
             container.highchartsChart = chart;
         }
 
-        console.log('✅ Subscription price chart rendered with top creators tooltip');
+        // Chart rendered successfully
 };
 
 console.log('✅ Creator Analysis Tool (Supabase) loaded successfully!');

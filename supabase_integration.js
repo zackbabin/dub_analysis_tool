@@ -503,23 +503,18 @@ class SupabaseIntegration {
      * Called at the end of workflow to ensure views have latest data from all sources
      */
     async triggerMaterializedViewsRefresh() {
-        console.log('Triggering materialized views refresh...');
-
         try {
             const { data, error } = await this.supabase.functions.invoke('refresh-materialized-views', {
                 body: {}
             });
 
             if (error) {
-                console.error('Materialized views refresh error:', error);
                 throw new Error(`Materialized views refresh failed: ${error.message}`);
             }
 
             if (!data || !data.success) {
                 throw new Error(data?.error || 'Unknown error during materialized views refresh');
             }
-
-            console.log('✅ Materialized views refresh completed:', data);
 
             return data;
         } catch (error) {
@@ -561,7 +556,7 @@ class SupabaseIntegration {
                 }
             }
 
-            console.log(`📊 Loaded ${allData.length} records from database`);
+            // Silently load data - verbose logging removed for cleaner console
 
             // Convert to CSV format for compatibility with existing analysis code
             return this.convertToCSVFormat(allData);
@@ -911,7 +906,7 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                console.log(`✅ Loaded ${data.length} price points`);
+                // Data loaded successfully
                 return data;
             } catch (error) {
                 console.error('Error loading subscription distribution:', error);
@@ -1154,8 +1149,6 @@ class SupabaseIntegration {
         const cacheKey = `event_sequence_${outcomeType}`;
 
         return this.cachedQuery(cacheKey, async () => {
-            console.log(`Loading event sequence analysis for ${outcomeType}...`);
-
             try {
                 const { data, error } = await this.supabase
                     .from('event_sequence_analysis')
@@ -1163,14 +1156,12 @@ class SupabaseIntegration {
                     .eq('analysis_type', outcomeType)
                     .order('generated_at', { ascending: false })
                     .limit(1)
-                    .single();
+                    .maybeSingle();  // Use maybeSingle() instead of single() to avoid 406 error
 
-                if (error) {
-                    console.warn(`No sequence analysis found for ${outcomeType}:`, error);
+                if (error || !data) {
+                    // Silently return null if no data exists
                     return null;
                 }
-
-                console.log(`✅ Loaded sequence analysis for ${outcomeType}`);
 
                 return {
                     predictive_sequences: data.predictive_sequences || [],
@@ -1180,7 +1171,7 @@ class SupabaseIntegration {
                     top_recommendations: data.recommendations || []
                 };
             } catch (error) {
-                console.error(`Error loading sequence analysis for ${outcomeType}:`, error);
+                // Silently return null on error
                 return null;
             }
         });
@@ -1250,8 +1241,6 @@ class SupabaseIntegration {
                 // Apply limit after sorting
                 sortedData = sortedData.slice(0, limit);
 
-                console.log(`✅ Loaded ${sortedData.length} ${analysisType} combinations (minExposure=${minExposure})`);
-
                 // Debug: show filter values if no data returned
                 if (sortedData.length === 0) {
                     console.warn(`No ${analysisType} combinations found. Query filters:`, {
@@ -1264,9 +1253,6 @@ class SupabaseIntegration {
 
                 // Usernames are now stored directly in the table by the analysis function
                 // No runtime mapping needed - username_1, username_2, username_3 columns are populated
-                if (mapUsernames && sortedData.length > 0) {
-                    console.log(`Combinations include usernames from database`);
-                }
 
                 return sortedData;
             } catch (error) {
@@ -1319,7 +1305,7 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                console.log(`✅ Loaded copy engagement summary`);
+                // Data loaded successfully
                 return data;
             } catch (error) {
                 console.error('Error loading copy engagement summary:', error);
@@ -1461,7 +1447,7 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                console.log(`✅ Loaded ${data.length} hidden gems portfolios`);
+                // Data loaded successfully
                 return data;
             } catch (error) {
                 console.error('Error loading hidden gems:', error);
@@ -1579,7 +1565,7 @@ class SupabaseIntegration {
                     throw error;
                 }
 
-                console.log(`✅ Loaded ${data.length} premium creator affinity records from view`);
+                // Data loaded successfully
                 return data;
             } catch (error) {
                 console.error('Error loading premium creator copy affinity:', error);
