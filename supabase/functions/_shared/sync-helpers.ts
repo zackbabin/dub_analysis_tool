@@ -11,7 +11,32 @@ import { createClient, SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { CORS_HEADERS, type MixpanelCredentials, shouldSkipSync } from './mixpanel-api.ts'
 
 // ============================================================================
-// 0. TIMEOUT MANAGEMENT
+// 0. DATA SANITIZATION
+// ============================================================================
+
+/**
+ * Sanitize distinct_id by removing $device: prefix
+ * Mixpanel uses $device: prefix for anonymous device IDs, but we want to store clean IDs
+ *
+ * Examples:
+ *   "$device:abc123" -> "abc123"
+ *   "user@example.com" -> "user@example.com"
+ *   null/undefined -> null
+ */
+export function sanitizeDistinctId(distinctId: string | null | undefined): string | null {
+  if (!distinctId) return null
+  if (typeof distinctId !== 'string') return null
+
+  // Remove $device: prefix if present
+  if (distinctId.startsWith('$device:')) {
+    return distinctId.substring(8) // Remove "$device:" (8 characters)
+  }
+
+  return distinctId
+}
+
+// ============================================================================
+// 1. TIMEOUT MANAGEMENT
 // ============================================================================
 
 // Edge Functions have a 150-second hard timeout

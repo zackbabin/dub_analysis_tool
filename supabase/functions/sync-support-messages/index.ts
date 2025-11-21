@@ -120,70 +120,42 @@ serve(async (req) => {
       // Fetch ticket data for user_id context (for PII redaction)
       const { data: tickets, error: ticketError } = await supabase
         .from('raw_support_conversations')
-        .select('external_id, user_id')
+        .select('id, user_id')
         .eq('source', 'zendesk')
-        .in('external_id', ticketIds)
+        .in('id', ticketIds)
 
       if (ticketError) {
         console.warn('⚠️ Could not fetch ticket context for PII redaction:', ticketError.message)
       }
 
-      // Build ticket -> user_id lookup map
+      // Build ticket ID -> user_id lookup map
       const ticketUserMap = new Map<string, string | null>()
       for (const ticket of tickets || []) {
-        ticketUserMap.set(ticket.external_id, ticket.user_id)
+        ticketUserMap.set(ticket.id, ticket.user_id)
       }
 
       // Normalize comments with PII redaction
+      // NOTE: normalizeZendeskComment now returns MessageRecord with conversation_source and conversation_id
       const normalizedComments = commentEvents.map(comment => {
         const ticketId = comment.ticket_id.toString()
         const userDistinctId = ticketUserMap.get(ticketId) || undefined
 
         return ConversationNormalizer.normalizeZendeskComment(
           comment,
-          ticketId,
+          ticketId, // This is the Zendesk ticket ID, which is now our primary key
           userDistinctId
         )
       })
 
-      // Get conversation IDs from database (map external_id -> internal id)
-      const { data: conversationIds, error: convError } = await supabase
-        .from('raw_support_conversations')
-        .select('id, external_id')
-        .eq('source', 'zendesk')
-        .in('external_id', ticketIds)
-
-      if (convError) {
-        console.error('Error fetching conversation IDs:', convError)
-        throw convError
-      }
-
-      const externalToInternalId = new Map<string, number>()
-      for (const conv of conversationIds || []) {
-        externalToInternalId.set(conv.external_id, conv.id)
-      }
-
-      // Map to database schema with internal conversation_id
-      const messagesForDB = normalizedComments
-        .map(msg => {
-          const conversationId = externalToInternalId.get(msg.conversation_external_id)
-
-          if (!conversationId) {
-            console.warn(`⚠️ No conversation found for external_id ${msg.conversation_external_id}`)
-            return null
-          }
-
-          return {
-            conversation_id: conversationId,
-            external_id: msg.external_id,
-            author_type: msg.author_type,
-            author_id: msg.author_id,
-            body: msg.body,
-            is_public: msg.is_public,
-            created_at: msg.created_at,
-          }
-        })
-        .filter(m => m !== null)
+      // Verify all tickets exist in database
+      const ticketsInDb = new Set((tickets || []).map(t => t.id))
+      const messagesForDB = normalizedComments.filter(msg => {
+        if (!ticketsInDb.has(msg.conversation_id)) {
+          console.warn(`⚠️ No conversation found for ticket ID ${msg.conversation_id}`)
+          return false
+        }
+        return true
+      })
 
       console.log(`Mapped ${messagesForDB.length} comments to database schema`)
 
@@ -197,7 +169,7 @@ serve(async (req) => {
         const { error: insertError } = await supabase
           .from('support_conversation_messages')
           .upsert(batch, {
-            onConflict: 'conversation_id,external_id',
+            onConflict: 'conversation_source,conversation_id,external_id',
             ignoreDuplicates: false,
           })
 
@@ -247,6 +219,7 @@ serve(async (req) => {
         supabase
           .from('raw_support_conversations')
           .update({ message_count: count })
+          .eq('source', 'zendesk')
           .eq('id', conversationId)
       )
 

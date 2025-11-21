@@ -10,8 +10,8 @@
 import { PIIRedactor } from './pii-redactor.ts'
 
 export interface ConversationRecord {
+  id: string // Source ticket ID (Zendesk ticket.id, Instabug bug.id)
   source: string
-  external_id: string
   title: string | null
   description: string | null
   status: string
@@ -20,7 +20,7 @@ export interface ConversationRecord {
   updated_at: string | null
   resolved_at: string | null
   user_uuid: string | null // Will be populated after matching distinct_id
-  user_id: string | null // distinct_id from source system (Zendesk external_id or Instabug user_id)
+  user_id: string | null // Mixpanel distinct_id (from Zendesk ticket.external_id or Instabug user.id)
   assignee_id: string | null
   tags: string[]
   custom_fields: Record<string, any>
@@ -32,8 +32,9 @@ export interface ConversationRecord {
 }
 
 export interface MessageRecord {
-  conversation_external_id: string
-  external_id: string | null
+  conversation_source: string // Source (zendesk, instabug)
+  conversation_id: string // Ticket ID from raw_support_conversations.id
+  external_id: string | null // Zendesk comment ID or Instabug comment ID (for deduplication)
   author_type: string
   author_id: string | null
   author_email: string | null
@@ -50,11 +51,13 @@ export interface MessageRecord {
 export class ConversationNormalizer {
   /**
    * Normalize Zendesk ticket to common schema with PII redaction
-   * Maps Zendesk external_id to user_id for distinct_id matching
-   * Extracts Linear integration metadata from tags and custom fields
+   *
+   * ID Mapping:
+   * - ticket.id → our id (PRIMARY KEY)
+   * - ticket.external_id → our user_id (Mixpanel distinct_id)
    */
   static normalizeZendeskTicket(ticket: any): ConversationRecord {
-    // Extract distinct_id from Zendesk external_id field (maps to Mixpanel distinct_id)
+    // Extract Mixpanel distinct_id from Zendesk's external_id field
     const distinctId = ticket.external_id || null
 
     // Extract Linear metadata
@@ -82,8 +85,8 @@ export class ConversationNormalizer {
     }
 
     return {
+      id: ticket.id.toString(), // Zendesk ticket ID
       source: 'zendesk',
-      external_id: ticket.id.toString(),
       title: PIIRedactor.redact(ticket.subject, distinctId),
       description: PIIRedactor.redact(ticket.description, distinctId),
       status: ticket.status,
@@ -92,7 +95,7 @@ export class ConversationNormalizer {
       updated_at: ticket.updated_at,
       resolved_at: ticket.solved_at,
       user_uuid: null, // Will be populated by database lookup
-      user_id: distinctId, // Zendesk external_id maps to distinct_id
+      user_id: distinctId, // Mixpanel distinct_id from Zendesk ticket.external_id
       assignee_id: ticket.assignee_id?.toString(),
       tags: tags,
       custom_fields: PIIRedactor.redactObject(customFields, distinctId),
@@ -106,6 +109,9 @@ export class ConversationNormalizer {
 
   /**
    * Normalize Zendesk comment to common schema with PII redaction
+   * @param comment - Zendesk comment object
+   * @param ticketId - Zendesk ticket ID (from raw_support_conversations.id)
+   * @param userDistinctId - Mixpanel distinct_id for PII redaction
    */
   static normalizeZendeskComment(
     comment: any,
@@ -113,7 +119,8 @@ export class ConversationNormalizer {
     userDistinctId?: string
   ): MessageRecord {
     return {
-      conversation_external_id: ticketId.toString(),
+      conversation_source: 'zendesk',
+      conversation_id: ticketId,
       external_id: comment.id?.toString(),
       author_type: comment.author_id ? 'agent' : 'customer',
       author_id: comment.author_id?.toString(),
@@ -127,15 +134,18 @@ export class ConversationNormalizer {
 
   /**
    * Normalize Instabug bug to common schema with PII redaction
-   * Maps Instabug user_id to user_id for distinct_id matching
+   *
+   * ID Mapping:
+   * - bug.id → our id (PRIMARY KEY)
+   * - bug.user.id → our user_id (Mixpanel distinct_id)
    */
   static normalizeInstabugBug(bug: any): ConversationRecord {
-    // Extract distinct_id from Instabug user.id field (maps to Mixpanel distinct_id)
+    // Extract Mixpanel distinct_id from Instabug user.id field
     const distinctId = bug.user?.id?.toString() || null
 
     return {
+      id: bug.id.toString(), // Instabug bug ID
       source: 'instabug',
-      external_id: bug.id.toString(),
       title: PIIRedactor.redact(bug.title || 'Untitled Bug', distinctId),
       description: PIIRedactor.redact(bug.description || '', distinctId),
       status: bug.state || 'open',
@@ -144,7 +154,7 @@ export class ConversationNormalizer {
       updated_at: bug.updated_at,
       resolved_at: bug.resolved_at,
       user_uuid: null, // Will be populated by database lookup
-      user_id: distinctId, // Instabug user.id maps to distinct_id
+      user_id: distinctId, // Mixpanel distinct_id from Instabug user.id
       assignee_id: bug.assignee?.id?.toString(),
       tags: bug.tags || [],
       custom_fields: {
@@ -164,6 +174,9 @@ export class ConversationNormalizer {
 
   /**
    * Normalize Instabug comment to common schema with PII redaction
+   * @param comment - Instabug comment object
+   * @param bugId - Instabug bug ID (from raw_support_conversations.id)
+   * @param userDistinctId - Mixpanel distinct_id for PII redaction
    */
   static normalizeInstabugComment(
     comment: any,
@@ -171,7 +184,8 @@ export class ConversationNormalizer {
     userDistinctId?: string
   ): MessageRecord {
     return {
-      conversation_external_id: bugId.toString(),
+      conversation_source: 'instabug',
+      conversation_id: bugId,
       external_id: comment.id?.toString(),
       author_type: comment.user_type || 'customer',
       author_id: comment.user?.id?.toString(),

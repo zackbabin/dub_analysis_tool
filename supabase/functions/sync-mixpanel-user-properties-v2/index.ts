@@ -15,6 +15,7 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
+  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
 const COHORT_IDS = [5825472] // Premium Creator Analysis cohort
@@ -86,9 +87,15 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
 
   for (const profile of profiles) {
     try {
-      const distinctId = profile.$distinct_id
-      if (!distinctId) {
+      const rawDistinctId = profile.$distinct_id
+      if (!rawDistinctId) {
         console.warn('Profile missing distinct_id:', profile)
+        continue
+      }
+
+      const distinctId = sanitizeDistinctId(rawDistinctId)
+      if (!distinctId) {
+        console.warn('Profile has invalid distinct_id after sanitization:', rawDistinctId)
         continue
       }
 

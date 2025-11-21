@@ -127,7 +127,7 @@ serve(async (req) => {
           const { error: batchError } = await supabase
             .from('raw_support_conversations')
             .upsert(normalizedBatch, {
-              onConflict: 'source,external_id',
+              onConflict: 'source,id',
               ignoreDuplicates: false,
             })
 

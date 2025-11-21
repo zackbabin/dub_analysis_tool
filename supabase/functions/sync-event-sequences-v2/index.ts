@@ -16,6 +16,7 @@ import {
   handleRateLimitError,
   createSuccessResponse,
   createErrorResponse,
+  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 import { MIXPANEL_CONFIG } from '../_shared/mixpanel-api.ts'
 
@@ -234,7 +235,8 @@ serve(async (req) => {
         const internalEventName = mapEventName(exportEventName, creatorType)
 
         // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
-        const distinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+        const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+        const distinctId = sanitizeDistinctId(rawDistinctId)
 
         return {
           distinct_id: distinctId,

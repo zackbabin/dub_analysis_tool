@@ -103,8 +103,8 @@ async function findDirectLinearLinks(
   // Query for all conversation data including tags and custom_fields
   const { data: conversations, error } = await supabase
     .from('enriched_support_conversations')
-    .select('external_id, linear_identifier, tags, custom_fields')
-    .in('external_id', conversationIds)
+    .select('id, linear_identifier, tags, custom_fields')
+    .in('id', conversationIds)
 
   if (error) {
     console.error('Error querying conversations for Linear links:', error)

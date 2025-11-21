@@ -15,8 +15,7 @@ import {
 } from '../_shared/sync-helpers.ts'
 
 interface EnrichedConversation {
-  id: string
-  external_id: string
+  id: string // Ticket ID (Zendesk ticket.id, Instabug bug.id)
   source: string
   title: string
   description: string
@@ -364,7 +363,7 @@ serve(async (req) => {
 
         return {
           id: idx + 1,
-          external_id: conv.external_id,
+          ticket_id: conv.id, // Ticket ID from source system
           source: conv.source,
           title: sanitize(conv.title),
           created_at: conv.created_at,

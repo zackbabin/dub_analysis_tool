@@ -14,6 +14,7 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
+  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
 const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 17 event metrics
@@ -82,9 +83,13 @@ function parseInsightsResponse(data: any): Map<string, UserMetrics> {
     }
 
     // Iterate through each distinct_id for this metric
-    for (const [distinctId, distinctIdData] of Object.entries(metricData as Record<string, any>)) {
+    for (const [rawDistinctId, distinctIdData] of Object.entries(metricData as Record<string, any>)) {
       // Skip $overall aggregate
-      if (distinctId === '$overall') continue
+      if (rawDistinctId === '$overall') continue
+
+      // Sanitize distinct_id (remove $device: prefix if present)
+      const distinctId = sanitizeDistinctId(rawDistinctId)
+      if (!distinctId) continue
 
       // Get count for this distinct_id
       const count = distinctIdData?.all || 0

@@ -11,6 +11,7 @@ import {
   initializeSupabaseClient,
   handleCorsRequest,
   checkAndHandleSkipSync,
+  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
 const SUBSCRIBED_CHART_ID = '85857452'  // "Subscribed to Creator" metric
@@ -233,11 +234,16 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
   let skippedZero = 0
   let skippedOverall = 0
 
-  for (const [distinctId, distinctIdData] of Object.entries(metricData)) {
-    if (distinctId === '$overall') {
+  for (const [rawDistinctId, distinctIdData] of Object.entries(metricData)) {
+    if (rawDistinctId === '$overall') {
       skippedOverall++
       continue
     }
+
+    // Sanitize distinct_id (remove $device: prefix if present)
+    const distinctId = sanitizeDistinctId(rawDistinctId)
+    if (!distinctId) continue
+
     if (typeof distinctIdData !== 'object') continue
 
     for (const [creatorUsername, creatorData] of Object.entries(distinctIdData as Record<string, any>)) {
