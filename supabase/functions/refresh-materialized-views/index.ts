@@ -25,6 +25,11 @@ serve(async (req) => {
     }
 
     // Refresh portfolio engagement views
+    // This RPC refreshes 4 materialized views:
+    // - portfolio_creator_engagement_metrics
+    // - hidden_gems_portfolios
+    // - premium_creator_stock_holdings
+    // - top_stocks_all_premium_creators
     console.log('Refreshing portfolio_engagement_views...')
     const { error: portfolioRefreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
     if (portfolioRefreshError) {
