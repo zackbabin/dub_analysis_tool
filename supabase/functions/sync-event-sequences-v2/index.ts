@@ -269,6 +269,19 @@ serve(async (req) => {
 
       console.log(`Prepared ${rawEventRows.length} event records for insertion`)
 
+      // Check if we're approaching timeout before starting batch inserts
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn('⚠️ Approaching timeout before batch inserts - returning partial results')
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
+        })
+        return createSuccessResponse(
+          'Partial sync - fetched events but timed out before insert',
+          { ...stats, warning: 'Timeout before insert - no events stored' },
+          { note: 'Function timed out before inserting events. Run again to complete.' }
+        )
+      }
+
       // Insert events in batches (deduplication via unique index)
       const batchSize = 500
       let totalInserted = 0
@@ -276,6 +289,13 @@ serve(async (req) => {
       let skippedBatches = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
+        // Check timeout before each batch
+        if (timeoutGuard.isApproachingTimeout()) {
+          console.warn(`⚠️ Approaching timeout at batch ${Math.floor(i / batchSize) + 1} - stopping early`)
+          console.log(`✓ Inserted ${totalInserted} events before timeout (${rawEventRows.length - i} remaining)`)
+          break
+        }
+
         const batch = rawEventRows.slice(i, i + batchSize)
         const batchNum = Math.floor(i / batchSize) + 1
         const totalBatches = Math.ceil(rawEventRows.length / batchSize)
@@ -337,20 +357,27 @@ serve(async (req) => {
       stats.eventsInserted = totalInserted
       stats.duplicatesSkipped = totalDuplicatesSkipped
 
-      // Update sync log with success
+      // Check if we completed all records or timed out early
+      const partialSync = stats.eventsInserted < rawEventRows.length
+      const message = partialSync
+        ? `Partial sync completed - ${stats.eventsInserted} of ${rawEventRows.length} events inserted before timeout`
+        : 'Event sequences sync v2 completed successfully - events stored with all properties'
+
+      // Update sync log with success (even if partial)
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: stats.eventsInserted,
       })
 
-      console.log('Event sequences sync v2 completed successfully')
+      console.log(partialSync ? '⚠️ Partial sync completed' : 'Event sequences sync v2 completed successfully')
       console.log('Call process-event-sequences to aggregate user-level sequences')
 
       return createSuccessResponse(
-        'Event sequences sync v2 completed successfully - events stored with all properties',
+        message,
         stats,
         {
           note: 'Events fetched from Export API with portfolioTicker and creatorUsername included. No enrichment needed.',
-          nextSteps: 'Call process-event-sequences to aggregate user-level sequences'
+          nextSteps: 'Call process-event-sequences to aggregate user-level sequences',
+          partialSync: partialSync
         }
       )
     } catch (error) {

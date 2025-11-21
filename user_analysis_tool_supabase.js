@@ -290,7 +290,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         console.log('  → 4a: Syncing event sequences (Export API)');
                         const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
                         if (seqSyncResult?.success) {
-                            console.log('    ✓ 4a: Event sequences synced');
+                            const partial = seqSyncResult.partialSync ? ' (partial - timed out)' : '';
+                            console.log(`    ✓ 4a: Event sequences synced${partial}`);
                         } else {
                             console.warn('    ⚠ 4a: Sync failed, using existing data');
                         }
@@ -360,15 +361,23 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         } finally {
             // Step 7: Refresh materialized views
             console.log('\n═══ Step 7: Materialized Views ═══');
+            console.log('Refreshing:');
+            console.log('  1. main_analysis');
+            console.log('  2. portfolio_creator_engagement_metrics');
+            console.log('  3. hidden_gems_portfolios');
+            console.log('  4. premium_creator_stock_holdings');
+            console.log('  5. top_stocks_all_premium_creators');
+            console.log('  6. premium_creator_retention_analysis');
+
             try {
                 const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
                 if (refreshResult?.success) {
-                    console.log('✅ Materialized Views: Refreshed');
+                    console.log('✅ All 6 materialized views refreshed');
                 } else {
-                    console.warn('⚠ Materialized Views: Refresh failed');
+                    console.warn('⚠ Materialized views refresh failed');
                 }
             } catch (error) {
-                console.warn('⚠ Materialized Views: Refresh failed, continuing');
+                console.warn('⚠ Materialized views refresh failed, continuing');
             }
 
             console.log('\n✅ Sync Live Data: Workflow complete\n');

@@ -893,7 +893,7 @@ class SupabaseIntegration {
      */
     async loadSubscriptionDistribution() {
         return this.cachedQuery('subscription_distribution', async () => {
-            console.log('Loading subscription price distribution...');
+            // Loading subscription price distribution
 
             try {
                 const { data, error } = await this.supabase
@@ -1172,7 +1172,7 @@ class SupabaseIntegration {
         const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}_${minExposure}`;
 
         return this.cachedQuery(cacheKey, async () => {
-            console.log(`Loading top ${analysisType} combinations by ${metric}...`);
+            // Loading combination data
 
             try {
                 let query = this.supabase
@@ -1273,7 +1273,7 @@ class SupabaseIntegration {
      */
     async loadCopyEngagementSummary() {
         return this.cachedQuery('copy_engagement_summary', async () => {
-            console.log('Loading copy engagement summary...');
+            // Loading copy engagement summary
 
             try {
                 const { data, error } = await this.supabase
@@ -1413,7 +1413,7 @@ class SupabaseIntegration {
      */
     async loadHiddenGems() {
         return this.cachedQuery('hidden_gems_portfolios', async () => {
-            console.log('Loading hidden gems portfolios...');
+            // Loading hidden gems portfolios
 
             try {
                 const { data, error } = await this.supabase
@@ -1561,7 +1561,7 @@ class SupabaseIntegration {
      */
     async fetchMixpanelInsights(chartId) {
         try {
-            console.log(`Fetching Mixpanel chart ${chartId} via Edge Function...`);
+            // Fetching Mixpanel chart via Edge Function
 
             const { data, error } = await this.supabase.functions.invoke('fetch-mixpanel-marketing', {
                 body: { chartId }
@@ -1581,7 +1581,7 @@ class SupabaseIntegration {
                 throw new Error('Invalid response from Mixpanel chart');
             }
 
-            console.log(`✅ Fetched Mixpanel chart ${chartId}`);
+            // Mixpanel chart fetched
             return chartData;
         } catch (error) {
             console.error('Error fetching Mixpanel insights:', error);
