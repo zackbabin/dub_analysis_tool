@@ -164,15 +164,29 @@ WHERE message_count > 0;
 ALTER TABLE support_conversation_messages
 DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_external_id_key;
 
-ALTER TABLE support_conversation_messages
-ADD CONSTRAINT support_conversation_messages_conversation_external_id_key
-UNIQUE (conversation_source, conversation_id, external_id);
+-- Use DO block to conditionally add constraint only if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'support_conversation_messages_conversation_external_id_key'
+  ) THEN
+    ALTER TABLE support_conversation_messages
+    ADD CONSTRAINT support_conversation_messages_conversation_external_id_key
+    UNIQUE (conversation_source, conversation_id, external_id);
+  END IF;
 
-ALTER TABLE support_conversation_messages
-ADD CONSTRAINT support_conversation_messages_conversation_fkey
-FOREIGN KEY (conversation_source, conversation_id)
-REFERENCES raw_support_conversations(source, id)
-ON DELETE CASCADE;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'support_conversation_messages_conversation_fkey'
+  ) THEN
+    ALTER TABLE support_conversation_messages
+    ADD CONSTRAINT support_conversation_messages_conversation_fkey
+    FOREIGN KEY (conversation_source, conversation_id)
+    REFERENCES raw_support_conversations(source, id)
+    ON DELETE CASCADE;
+  END IF;
+END $$;
 
 DROP INDEX IF EXISTS idx_support_messages_conversation;
 CREATE INDEX IF NOT EXISTS idx_support_messages_conversation
