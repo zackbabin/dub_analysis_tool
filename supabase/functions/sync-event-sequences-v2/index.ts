@@ -77,7 +77,7 @@ async function fetchEventsFromExportAPI(
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Accept': 'application/json',
+      'Accept': 'text/plain',
       'Authorization': `Basic ${btoa(`${username}:${secret}`)}`,
     },
   })
