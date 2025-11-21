@@ -129,28 +129,47 @@ serve(async (req) => {
       console.log(`Comments span ${ticketIds.length} unique tickets`)
 
       // Fetch ticket data for user_id context (for PII redaction)
-      console.log(`Fetching ticket data for ${ticketIds.length} ticket IDs...`)
+      // Batch the ticket ID lookups to avoid URL length limits (max ~1000 IDs per batch)
+      console.log(`Fetching ticket data for ${ticketIds.length} ticket IDs in batches...`)
       console.log(`  Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
       const ticketFetchStartMs = Date.now()
-      const { data: tickets, error: ticketError } = await supabase
-        .from('raw_support_conversations')
-        .select('id, user_id')
-        .eq('source', 'zendesk')
-        .in('id', ticketIds)
+      const TICKET_BATCH_SIZE = 1000
+      const tickets: any[] = []
+      let ticketError: any = null
+
+      for (let i = 0; i < ticketIds.length; i += TICKET_BATCH_SIZE) {
+        const batchIds = ticketIds.slice(i, i + TICKET_BATCH_SIZE)
+        const batchNum = Math.floor(i / TICKET_BATCH_SIZE) + 1
+        const totalBatches = Math.ceil(ticketIds.length / TICKET_BATCH_SIZE)
+
+        console.log(`  Fetching ticket batch ${batchNum}/${totalBatches} (${batchIds.length} IDs)...`)
+
+        const { data, error } = await supabase
+          .from('raw_support_conversations')
+          .select('id, user_id')
+          .eq('source', 'zendesk')
+          .in('id', batchIds)
+
+        if (error) {
+          console.error(`❌ Error fetching ticket batch ${batchNum}/${totalBatches}:`, error)
+          ticketError = error
+          break // Stop on first error
+        }
+
+        if (data) {
+          tickets.push(...data)
+          console.log(`  ✓ Batch ${batchNum}/${totalBatches}: found ${data.length} tickets`)
+        }
+      }
 
       const ticketFetchElapsedSec = Math.round((Date.now() - ticketFetchStartMs) / 1000)
       console.log(`  Ticket fetch completed in ${ticketFetchElapsedSec}s`)
 
       if (ticketError) {
-        console.error('❌ Could not fetch ticket context for PII redaction:', ticketError)
-        console.error('   Error code:', ticketError.code)
-        console.error('   Error details:', ticketError.details)
+        console.error('❌ Could not fetch ticket context for PII redaction (batch failed)')
       } else {
-        console.log(`✅ Found ${tickets?.length || 0} tickets in database`)
-        if (tickets && tickets.length > 0) {
-          console.log(`   Sample ticket: ${JSON.stringify(tickets[0])}`)
-        }
+        console.log(`✅ Found ${tickets.length} tickets in database across all batches`)
       }
 
       // Build ticket ID -> user_id lookup map
