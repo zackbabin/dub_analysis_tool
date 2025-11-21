@@ -77,9 +77,9 @@ async function fetchEventsFromExportAPI(
 
   let response: Response
   try {
-    // Add 120s timeout for Mixpanel API call (leaves 30s buffer for processing)
+    // Add 100s timeout for Mixpanel API call (leaves 50s buffer for processing/storage)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 120000)
+    const timeoutId = setTimeout(() => controller.abort(), 100000)
 
     response = await fetch(url, {
       method: 'GET',
@@ -93,8 +93,8 @@ async function fetchEventsFromExportAPI(
     clearTimeout(timeoutId)
   } catch (fetchError: any) {
     if (fetchError.name === 'AbortError') {
-      console.error('❌ Mixpanel API request timed out after 120s')
-      throw new Error('Mixpanel Export API request timed out after 120 seconds')
+      console.error('❌ Mixpanel API request timed out after 100s')
+      throw new Error('Mixpanel Export API request timed out after 100 seconds')
     }
     console.error('❌ Mixpanel API fetch error:', fetchError.message)
     throw new Error(`Mixpanel Export API fetch failed: ${fetchError.message}`)
@@ -213,6 +213,7 @@ serve(async (req) => {
 
       console.log(`Fetching events from ${fromDate} to ${toDate}...`)
 
+      const fetchStartMs = Date.now()
       let events: MixpanelExportEvent[] = []
 
       try {
@@ -228,6 +229,9 @@ serve(async (req) => {
         throw error
       }
 
+      const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
+      console.log(`✓ Fetch completed in ${fetchElapsedSec}s - Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
+
       const stats: SyncStats = {
         eventsFetched: events.length,
         eventsInserted: 0,
@@ -238,6 +242,7 @@ serve(async (req) => {
       // If so, we won't have time to insert data, so return with warning
       if (timeoutGuard.isApproachingTimeout()) {
         console.warn(`⚠️ Approaching timeout after fetching ${events.length} events - no time for inserts`)
+        console.log(`   Time remaining: ${140 - timeoutGuard.getElapsedSeconds()}s`)
         await updateSyncLogSuccess(supabase, syncLogId, {
           total_records_inserted: 0,
         })
