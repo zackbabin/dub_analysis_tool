@@ -259,18 +259,31 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Step 5/7: Run AI analysis on support feedback
                 // This reads from the refreshed enriched_support_conversations view
                 console.log('Step 5/7: Analyzing support feedback with Claude AI...');
+                let analysisSucceeded = false;
                 try {
                     const analysisResult = await this.supabaseIntegration.supabase.functions.invoke('analyze-support-feedback', { body: {} });
 
                     if (analysisResult.error) {
                         console.error('❌ Support analysis failed:', analysisResult.error);
-                        throw new Error(`Support analysis failed: ${analysisResult.error.message}`);
+                        // Continue anyway - we may have previous analysis to show
+                    } else {
+                        console.log('✅ Support analysis complete:', analysisResult.data);
+                        analysisSucceeded = true;
                     }
-
-                    console.log('✅ Support analysis complete:', analysisResult.data);
                 } catch (analysisError) {
                     console.error('⚠️ Support analysis exception:', analysisError.message);
-                    throw analysisError; // Don't continue if analysis fails
+                    // Continue anyway - we may have previous analysis to show
+                }
+
+                // Only attempt Linear mapping if analysis succeeded
+                if (!analysisSucceeded) {
+                    console.warn('⚠️ Skipping Linear mapping since analysis failed');
+                    // Still refresh UI to show any existing data
+                    if (window.cxAnalysis) {
+                        await window.cxAnalysis.refresh();
+                        console.log('✅ CX Analysis refreshed (showing previous analysis if available)');
+                    }
+                    return; // Exit workflow early
                 }
 
                 // Step 6/7: Map Linear issues to feedback (AI semantic matching)
