@@ -202,7 +202,7 @@ serve(async (req) => {
         const { data, error: insertError, count } = await supabase
           .from('support_conversation_messages')
           .upsert(batch, {
-            onConflict: 'conversation_source,conversation_id,external_id',
+            onConflict: 'conversation_source,conversation_id,created_at,author_id',
             ignoreDuplicates: false,
             count: 'exact'
           })

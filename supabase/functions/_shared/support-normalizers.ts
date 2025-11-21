@@ -119,7 +119,7 @@ export class ConversationNormalizer {
     return {
       conversation_source: 'zendesk',
       conversation_id: ticketId,
-      external_id: comment.id?.toString(),
+      // Note: comment.id is preserved in raw_data, no need for external_id column
       author_type: comment.author_id ? 'agent' : 'customer',
       author_id: comment.author_id?.toString(),
       author_email: comment.author_email || null,
