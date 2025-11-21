@@ -78,12 +78,22 @@ serve(async (req) => {
         credentials.token
       )
 
-      // Fetch comments using incremental API
+      // Fetch comments using incremental API with timeout awareness
+      // Use 120s threshold (30s buffer for processing) instead of default 140s
       console.log('Fetching Zendesk comments...')
-      const commentEvents = await zendeskClient.fetchCommentsSince(startTime)
+      const fetchStartMs = Date.now()
+      const commentEvents = await zendeskClient.fetchCommentsSince(
+        startTime,
+        () => timeoutGuard.getElapsedSeconds() >= 120 // Stop at 120s to leave 30s for processing
+      )
+      const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
 
-      console.log(`✓ Fetched ${commentEvents.length} comment events from Zendesk`)
-      console.log(`Sample comment event:`, JSON.stringify(commentEvents[0] || {}))
+      console.log(`✓ Fetched ${commentEvents.length} comment events from Zendesk in ${fetchElapsedSec}s`)
+      console.log(`  Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 120s fetch limit (30s reserved for processing)`)
+
+      if (commentEvents.length > 0) {
+        console.log(`  Sample comment event keys: ${Object.keys(commentEvents[0]).join(', ')}`)
+      }
 
       // Check timeout after fetch
       if (timeoutGuard.isApproachingTimeout()) {
@@ -120,13 +130,17 @@ serve(async (req) => {
 
       // Fetch ticket data for user_id context (for PII redaction)
       console.log(`Fetching ticket data for ${ticketIds.length} ticket IDs...`)
-      console.log(`Sample ticket IDs: ${ticketIds.slice(0, 5).join(', ')}`)
+      console.log(`  Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
+      const ticketFetchStartMs = Date.now()
       const { data: tickets, error: ticketError } = await supabase
         .from('raw_support_conversations')
         .select('id, user_id')
         .eq('source', 'zendesk')
         .in('id', ticketIds)
+
+      const ticketFetchElapsedSec = Math.round((Date.now() - ticketFetchStartMs) / 1000)
+      console.log(`  Ticket fetch completed in ${ticketFetchElapsedSec}s`)
 
       if (ticketError) {
         console.error('❌ Could not fetch ticket context for PII redaction:', ticketError)
@@ -193,12 +207,14 @@ serve(async (req) => {
         console.log(`Sample message record: ${JSON.stringify(messagesForDB[0])}`)
       }
 
+      const batchStartMs = Date.now()
       for (let i = 0; i < messagesForDB.length; i += BATCH_SIZE) {
         const batch = messagesForDB.slice(i, i + BATCH_SIZE)
         const batchNum = Math.floor(i / BATCH_SIZE) + 1
         const totalBatches = Math.ceil(messagesForDB.length / BATCH_SIZE)
 
         console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} messages)...`)
+        console.log(`    Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
         const { data, error: insertError, count } = await supabase
           .from('support_conversation_messages')
@@ -217,7 +233,8 @@ serve(async (req) => {
         }
 
         totalStored += batch.length
-        console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete: ${totalStored}/${messagesForDB.length} total messages stored`)
+        const batchElapsedSec = Math.round((Date.now() - batchStartMs) / 1000)
+        console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete in ${batchElapsedSec}s: ${totalStored}/${messagesForDB.length} total messages stored`)
       }
 
       console.log(`✓ Successfully stored ${totalStored} messages`)

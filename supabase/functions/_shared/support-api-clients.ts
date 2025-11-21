@@ -106,16 +106,26 @@ export class ZendeskClient {
    * Uses the comment_events sideload to get full comment details in child_events
    * This is much more efficient than fetching comments per ticket
    * @param unixTimestamp - Unix timestamp in seconds
+   * @param isApproachingTimeout - Optional function to check if approaching timeout (returns partial results if true)
    * @returns Array of comment objects with ticket_id
    * @see https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/
    */
-  async fetchCommentsSince(unixTimestamp: number): Promise<any[]> {
+  async fetchCommentsSince(
+    unixTimestamp: number,
+    isApproachingTimeout?: () => boolean
+  ): Promise<any[]> {
     console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
     const comments: any[] = []
     let url: string | null = `${this.baseUrl}/incremental/ticket_events.json?start_time=${unixTimestamp}&include=comment_events`
 
     while (url) {
+      // Check timeout before fetching next page
+      if (isApproachingTimeout && isApproachingTimeout()) {
+        console.warn(`⚠️ Approaching timeout during comment fetch - returning ${comments.length} comments fetched so far`)
+        break
+      }
+
       const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
