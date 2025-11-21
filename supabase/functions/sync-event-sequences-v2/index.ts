@@ -17,6 +17,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   sanitizeDistinctId,
+  TimeoutGuard,
 } from '../_shared/sync-helpers.ts'
 import { MIXPANEL_CONFIG } from '../_shared/mixpanel-api.ts'
 
@@ -146,6 +147,10 @@ serve(async (req) => {
       // Calculate date range (last 7 days to avoid API limits)
       // Mixpanel Export API can timeout or return empty responses for large date ranges
       const now = new Date()
+      // Initialize timeout guard to ensure we complete before 150s hard limit
+      const executionStartMs = Date.now()
+      const timeoutGuard = new TimeoutGuard(executionStartMs)
+
       const lookbackDays = 7 // Reduced from 30 to avoid API limits
       const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
       const fromDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD

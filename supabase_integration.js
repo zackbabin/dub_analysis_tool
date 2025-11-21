@@ -977,33 +977,13 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger event sequence enrichment via Supabase Edge Function
-     * Enriches event sequences with portfolioTicker and creatorUsername properties
-     * Required for unique views analysis
+     * DEPRECATED: Event sequence enrichment is no longer needed
+     * sync-event-sequences-v2 now includes portfolioTicker and creatorUsername directly
+     * from Mixpanel Export API properties, eliminating the need for separate enrichment
      */
     async triggerEventSequenceEnrichment() {
-        console.log('Triggering event sequence enrichment via Supabase Edge Function...');
-
-        try {
-            const { data, error } = await this.supabase.functions.invoke('enrich-event-sequences', {
-                body: {}
-            });
-
-            if (error) {
-                console.error('Edge Function error:', error);
-                throw new Error(`Event sequence enrichment failed: ${error.message}`);
-            }
-
-            if (!data.success) {
-                throw new Error(data.error || 'Unknown error during event sequence enrichment');
-            }
-
-            console.log('✅ Event sequence enrichment completed:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling event sequence enrichment Edge Function:', error);
-            throw error;
-        }
+        console.warn('⚠️ triggerEventSequenceEnrichment is DEPRECATED - enrichment is now handled in sync-event-sequences-v2');
+        return { success: true, message: 'Enrichment no longer needed - properties included in sync' };
     }
 
     /**
