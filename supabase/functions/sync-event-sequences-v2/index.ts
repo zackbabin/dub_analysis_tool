@@ -143,10 +143,12 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range (last 30 days)
+      // Calculate date range (last 7 days to avoid API limits)
+      // Mixpanel Export API can timeout or return empty responses for large date ranges
       const now = new Date()
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-      const fromDate = thirtyDaysAgo.toISOString().split('T')[0] // YYYY-MM-DD
+      const lookbackDays = 7 // Reduced from 30 to avoid API limits
+      const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
+      const fromDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD
       const toDate = now.toISOString().split('T')[0] // YYYY-MM-DD
 
       // Event names to fetch from Mixpanel Export API
