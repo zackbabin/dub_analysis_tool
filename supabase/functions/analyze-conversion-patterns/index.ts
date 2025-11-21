@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { CORS_HEADERS } from '../_shared/mixpanel-api.ts'
+import { TimeoutGuard } from '../_shared/sync-helpers.ts'
 
 // Analysis type configurations
 // Supports two analysis types:
@@ -282,6 +283,10 @@ serve(async (req) => {
     const config = ANALYSIS_CONFIGS[analysisType]
     console.log(`Starting ${analysisType} pattern analysis...`)
 
+    // Initialize timeout guard
+    const executionStartMs = Date.now()
+    const timeoutGuard = new TimeoutGuard(executionStartMs)
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -436,19 +441,27 @@ serve(async (req) => {
       console.log(`✓ Mapped ${entityIdToDisplayName.size} portfolio tickers`)
     }
 
-    // Build entity ID to total views map
-    console.log('Building entity total views map...')
+    // Build entity ID to unique user count map (NOT sum of all views)
+    // This represents "Total Users" not "Total Views" - a more meaningful metric
+    console.log('Building entity unique user count map...')
     const entityIdToTotalViews = new Map<string, number>()
-    const viewColumn = config.filterColumn // 'pdp_view_count' or 'profile_view_count'
+    const entityIdToUserSet = new Map<string, Set<string>>()
 
     for (const pair of pairRows) {
       const entityId = config.entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
       if (entityId) {
-        const currentTotal = entityIdToTotalViews.get(entityId) || 0
-        entityIdToTotalViews.set(entityId, currentTotal + (pair[viewColumn] || 0))
+        if (!entityIdToUserSet.has(entityId)) {
+          entityIdToUserSet.set(entityId, new Set())
+        }
+        entityIdToUserSet.get(entityId)!.add(pair.distinct_id)
       }
     }
-    console.log(`✓ Calculated total views for ${entityIdToTotalViews.size} entities`)
+
+    // Convert user sets to counts
+    for (const [entityId, userSet] of entityIdToUserSet.entries()) {
+      entityIdToTotalViews.set(entityId, userSet.size)
+    }
+    console.log(`✓ Calculated unique user counts for ${entityIdToTotalViews.size} entities`)
 
     // Clear old data before streaming new results
     await supabaseClient
@@ -456,14 +469,36 @@ serve(async (req) => {
       .delete()
       .eq('analysis_type', analysisType)
 
+    // Check timeout before starting expensive operations
+    if (timeoutGuard.isApproachingTimeout()) {
+      console.warn('⏱️ Approaching 140s timeout before combination evaluation - returning early')
+      timeoutGuard.logStatus('Pre-Combination-Eval')
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Timeout: Not enough time to complete analysis',
+          elapsed_seconds: timeoutGuard.getElapsedSeconds()
+        }),
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 408 }
+      )
+    }
+
     // Parallel evaluation with controlled concurrency
     const EVAL_CONCURRENCY = 4
     const allCombinations = Array.from(generateCombinations(topEntities, 2))
 
     console.log(`Starting parallel evaluation with concurrency ${EVAL_CONCURRENCY}...`)
+    console.log(`Total combinations to evaluate: ${allCombinations.length}`)
 
     // Process combinations in parallel chunks
     for (let i = 0; i < allCombinations.length; i += EVAL_CONCURRENCY) {
+      // Check timeout periodically during loop
+      if (timeoutGuard.isApproachingTimeout()) {
+        console.warn(`⏱️ Approaching 140s timeout after evaluating ${i}/${allCombinations.length} combinations`)
+        timeoutGuard.logStatus('During-Combination-Eval')
+        break // Exit loop early but still insert partial results
+      }
+
       const chunk = allCombinations.slice(i, Math.min(i + EVAL_CONCURRENCY, allCombinations.length))
 
       // Evaluate chunk in parallel
