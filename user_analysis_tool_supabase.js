@@ -2781,6 +2781,9 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
             strength: d.predictive_strength
         })));
 
+        // Clear existing content to prevent duplicates (same pattern as deposits/copies tabs)
+        contentDiv.innerHTML = '';
+
         // Create table
         const tableWrapper = document.createElement('div');
         tableWrapper.className = 'table-wrapper';
