@@ -547,7 +547,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading premium creator breakdown from materialized view...');
+            // Loading premium creator breakdown
 
             // Query the materialized view - all aggregation done in database
             const { data: breakdownData, error } = await this.supabaseIntegration.supabase
@@ -560,7 +560,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log(`✅ Loaded ${breakdownData.length} premium creators for breakdown`);
+            // Premium creators loaded
             this.displayPremiumCreatorBreakdown(breakdownData);
         } catch (error) {
             console.error('Error in loadAndDisplayPremiumCreatorBreakdown:', error);
@@ -703,7 +703,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading portfolio assets breakdown...');
+            // Loading portfolio assets breakdown
 
             // Load overall top 5 stocks
             const { data: topStocksData, error: topError } = await this.supabaseIntegration.supabase
@@ -726,7 +726,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 console.error('Error loading creator stocks:', creatorError);
             }
 
-            console.log(`✅ Loaded ${topStocksData?.length || 0} top stocks and ${creatorStocksData?.length || 0} creator breakdowns`);
+            // Portfolio assets loaded
 
             // Display both in the Portfolio Assets Breakdown section
             this.displayPortfolioAssetsBreakdown(topStocksData, creatorStocksData);
@@ -898,7 +898,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            console.log('Loading premium portfolio breakdown from view...');
+            // Loading premium portfolio breakdown
 
             // Query the view - single query with all data pre-joined
             const { data: portfolioData, error } = await this.supabaseIntegration.supabase
@@ -923,7 +923,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 total_copy_capital: p.total_position || null
             })) || [];
 
-            console.log(`✅ Loaded ${formattedData.length} portfolio records from materialized view`);
+            // Portfolio records loaded
 
             // Also query portfolio_performance_metrics directly to include uploaded data
             // that doesn't have engagement data yet
