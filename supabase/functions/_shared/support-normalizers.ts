@@ -19,7 +19,6 @@ export interface ConversationRecord {
   created_at: string
   updated_at: string | null
   resolved_at: string | null
-  user_uuid: string | null // Will be populated after matching distinct_id
   user_id: string | null // Mixpanel distinct_id (from Zendesk ticket.external_id or Instabug user.id)
   assignee_id: string | null
   tags: string[]
@@ -94,7 +93,6 @@ export class ConversationNormalizer {
       created_at: ticket.created_at,
       updated_at: ticket.updated_at,
       resolved_at: ticket.solved_at,
-      user_uuid: null, // Will be populated by database lookup
       user_id: distinctId, // Mixpanel distinct_id from Zendesk ticket.external_id
       assignee_id: ticket.assignee_id?.toString(),
       tags: tags,
@@ -153,7 +151,6 @@ export class ConversationNormalizer {
       created_at: bug.created_at,
       updated_at: bug.updated_at,
       resolved_at: bug.resolved_at,
-      user_uuid: null, // Will be populated by database lookup
       user_id: distinctId, // Mixpanel distinct_id from Instabug user.id
       assignee_id: bug.assignee?.id?.toString(),
       tags: bug.tags || [],
