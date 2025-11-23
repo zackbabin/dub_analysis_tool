@@ -131,18 +131,36 @@ serve(async (req) => {
       const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
       console.log(`Comments span ${ticketIds.length} unique tickets`)
 
-      const messagesForDB = commentEvents.map(comment => {
-        const ticketId = comment.ticket_id.toString()
-        const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
+      // Normalize and filter out any comments without created_at (required field)
+      let skippedCount = 0
+      const messagesForDB = commentEvents
+        .map(comment => {
+          const ticketId = comment.ticket_id.toString()
+          const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
 
-        return ConversationNormalizer.normalizeZendeskComment(
-          comment,
-          ticketId, // This is the Zendesk ticket ID, which is now our primary key
-          userDistinctId
-        )
-      })
+          return ConversationNormalizer.normalizeZendeskComment(
+            comment,
+            ticketId, // This is the Zendesk ticket ID, which is now our primary key
+            userDistinctId
+          )
+        })
+        .filter(msg => {
+          // Filter out messages without created_at (database constraint)
+          if (!msg.created_at) {
+            skippedCount++
+            if (skippedCount <= 3) {
+              console.warn(`⚠️ Skipping message without created_at: ${JSON.stringify(msg).substring(0, 200)}`)
+            }
+            return false
+          }
+          return true
+        })
 
-      console.log(`✓ Normalized ${messagesForDB.length} comments, ready to store`)
+      if (skippedCount > 0) {
+        console.warn(`⚠️ Skipped ${skippedCount} messages without created_at field`)
+      }
+
+      console.log(`✓ Normalized ${messagesForDB.length} comments (${skippedCount} skipped), ready to store`)
 
       // Store messages in batches (to handle large volumes)
       const BATCH_SIZE = 500
