@@ -1,5 +1,5 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// Fetches 2 specific events from Mixpanel Export API (last 7 days):
+// Fetches 2 specific events from Mixpanel Export API (last 3 days):
 //   - "Viewed Creator Profile" -> extracts creatorUsername
 //   - "Viewed Portfolio Details" -> extracts portfolioTicker
 // Stores raw events with extracted properties for downstream analysis
@@ -67,12 +67,14 @@ async function fetchEventsFromExportAPI(
   console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
   console.log(`Full URL: ${url}`)
 
-  let response: Response
-  try {
-    // Add 60s timeout for Mixpanel API call (leaves 90s buffer for processing/storage)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000)
+  // Add 60s timeout for entire Mixpanel API operation (fetch + response.text())
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 60000)
 
+  let response: Response
+  let text: string
+
+  try {
     console.log('Starting Mixpanel API fetch...')
     const fetchStartTime = Date.now()
 
@@ -85,40 +87,40 @@ async function fetchEventsFromExportAPI(
       signal: controller.signal,
     })
 
-    clearTimeout(timeoutId)
     const fetchDuration = Math.round((Date.now() - fetchStartTime) / 1000)
     console.log(`✓ Fetch completed in ${fetchDuration}s`)
+    console.log(`Response status: ${response.status}`)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`❌ Mixpanel Export API error (${response.status}):`, errorText)
+
+      if (response.status === 429) {
+        throw new Error('RATE_LIMIT_EXCEEDED: Mixpanel API rate limit reached')
+      }
+
+      throw new Error(`Mixpanel Export API failed: ${response.status} - ${errorText}`)
+    }
+
+    // Parse JSONL response (newline-delimited JSON)
+    console.log('Reading response text...')
+    const textStartTime = Date.now()
+
+    text = await response.text()
+
+    const textDuration = Math.round((Date.now() - textStartTime) / 1000)
+    console.log(`✓ Response text read in ${textDuration}s (${text.length} bytes)`)
+
+    clearTimeout(timeoutId)
   } catch (fetchError: any) {
+    clearTimeout(timeoutId)
+
     if (fetchError.name === 'AbortError') {
       console.error('❌ Mixpanel API request timed out after 60s')
       throw new Error('Mixpanel Export API request timed out after 60 seconds')
     }
-    console.error('❌ Mixpanel API fetch error:', fetchError.message)
-    throw new Error(`Mixpanel Export API fetch failed: ${fetchError.message}`)
-  }
-
-  console.log(`Response status: ${response.status}`)
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`❌ Mixpanel Export API error (${response.status}):`, errorText)
-
-    if (response.status === 429) {
-      throw new Error('RATE_LIMIT_EXCEEDED: Mixpanel API rate limit reached')
-    }
-
-    throw new Error(`Mixpanel Export API failed: ${response.status} - ${errorText}`)
-  }
-
-  // Parse JSONL response (newline-delimited JSON)
-  console.log('Reading response text...')
-  let text: string
-  try {
-    text = await response.text()
-    console.log(`✓ Response text length: ${text.length} bytes`)
-  } catch (textError: any) {
-    console.error('❌ Failed to read response text:', textError.message)
-    throw new Error(`Failed to read Mixpanel response: ${textError.message}`)
+    console.error('❌ Mixpanel API error:', fetchError.message)
+    throw new Error(`Mixpanel Export API failed: ${fetchError.message}`)
   }
 
   console.log('Parsing JSONL lines...')
@@ -172,9 +174,9 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range - last 7 days only
+      // Calculate date range - last 3 days only (reduced from 7 to handle large data volumes)
       const now = new Date()
-      const lookbackDays = 7
+      const lookbackDays = 3
       const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
       const fromDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD
       const toDate = now.toISOString().split('T')[0] // YYYY-MM-DD
@@ -361,7 +363,7 @@ serve(async (req) => {
       const partialSync = stats.eventsInserted < rawEventRows.length
       const message = partialSync
         ? `Partial sync completed - ${stats.eventsInserted} of ${rawEventRows.length} events inserted before timeout`
-        : 'Event sequences sync completed - 2 event types tracked (last 7 days)'
+        : 'Event sequences sync completed - 2 event types tracked (last 3 days)'
 
       // Update sync log with success (even if partial)
       await updateSyncLogSuccess(supabase, syncLogId, {
@@ -376,7 +378,7 @@ serve(async (req) => {
         message,
         stats,
         {
-          note: 'Only tracking 2 events: "Viewed Creator Profile" and "Viewed Portfolio Details" from last 7 days',
+          note: 'Only tracking 2 events: "Viewed Creator Profile" and "Viewed Portfolio Details" from last 3 days',
           nextSteps: 'Call process-event-sequences to aggregate user-level sequences',
           partialSync: partialSync
         }
