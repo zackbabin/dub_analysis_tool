@@ -175,15 +175,19 @@ serve(async (req) => {
         console.log(`✓ Updated message counts for ${ticketIds.size} conversations`)
       }
 
-      // Update sync status with last messages sync timestamp
+      // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
       const now = new Date().toISOString()
       await supabase
         .from('support_sync_status')
-        .update({
+        .upsert({
+          source: 'zendesk',
+          last_sync_timestamp: now, // Required field
           last_messages_sync_timestamp: now,
+          last_sync_status: 'success',
           updated_at: now,
+        }, {
+          onConflict: 'source'
         })
-        .eq('source', 'zendesk')
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)

@@ -180,19 +180,21 @@ serve(async (req) => {
       // This ensures the workflow runs on the complete dataset, not just first batch
       console.log('Sync-support-conversations complete - frontend will trigger workflow chain')
 
-      // Update sync status
+      // Update sync status (upsert to create if doesn't exist)
       const now = new Date().toISOString()
       await supabase
         .from('support_sync_status')
-        .update({
+        .upsert({
+          source: 'zendesk',
           last_sync_timestamp: now,
           last_sync_status: 'success',
           conversations_synced: totalTicketsStored,
           messages_synced: totalMessagesStored,
           error_message: null,
           updated_at: now,
+        }, {
+          onConflict: 'source'
         })
-        .eq('source', 'zendesk')
 
       // COMMENTED OUT: Instabug integration (not ready yet)
       /*
