@@ -11,17 +11,23 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Update message_count for specified conversations
-  -- Counts only public messages from support_conversation_messages and updates raw_support_conversations
+  -- p_conversation_ids contains external conversation IDs (e.g., Zendesk ticket IDs like '12345')
+  -- Maps: support_conversation_messages.conversation_id -> raw_support_conversations.id
+  -- Both are TEXT fields containing the external ID from the source system
   UPDATE raw_support_conversations c
   SET message_count = (
     SELECT COUNT(*)
     FROM support_conversation_messages m
-    WHERE m.conversation_source = p_source
-      AND m.conversation_id = c.id
-      AND m.is_public = true  -- Only count public messages
+    WHERE m.conversation_source = c.source        -- Match source (zendesk, instabug, etc.)
+      AND m.conversation_id = c.id                -- Match external conversation ID (TEXT to TEXT)
+      AND m.is_public = true                      -- Only count public messages
   )
-  WHERE c.source = p_source
-    AND c.id = ANY(p_conversation_ids);
+  WHERE c.source = p_source                       -- Filter by source
+    AND c.id = ANY(p_conversation_ids);           -- Filter by external conversation IDs
+
+  -- Log how many conversations were updated
+  RAISE NOTICE 'Updated message_count for % conversations from source %',
+    array_length(p_conversation_ids, 1), p_source;
 END;
 $$;
 
