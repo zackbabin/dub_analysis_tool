@@ -3,8 +3,9 @@
 -- Purpose: Change conversation_id from UUID to TEXT to match raw_support_conversations.id
 --          This allows proper joining and the update_support_message_counts function to work
 
--- Drop the foreign key constraint (references UUID)
+-- Drop all existing foreign key constraints
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_fkey;
+ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_fkey;
 
 -- Drop any old unique constraints
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_external_id_key;
