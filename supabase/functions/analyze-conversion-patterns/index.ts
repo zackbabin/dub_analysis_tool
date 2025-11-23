@@ -496,11 +496,18 @@ serve(async (req) => {
       timeoutGuard.logStatus('Pre-Combination-Eval')
       return new Response(
         JSON.stringify({
-          success: false,
-          error: 'Timeout: Not enough time to complete analysis',
+          success: true,
+          warning: 'Timeout: Not enough time to complete analysis. Previous results cleared.',
+          stats: {
+            analysis_type: analysisType,
+            pairs_synced: pairRows.length,
+            users_analyzed: users.length,
+            combinations_tested: 0,
+            combinations_with_results: 0,
+          },
           elapsed_seconds: timeoutGuard.getElapsedSeconds()
         }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 408 }
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
       )
     }
 
@@ -619,19 +626,27 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✓ Completed ${analysisType} pattern analysis: ${keptCount} combinations with results`)
+    const timedOut = timeoutGuard.getElapsedSeconds() >= 135
+    const statusMessage = timedOut
+      ? `${analysisType} pattern analysis partially completed (timeout after ${processed}/${allCombinations.length} combinations)`
+      : `${analysisType} pattern analysis completed successfully`
+
+    console.log(`✓ ${statusMessage}: ${keptCount} combinations with results`)
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `${analysisType} pattern analysis completed successfully`,
+        message: statusMessage,
         stats: {
           analysis_type: analysisType,
           pairs_synced: pairRows.length,
           users_analyzed: users.length,
-          combinations_tested: totalCombinations,
+          combinations_tested: processed,
+          combinations_total: allCombinations.length,
           combinations_with_results: keptCount,
+          partial_results: timedOut,
         },
+        elapsed_seconds: timeoutGuard.getElapsedSeconds()
       }),
       { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 200 }
     )
