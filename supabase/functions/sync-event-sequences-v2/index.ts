@@ -76,9 +76,12 @@ async function fetchEventsFromExportAPI(
 
   let response: Response
   try {
-    // Add 100s timeout for Mixpanel API call (leaves 50s buffer for processing/storage)
+    // Add 60s timeout for Mixpanel API call (leaves 90s buffer for processing/storage)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 100000)
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+    console.log('Starting Mixpanel API fetch...')
+    const fetchStartTime = Date.now()
 
     response = await fetch(url, {
       method: 'GET',
@@ -90,14 +93,18 @@ async function fetchEventsFromExportAPI(
     })
 
     clearTimeout(timeoutId)
+    const fetchDuration = Math.round((Date.now() - fetchStartTime) / 1000)
+    console.log(`✓ Fetch completed in ${fetchDuration}s`)
   } catch (fetchError: any) {
     if (fetchError.name === 'AbortError') {
-      console.error('❌ Mixpanel API request timed out after 100s')
-      throw new Error('Mixpanel Export API request timed out after 100 seconds')
+      console.error('❌ Mixpanel API request timed out after 60s')
+      throw new Error('Mixpanel Export API request timed out after 60 seconds')
     }
     console.error('❌ Mixpanel API fetch error:', fetchError.message)
     throw new Error(`Mixpanel Export API fetch failed: ${fetchError.message}`)
   }
+
+  console.log(`Response status: ${response.status}`)
 
   if (!response.ok) {
     const errorText = await response.text()
@@ -111,11 +118,19 @@ async function fetchEventsFromExportAPI(
   }
 
   // Parse JSONL response (newline-delimited JSON)
-  const text = await response.text()
-  console.log(`Response text length: ${text.length} bytes`)
+  console.log('Reading response text...')
+  let text: string
+  try {
+    text = await response.text()
+    console.log(`✓ Response text length: ${text.length} bytes`)
+  } catch (textError: any) {
+    console.error('❌ Failed to read response text:', textError.message)
+    throw new Error(`Failed to read Mixpanel response: ${textError.message}`)
+  }
 
+  console.log('Parsing JSONL lines...')
   const lines = text.trim().split('\n').filter(line => line.trim())
-  console.log(`Response lines: ${lines.length}`)
+  console.log(`✓ Response lines: ${lines.length}`)
 
   const events: MixpanelExportEvent[] = []
   for (const line of lines) {
@@ -189,8 +204,13 @@ serve(async (req) => {
       let events: MixpanelExportEvent[] = []
 
       try {
+        console.log('Calling fetchEventsFromExportAPI...')
         events = await fetchEventsFromExportAPI(credentials, fromDate, toDate, eventNames)
+        console.log(`✓ fetchEventsFromExportAPI returned ${events.length} events`)
       } catch (error: any) {
+        console.error('❌ fetchEventsFromExportAPI failed:', error.message)
+        console.error('Error stack:', error.stack)
+
         // Handle Mixpanel rate limit errors gracefully
         const rateLimitResponse = await handleRateLimitError(supabase, syncLogId, error, {
           eventsFetched: 0,
@@ -198,7 +218,9 @@ serve(async (req) => {
           duplicatesSkipped: 0,
         })
         if (rateLimitResponse) return rateLimitResponse
-        throw error
+
+        // Re-throw with more context
+        throw new Error(`Mixpanel fetch failed: ${error.message}`)
       }
 
       const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)

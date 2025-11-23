@@ -131,36 +131,25 @@ serve(async (req) => {
       const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
       console.log(`Comments span ${ticketIds.length} unique tickets`)
 
-      // Normalize and filter out any comments without created_at (required field)
-      let skippedCount = 0
-      const messagesForDB = commentEvents
-        .map(comment => {
-          const ticketId = comment.ticket_id.toString()
-          const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
+      // Normalize all comments (created_at can be null if not present in Zendesk data)
+      const messagesForDB = commentEvents.map(comment => {
+        const ticketId = comment.ticket_id.toString()
+        const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
 
-          return ConversationNormalizer.normalizeZendeskComment(
-            comment,
-            ticketId, // This is the Zendesk ticket ID, which is now our primary key
-            userDistinctId
-          )
-        })
-        .filter(msg => {
-          // Filter out messages without created_at (database constraint)
-          if (!msg.created_at) {
-            skippedCount++
-            if (skippedCount <= 3) {
-              console.warn(`⚠️ Skipping message without created_at: ${JSON.stringify(msg).substring(0, 200)}`)
-            }
-            return false
-          }
-          return true
-        })
+        return ConversationNormalizer.normalizeZendeskComment(
+          comment,
+          ticketId, // This is the Zendesk ticket ID, which is now our primary key
+          userDistinctId
+        )
+      })
 
-      if (skippedCount > 0) {
-        console.warn(`⚠️ Skipped ${skippedCount} messages without created_at field`)
+      // Log how many messages have null created_at
+      const messagesWithoutTimestamp = messagesForDB.filter(msg => !msg.created_at).length
+      if (messagesWithoutTimestamp > 0) {
+        console.log(`ℹ️ ${messagesWithoutTimestamp} messages have null created_at (will be stored anyway)`)
       }
 
-      console.log(`✓ Normalized ${messagesForDB.length} comments (${skippedCount} skipped), ready to store`)
+      console.log(`✓ Normalized ${messagesForDB.length} comments, ready to store`)
 
       // Store messages in batches (to handle large volumes)
       const BATCH_SIZE = 500
@@ -182,11 +171,14 @@ serve(async (req) => {
         console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} messages)...`)
         console.log(`    Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
+        // Use insert with ignoreDuplicates to let the partial unique indexes handle deduplication
+        // Two indexes handle uniqueness:
+        // - With timestamp: (conversation_source, conversation_id, created_at, author_id)
+        // - Without timestamp: (conversation_source, conversation_id, raw_data->>'id')
         const { data, error: insertError, count } = await supabase
           .from('support_conversation_messages')
-          .upsert(batch, {
-            onConflict: 'conversation_source,conversation_id,created_at,author_id',
-            ignoreDuplicates: false,
+          .insert(batch, {
+            ignoreDuplicates: true,
             count: 'exact'
           })
 
