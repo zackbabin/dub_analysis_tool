@@ -78,184 +78,86 @@ serve(async (req) => {
         credentials.token
       )
 
-      // Fetch comments using incremental API with timeout awareness
-      // Use 120s threshold (30s buffer for processing) instead of default 140s
-      console.log('Fetching Zendesk comments...')
-      const fetchStartMs = Date.now()
-      const commentEvents = await zendeskClient.fetchCommentsSince(
-        startTime,
-        () => timeoutGuard.getElapsedSeconds() >= 120 // Stop at 120s to leave 30s for processing
-      )
-      const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
+      // Fetch and store comments using streaming pattern (same as sync-support-conversations)
+      // This processes comments in batches as they arrive, avoiding timeout issues
+      console.log('Fetching and storing Zendesk comments (streaming mode)...')
 
-      console.log(`✓ Fetched ${commentEvents.length} comment events from Zendesk in ${fetchElapsedSec}s`)
-      console.log(`  Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 120s fetch limit (30s reserved for processing)`)
-
-      if (commentEvents.length > 0) {
-        console.log(`  Sample comment event keys: ${Object.keys(commentEvents[0]).join(', ')}`)
-      }
-
-      // Check timeout after fetch
-      if (timeoutGuard.isApproachingTimeout()) {
-        console.warn('⏱️ Approaching 140s timeout after comment fetch - returning early')
-        timeoutGuard.logStatus('Post-Comment-Fetch')
-
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: 0,
-        })
-
-        return createSuccessResponse('Sync stopped early due to timeout (no comments processed)', {
-          timeout_triggered: true,
-          elapsed_seconds: timeoutGuard.getElapsedSeconds(),
-          comments_synced: 0,
-        })
-      }
-
-      if (commentEvents.length === 0) {
-        console.log('No new comments to sync')
-
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: 0,
-        })
-
-        return createSuccessResponse('No new comments to sync', {
-          totalTimeSeconds: Math.round((Date.now() - executionStartMs) / 1000),
-          comments_synced: 0,
-        })
-      }
-
-      // Normalize comments with PII redaction
-      // NOTE: ticket_external_id is already included in comment events from Zendesk API
-      console.log(`Normalizing ${commentEvents.length} comments with PII redaction...`)
-
-      const ticketIds = [...new Set(commentEvents.map(e => e.ticket_id.toString()))]
-      console.log(`Comments span ${ticketIds.length} unique tickets`)
-
-      // Normalize all comments (created_at can be null if not present in Zendesk data)
-      const messagesForDB = commentEvents.map(comment => {
-        const ticketId = comment.ticket_id.toString()
-        const userDistinctId = comment.ticket_external_id || undefined // external_id = Mixpanel distinct_id
-
-        return ConversationNormalizer.normalizeZendeskComment(
-          comment,
-          ticketId, // This is the Zendesk ticket ID, which is now our primary key
-          userDistinctId
-        )
-      })
-
-      // Log how many messages have null created_at
-      const messagesWithoutTimestamp = messagesForDB.filter(msg => !msg.created_at).length
-      if (messagesWithoutTimestamp > 0) {
-        console.log(`ℹ️ ${messagesWithoutTimestamp} messages have null created_at (will be stored anyway)`)
-      }
-
-      console.log(`✓ Normalized ${messagesForDB.length} comments, ready to store`)
-
-      // Store messages in batches (to handle large volumes)
-      const BATCH_SIZE = 500
       let totalStored = 0
+      const ticketIds = new Set<string>()
 
-      if (messagesForDB.length === 0) {
-        console.warn('⚠️ No messages to store - all messages were filtered out')
-      } else {
-        console.log(`Starting batch insert for ${messagesForDB.length} messages...`)
-        console.log(`Sample message record: ${JSON.stringify(messagesForDB[0])}`)
-      }
-
-      const batchStartMs = Date.now()
-      for (let i = 0; i < messagesForDB.length; i += BATCH_SIZE) {
-        const batch = messagesForDB.slice(i, i + BATCH_SIZE)
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1
-        const totalBatches = Math.ceil(messagesForDB.length / BATCH_SIZE)
-
-        console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} messages)...`)
-        console.log(`    Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
-
-        // Use insert with ignoreDuplicates to let the partial unique indexes handle deduplication
-        // Two indexes handle uniqueness:
-        // - With timestamp: (conversation_source, conversation_id, created_at, author_id)
-        // - Without timestamp: (conversation_source, conversation_id, raw_data->>'id')
-        const { data, error: insertError, count } = await supabase
-          .from('support_conversation_messages')
-          .insert(batch, {
-            ignoreDuplicates: true,
-            count: 'exact'
-          })
-
-        if (insertError) {
-          // Check if it's a duplicate key error (23505)
-          // This can happen if ignoreDuplicates doesn't work as expected with partial indexes
-          const errorCode = insertError.code || insertError.error_code || ''
-
-          if (errorCode === '23505' || insertError.message?.includes('duplicate key')) {
-            console.warn(`⚠️ Duplicate key in batch ${batchNum}/${totalBatches} - some messages already exist (continuing)`)
-            // Don't throw - continue with next batch
-            // The count might be inaccurate but that's ok
-          } else {
-            // For other errors, fail the sync
-            console.error(`❌ Error storing message batch ${batchNum}/${totalBatches}:`, insertError)
-            console.error('   Error code:', errorCode)
-            console.error('   Error details:', insertError.details)
-            console.error('   Sample record from failed batch:', JSON.stringify(batch[0]))
-            throw insertError
-          }
+      await zendeskClient.fetchCommentsSince(startTime, async (commentBatch) => {
+        // Check timeout before processing batch
+        if (timeoutGuard.isApproachingTimeout()) {
+          console.warn('⏱️ Approaching 140s timeout during comment fetch - stopping early')
+          timeoutGuard.logStatus('During-Comment-Fetch')
+          throw new Error('TIMEOUT_PREEMPTIVE: Stopped early to avoid 150s timeout')
         }
 
-        totalStored += batch.length
-        const batchElapsedSec = Math.round((Date.now() - batchStartMs) / 1000)
-        console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete in ${batchElapsedSec}s: ${totalStored}/${messagesForDB.length} total messages stored`)
-      }
+        // Track unique ticket IDs
+        for (const comment of commentBatch) {
+          ticketIds.add(comment.ticket_id.toString())
+        }
 
-      console.log(`✓ Successfully stored ${totalStored} messages`)
+        // Normalize comments with PII redaction
+        const messagesForDB = commentBatch.map(comment => {
+          const ticketId = comment.ticket_id.toString()
+          const userDistinctId = comment.ticket_external_id || undefined
 
-      // Check timeout before updating counts
-      if (timeoutGuard.isApproachingTimeout()) {
-        console.warn('⏱️ Approaching 140s timeout - skipping message count updates')
-        timeoutGuard.logStatus('Pre-Count-Update')
-
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: totalStored,
+          return ConversationNormalizer.normalizeZendeskComment(
+            comment,
+            ticketId,
+            userDistinctId
+          )
         })
 
-        return createSuccessResponse('Messages synced (counts skipped due to timeout)', {
-          timeout_triggered: true,
-          elapsed_seconds: timeoutGuard.getElapsedSeconds(),
-          comments_synced: totalStored,
-          tickets_affected: ticketIds.length,
-          message_counts_updated: false,
-        })
-      }
+        // Store batch immediately
+        try {
+          const { error: insertError } = await supabase
+            .from('support_conversation_messages')
+            .insert(messagesForDB, {
+              ignoreDuplicates: true,
+            })
 
-      // Update message_count in raw_support_conversations for each affected conversation
-      // Count messages per conversation in the Edge Function (more efficient than DB queries)
-      console.log('Calculating message counts per conversation...')
-      const conversationMessageCounts = new Map()
+          if (insertError) {
+            // Handle duplicate key errors gracefully
+            const errorCode = insertError.code || insertError.error_code || ''
 
-      for (const msg of messagesForDB) {
-        const count = conversationMessageCounts.get(msg.conversation_id) || 0
-        conversationMessageCounts.set(msg.conversation_id, count + 1)
-      }
+            if (errorCode === '23505' || insertError.message?.includes('duplicate key')) {
+              console.warn(`⚠️ Duplicate key in batch - some messages already exist (continuing)`)
+              return // Skip this batch but don't fail
+            }
 
-      console.log(`Updating message counts for ${conversationMessageCounts.size} conversations in batch...`)
+            // Handle statement timeout gracefully
+            if (errorCode === '57014' || errorCode?.includes('57014') || insertError.message?.includes('statement timeout')) {
+              console.warn(`⚠️ Statement timeout on batch - skipping and continuing...`)
+              return // Skip this batch but don't fail
+            }
 
-      // Batch update message counts (much faster than individual RPC calls)
-      const updatePromises = Array.from(conversationMessageCounts.entries()).map(([conversationId, count]) =>
-        supabase
-          .from('raw_support_conversations')
-          .update({ message_count: count })
-          .eq('source', 'zendesk')
-          .eq('id', conversationId)
-      )
+            console.error('Error storing comment batch:', insertError)
+            throw insertError
+          }
 
-      const updateResults = await Promise.allSettled(updatePromises)
-      const successCount = updateResults.filter(r => r.status === 'fulfilled').length
-      const failCount = updateResults.filter(r => r.status === 'rejected').length
+          totalStored += messagesForDB.length
+          console.log(`  ✓ Stored batch of ${messagesForDB.length} comments (total: ${totalStored})`)
+        } catch (err) {
+          // Handle preemptive timeout
+          if (err?.message?.includes('TIMEOUT_PREEMPTIVE')) {
+            console.warn(`⏱️ Preemptive timeout triggered - stopping batch processing`)
+            throw err
+          }
 
-      console.log(`✓ Updated message counts: ${successCount} succeeded, ${failCount} failed`)
+          // Handle statement timeout
+          const errorCode = err?.code || err?.error_code || err?.message
+          if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
+            console.warn(`⚠️ Caught statement timeout exception - continuing...`)
+            return // Skip this batch but don't fail
+          }
 
-      if (failCount > 0) {
-        console.warn(`⚠️ ${failCount} conversations failed to update message count (non-fatal)`)
-      }
+          throw err
+        }
+      })
+
+      console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
 
       // Update sync status with last messages sync timestamp
       const now = new Date().toISOString()
@@ -280,10 +182,33 @@ serve(async (req) => {
       return createSuccessResponse('Support messages synced successfully', {
         totalTimeSeconds: elapsedSec,
         comments_synced: totalStored,
-        tickets_affected: ticketIds.length,
+        tickets_affected: ticketIds.size,
         pii_redacted: true,
+        streaming_mode: true,
       })
     } catch (error) {
+      // Handle preemptive timeout gracefully (partial success)
+      if (error?.message?.includes('TIMEOUT_PREEMPTIVE')) {
+        console.warn('⏱️ Function stopped due to approaching timeout - returning partial results')
+
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: totalStored,
+        })
+
+        return createSuccessResponse(
+          'Support messages sync completed with partial results (timeout prevented)',
+          {
+            timeout_triggered: true,
+            elapsed_seconds: timeoutGuard.getElapsedSeconds(),
+            comments_synced: totalStored,
+            tickets_affected: ticketIds.size,
+            pii_redacted: true,
+            streaming_mode: true,
+            partial_sync: true,
+          }
+        )
+      }
+
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
       throw error

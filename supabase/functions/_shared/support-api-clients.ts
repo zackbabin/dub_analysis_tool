@@ -106,13 +106,13 @@ export class ZendeskClient {
    * Uses the comment_events sideload to get full comment details in child_events
    * This is much more efficient than fetching comments per ticket
    * @param unixTimestamp - Unix timestamp in seconds
-   * @param isApproachingTimeout - Optional function to check if approaching timeout (returns partial results if true)
-   * @returns Array of comment objects with ticket_id
+   * @param onBatch - Optional callback to process each batch (enables streaming)
+   * @returns Array of comment objects with ticket_id (empty if using streaming)
    * @see https://developer.zendesk.com/api-reference/ticketing/ticket-management/incremental_exports/
    */
   async fetchCommentsSince(
     unixTimestamp: number,
-    isApproachingTimeout?: () => boolean
+    onBatch?: (comments: any[]) => Promise<void>
   ): Promise<any[]> {
     console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
@@ -120,17 +120,11 @@ export class ZendeskClient {
     let url: string | null = `${this.baseUrl}/incremental/ticket_events.json?start_time=${unixTimestamp}&include=comment_events`
 
     while (url) {
-      // Check timeout before fetching next page
-      if (isApproachingTimeout && isApproachingTimeout()) {
-        console.warn(`⚠️ Approaching timeout during comment fetch - returning ${comments.length} comments fetched so far`)
-        break
-      }
-
       const response = await this.fetchWithRetry(url)
       const data = await response.json()
 
       // Debug: Log API response structure for first page
-      if (comments.length === 0) {
+      if (comments.length === 0 && !onBatch) {
         console.log(`  API response structure:`)
         console.log(`    - ticket_events array length: ${(data.ticket_events || []).length}`)
         if (data.ticket_events && data.ticket_events.length > 0) {
@@ -146,7 +140,8 @@ export class ZendeskClient {
         }
       }
 
-      // Process each ticket event
+      // Extract comments from this page
+      const batchComments: any[] = []
       for (const event of data.ticket_events || []) {
         // Check if this event has comment child_events
         if (event.child_events && Array.isArray(event.child_events)) {
@@ -154,18 +149,25 @@ export class ZendeskClient {
           for (const childEvent of event.child_events) {
             // child_event should have comment data when comment_events sideload is used
             if (childEvent.id) {
-              comments.push({
+              batchComments.push({
                 ...childEvent,
-                ticket_id: event.ticket_id, // Add ticket_id from parent event
-                ticket_external_id: event.ticket_external_id, // Mixpanel distinct_id from ticket
+                ticket_id: event.ticket_id,
+                ticket_external_id: event.ticket_external_id,
               })
             }
           }
         }
       }
 
-      if (comments.length % 1000 === 0 && comments.length > 0) {
-        console.log(`  Fetched ${comments.length} comments so far...`)
+      // Process batch immediately if callback provided (streaming mode)
+      if (onBatch && batchComments.length > 0) {
+        await onBatch(batchComments)
+        console.log(`  Processed batch of ${batchComments.length} comments`)
+      } else {
+        comments.push(...batchComments)
+        if (comments.length % 1000 === 0 && comments.length > 0) {
+          console.log(`  Fetched ${comments.length} comments so far...`)
+        }
       }
 
       // Log rate limit status
@@ -177,7 +179,7 @@ export class ZendeskClient {
       }
     }
 
-    console.log(`✓ Fetched ${comments.length} Zendesk comments total`)
+    console.log(`✓ Fetched ${comments.length || 'all'} Zendesk comments total`)
     return comments
   }
 
