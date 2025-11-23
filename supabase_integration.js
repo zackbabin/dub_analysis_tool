@@ -1299,31 +1299,29 @@ class SupabaseIntegration {
      * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
      */
     async triggerCopyAnalysis() {
-        console.log('Triggering copy pattern analysis...');
+        console.log('Triggering copy pattern analysis (parallel: portfolio + creator)...');
 
         try {
-            // Trigger portfolio copy analysis (analysis_type: 'copy')
-            const { data: portfolioData, error: portfolioError } = await this.supabase.functions.invoke('analyze-conversion-patterns', {
-                body: { analysis_type: 'copy' }
-            });
+            // Run both analyses in parallel (separate edge functions)
+            const [portfolioResult, creatorResult] = await Promise.all([
+                this.supabase.functions.invoke('analyze-copy-patterns'),
+                this.supabase.functions.invoke('analyze-creator-copy-patterns')
+            ]);
+
+            const { data: portfolioData, error: portfolioError } = portfolioResult;
+            const { data: creatorData, error: creatorError } = creatorResult;
 
             if (portfolioError) {
                 console.error('Portfolio copy analysis error:', portfolioError);
                 throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
             }
 
-            console.log('✅ Portfolio copy analysis completed:', portfolioData);
-
-            // Trigger creator copy analysis (analysis_type: 'creator_copy')
-            const { data: creatorData, error: creatorError } = await this.supabase.functions.invoke('analyze-conversion-patterns', {
-                body: { analysis_type: 'creator_copy' }
-            });
-
             if (creatorError) {
                 console.error('Creator copy analysis error:', creatorError);
                 throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
             }
 
+            console.log('✅ Portfolio copy analysis completed:', portfolioData);
             console.log('✅ Creator copy analysis completed:', creatorData);
 
             // Return combined results
