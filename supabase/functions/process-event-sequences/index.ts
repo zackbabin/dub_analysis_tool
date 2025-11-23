@@ -185,18 +185,11 @@ serve(async (req) => {
         // Claude LLM will analyze these to determine conversion patterns
 
         // Events are already sorted by event_time from query (DESC)
-        // Keep only the 2 event types we care about
-        const relevantEvents = events.filter(e =>
-          e.event === 'Viewed Creator Profile' || e.event === 'Viewed Portfolio Details'
-        )
-
-        if (relevantEvents.length === 0) {
-          continue // Skip users with no relevant events
-        }
+        // No filtering needed - sync-event-sequences-v2 already fetches only the 2 relevant events
 
         eventSequenceRows.push({
           distinct_id: distinctId,
-          event_sequence: relevantEvents,
+          event_sequence: events,
           total_copies: 0, // Will be determined by Claude LLM
           total_subscriptions: 0, // Will be determined by Claude LLM
           synced_at: syncStartTime.toISOString()
