@@ -72,13 +72,12 @@ async function fetchEventsFromExportAPI(
   console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
   console.log(`Full URL: ${url}`)
 
-  // Add 90s timeout for entire Mixpanel API operation (fetch + response.text())
-  // Needs to be longer for backfill mode (30 days of data)
+  // Add 120s timeout for entire Mixpanel API operation (fetch + streaming response)
+  // Needs to be longer for backfill mode - streaming large datasets can take time
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 90000)
+  const timeoutId = setTimeout(() => controller.abort(), 120000)
 
   let response: Response
-  let text: string
 
   try {
     console.log('Starting Mixpanel API fetch...')
@@ -108,39 +107,88 @@ async function fetchEventsFromExportAPI(
       throw new Error(`Mixpanel Export API failed: ${response.status} - ${errorText}`)
     }
 
-    // Parse JSONL response (newline-delimited JSON)
-    console.log('Reading response text...')
-    const textStartTime = Date.now()
+    // Stream and parse JSONL response in chunks to avoid memory/timeout issues
+    console.log('Streaming response body...')
+    const streamStartTime = Date.now()
 
-    text = await response.text()
+    const events: MixpanelExportEvent[] = []
+    let buffer = ''
+    let totalBytes = 0
+    let lineCount = 0
 
-    const textDuration = Math.round((Date.now() - textStartTime) / 1000)
-    console.log(`✓ Response text read in ${textDuration}s (${text.length} bytes)`)
+    // Get readable stream from response body
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
 
-    clearTimeout(timeoutId)
+    const decoder = new TextDecoder()
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+
+        // Decode chunk and add to buffer
+        const chunk = decoder.decode(value, { stream: true })
+        buffer += chunk
+        totalBytes += value.length
+
+        // Process complete lines in buffer
+        const lines = buffer.split('\n')
+        // Keep last incomplete line in buffer
+        buffer = lines.pop() || ''
+
+        // Parse complete lines
+        for (const line of lines) {
+          const trimmedLine = line.trim()
+          if (!trimmedLine) continue
+
+          try {
+            const event = JSON.parse(trimmedLine)
+            events.push(event)
+            lineCount++
+
+            // Log progress every 10000 events
+            if (lineCount % 10000 === 0) {
+              const elapsed = Math.round((Date.now() - streamStartTime) / 1000)
+              console.log(`  📊 Streamed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${elapsed}s`)
+            }
+          } catch (parseError) {
+            console.warn('Failed to parse JSONL line:', trimmedLine.substring(0, 100))
+          }
+        }
+      }
+
+      // Process any remaining line in buffer
+      if (buffer.trim()) {
+        try {
+          const event = JSON.parse(buffer.trim())
+          events.push(event)
+          lineCount++
+        } catch (parseError) {
+          console.warn('Failed to parse final JSONL line:', buffer.substring(0, 100))
+        }
+      }
+
+      const streamDuration = Math.round((Date.now() - streamStartTime) / 1000)
+      console.log(`✓ Streamed and parsed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${streamDuration}s`)
+
+      clearTimeout(timeoutId)
+    } catch (streamError: any) {
+      clearTimeout(timeoutId)
+      throw streamError
+    }
   } catch (fetchError: any) {
     clearTimeout(timeoutId)
 
     if (fetchError.name === 'AbortError') {
-      console.error('❌ Mixpanel API request timed out after 90s')
-      throw new Error('Mixpanel Export API request timed out after 90 seconds')
+      console.error('❌ Mixpanel API request timed out after 120s')
+      throw new Error('Mixpanel Export API request timed out after 120 seconds')
     }
     console.error('❌ Mixpanel API error:', fetchError.message)
     throw new Error(`Mixpanel Export API failed: ${fetchError.message}`)
-  }
-
-  console.log('Parsing JSONL lines...')
-  const lines = text.trim().split('\n').filter(line => line.trim())
-  console.log(`✓ Response lines: ${lines.length}`)
-
-  const events: MixpanelExportEvent[] = []
-  for (const line of lines) {
-    try {
-      const event = JSON.parse(line)
-      events.push(event)
-    } catch (parseError) {
-      console.warn('Failed to parse JSONL line:', line.substring(0, 100))
-    }
   }
 
   console.log(`✓ Fetched ${events.length} events from Export API`)
@@ -196,9 +244,9 @@ serve(async (req) => {
       let syncMode: 'backfill' | 'incremental'
 
       if (!lastSync) {
-        // BACKFILL MODE: No previous sync - fetch last 14 days
+        // BACKFILL MODE: No previous sync - fetch last 7 days
         console.log('📦 BACKFILL MODE: No previous sync detected')
-        const backfillDays = 14
+        const backfillDays = 7
         const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
         fromDate = startDate.toISOString().split('T')[0]
         toDate = now.toISOString().split('T')[0]
