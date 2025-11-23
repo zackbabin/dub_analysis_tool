@@ -1,7 +1,9 @@
 // Supabase Edge Function: analyze-event-sequences
-// Uses Claude AI to analyze user event sequences and identify predictive patterns
-// Analyzes sequences that lead to copies and subscriptions
-// Stores analysis results in event_sequence_analysis table
+// SIMPLIFIED: Uses Claude AI to analyze 2 event types only:
+//   - "Viewed Creator Profile" (with creatorUsername)
+//   - "Viewed Portfolio Details" (with portfolioTicker)
+// Claude determines unique regular/premium PDP views and profile views prior to copying
+// Focus: Identify patterns that lead to portfolio copies
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'

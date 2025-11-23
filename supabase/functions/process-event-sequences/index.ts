@@ -1,8 +1,9 @@
 // Supabase Edge Function: process-event-sequences
-// Processes raw event sequences from event_sequences_raw table
-// Joins with subscribers_insights to get conversion outcomes
-// Stores processed data in user_event_sequences table
-// Called after sync-event-sequences completes
+// SIMPLIFIED: Only processes 2 event types for Claude LLM analysis:
+//   - "Viewed Creator Profile" (extracts creatorUsername)
+//   - "Viewed Portfolio Details" (extracts portfolioTicker)
+// Aggregates events per user for downstream LLM analysis
+// Claude will determine unique regular/premium PDP views and profile views prior to copying
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -116,24 +117,30 @@ serve(async (req) => {
         )
       }
 
-      // Fetch subscribers_insights for conversion outcomes
-      console.log('Fetching conversion outcomes from subscribers_insights...')
-      const { data: subscribers, error: subscribersError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_copies, paywall_views, stripe_modal_views')
+      // SIMPLIFIED: No longer fetching subscribers_insights
+      // Claude LLM will analyze raw events to determine conversion patterns
+      console.log('Skipping subscriber insights fetch - will use Claude LLM for analysis')
+      stats.subscriberRecordsFetched = 0
 
-      if (subscribersError) {
-        console.error('Failed to fetch subscribers:', subscribersError)
-        throw subscribersError
-      }
-
-      stats.subscriberRecordsFetched = subscribers?.length || 0
-      console.log(`✓ Fetched ${stats.subscriberRecordsFetched} subscriber records`)
-
-      // Create lookup map for fast joining
-      const subscriberMap = new Map(
-        (subscribers || []).map(s => [s.distinct_id, s])
-      )
+      // // COMMENTED OUT: Old subscriber joining logic
+      // // Fetch subscribers_insights for conversion outcomes
+      // console.log('Fetching conversion outcomes from subscribers_insights...')
+      // const { data: subscribers, error: subscribersError } = await supabase
+      //   .from('subscribers_insights')
+      //   .select('distinct_id, total_copies, paywall_views, stripe_modal_views')
+      //
+      // if (subscribersError) {
+      //   console.error('Failed to fetch subscribers:', subscribersError)
+      //   throw subscribersError
+      // }
+      //
+      // stats.subscriberRecordsFetched = subscribers?.length || 0
+      // console.log(`✓ Fetched ${stats.subscriberRecordsFetched} subscriber records`)
+      //
+      // // Create lookup map for fast joining
+      // const subscriberMap = new Map(
+      //   (subscribers || []).map(s => [s.distinct_id, s])
+      // )
 
       // Group individual events by user and track event IDs for marking as processed
       console.log('Grouping events by user...')
@@ -174,21 +181,24 @@ serve(async (req) => {
       const eventSequenceRows: any[] = []
 
       for (const [distinctId, events] of userEventsMap.entries()) {
-        const subscriber = subscriberMap.get(distinctId)
+        // SIMPLIFIED: Just store events without subscriber data
+        // Claude LLM will analyze these to determine conversion patterns
 
-        // Events are already sorted by event_time from query
-        // No need to sort again
+        // Events are already sorted by event_time from query (DESC)
+        // Keep only the 2 event types we care about
+        const relevantEvents = events.filter(e =>
+          e.event === 'Viewed Creator Profile' || e.event === 'Viewed Portfolio Details'
+        )
 
-        // Determine if user has subscribed
-        const hasSubscribed =
-          (subscriber?.paywall_views || 0) > 0 ||
-          (subscriber?.stripe_modal_views || 0) > 0
+        if (relevantEvents.length === 0) {
+          continue // Skip users with no relevant events
+        }
 
         eventSequenceRows.push({
           distinct_id: distinctId,
-          event_sequence: events,
-          total_copies: subscriber?.total_copies || 0,
-          total_subscriptions: hasSubscribed ? 1 : 0,
+          event_sequence: relevantEvents,
+          total_copies: 0, // Will be determined by Claude LLM
+          total_subscriptions: 0, // Will be determined by Claude LLM
           synced_at: syncStartTime.toISOString()
         })
 
