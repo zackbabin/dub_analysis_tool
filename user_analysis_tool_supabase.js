@@ -560,7 +560,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             topCopyCombos,
             topCreatorCopyCombos,
             subscriptionDistribution,
-            copySequenceAnalysis
+            copySequenceAnalysis,
+            eventSequencesMetrics
             // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
@@ -569,7 +570,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
             this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
-            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; })
+            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; }),
+            this.supabaseIntegration.loadEventSequencesPreCopyMetrics().catch(e => { console.warn('Failed to load event sequences metrics:', e); return null; })
             // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
@@ -628,7 +630,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
             // Build all HTML sections first
-            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary, eventSequencesMetrics);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
 
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
@@ -1059,7 +1061,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Generate Copy Metrics HTML (inserted before correlation table)
      * Uses array.join() for optimal string building performance
      */
-    generateCopyMetricsHTML(summaryData) {
+    generateCopyMetricsHTML(summaryData, eventSequencesMetrics) {
         if (!summaryData || summaryData.length !== 2) {
             return '';
         }
@@ -1067,11 +1069,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const copiersData = summaryData.find(d => d.did_copy === 1 || d.did_copy === true) || {};
         const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
+        // Extract event sequences metrics
+        const eventSeqData = eventSequencesMetrics && eventSequencesMetrics.length > 0 ? eventSequencesMetrics[0] : {};
+        const uniqueCreators = eventSeqData.unique_creators || 0;
+        const uniquePortfolios = eventSeqData.unique_portfolios || 0;
+
         const metrics = [
-            { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0 },
-            { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0 },
-            { label: 'Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0 },
-            { label: 'Unique Portfolios', primaryValue: copiersData.avg_unique_portfolios || 0, secondaryValue: nonCopiersData.avg_unique_portfolios || 0 }
+            { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true },
+            { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true },
+            { label: 'Unique Creators', primaryValue: uniqueCreators, secondaryValue: null, showComparison: false },
+            { label: 'Unique Portfolios', primaryValue: uniquePortfolios, secondaryValue: null, showComparison: false }
         ];
 
         const parts = [
@@ -1079,19 +1086,23 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         metrics.forEach(metric => {
+            const valueDisplay = metric.showComparison
+                ? `${parseFloat(metric.primaryValue).toFixed(1)}
+                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>`
+                : `${Math.round(metric.primaryValue).toLocaleString()}`;
+
             parts.push(
                 `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
                     <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
                     <div style="font-size: 1.5rem; font-weight: bold;">
-                        ${parseFloat(metric.primaryValue).toFixed(1)}
-                        <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>
+                        ${valueDisplay}
                     </div>
                 </div>`
             );
         });
 
         parts.push('</div>');
-        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who copied vs. haven\'t copied</p>');
+        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Profile/PDP views compare users who copied vs. haven\'t copied. Unique creators/portfolios show pre-copy event sequences.</p>');
         return parts.join('');
     }
 
@@ -1288,163 +1299,168 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             );
         }
 
-        // Predictive Sequences Section
-        parts.push(
-            '<div class="path-analysis-section">',
-            '<h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">High-Impact Event Sequences</h3>',
-            '<p style="color: #6c757d; font-size: 0.9rem;">Patterns sorted by impact (lift × prevalence), showing sequences that drive conversion for the most users</p>'
-        );
-
-        // Add each predictive sequence
-        analysisData.predictive_sequences.slice(0, 5).forEach((seq, idx) => {
-            parts.push(
-                `<div class="sequence-card" style="
-                    border: 1px solid #dee2e6;
-                    border-radius: 8px;
-                    padding: 1rem;
-                    margin-bottom: 1rem;
-                    background: #f8f9fa;
-                ">`,
-                    '<div style="display: flex; justify-content: space-between; align-items: start;">',
-                        '<div style="flex: 1;">',
-                            `<h4 style="margin: 0 0 0.5rem 0;">Pattern ${idx + 1}</h4>`,
-                            '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
-            );
-
-            // Helper function to check if event should have tooltip/enrichment
-            const isEnrichableEvent = (eventName) => {
-                return eventName.includes('Creator Profile') || eventName.includes('PDP');
-            };
-
-            // Helper function to extract portfolio and creator from enriched event name
-            const extractEnrichmentData = (eventName) => {
-                // Format: "Viewed Premium PDP ($PELOSI by @dubAdvisors)"
-                // Or: "Viewed Regular Creator Profile (@username)"
-                const match = eventName.match(/\(([^)]+)\)/);
-                if (match) {
-                    const enrichment = match[1];
-                    // Check for "X by Y" format (PDP views)
-                    const byMatch = enrichment.match(/^(.+?)\s+by\s+(.+)$/);
-                    if (byMatch) {
-                        return {
-                            portfolio: byMatch[1].trim(),
-                            creator: byMatch[2].trim(),
-                            hasEnrichment: true
-                        };
-                    }
-                    // Profile views only have creator: "(@ username)"
-                    return {
-                        creator: enrichment.trim(),
-                        hasEnrichment: true
-                    };
-                }
-                return { hasEnrichment: false };
-            };
-
-            // Add event nodes with arrows
-            seq.sequence.forEach((event, eventIdx) => {
-                const isEnrichable = isEnrichableEvent(event);
-                const enrichmentData = extractEnrichmentData(event);
-
-                // Show tooltip for enrichable events that have enrichment data
-                if (isEnrichable && enrichmentData.hasEnrichment) {
-                    // Build tooltip content from enrichment data
-                    let tooltipContent = '';
-                    if (enrichmentData.portfolio) {
-                        tooltipContent += `<strong>Portfolio:</strong> ${enrichmentData.portfolio}`;
-                    }
-                    if (enrichmentData.creator) {
-                        if (tooltipContent) tooltipContent += '<br/><br/>';
-                        tooltipContent += `<strong>Creator:</strong> ${enrichmentData.creator}`;
-                    }
-
-                    // Render event with tooltip
-                    parts.push(
-                        `<span style="
-                            position: relative;
-                            display: inline-block;
-                            background: #007bff;
-                            color: white;
-                            padding: 0.25rem 0.75rem;
-                            border-radius: 4px;
-                            font-size: 0.85rem;
-                            cursor: help;
-                        " class="info-tooltip">`,
-                            event,
-                            `<span class="tooltip-text" style="width: 250px; margin-left: -125px;">`,
-                                tooltipContent,
-                            '</span>',
-                        '</span>'
-                    );
-                } else {
-                    // Regular event without tooltip
-                    parts.push(
-                        `<span style="
-                            background: #007bff;
-                            color: white;
-                            padding: 0.25rem 0.75rem;
-                            border-radius: 4px;
-                            font-size: 0.85rem;
-                        ">${event}</span>`
-                    );
-                }
-
-                if (eventIdx < seq.sequence.length - 1) {
-                    parts.push('<span style="color: #6c757d; font-weight: bold;">→</span>');
-                }
-            });
-
-            parts.push(
-                            '</div>',
-                        '</div>',
-                        `<div style="
-                            background: white;
-                            border-radius: 4px;
-                            padding: 0.5rem 1rem;
-                            text-align: center;
-                            min-width: 80px;
-                        ">`,
-                            `<div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">
-                                ${seq.lift != null && !isNaN(seq.lift) ? parseFloat(seq.lift).toFixed(1) : '0.0'}x
-                            </div>`,
-                            '<div style="font-size: 0.75rem; color: #6c757d;">Lift</div>',
-                        '</div>',
-                    '</div>',
-
-                    `<div style="
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                        gap: 1rem;
-                        margin-top: 1rem;
-                        padding-top: 1rem;
-                        border-top: 1px solid #dee2e6;
-                    ">`,
-                        `<div>
-                            <span class="info-tooltip"><strong>Volume:</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%<span class="info-icon">i</span>
-                                <span class="tooltip-text">Percentage of converters who exhibited this sequence</span>
-                            </span>
-                        </div>`,
-                        `<div><strong>Avg Time to Convert:</strong> ${Math.round(seq.avg_time_to_conversion_minutes)} min</div>`,
-                        `<div>
-                            <span class="info-tooltip"><strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}<span class="info-icon">i</span>
-                                <span class="tooltip-text">Average number of events users performed before conversion</span>
-                            </span>
-                        </div>`,
-                    '</div>',
-
-                    `<div style="
-                        margin-top: 1rem;
-                        padding: 0.75rem;
-                        background: white;
-                        border-radius: 4px;
-                    ">`,
-                        `<strong>Insight:</strong> ${seq.insight}`,
-                    '</div>',
-                '</div>'
-            );
-        });
-
-        parts.push('</div>'); // Close predictive sequences section
+//         // ============================================================================
+//         // COMMENTED OUT: High-Impact Event Sequences Section
+//         // This section has been replaced - unique creator/portfolio counts are now
+//         // displayed in the Behavioral Analysis metric cards at the top
+//         // ============================================================================
+//         // Predictive Sequences Section
+//         parts.push(
+//             '<div class="path-analysis-section">',
+//             '<h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">High-Impact Event Sequences</h3>',
+//             '<p style="color: #6c757d; font-size: 0.9rem;">Patterns sorted by impact (lift × prevalence), showing sequences that drive conversion for the most users</p>'
+//         );
+// 
+//         // Add each predictive sequence
+//         analysisData.predictive_sequences.slice(0, 5).forEach((seq, idx) => {
+//             parts.push(
+//                 `<div class="sequence-card" style="
+//                     border: 1px solid #dee2e6;
+//                     border-radius: 8px;
+//                     padding: 1rem;
+//                     margin-bottom: 1rem;
+//                     background: #f8f9fa;
+//                 ">`,
+//                     '<div style="display: flex; justify-content: space-between; align-items: start;">',
+//                         '<div style="flex: 1;">',
+//                             `<h4 style="margin: 0 0 0.5rem 0;">Pattern ${idx + 1}</h4>`,
+//                             '<div class="sequence-flow" style="display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; flex-wrap: wrap;">'
+//             );
+// 
+//             // Helper function to check if event should have tooltip/enrichment
+//             const isEnrichableEvent = (eventName) => {
+//                 return eventName.includes('Creator Profile') || eventName.includes('PDP');
+//             };
+// 
+//             // Helper function to extract portfolio and creator from enriched event name
+//             const extractEnrichmentData = (eventName) => {
+//                 // Format: "Viewed Premium PDP ($PELOSI by @dubAdvisors)"
+//                 // Or: "Viewed Regular Creator Profile (@username)"
+//                 const match = eventName.match(/\(([^)]+)\)/);
+//                 if (match) {
+//                     const enrichment = match[1];
+//                     // Check for "X by Y" format (PDP views)
+//                     const byMatch = enrichment.match(/^(.+?)\s+by\s+(.+)$/);
+//                     if (byMatch) {
+//                         return {
+//                             portfolio: byMatch[1].trim(),
+//                             creator: byMatch[2].trim(),
+//                             hasEnrichment: true
+//                         };
+//                     }
+//                     // Profile views only have creator: "(@ username)"
+//                     return {
+//                         creator: enrichment.trim(),
+//                         hasEnrichment: true
+//                     };
+//                 }
+//                 return { hasEnrichment: false };
+//             };
+// 
+//             // Add event nodes with arrows
+//             seq.sequence.forEach((event, eventIdx) => {
+//                 const isEnrichable = isEnrichableEvent(event);
+//                 const enrichmentData = extractEnrichmentData(event);
+// 
+//                 // Show tooltip for enrichable events that have enrichment data
+//                 if (isEnrichable && enrichmentData.hasEnrichment) {
+//                     // Build tooltip content from enrichment data
+//                     let tooltipContent = '';
+//                     if (enrichmentData.portfolio) {
+//                         tooltipContent += `<strong>Portfolio:</strong> ${enrichmentData.portfolio}`;
+//                     }
+//                     if (enrichmentData.creator) {
+//                         if (tooltipContent) tooltipContent += '<br/><br/>';
+//                         tooltipContent += `<strong>Creator:</strong> ${enrichmentData.creator}`;
+//                     }
+// 
+//                     // Render event with tooltip
+//                     parts.push(
+//                         `<span style="
+//                             position: relative;
+//                             display: inline-block;
+//                             background: #007bff;
+//                             color: white;
+//                             padding: 0.25rem 0.75rem;
+//                             border-radius: 4px;
+//                             font-size: 0.85rem;
+//                             cursor: help;
+//                         " class="info-tooltip">`,
+//                             event,
+//                             `<span class="tooltip-text" style="width: 250px; margin-left: -125px;">`,
+//                                 tooltipContent,
+//                             '</span>',
+//                         '</span>'
+//                     );
+//                 } else {
+//                     // Regular event without tooltip
+//                     parts.push(
+//                         `<span style="
+//                             background: #007bff;
+//                             color: white;
+//                             padding: 0.25rem 0.75rem;
+//                             border-radius: 4px;
+//                             font-size: 0.85rem;
+//                         ">${event}</span>`
+//                     );
+//                 }
+// 
+//                 if (eventIdx < seq.sequence.length - 1) {
+//                     parts.push('<span style="color: #6c757d; font-weight: bold;">→</span>');
+//                 }
+//             });
+// 
+//             parts.push(
+//                             '</div>',
+//                         '</div>',
+//                         `<div style="
+//                             background: white;
+//                             border-radius: 4px;
+//                             padding: 0.5rem 1rem;
+//                             text-align: center;
+//                             min-width: 80px;
+//                         ">`,
+//                             `<div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">
+//                                 ${seq.lift != null && !isNaN(seq.lift) ? parseFloat(seq.lift).toFixed(1) : '0.0'}x
+//                             </div>`,
+//                             '<div style="font-size: 0.75rem; color: #6c757d;">Lift</div>',
+//                         '</div>',
+//                     '</div>',
+// 
+//                     `<div style="
+//                         display: grid;
+//                         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+//                         gap: 1rem;
+//                         margin-top: 1rem;
+//                         padding-top: 1rem;
+//                         border-top: 1px solid #dee2e6;
+//                     ">`,
+//                         `<div>
+//                             <span class="info-tooltip"><strong>Volume:</strong> ${(seq.prevalence_in_converters * 100).toFixed(1)}%<span class="info-icon">i</span>
+//                                 <span class="tooltip-text">Percentage of converters who exhibited this sequence</span>
+//                             </span>
+//                         </div>`,
+//                         `<div><strong>Avg Time to Convert:</strong> ${Math.round(seq.avg_time_to_conversion_minutes)} min</div>`,
+//                         `<div>
+//                             <span class="info-tooltip"><strong>Avg Events Before:</strong> ${seq.avg_events_before_conversion}<span class="info-icon">i</span>
+//                                 <span class="tooltip-text">Average number of events users performed before conversion</span>
+//                             </span>
+//                         </div>`,
+//                     '</div>',
+// 
+//                     `<div style="
+//                         margin-top: 1rem;
+//                         padding: 0.75rem;
+//                         background: white;
+//                         border-radius: 4px;
+//                     ">`,
+//                         `<strong>Insight:</strong> ${seq.insight}`,
+//                     '</div>',
+//                 '</div>'
+//             );
+//         });
+// 
+//         parts.push('</div>'); // Close predictive sequences section
 
         // Critical Triggers Section
         if (analysisData.critical_triggers && analysisData.critical_triggers.length > 0) {

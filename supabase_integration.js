@@ -1295,6 +1295,29 @@ class SupabaseIntegration {
     }
 
     /**
+     * Load event sequences pre-copy metrics
+     * Returns unique creator profiles and portfolios viewed before copying
+     */
+    async loadEventSequencesPreCopyMetrics() {
+        return this.cachedQuery('event_sequences_precopy_metrics', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .rpc('get_event_sequences_precopy_metrics');
+
+                if (error) {
+                    console.error('Error loading event sequences pre-copy metrics:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading event sequences pre-copy metrics:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
      * Trigger copy pattern analysis via Edge Function
      * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
      */
