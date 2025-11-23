@@ -1,8 +1,8 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// Fetches user event sequences from Mixpanel Export API
-// Stores raw events with all properties (portfolioTicker, creatorUsername, creatorType) directly
-// No enrichment step needed - all data comes from Export API
-// Triggered manually alongside other sync functions
+// Fetches 2 specific events from Mixpanel Export API (last 7 days):
+//   - "Viewed Creator Profile" -> extracts creatorUsername
+//   - "Viewed Portfolio Details" -> extracts portfolioTicker
+// Stores raw events with extracted properties for downstream analysis
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -29,9 +29,8 @@ interface MixpanelExportEvent {
     $distinct_id_before_identity?: string
     $insert_id: string
     $email?: string
-    portfolioTicker?: string
-    creatorUsername?: string
-    creatorType?: string
+    portfolioTicker?: string    // From "Viewed Portfolio Details"
+    creatorUsername?: string    // From "Viewed Creator Profile"
     [key: string]: any
   }
 }
@@ -165,49 +164,22 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range (last 7 days to avoid API limits)
-      // Mixpanel Export API can timeout or return empty responses for large date ranges
+      // Calculate date range - last 7 days only
       const now = new Date()
-
-      const lookbackDays = 7 // Reduced from 30 to avoid API limits
+      const lookbackDays = 7
       const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
       const fromDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD
       const toDate = now.toISOString().split('T')[0] // YYYY-MM-DD
 
-      // Event names to fetch from Mixpanel Export API
+      // Only fetch these 2 events - we extract creatorUsername and portfolioTicker from them
       const eventNames = [
-        'Viewed Creator Profile',        // Has creatorType property
-        'Viewed Portfolio Details',      // Has creatorType property
-        'Started Copy Portfolio',         // Has creatorType property
-        'Viewed Leaderboard Tab',
-        'Viewed Premium Tab',
-        'Viewed Discover Tab',
-        'Added Portfolio To Watchlist',
-        'Tapped Portfolio Card',
-        'Tapped Creator Card',
-        'AchTransferInitiated',
-        'StrategyCreated',
-        'Viewed Stripe Modal',
-        'Viewed Creator Paywall'
+        'Viewed Creator Profile',    // Extract creatorUsername
+        'Viewed Portfolio Details',  // Extract portfolioTicker
       ]
 
-      // Map Export API event names to our internal event names
-      // Some events need to be split into Premium/Regular variants based on creatorType
-      const mapEventName = (exportEventName: string, creatorType?: string): string => {
-        // Events that need Premium/Regular split
-        if (exportEventName === 'Viewed Portfolio Details') {
-          return creatorType === 'premiumCreator' ? 'Viewed Premium PDP' : 'Viewed Regular PDP'
-        }
-        if (exportEventName === 'Viewed Creator Profile') {
-          return creatorType === 'premiumCreator' ? 'Viewed Premium Creator Profile' : 'Viewed Regular Creator Profile'
-        }
-        if (exportEventName === 'Started Copy Portfolio') {
-          // Keep as "Started Copy Portfolio" but store creator_type separately
-          // The subscribers_insights aggregation will split into premium_copies and regular_copies
-          return 'Started Copy Portfolio'
-        }
-
-        // All other events map directly
+      // Map event names - keep them simple since we're only tracking 2 events
+      const mapEventName = (exportEventName: string): string => {
+        // Map directly - no Premium/Regular split needed for these tracking events
         return exportEventName
       }
 
@@ -269,34 +241,44 @@ serve(async (req) => {
       console.log('Processing events for storage...')
 
       // Transform Mixpanel events to database format
+      // Extract creatorUsername from "Viewed Creator Profile" and portfolioTicker from "Viewed Portfolio Details"
       const rawEventRows = events.map((event) => {
         // Convert Unix timestamp (seconds) to ISO string
         const eventTime = new Date(event.properties.time * 1000).toISOString()
 
-        // Map Export API event name to internal event name
+        // Get event name
         const exportEventName = event.event
-        const creatorType = event.properties.creatorType
-        const internalEventName = mapEventName(exportEventName, creatorType)
+        const internalEventName = mapEventName(exportEventName)
 
         // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
         const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
         const distinctId = sanitizeDistinctId(rawDistinctId)
 
+        // Extract relevant properties based on event type
+        // "Viewed Creator Profile" -> extract creatorUsername
+        // "Viewed Portfolio Details" -> extract portfolioTicker
+        const portfolioTicker = exportEventName === 'Viewed Portfolio Details'
+          ? event.properties.portfolioTicker
+          : null
+
+        const creatorUsername = exportEventName === 'Viewed Creator Profile'
+          ? event.properties.creatorUsername
+          : null
+
         return {
           distinct_id: distinctId,
-          event_name: internalEventName, // Use mapped internal event name
+          event_name: internalEventName,
           event_time: eventTime,
-          event_count: 1, // Each Export API event is a single occurrence
-          portfolio_ticker: event.properties.portfolioTicker || null,
-          creator_username: event.properties.creatorUsername || null,
-          creator_type: creatorType || null, // Store creatorType for premium/regular distinction
+          event_count: 1,
+          portfolio_ticker: portfolioTicker,
+          creator_username: creatorUsername,
+          creator_type: null, // No longer tracking creatorType
           event_data: {
-            event_name: exportEventName, // Store original Export API event name
+            event_name: exportEventName,
             event_time: eventTime,
             event_count: 1,
-            portfolioTicker: event.properties.portfolioTicker,
-            creatorUsername: event.properties.creatorUsername,
-            creatorType: event.properties.creatorType,
+            portfolioTicker: portfolioTicker,
+            creatorUsername: creatorUsername,
             email: event.properties.$email,
             insert_id: event.properties.$insert_id,
           },
@@ -398,21 +380,22 @@ serve(async (req) => {
       const partialSync = stats.eventsInserted < rawEventRows.length
       const message = partialSync
         ? `Partial sync completed - ${stats.eventsInserted} of ${rawEventRows.length} events inserted before timeout`
-        : 'Event sequences sync v2 completed successfully - events stored with all properties'
+        : 'Event sequences sync completed - 2 event types tracked (last 7 days)'
 
       // Update sync log with success (even if partial)
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: stats.eventsInserted,
       })
 
-      console.log(partialSync ? '⚠️ Partial sync completed' : 'Event sequences sync v2 completed successfully')
+      console.log(partialSync ? '⚠️ Partial sync completed' : 'Event sequences sync completed successfully')
+      console.log('Tracked events: Viewed Creator Profile (creatorUsername), Viewed Portfolio Details (portfolioTicker)')
       console.log('Call process-event-sequences to aggregate user-level sequences')
 
       return createSuccessResponse(
         message,
         stats,
         {
-          note: 'Events fetched from Export API with portfolioTicker and creatorUsername included. No enrichment needed.',
+          note: 'Only tracking 2 events: "Viewed Creator Profile" and "Viewed Portfolio Details" from last 7 days',
           nextSteps: 'Call process-event-sequences to aggregate user-level sequences',
           partialSync: partialSync
         }
