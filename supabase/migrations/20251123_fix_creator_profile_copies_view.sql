@@ -10,7 +10,7 @@ SELECT
     upce.distinct_id,
     upce.creator_id,
     upce.creator_username,
-    SUM(upce.pdp_view_count) AS profile_view_count,  -- Aggregate PDP views across all portfolios for this creator
+    SUM(upce.pdp_view_count)::integer AS profile_view_count,  -- Aggregate PDP views across all portfolios for this creator
     MAX(CASE WHEN upce.copy_count > 0 THEN 1 ELSE 0 END)::boolean AS did_copy,  -- User copied ANY portfolio from this creator
     SUM(upce.copy_count)::integer AS copy_count,  -- Total copies across all portfolios for this creator
     MAX(upce.synced_at) AS synced_at  -- Use most recent sync time
