@@ -38,7 +38,6 @@ interface MixpanelExportEvent {
 interface SyncStats {
   eventsFetched: number
   eventsInserted: number
-  duplicatesSkipped: number
 }
 
 /**
@@ -193,12 +192,6 @@ serve(async (req) => {
         'Viewed Portfolio Details',  // Extract portfolioTicker
       ]
 
-      // Map event names - keep them simple since we're only tracking 2 events
-      const mapEventName = (exportEventName: string): string => {
-        // Map directly - no Premium/Regular split needed for these tracking events
-        return exportEventName
-      }
-
       console.log(`Fetching events from ${fromDate} to ${toDate}...`)
 
       const fetchStartMs = Date.now()
@@ -216,7 +209,6 @@ serve(async (req) => {
         const rateLimitResponse = await handleRateLimitError(supabase, syncLogId, error, {
           eventsFetched: 0,
           eventsInserted: 0,
-          duplicatesSkipped: 0,
         })
         if (rateLimitResponse) return rateLimitResponse
 
@@ -230,7 +222,6 @@ serve(async (req) => {
       const stats: SyncStats = {
         eventsFetched: events.length,
         eventsInserted: 0,
-        duplicatesSkipped: 0,
       }
 
       // Check if we're approaching timeout after Mixpanel fetch
@@ -264,52 +255,38 @@ serve(async (req) => {
       console.log('Processing events for storage...')
 
       // Transform Mixpanel events to database format
-      // Extract creatorUsername from "Viewed Creator Profile" and portfolioTicker from "Viewed Portfolio Details"
       const rawEventRows = events.map((event) => {
         // Convert Unix timestamp (seconds) to ISO string
         const eventTime = new Date(event.properties.time * 1000).toISOString()
-
-        // Get event name
-        const exportEventName = event.event
-        const internalEventName = mapEventName(exportEventName)
 
         // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
         const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
         const distinctId = sanitizeDistinctId(rawDistinctId)
 
-        // Extract relevant properties based on event type
-        // "Viewed Creator Profile" -> extract creatorUsername
-        // "Viewed Portfolio Details" -> extract portfolioTicker
-        const portfolioTicker = exportEventName === 'Viewed Portfolio Details'
+        // Extract portfolioTicker or creatorUsername based on event type
+        const portfolioTicker = event.event === 'Viewed Portfolio Details'
           ? event.properties.portfolioTicker
           : null
 
-        const creatorUsername = exportEventName === 'Viewed Creator Profile'
+        const creatorUsername = event.event === 'Viewed Creator Profile'
           ? event.properties.creatorUsername
           : null
 
         return {
           distinct_id: distinctId,
-          event_name: internalEventName,
+          event_name: event.event,
           event_time: eventTime,
           event_count: 1,
           portfolio_ticker: portfolioTicker,
           creator_username: creatorUsername,
-          creator_type: null, // No longer tracking creatorType
-          event_data: {
-            event_name: exportEventName,
-            event_time: eventTime,
-            event_count: 1,
-            portfolioTicker: portfolioTicker,
-            creatorUsername: creatorUsername,
-            email: event.properties.$email,
-            insert_id: event.properties.$insert_id,
-          },
           synced_at: syncStartTime.toISOString()
         }
       })
 
       console.log(`Prepared ${rawEventRows.length} event records for insertion`)
+      if (rawEventRows.length > 0) {
+        console.log(`Sample record: ${JSON.stringify(rawEventRows[0])}`)
+      }
 
       // Check if we're approaching timeout before starting batch inserts
       if (timeoutGuard.isApproachingTimeout()) {
@@ -324,17 +301,14 @@ serve(async (req) => {
         )
       }
 
-      // Insert events in batches (deduplication via unique index)
+      // Insert events in batches
       const batchSize = 500
       let totalInserted = 0
-      let totalDuplicatesSkipped = 0
-      let skippedBatches = 0
 
       for (let i = 0; i < rawEventRows.length; i += batchSize) {
         // Check timeout before each batch
         if (timeoutGuard.isApproachingTimeout()) {
-          console.warn(`⚠️ Approaching timeout at batch ${Math.floor(i / batchSize) + 1} - stopping early`)
-          console.log(`✓ Inserted ${totalInserted} events before timeout (${rawEventRows.length - i} remaining)`)
+          console.warn(`⚠️ Approaching timeout - stopping early after ${totalInserted} events`)
           break
         }
 
@@ -342,62 +316,53 @@ serve(async (req) => {
         const batchNum = Math.floor(i / batchSize) + 1
         const totalBatches = Math.ceil(rawEventRows.length / batchSize)
 
+        console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} events)...`)
+
         try {
-          // Use INSERT with ignoreDuplicates=true to leverage unique index for deduplication
-          // Unique index on (distinct_id, event_name, event_time) ensures no duplicate events
-          const { data, error: insertError, count } = await supabase
+          const { error: insertError } = await supabase
             .from('event_sequences_raw')
             .insert(batch, {
               ignoreDuplicates: true,
-              count: 'exact'
             })
 
           if (insertError) {
-            // Handle statement timeout gracefully
-            const errorCode = insertError.code || insertError.error_code || insertError.message
-            console.log(`Batch ${batchNum}/${totalBatches} error: code=${errorCode}, message=${insertError.message}`)
+            const errorCode = insertError.code || insertError.error_code || ''
 
-            if (errorCode === '57014' || errorCode?.includes('57014') || insertError.message?.includes('statement timeout')) {
-              console.warn(`⚠️ Statement timeout on batch ${batchNum}/${totalBatches} - skipping and continuing...`)
-              skippedBatches++
-              continue // Skip this batch but don't fail the whole sync
+            // Handle duplicate keys gracefully (ignoreDuplicates may not work with partial indexes)
+            if (errorCode === '23505' || insertError.message?.includes('duplicate key')) {
+              console.warn(`  ⚠️ Batch ${batchNum} has duplicates - continuing`)
+              continue
             }
 
-            console.error('Error inserting event sequences batch:', insertError)
+            // Handle statement timeout gracefully
+            if (errorCode === '57014' || insertError.message?.includes('statement timeout')) {
+              console.warn(`  ⚠️ Batch ${batchNum} timed out - continuing`)
+              continue
+            }
+
+            // For other errors, log details and throw
+            console.error(`❌ Error inserting batch ${batchNum}:`, insertError)
+            console.error('   Sample record:', JSON.stringify(batch[0]))
             throw insertError
           }
 
-          // count returns number of rows actually inserted (excluding duplicates)
-          const insertedInBatch = count ?? batch.length
-          const duplicatesInBatch = batch.length - insertedInBatch
+          totalInserted += batch.length
+          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total)`)
+        } catch (err: any) {
+          const errorCode = err?.code || err?.message
 
-          totalInserted += insertedInBatch
-          totalDuplicatesSkipped += duplicatesInBatch
-
-          if (batchNum % 10 === 0 || batchNum === totalBatches) {
-            console.log(`  ✓ Batch ${batchNum}/${totalBatches}: ${insertedInBatch} inserted, ${duplicatesInBatch} duplicates skipped (${totalInserted} total)`)
+          // Handle timeouts in catch block
+          if (errorCode === '57014' || errorCode?.includes('statement timeout')) {
+            console.warn(`  ⚠️ Batch ${batchNum} timed out (caught) - continuing`)
+            continue
           }
-        } catch (err) {
-          // Catch any timeout or connection errors
-          const errorCode = err?.code || err?.error_code || err?.message
-          console.log(`Caught exception in batch ${batchNum}/${totalBatches}: code=${errorCode}, message=${err?.message}`)
 
-          if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
-            console.warn(`⚠️ Caught statement timeout exception on batch ${batchNum}/${totalBatches} - continuing...`)
-            skippedBatches++
-            continue // Skip this batch but don't fail
-          }
           throw err
         }
       }
 
-      if (skippedBatches > 0) {
-        console.warn(`⚠️ Skipped ${skippedBatches} batch(es) due to timeouts`)
-      }
-
-      console.log(`✅ Inserted ${totalInserted} new events (${totalDuplicatesSkipped} duplicates skipped)`)
+      console.log(`✅ Inserted ${totalInserted} events`)
       stats.eventsInserted = totalInserted
-      stats.duplicatesSkipped = totalDuplicatesSkipped
 
       // Check if we completed all records or timed out early
       const partialSync = stats.eventsInserted < rawEventRows.length
