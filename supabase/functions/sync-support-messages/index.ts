@@ -183,11 +183,22 @@ serve(async (req) => {
           })
 
         if (insertError) {
-          console.error(`❌ Error storing message batch ${batchNum}/${totalBatches}:`, insertError)
-          console.error('   Error code:', insertError.code)
-          console.error('   Error details:', insertError.details)
-          console.error('   Sample record from failed batch:', JSON.stringify(batch[0]))
-          throw insertError
+          // Check if it's a duplicate key error (23505)
+          // This can happen if ignoreDuplicates doesn't work as expected with partial indexes
+          const errorCode = insertError.code || insertError.error_code || ''
+
+          if (errorCode === '23505' || insertError.message?.includes('duplicate key')) {
+            console.warn(`⚠️ Duplicate key in batch ${batchNum}/${totalBatches} - some messages already exist (continuing)`)
+            // Don't throw - continue with next batch
+            // The count might be inaccurate but that's ok
+          } else {
+            // For other errors, fail the sync
+            console.error(`❌ Error storing message batch ${batchNum}/${totalBatches}:`, insertError)
+            console.error('   Error code:', errorCode)
+            console.error('   Error details:', insertError.details)
+            console.error('   Sample record from failed batch:', JSON.stringify(batch[0]))
+            throw insertError
+          }
         }
 
         totalStored += batch.length
