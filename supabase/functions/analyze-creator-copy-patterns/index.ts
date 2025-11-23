@@ -1,34 +1,22 @@
-// Supabase Edge Function: analyze-conversion-patterns
-// MERGED: Combines analyze-subscription-patterns, analyze-copy-patterns, and analyze-creator-copy-patterns
-// Analyzes conversion patterns using exhaustive search + logistic regression
-// Supports 3 analysis types via request body parameter
+// Supabase Edge Function: analyze-creator-copy-patterns
+// Analyzes CREATOR copy patterns using exhaustive search + logistic regression
+// Tests creator combinations to find which pairs of creators drive copies
+// Runs independently from analyze-copy-patterns to avoid CPU timeout
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { CORS_HEADERS } from '../_shared/mixpanel-api.ts'
 import { TimeoutGuard } from '../_shared/sync-helpers.ts'
 
-// Analysis type configurations
-// Supports two analysis types:
-// - 'copy': Portfolio combinations that drive copies (uses portfolio_ticker)
-// - 'creator_copy': Creator combinations that drive copies (uses creator_id/username)
-const ANALYSIS_CONFIGS = {
-  copy: {
-    table: 'user_portfolio_creator_copies',  // Regular view (converted from materialized) - always current
-    select: 'distinct_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
-    filterColumn: 'pdp_view_count',
-    outcomeColumn: 'did_copy',
-    entityType: 'portfolio',
-    entityIdColumn: 'portfolio_ticker',  // Key identifier for this entity type
-  },
-  creator_copy: {
-    table: 'user_creator_profile_copies',  // Regular view - always current
-    select: 'distinct_id, creator_id, creator_username, profile_view_count, did_copy, copy_count',
-    filterColumn: 'profile_view_count',
-    outcomeColumn: 'did_copy',
-    entityType: 'creator',
-    entityIdColumn: 'creator_id',  // Key identifier for this entity type
-  },
+// Creator copy analysis configuration
+const ANALYSIS_CONFIG = {
+  table: 'user_creator_profile_copies',  // Regular view - always current
+  select: 'distinct_id, creator_id, creator_username, profile_view_count, did_copy, copy_count',
+  filterColumn: 'profile_view_count',
+  outcomeColumn: 'did_copy',
+  entityType: 'creator',
+  entityIdColumn: 'creator_id',
+  analysisType: 'creator_copy'  // Hardcoded for this function
 }
 
 interface UserData {
@@ -308,22 +296,10 @@ serve(async (req) => {
   }
 
   try {
-    // Parse request body to get analysis type
-    const body = await req.json()
-    const analysisType = body.analysis_type || 'copy'  // Default to portfolio copy analysis
-
-    if (!ANALYSIS_CONFIGS[analysisType]) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `Invalid analysis_type: ${analysisType}. Must be 'copy' or 'creator_copy'`
-        }),
-        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 400 }
-      )
-    }
-
-    const config = ANALYSIS_CONFIGS[analysisType]
-    console.log(`Starting ${analysisType} pattern analysis...`)
+    // Hardcoded to 'creator_copy' analysis type (creator combinations)
+    const config = ANALYSIS_CONFIG
+    const analysisType = config.analysisType
+    console.log(`Starting ${analysisType} pattern analysis (creator combinations)...`)
 
     // Initialize timeout guard
     const executionStartMs = Date.now()
@@ -438,9 +414,12 @@ serve(async (req) => {
     // Get entities with at least 1 user
     const allEntities = getTopEntities(users, 1)
 
-    // Safety limit: Cap at 200 entities for 2-way analysis
-    const MAX_ENTITIES = 200
+    // Safety limit: Cap at 80 entities for 2-way analysis to avoid CPU timeout
+    // 80 entities = 3,160 combinations (vs 200 entities = 19,900 combinations)
+    const MAX_ENTITIES = 80
     const topEntities = allEntities.slice(0, MAX_ENTITIES)
+
+    console.log(`⚠️ Using top ${MAX_ENTITIES} entities to avoid CPU timeout (${allEntities.length} total available)`)
 
     if (topEntities.length < 2) {
       return new Response(
@@ -454,7 +433,12 @@ serve(async (req) => {
     }
 
     const totalCombinations = (topEntities.length * (topEntities.length - 1)) / 2
-    console.log(`Testing ${totalCombinations} 2-way combinations from ${topEntities.length} ${config.entityType}s (${allEntities.length} total available, capped at ${MAX_ENTITIES})`)
+    console.log(`Testing ${totalCombinations} 2-way combinations from ${topEntities.length} ${config.entityType}s`)
+    console.log(`Note: ${allEntities.length} total entities available, capped at ${MAX_ENTITIES} to avoid CPU timeout`)
+
+    // Estimate processing time (rough: ~0.5ms per combination)
+    const estimatedSeconds = Math.round((totalCombinations * 0.5) / 1000)
+    console.log(`Estimated processing time: ~${estimatedSeconds}s for ${totalCombinations} combinations`)
 
     // Stream results to database in batches
     const STREAM_BATCH_SIZE = 100
