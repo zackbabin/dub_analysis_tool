@@ -69,10 +69,11 @@ async function fetchEventsFromExportAPI(
   const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}`
 
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
-  console.log(`Events: ${eventNames.length} event types`)
+  console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
   console.log(`Event parameter: ${eventParam}`)
+  console.log(`Decoded event param: ${decodeURIComponent(eventParam)}`)
   console.log(`Where clause: DISABLED (testing)`)
-  console.log(`Full URL (truncated): ${url.substring(0, 200)}...`)
+  console.log(`Full URL: ${url}`)
 
   let response: Response
   try {
