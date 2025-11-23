@@ -117,30 +117,9 @@ serve(async (req) => {
         )
       }
 
-      // SIMPLIFIED: No longer fetching subscribers_insights
-      // Claude LLM will analyze raw events to determine conversion patterns
-      console.log('Skipping subscriber insights fetch - will use Claude LLM for analysis')
+      // Note: Claude LLM will analyze raw events to determine conversion patterns
+      console.log('Processing event sequences for Claude LLM analysis...')
       stats.subscriberRecordsFetched = 0
-
-      // // COMMENTED OUT: Old subscriber joining logic
-      // // Fetch subscribers_insights for conversion outcomes
-      // console.log('Fetching conversion outcomes from subscribers_insights...')
-      // const { data: subscribers, error: subscribersError } = await supabase
-      //   .from('subscribers_insights')
-      //   .select('distinct_id, total_copies, paywall_views, stripe_modal_views')
-      //
-      // if (subscribersError) {
-      //   console.error('Failed to fetch subscribers:', subscribersError)
-      //   throw subscribersError
-      // }
-      //
-      // stats.subscriberRecordsFetched = subscribers?.length || 0
-      // console.log(`✓ Fetched ${stats.subscriberRecordsFetched} subscriber records`)
-      //
-      // // Create lookup map for fast joining
-      // const subscriberMap = new Map(
-      //   (subscribers || []).map(s => [s.distinct_id, s])
-      // )
 
       // Group individual events by user and track event IDs for marking as processed
       console.log('Grouping events by user...')

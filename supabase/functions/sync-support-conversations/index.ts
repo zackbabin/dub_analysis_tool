@@ -172,11 +172,8 @@ serve(async (req) => {
 
       console.log(`✓ Successfully stored ${totalTicketsStored} tickets`)
 
-      // TEMPORARY: Skip comments for initial sync
-      console.log('Skipping comments (temporary)...')
+      // NOTE: Comments are synced separately via sync-support-messages function
       totalMessagesStored = 0
-
-      // Messages skipped for now (no comment processing)
 
       // NOTE: Workflow chain trigger has been moved to frontend (supabase_integration.js)
       // Frontend will trigger sync-linear-issues after this function completes OR times out
