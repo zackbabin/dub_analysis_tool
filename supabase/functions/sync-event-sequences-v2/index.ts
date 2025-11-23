@@ -1,7 +1,12 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// Fetches 2 specific events from Mixpanel Export API (last 3 days):
+// Fetches 2 specific events from Mixpanel Export API:
 //   - "Viewed Creator Profile" -> extracts creatorUsername
 //   - "Viewed Portfolio Details" -> extracts portfolioTicker
+//
+// Sync Modes:
+//   - BACKFILL: First run fetches last 30 days (when last_sync_timestamp is NULL)
+//   - INCREMENTAL: Subsequent runs fetch only new events since last sync
+//
 // Stores raw events with extracted properties for downstream analysis
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -174,12 +179,45 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Calculate date range - last 3 days only (reduced from 7 to handle large data volumes)
+      // Get sync status to determine if incremental or backfill sync
+      const { data: syncStatus } = await supabase
+        .from('event_sequences_sync_status')
+        .select('*')
+        .eq('source', 'mixpanel')
+        .single()
+
+      const lastSync = syncStatus?.last_sync_timestamp
       const now = new Date()
-      const lookbackDays = 3
-      const startDate = new Date(now.getTime() - lookbackDays * 24 * 60 * 60 * 1000)
-      const fromDate = startDate.toISOString().split('T')[0] // YYYY-MM-DD
-      const toDate = now.toISOString().split('T')[0] // YYYY-MM-DD
+
+      // Calculate date range based on sync mode
+      let fromDate: string
+      let toDate: string
+      let syncMode: 'backfill' | 'incremental'
+
+      if (!lastSync) {
+        // BACKFILL MODE: No previous sync - fetch last 30 days
+        console.log('📦 BACKFILL MODE: No previous sync detected')
+        const backfillDays = 30
+        const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
+        fromDate = startDate.toISOString().split('T')[0]
+        toDate = now.toISOString().split('T')[0]
+        syncMode = 'backfill'
+        console.log(`Fetching ${backfillDays} days of historical data for initial backfill`)
+      } else {
+        // INCREMENTAL MODE: Fetch only new events since last sync
+        console.log('🔄 INCREMENTAL MODE: Syncing new events since last sync')
+        const lastSyncDate = new Date(lastSync)
+
+        // Fetch from last sync date to today
+        // Add 1 day overlap to ensure we don't miss events
+        const startDate = new Date(lastSyncDate.getTime() - 24 * 60 * 60 * 1000)
+        fromDate = startDate.toISOString().split('T')[0]
+        toDate = now.toISOString().split('T')[0]
+        syncMode = 'incremental'
+
+        const daysSince = Math.ceil((now.getTime() - lastSyncDate.getTime()) / (24 * 60 * 60 * 1000))
+        console.log(`Last sync: ${lastSync} (${daysSince} days ago)`)
+      }
 
       // Only fetch these 2 events - we extract creatorUsername and portfolioTicker from them
       const eventNames = [
@@ -363,14 +401,32 @@ serve(async (req) => {
       const partialSync = stats.eventsInserted < rawEventRows.length
       const message = partialSync
         ? `Partial sync completed - ${stats.eventsInserted} of ${rawEventRows.length} events inserted before timeout`
-        : 'Event sequences sync completed - 2 event types tracked (last 3 days)'
+        : `Event sequences ${syncMode} sync completed - 2 event types tracked`
+
+      // Update sync status with last sync timestamp (only if not partial)
+      if (!partialSync) {
+        await supabase
+          .from('event_sequences_sync_status')
+          .update({
+            last_sync_timestamp: now.toISOString(),
+            last_sync_status: 'success',
+            events_synced: stats.eventsInserted,
+            error_message: null,
+            updated_at: now.toISOString(),
+          })
+          .eq('source', 'mixpanel')
+
+        console.log(`✓ Updated sync status: last_sync_timestamp = ${now.toISOString()}`)
+      } else {
+        console.warn('⚠️ Partial sync - not updating last_sync_timestamp (will retry full range next time)')
+      }
 
       // Update sync log with success (even if partial)
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: stats.eventsInserted,
       })
 
-      console.log(partialSync ? '⚠️ Partial sync completed' : 'Event sequences sync completed successfully')
+      console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log('Tracked events: Viewed Creator Profile (creatorUsername), Viewed Portfolio Details (portfolioTicker)')
       console.log('Call process-event-sequences to aggregate user-level sequences')
 
@@ -378,12 +434,24 @@ serve(async (req) => {
         message,
         stats,
         {
-          note: 'Only tracking 2 events: "Viewed Creator Profile" and "Viewed Portfolio Details" from last 3 days',
+          syncMode: syncMode,
+          dateRange: `${fromDate} to ${toDate}`,
+          note: 'Incremental sync enabled - only fetches new events since last sync',
           nextSteps: 'Call process-event-sequences to aggregate user-level sequences',
           partialSync: partialSync
         }
       )
     } catch (error) {
+      // Update sync status with failure
+      await supabase
+        .from('event_sequences_sync_status')
+        .update({
+          last_sync_status: 'failed',
+          error_message: error?.message || 'Unknown error',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('source', 'mixpanel')
+
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
       throw error
