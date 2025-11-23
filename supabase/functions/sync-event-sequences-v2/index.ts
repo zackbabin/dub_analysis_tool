@@ -230,9 +230,10 @@ serve(async (req) => {
     try {
       // Get sync status to determine if incremental or backfill sync
       const { data: syncStatus } = await supabase
-        .from('event_sequences_sync_status')
+        .from('sync_status')
         .select('*')
         .eq('source', 'mixpanel')
+        .eq('tool_type', 'event_sequences')
         .single()
 
       const lastSync = syncStatus?.last_sync_timestamp
@@ -455,15 +456,18 @@ serve(async (req) => {
       // Update sync status with last sync timestamp (only if not partial)
       if (!partialSync) {
         await supabase
-          .from('event_sequences_sync_status')
-          .update({
+          .from('sync_status')
+          .upsert({
+            source: 'mixpanel',
+            tool_type: 'event_sequences',
             last_sync_timestamp: now.toISOString(),
             last_sync_status: 'success',
-            events_synced: stats.eventsInserted,
+            records_synced: stats.eventsInserted,
             error_message: null,
             updated_at: now.toISOString(),
+          }, {
+            onConflict: 'source,tool_type'
           })
-          .eq('source', 'mixpanel')
 
         console.log(`✓ Updated sync status: last_sync_timestamp = ${now.toISOString()}`)
       } else {
@@ -493,13 +497,16 @@ serve(async (req) => {
     } catch (error) {
       // Update sync status with failure
       await supabase
-        .from('event_sequences_sync_status')
-        .update({
+        .from('sync_status')
+        .upsert({
+          source: 'mixpanel',
+          tool_type: 'event_sequences',
           last_sync_status: 'failed',
           error_message: error?.message || 'Unknown error',
           updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'source,tool_type'
         })
-        .eq('source', 'mixpanel')
 
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)

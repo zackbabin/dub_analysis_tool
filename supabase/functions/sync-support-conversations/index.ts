@@ -71,8 +71,9 @@ serve(async (req) => {
     try {
       // Get last sync timestamps for incremental sync
       const { data: syncStatus } = await supabase
-        .from('support_sync_status')
+        .from('sync_status')
         .select('*')
+        .eq('tool_type', 'support')
         .in('source', ['zendesk']) // COMMENTED OUT: 'instabug' (not ready yet)
 
       const zendeskStatus = syncStatus?.find((s) => s.source === 'zendesk')
@@ -183,23 +184,23 @@ serve(async (req) => {
       // Update sync status (upsert to create if doesn't exist)
       const now = new Date().toISOString()
       const { error: syncStatusError } = await supabase
-        .from('support_sync_status')
+        .from('sync_status')
         .upsert({
           source: 'zendesk',
+          tool_type: 'support',
           last_sync_timestamp: now,
           last_sync_status: 'success',
-          conversations_synced: totalTicketsStored,
-          messages_synced: totalMessagesStored,
+          records_synced: totalTicketsStored + totalMessagesStored,
           error_message: null,
           updated_at: now,
         }, {
-          onConflict: 'source'
+          onConflict: 'source,tool_type'
         })
 
       if (syncStatusError) {
-        console.error('⚠️ Failed to update support_sync_status:', syncStatusError)
+        console.error('⚠️ Failed to update sync_status:', syncStatusError)
       } else {
-        console.log('✓ Updated support_sync_status table')
+        console.log('✓ Updated sync_status table')
       }
 
       // COMMENTED OUT: Instabug integration (not ready yet)

@@ -54,12 +54,13 @@ serve(async (req) => {
     try {
       // Get last sync timestamp for incremental sync
       const { data: syncStatus } = await supabase
-        .from('support_sync_status')
+        .from('sync_status')
         .select('*')
         .eq('source', 'zendesk')
+        .eq('tool_type', 'support_messages')
         .single()
 
-      const lastSync = syncStatus?.last_messages_sync_timestamp
+      const lastSync = syncStatus?.last_sync_timestamp
 
       // Default to 7 days lookback if no previous sync
       const lookbackDays = parseInt(Deno.env.get('ANALYSIS_LOOKBACK_DAYS') || '7')
@@ -198,21 +199,22 @@ serve(async (req) => {
       // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
       const now = new Date().toISOString()
       const { error: syncStatusError } = await supabase
-        .from('support_sync_status')
+        .from('sync_status')
         .upsert({
           source: 'zendesk',
-          last_sync_timestamp: now, // Required field
-          last_messages_sync_timestamp: now,
+          tool_type: 'support_messages',
+          last_sync_timestamp: now,
           last_sync_status: 'success',
+          records_synced: totalStored,
           updated_at: now,
         }, {
-          onConflict: 'source'
+          onConflict: 'source,tool_type'
         })
 
       if (syncStatusError) {
-        console.error('⚠️ Failed to update support_sync_status:', syncStatusError)
+        console.error('⚠️ Failed to update sync_status:', syncStatusError)
       } else {
-        console.log('✓ Updated support_sync_status table')
+        console.log('✓ Updated sync_status table')
       }
 
       const elapsedMs = Date.now() - executionStartMs
