@@ -6,8 +6,9 @@
 -- Drop the foreign key constraint (references UUID)
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_fkey;
 
--- Drop the unique constraint that uses the old column
+-- Drop any old unique constraints
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_external_id_key;
+ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_external_id_key;
 
 -- Change conversation_id column type from UUID to TEXT
 ALTER TABLE support_conversation_messages
@@ -18,10 +19,8 @@ ALTER TABLE support_conversation_messages
 ALTER TABLE support_conversation_messages
   ADD COLUMN IF NOT EXISTS conversation_source TEXT DEFAULT 'zendesk';
 
--- Recreate the unique constraint with the new type
-ALTER TABLE support_conversation_messages
-  ADD CONSTRAINT support_conversation_messages_conversation_unique
-  UNIQUE(conversation_source, conversation_id, external_id);
+-- Note: external_id column was removed in 20251122_remove_message_external_id.sql
+-- We don't need a unique constraint since duplicate messages are handled by ignoreDuplicates in code
 
 -- Add foreign key constraint with composite key (source + id)
 ALTER TABLE support_conversation_messages
