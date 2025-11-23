@@ -70,9 +70,9 @@ ON CONFLICT (source, tool_type) DO UPDATE SET
   error_message = EXCLUDED.error_message,
   updated_at = EXCLUDED.updated_at;
 
--- Drop old tables (commented out for safety - uncomment after verifying migration)
--- DROP TABLE IF EXISTS support_sync_status;
--- DROP TABLE IF EXISTS event_sequences_sync_status;
+-- Drop old tables now that all code has been migrated
+DROP TABLE IF EXISTS support_sync_status CASCADE;
+DROP TABLE IF EXISTS event_sequences_sync_status CASCADE;
 
 COMMENT ON TABLE sync_status IS
   'Unified table for tracking last successful sync timestamps across all workflows. Use this for incremental sync logic. Use sync_logs for execution history.';

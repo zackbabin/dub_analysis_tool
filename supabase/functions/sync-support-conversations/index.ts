@@ -206,16 +206,18 @@ serve(async (req) => {
       // COMMENTED OUT: Instabug integration (not ready yet)
       /*
       await supabase
-        .from('support_sync_status')
-        .update({
+        .from('sync_status')
+        .upsert({
+          source: 'instabug',
+          tool_type: 'support',
           last_sync_timestamp: now,
           last_sync_status: 'success',
-          conversations_synced: normalizedBugs.length,
-          messages_synced: normalizedInstabugComments.length,
+          records_synced: normalizedBugs.length + normalizedInstabugComments.length,
           error_message: null,
           updated_at: now,
+        }, {
+          onConflict: 'source,tool_type'
         })
-        .eq('source', 'instabug')
       */
 
       const elapsedMs = Date.now() - executionStartMs
