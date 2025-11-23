@@ -72,9 +72,10 @@ async function fetchEventsFromExportAPI(
   console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
   console.log(`Full URL: ${url}`)
 
-  // Add 60s timeout for entire Mixpanel API operation (fetch + response.text())
+  // Add 90s timeout for entire Mixpanel API operation (fetch + response.text())
+  // Needs to be longer for backfill mode (30 days of data)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 60000)
+  const timeoutId = setTimeout(() => controller.abort(), 90000)
 
   let response: Response
   let text: string
@@ -121,8 +122,8 @@ async function fetchEventsFromExportAPI(
     clearTimeout(timeoutId)
 
     if (fetchError.name === 'AbortError') {
-      console.error('❌ Mixpanel API request timed out after 60s')
-      throw new Error('Mixpanel Export API request timed out after 60 seconds')
+      console.error('❌ Mixpanel API request timed out after 90s')
+      throw new Error('Mixpanel Export API request timed out after 90 seconds')
     }
     console.error('❌ Mixpanel API error:', fetchError.message)
     throw new Error(`Mixpanel Export API failed: ${fetchError.message}`)
@@ -195,9 +196,9 @@ serve(async (req) => {
       let syncMode: 'backfill' | 'incremental'
 
       if (!lastSync) {
-        // BACKFILL MODE: No previous sync - fetch last 30 days
+        // BACKFILL MODE: No previous sync - fetch last 14 days
         console.log('📦 BACKFILL MODE: No previous sync detected')
-        const backfillDays = 30
+        const backfillDays = 14
         const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
         fromDate = startDate.toISOString().split('T')[0]
         toDate = now.toISOString().split('T')[0]
