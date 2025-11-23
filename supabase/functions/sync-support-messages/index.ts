@@ -177,7 +177,7 @@ serve(async (req) => {
 
       // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
       const now = new Date().toISOString()
-      await supabase
+      const { error: syncStatusError } = await supabase
         .from('support_sync_status')
         .upsert({
           source: 'zendesk',
@@ -188,6 +188,12 @@ serve(async (req) => {
         }, {
           onConflict: 'source'
         })
+
+      if (syncStatusError) {
+        console.error('⚠️ Failed to update support_sync_status:', syncStatusError)
+      } else {
+        console.log('✓ Updated support_sync_status table')
+      }
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)
