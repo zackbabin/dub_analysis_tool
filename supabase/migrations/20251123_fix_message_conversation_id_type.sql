@@ -11,6 +11,10 @@ ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conv
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_id_external_id_key;
 ALTER TABLE support_conversation_messages DROP CONSTRAINT IF EXISTS support_conversation_messages_conversation_external_id_key;
 
+-- Delete all existing messages since they have UUID conversation_ids that won't match new TEXT schema
+-- The sync will repopulate them with correct TEXT conversation_ids
+TRUNCATE TABLE support_conversation_messages;
+
 -- Change conversation_id column type from UUID to TEXT
 ALTER TABLE support_conversation_messages
   ALTER COLUMN conversation_id TYPE TEXT;
