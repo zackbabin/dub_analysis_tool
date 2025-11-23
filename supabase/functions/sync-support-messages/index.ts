@@ -159,6 +159,22 @@ serve(async (req) => {
 
       console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
 
+      // Update message_count in raw_support_conversations for affected tickets
+      console.log('Updating message counts for affected conversations...')
+
+      // Use a single SQL query to update all message counts efficiently
+      // This counts messages per conversation and updates the message_count column
+      const { error: updateError } = await supabase.rpc('update_support_message_counts', {
+        p_source: 'zendesk',
+        p_conversation_ids: Array.from(ticketIds)
+      })
+
+      if (updateError) {
+        console.warn('⚠️ Failed to update message counts (non-fatal):', updateError.message)
+      } else {
+        console.log(`✓ Updated message counts for ${ticketIds.size} conversations`)
+      }
+
       // Update sync status with last messages sync timestamp
       const now = new Date().toISOString()
       await supabase
