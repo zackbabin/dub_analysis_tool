@@ -160,19 +160,39 @@ serve(async (req) => {
       console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
 
       // Update message_count in raw_support_conversations for affected tickets
-      console.log('Updating message counts for affected conversations...')
+      console.log(`Updating message counts for ${ticketIds.size} affected conversations...`)
+      console.log(`Sample ticket IDs:`, Array.from(ticketIds).slice(0, 5))
 
       // Use a single SQL query to update all message counts efficiently
       // This counts messages per conversation and updates the message_count column
-      const { error: updateError } = await supabase.rpc('update_support_message_counts', {
+      const { data: updateData, error: updateError } = await supabase.rpc('update_support_message_counts', {
         p_source: 'zendesk',
         p_conversation_ids: Array.from(ticketIds)
       })
 
       if (updateError) {
-        console.warn('⚠️ Failed to update message counts (non-fatal):', updateError.message)
+        console.error('⚠️ Failed to update message counts:', updateError)
+        console.error('Error details:', JSON.stringify(updateError, null, 2))
       } else {
-        console.log(`✓ Updated message counts for ${ticketIds.size} conversations`)
+        console.log(`✓ RPC call succeeded - updated message counts for ${ticketIds.size} conversations`)
+        if (updateData) {
+          console.log('RPC response:', updateData)
+        }
+
+        // Verify: Check a sample conversation to see if message_count was updated
+        const sampleTicketId = Array.from(ticketIds)[0]
+        const { data: sampleConvo, error: checkError } = await supabase
+          .from('raw_support_conversations')
+          .select('id, message_count')
+          .eq('source', 'zendesk')
+          .eq('id', sampleTicketId)
+          .single()
+
+        if (!checkError && sampleConvo) {
+          console.log(`Verification: Ticket ${sampleTicketId} has message_count = ${sampleConvo.message_count}`)
+        } else {
+          console.warn('Could not verify message_count update:', checkError?.message)
+        }
       }
 
       // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
