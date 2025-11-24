@@ -535,6 +535,35 @@ serve(async (req) => {
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
       console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
 
+      // ALWAYS call analyze-event-sequences, even after timeout
+      // This ensures avg_unique_portfolios and median_unique_portfolios get populated in copy_engagement_summary
+      let analysisResult = null
+      if (!timeoutGuard.isApproachingTimeout()) {
+        try {
+          console.log('\n📊 Calling analyze-event-sequences to update copy_engagement_summary...')
+          const analysisResponse = await supabase.functions.invoke('analyze-event-sequences', {
+            body: { outcome_type: 'copies' }
+          })
+
+          if (analysisResponse.error) {
+            console.warn('⚠️ analyze-event-sequences failed:', analysisResponse.error.message)
+          } else if (analysisResponse.data?.success) {
+            console.log('✅ analyze-event-sequences completed - copy_engagement_summary updated')
+            analysisResult = {
+              convertersAnalyzed: analysisResponse.data.converters_analyzed,
+              meanUniquePortfolios: analysisResponse.data.analysis?.mean_unique_views_converters,
+              medianUniquePortfolios: analysisResponse.data.analysis?.median_unique_views_converters,
+            }
+          } else {
+            console.warn('⚠️ analyze-event-sequences returned unsuccessful:', analysisResponse.data)
+          }
+        } catch (analysisError: any) {
+          console.warn('⚠️ analyze-event-sequences error (non-fatal):', analysisError.message)
+        }
+      } else {
+        console.warn('⚠️ Skipping analyze-event-sequences - approaching timeout limit')
+      }
+
       return createSuccessResponse(
         message,
         stats,
@@ -544,7 +573,7 @@ serve(async (req) => {
           portfolioViews: stats.eventsInserted,
           firstCopies: stats.copyEventsSynced,
           note: 'Simplified workflow - no aggregation needed',
-          nextSteps: 'Call analyze-event-sequences to analyze raw data with Claude AI',
+          analysisResult: analysisResult,
           partialSync: partialSync
         }
       )

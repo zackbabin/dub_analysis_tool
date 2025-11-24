@@ -42,11 +42,11 @@ SELECT
   ROUND(AVG(ma.total_profile_views), 2) AS avg_profile_views,
   ROUND(AVG(ma.total_pdp_views), 2) AS avg_pdp_views,
   ROUND(AVG(ma.unique_creators_viewed), 2) AS avg_unique_creators,
-  ROUND(AVG(ma.unique_portfolios_viewed), 2) AS avg_unique_portfolios,
+  CASE WHEN ma.did_copy = 1 THEN esm.mean_unique_portfolios ELSE ROUND(AVG(ma.unique_portfolios_viewed), 2) END AS avg_unique_portfolios,
   CASE WHEN ma.did_copy = 1 THEN esm.median_unique_portfolios ELSE NULL END AS median_unique_portfolios
 FROM main_analysis ma
 CROSS JOIN event_sequence_metrics esm
-GROUP BY ma.did_copy, esm.median_unique_portfolios;
+GROUP BY ma.did_copy, esm.mean_unique_portfolios, esm.median_unique_portfolios;
 
 -- Grant permissions
 GRANT SELECT ON copy_engagement_summary TO service_role, authenticated;
