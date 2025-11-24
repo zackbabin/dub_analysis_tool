@@ -130,24 +130,24 @@ serve(async (req) => {
 - Non-converters: Users who viewed portfolios but never copied
 
 **Your task**:
-Calculate the average number of UNIQUE portfolio views (by portfolio ticker) before conversion.
+Calculate the MEAN and MEDIAN number of UNIQUE portfolio views (by portfolio ticker) before conversion.
 
 Example:
 - User A views: [$PELOSI, $AAPL, $PELOSI, $TSLA] → 3 unique portfolios
 - User B views: [$AAPL, $AAPL] → 1 unique portfolio
 
 Provide:
-1. Average unique portfolio views for converters
-2. Average unique portfolio views for non-converters
-3. Key insights about what differentiates converters
-4. Recommended minimum views to predict conversion
+1. Mean unique portfolio views for converters
+2. Median unique portfolio views for converters
+3. Mean unique portfolio views for non-converters
+4. Key insights about what differentiates converters
 
 Format your response as JSON:
 {
-  "avg_unique_views_converters": number,
-  "avg_unique_views_non_converters": number,
-  "insights": ["insight 1", "insight 2"],
-  "recommendations": ["recommendation 1", "recommendation 2"]
+  "mean_unique_views_converters": number,
+  "median_unique_views_converters": number,
+  "mean_unique_views_non_converters": number,
+  "insights": ["insight 1", "insight 2"]
 }`
 
     const userPrompt = `Analyze these user journeys:
@@ -193,6 +193,28 @@ Calculate unique portfolio views and provide insights.`
     const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {}
 
     console.log('✅ Analysis complete')
+    console.log(`Mean: ${analysis.mean_unique_views_converters}, Median: ${analysis.median_unique_views_converters}`)
+
+    // Update event_sequence_metrics table (which feeds into copy_engagement_summary view)
+    console.log('Updating event_sequence_metrics table...')
+
+    const meanValue = analysis.mean_unique_views_converters || null
+    const medianValue = analysis.median_unique_views_converters || null
+
+    const { error: updateError } = await supabase
+      .from('event_sequence_metrics')
+      .update({
+        mean_unique_portfolios: meanValue,
+        median_unique_portfolios: medianValue,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', 1)
+
+    if (updateError) {
+      console.error('Error updating event_sequence_metrics:', updateError)
+    } else {
+      console.log('✅ Updated event_sequence_metrics with mean and median values')
+    }
 
     return new Response(
       JSON.stringify({
@@ -201,6 +223,7 @@ Calculate unique portfolio views and provide insights.`
         raw_response: analysisText,
         converters_analyzed: convertersWithViews.length,
         non_converters_analyzed: nonConvertersWithViews.length,
+        updated_summary: !updateError,
       }),
       {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },

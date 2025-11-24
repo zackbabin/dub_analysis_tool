@@ -551,9 +551,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             copyEngagementSummary,
             topCopyCombos,
             topCreatorCopyCombos,
-            subscriptionDistribution,
-            copySequenceAnalysis,
-            eventSequencesMetrics
+            subscriptionDistribution
             // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
             // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
@@ -561,9 +559,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
             this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
-            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; }),
-            this.supabaseIntegration.loadEventSequenceAnalysis('copies').catch(e => { console.warn('Failed to load copy sequences:', e); return null; }),
-            this.supabaseIntegration.loadEventSequencesPreCopyMetrics().catch(e => { console.warn('Failed to load event sequences metrics:', e); return null; })
+            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
             // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
             // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
@@ -622,14 +618,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
             // Build all HTML sections first
-            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary, eventSequencesMetrics);
+            const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
 
             const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
             const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
-
-            const copySequenceHTML = copySequenceAnalysis ?
-                this.generateConversionPathHTML(copySequenceAnalysis, 'Copies') : '';
 
             // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
@@ -1053,7 +1046,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Generate Copy Metrics HTML (inserted before correlation table)
      * Uses array.join() for optimal string building performance
      */
-    generateCopyMetricsHTML(summaryData, eventSequencesMetrics) {
+    generateCopyMetricsHTML(summaryData) {
         if (!summaryData || summaryData.length !== 2) {
             return '';
         }
@@ -1061,16 +1054,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const copiersData = summaryData.find(d => d.did_copy === 1 || d.did_copy === true) || {};
         const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
-        // Extract event sequences metrics
-        const eventSeqData = eventSequencesMetrics && eventSequencesMetrics.length > 0 ? eventSequencesMetrics[0] : {};
-        const uniqueCreators = eventSeqData.unique_creators || 0;
-        const uniquePortfolios = eventSeqData.unique_portfolios || 0;
+        // Extract unique portfolios mean and median from copiers data (populated by Claude AI via event_sequence_metrics table)
+        const uniquePortfoliosMean = copiersData.avg_unique_portfolios || 0;
+        const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
 
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true },
             { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true },
-            { label: 'Unique Creators', primaryValue: uniqueCreators, secondaryValue: null, showComparison: false },
-            { label: 'Unique Portfolios', primaryValue: uniquePortfolios, secondaryValue: null, showComparison: false }
+            { label: 'Avg Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0, showComparison: true },
+            { label: 'Unique Portfolios', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
         ];
 
         const parts = [
@@ -1078,10 +1070,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         ];
 
         metrics.forEach(metric => {
-            const valueDisplay = metric.showComparison
-                ? `${parseFloat(metric.primaryValue).toFixed(1)}
-                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>`
-                : `${Math.round(metric.primaryValue).toLocaleString()}`;
+            let valueDisplay;
+            if (metric.showComparison) {
+                valueDisplay = `${parseFloat(metric.primaryValue).toFixed(1)}
+                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>`;
+            } else if (metric.showMedian) {
+                // Show mean as primary value, median as smaller secondary value
+                valueDisplay = `${parseFloat(metric.primaryValue).toFixed(1)}
+                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">(median: ${parseFloat(metric.secondaryValue).toFixed(1)})</span>`;
+            } else {
+                valueDisplay = `${Math.round(metric.primaryValue).toLocaleString()}`;
+            }
 
             parts.push(
                 `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
@@ -1094,7 +1093,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         parts.push('</div>');
-        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Profile/PDP views compare users who copied vs. haven\'t copied. Unique creators/portfolios show pre-copy event sequences.</p>');
+        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who copied vs. haven\'t copied. Unique creators/portfolios shows mean/median prior to first copy.</p>');
         return parts.join('');
     }
 
