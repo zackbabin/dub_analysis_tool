@@ -340,7 +340,8 @@ serve(async (req) => {
 
       console.log(`✓ Prepared ${rawEventRows.length} event rows for batch insert`)
 
-      // Batch insert to event_sequences_raw
+      // Batch upsert to event_sequences_raw (ON CONFLICT DO NOTHING via unique constraint)
+      // This prevents duplicates while allowing re-sync without data loss
       const batchSize = 1000
       let totalInserted = 0
 
@@ -360,7 +361,10 @@ serve(async (req) => {
         try {
           const { error: insertError } = await supabase
             .from('event_sequences_raw')
-            .insert(batch)
+            .upsert(batch, {
+              onConflict: 'distinct_id,event_time,portfolio_ticker',
+              ignoreDuplicates: true
+            })
 
           if (insertError) {
             const errorCode = insertError.code || insertError.error_code || ''

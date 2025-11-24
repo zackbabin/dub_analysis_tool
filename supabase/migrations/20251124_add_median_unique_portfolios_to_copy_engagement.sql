@@ -71,6 +71,11 @@ ALTER TABLE event_sequences_raw
   DROP COLUMN IF EXISTS creator_username,
   DROP COLUMN IF EXISTS processed_at;
 
+-- Add unique constraint to prevent duplicate events
+-- Allows safe re-sync without accumulating duplicates
+ALTER TABLE event_sequences_raw
+  ADD CONSTRAINT unique_event_sequence UNIQUE (distinct_id, event_time, portfolio_ticker);
+
 -- Add composite index for efficient event sequence queries
 -- Used by analyze-event-sequences to filter views by user and time
 CREATE INDEX IF NOT EXISTS idx_event_sequences_raw_distinct_id_event_time
@@ -87,6 +92,7 @@ BEGIN
   RAISE NOTICE '   - View recreated with new column';
   RAISE NOTICE '   - Values populated by analyze-event-sequences function';
   RAISE NOTICE '   - Cleaned up unused columns (creator_username, processed_at)';
+  RAISE NOTICE '   - Added unique constraint (distinct_id, event_time, portfolio_ticker)';
   RAISE NOTICE '   - Added composite index (distinct_id, event_time)';
   RAISE NOTICE '';
 END $$;
