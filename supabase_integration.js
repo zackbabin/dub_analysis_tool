@@ -743,10 +743,13 @@ class SupabaseIntegration {
     /**
      * Trigger support analysis workflow (Zendesk + Linear integration)
      * 1. sync-support-conversations (stores tickets)
-     * 2. [Frontend triggers] sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
+     * 2. sync-support-messages (stores messages) + sync-linear-issues (parallel)
+     * 3. update-support-message-counts (updates message_count column)
+     * 4. [Frontend triggers] analyze-support-feedback → map-linear-to-feedback
      *
      * IMPORTANT: Workflow chain is triggered from frontend to ensure it runs even if
      * sync-support-conversations times out after storing data.
+     * update-support-message-counts runs independently after messages are synced.
      */
     async triggerSupportAnalysis() {
         let syncResult = null;
@@ -769,7 +772,7 @@ class SupabaseIntegration {
             syncError = error;
         } finally {
             // Step 2 & 3: Sync messages and Linear issues in parallel
-            console.log('→ 2-3/3: Support messages + Linear issues (parallel)');
+            console.log('→ 2-3/4: Support messages + Linear issues (parallel)');
 
             let messagesResult = null;
             let messagesError = null;
@@ -804,11 +807,30 @@ class SupabaseIntegration {
             }
 
             if (messagesResult && linearResult) {
-                console.log('  ✓ 2-3/3: Both synced');
+                console.log('  ✓ 2-3/4: Both synced');
             } else if (messagesResult || linearResult) {
-                console.warn('  ⚠ 2-3/3: Partial sync');
+                console.warn('  ⚠ 2-3/4: Partial sync');
             } else {
-                console.warn('  ⚠ 2-3/3: Both failed');
+                console.warn('  ⚠ 2-3/4: Both failed');
+            }
+
+            // Step 4: Update message counts (runs independently after messages are synced)
+            console.log('→ 4/4: Updating message counts');
+            let messageCountsResult = null;
+            let messageCountsError = null;
+
+            try {
+                const countsResult = await this.supabase.functions.invoke('update-support-message-counts', { body: {} });
+                if (countsResult.error) {
+                    messageCountsError = countsResult.error;
+                    console.warn('  ⚠ 4/4: Message counts update error');
+                } else {
+                    messageCountsResult = countsResult.data;
+                    console.log('  ✓ 4/4: Message counts updated');
+                }
+            } catch (error) {
+                messageCountsError = error;
+                console.warn('  ⚠ 4/4: Message counts update exception');
             }
 
             return {
@@ -816,7 +838,8 @@ class SupabaseIntegration {
                 sync_summary: {
                     conversations: syncResult || { error: syncError?.message },
                     messages: messagesResult || { error: messagesError?.message },
-                    linear: linearResult || { error: linearError?.message }
+                    linear: linearResult || { error: linearError?.message },
+                    message_counts: messageCountsResult || { error: messageCountsError?.message }
                 },
                 message: 'Support data sync completed - frontend will continue with analysis workflow'
             };

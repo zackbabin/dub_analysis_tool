@@ -33,51 +33,6 @@ function initializeZendeskCredentials() {
   return { subdomain: zendeskSubdomain, email: zendeskEmail, token: zendeskToken }
 }
 
-/**
- * Update message counts for conversations
- * Extracted to helper function so it can be called from multiple places
- */
-async function updateMessageCounts(supabase: any, ticketIds: Set<string>) {
-  if (ticketIds.size === 0) {
-    console.log('No ticket IDs to update message counts for')
-    return
-  }
-
-  console.log(`Updating message counts for ${ticketIds.size} affected conversations...`)
-  console.log(`Sample ticket IDs:`, Array.from(ticketIds).slice(0, 5))
-
-  // Use a single SQL query to update all message counts efficiently
-  const { data: updateData, error: updateError } = await supabase.rpc('update_support_message_counts', {
-    p_source: 'zendesk',
-    p_conversation_ids: Array.from(ticketIds)
-  })
-
-  if (updateError) {
-    console.error('⚠️ Failed to update message counts:', updateError)
-    console.error('Error details:', JSON.stringify(updateError, null, 2))
-  } else {
-    console.log(`✓ RPC call succeeded - updated message counts for ${ticketIds.size} conversations`)
-    if (updateData) {
-      console.log('RPC response:', updateData)
-    }
-
-    // Verify: Check a sample conversation to see if message_count was updated
-    const sampleTicketId = Array.from(ticketIds)[0]
-    const { data: sampleConvo, error: checkError } = await supabase
-      .from('raw_support_conversations')
-      .select('id, message_count')
-      .eq('source', 'zendesk')
-      .eq('id', sampleTicketId)
-      .single()
-
-    if (!checkError && sampleConvo) {
-      console.log(`✓ Verification: Ticket ${sampleTicketId} has message_count = ${sampleConvo.message_count}`)
-    } else {
-      console.warn('Could not verify message_count update:', checkError?.message)
-    }
-  }
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   const corsResponse = handleCorsRequest(req)
@@ -204,10 +159,7 @@ serve(async (req) => {
       })
 
       console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
-
-      // IMPORTANT: Update message counts immediately while we still have time
-      // This ensures message_count is populated even if function times out after this
-      await updateMessageCounts(supabase, ticketIds)
+      console.log(`ℹ️  Run update-support-message-counts to populate message_count column`)
 
       // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
       const now = new Date().toISOString()
