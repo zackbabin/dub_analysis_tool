@@ -2,9 +2,9 @@
 // OPTIMIZED: Two-step process to minimize data volume
 //
 // Step 1: Fetch ~435 users who copied in last 7 days (Mixpanel chart 86612901)
-// Step 2: Fetch "Viewed Portfolio Details" ONLY for those targeted users (Export API)
+// Step 2: Stream "Viewed Portfolio Details" for those users, processing in 5000-event chunks
 //
-// This dramatically reduces data volume from 80k+ events to only events for copiers.
+// Streaming approach avoids CPU timeout by processing batches incrementally.
 //
 // Stores:
 //   - Raw view events in event_sequences_raw (no aggregation)
@@ -50,16 +50,19 @@ interface SyncStats {
 }
 
 /**
- * Fetch events from Mixpanel Export API
+ * Fetch events from Mixpanel Export API with streaming processing
+ * Calls onBatch callback for each chunk of events to avoid memory issues
  * https://developer.mixpanel.com/reference/raw-event-export
  */
-async function fetchEventsFromExportAPI(
+async function fetchAndProcessEventsStreaming(
   credentials: { username: string; secret: string },
   fromDate: string,
   toDate: string,
   eventNames: string[],
-  distinctIds?: string[]
-): Promise<MixpanelExportEvent[]> {
+  distinctIds: string[] | undefined,
+  onBatch: (events: MixpanelExportEvent[]) => Promise<void>,
+  batchSize = 5000
+): Promise<{ totalEvents: number }> {
   const { username, secret } = credentials
 
   // Get project ID from shared config (reads from MIXPANEL_PROJECT_ID env var)
@@ -126,11 +129,11 @@ async function fetchEventsFromExportAPI(
       throw new Error(`Mixpanel Export API failed: ${response.status} - ${errorText}`)
     }
 
-    // Stream and parse JSONL response in chunks to avoid memory/timeout issues
+    // Stream and parse JSONL response, processing in batches
     console.log('Streaming response body...')
     const streamStartTime = Date.now()
 
-    const events: MixpanelExportEvent[] = []
+    let eventBatch: MixpanelExportEvent[] = []
     let buffer = ''
     let totalBytes = 0
     let lineCount = 0
@@ -166,13 +169,15 @@ async function fetchEventsFromExportAPI(
 
           try {
             const event = JSON.parse(trimmedLine)
-            events.push(event)
+            eventBatch.push(event)
             lineCount++
 
-            // Log progress every 10000 events
-            if (lineCount % 10000 === 0) {
+            // Process batch when it reaches batchSize
+            if (eventBatch.length >= batchSize) {
               const elapsed = Math.round((Date.now() - streamStartTime) / 1000)
-              console.log(`  📊 Streamed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${elapsed}s`)
+              console.log(`  📊 Processing batch at ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${elapsed}s`)
+              await onBatch(eventBatch)
+              eventBatch = [] // Clear batch after processing
             }
           } catch (parseError) {
             console.warn('Failed to parse JSONL line:', trimmedLine.substring(0, 100))
@@ -184,15 +189,21 @@ async function fetchEventsFromExportAPI(
       if (buffer.trim()) {
         try {
           const event = JSON.parse(buffer.trim())
-          events.push(event)
+          eventBatch.push(event)
           lineCount++
         } catch (parseError) {
           console.warn('Failed to parse final JSONL line:', buffer.substring(0, 100))
         }
       }
 
+      // Process final batch if any events remain
+      if (eventBatch.length > 0) {
+        console.log(`  📊 Processing final batch of ${eventBatch.length} events`)
+        await onBatch(eventBatch)
+      }
+
       const streamDuration = Math.round((Date.now() - streamStartTime) / 1000)
-      console.log(`✓ Streamed and parsed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${streamDuration}s`)
+      console.log(`✓ Streamed and processed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${streamDuration}s`)
 
       clearTimeout(timeoutId)
     } catch (streamError: any) {
@@ -210,16 +221,8 @@ async function fetchEventsFromExportAPI(
     throw new Error(`Mixpanel Export API failed: ${fetchError.message}`)
   }
 
-  console.log(`✓ Fetched ${events.length} events from Export API`)
-
-  // Log first event for debugging
-  if (events.length > 0) {
-    console.log('Sample event:', JSON.stringify(events[0]).substring(0, 200))
-  } else {
-    console.warn('⚠️ No events returned from Export API - check event names')
-  }
-
-  return events
+  console.log(`✓ Fetched and processed ${lineCount} events from Export API`)
+  return { totalEvents: lineCount }
 }
 
 serve(async (req) => {
@@ -274,7 +277,7 @@ serve(async (req) => {
       console.log(`Date range: ${fromDate} to ${toDate}`)
 
       // STEP 1: Fetch first copy users from Mixpanel chart 86612901 FIRST
-      // This gives us the targeted list of ~435 users who copied in last 7 days
+      // This gives us the targeted list of ~435 users who copied in last 3 days
       console.log('\n📊 Step 1: Fetching first copy users from Mixpanel chart 86612901...')
       let targetUserIds: string[] = []
       let copyEventsSynced = 0
@@ -352,20 +355,101 @@ serve(async (req) => {
       const eventNames = ['Viewed Portfolio Details']
 
       if (targetUserIds.length > 0) {
-        console.log(`\n📊 Step 2: Fetching portfolio views for ${targetUserIds.length} targeted users (who copied in last 7 days)`)
+        console.log(`\n📊 Step 2: Fetching portfolio views for ${targetUserIds.length} targeted users (who copied in last 3 days)`)
       } else {
         console.log(`\n📊 Step 2: Fetching ALL portfolio views (no user filter available)`)
       }
 
       const fetchStartMs = Date.now()
-      let events: MixpanelExportEvent[] = []
+
+      const stats: SyncStats = {
+        eventsFetched: 0,
+        eventsInserted: 0,
+      }
+
+      // Process events in streaming batches to avoid CPU timeout
+      let totalInserted = 0
+
+      const processBatch = async (events: MixpanelExportEvent[]) => {
+        // Check timeout before processing batch
+        if (timeoutGuard.isApproachingTimeout()) {
+          console.warn(`⚠️ Approaching timeout - skipping batch of ${events.length} events`)
+          return
+        }
+
+        // Transform Mixpanel events to flat database rows
+        const rawEventRows = []
+        for (const event of events) {
+          // Convert Unix timestamp (seconds) to ISO string
+          const eventTime = new Date(event.properties.time * 1000).toISOString()
+
+          // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
+          const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+          const distinctId = sanitizeDistinctId(rawDistinctId)
+
+          rawEventRows.push({
+            distinct_id: distinctId,
+            event_name: event.event,
+            event_time: eventTime,
+            portfolio_ticker: event.properties.portfolioTicker || null,
+            synced_at: syncStartTime.toISOString()
+          })
+        }
+
+        // Insert batch to database
+        try {
+          const { error: insertError } = await supabase
+            .from('event_sequences_raw')
+            .upsert(rawEventRows, {
+              onConflict: 'distinct_id,event_time,portfolio_ticker',
+              ignoreDuplicates: true
+            })
+
+          if (insertError) {
+            const errorCode = insertError.code || insertError.error_code || ''
+
+            // Handle statement timeout gracefully
+            if (errorCode === '57014' || insertError.message?.includes('statement timeout')) {
+              console.warn(`  ⚠️ Batch insert timed out - continuing`)
+              return
+            }
+
+            // For other errors, log details and throw
+            console.error(`❌ Error inserting batch:`, insertError)
+            console.error('   Sample record:', JSON.stringify(rawEventRows[0]))
+            throw insertError
+          }
+
+          totalInserted += rawEventRows.length
+          console.log(`  ✓ Inserted ${rawEventRows.length} events (${totalInserted} total)`)
+        } catch (err: any) {
+          const errorCode = err?.code || err?.message
+
+          // Handle timeouts in catch block
+          if (errorCode === '57014' || errorCode?.includes('statement timeout')) {
+            console.warn(`  ⚠️ Batch insert timed out (caught) - continuing`)
+            return
+          }
+
+          throw err
+        }
+      }
 
       try {
-        console.log('Calling fetchEventsFromExportAPI...')
-        events = await fetchEventsFromExportAPI(credentials, fromDate, toDate, eventNames, targetUserIds)
-        console.log(`✓ fetchEventsFromExportAPI returned ${events.length} events`)
+        console.log('Calling fetchAndProcessEventsStreaming with batch size 5000...')
+        const result = await fetchAndProcessEventsStreaming(
+          credentials,
+          fromDate,
+          toDate,
+          eventNames,
+          targetUserIds,
+          processBatch,
+          5000 // Process in chunks of 5000 events
+        )
+        stats.eventsFetched = result.totalEvents
+        console.log(`✓ Streaming fetch completed - ${result.totalEvents} events fetched`)
       } catch (error: any) {
-        console.error('❌ fetchEventsFromExportAPI failed:', error.message)
+        console.error('❌ fetchAndProcessEventsStreaming failed:', error.message)
         console.error('Error stack:', error.stack)
 
         // Handle Mixpanel rate limit errors gracefully
@@ -380,29 +464,12 @@ serve(async (req) => {
       }
 
       const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
-      console.log(`✓ Fetch completed in ${fetchElapsedSec}s - Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
+      console.log(`✓ Fetch and insert completed in ${fetchElapsedSec}s - Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
-      const stats: SyncStats = {
-        eventsFetched: events.length,
-        eventsInserted: 0,
-      }
+      stats.eventsInserted = totalInserted
+      stats.copyEventsSynced = copyEventsSynced
 
-      // Check if we're approaching timeout after Mixpanel fetch
-      // If so, we won't have time to insert data, so return with warning
-      if (timeoutGuard.isApproachingTimeout()) {
-        console.warn(`⚠️ Approaching timeout after fetching ${events.length} events - no time for inserts`)
-        console.log(`   Time remaining: ${140 - timeoutGuard.getElapsedSeconds()}s`)
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: 0,
-        })
-        return createSuccessResponse(
-          `Fetched ${events.length} events but timed out before insert - run again to store data`,
-          { ...stats, warning: 'Timeout after fetch - events not stored' },
-          { note: 'Function timed out after fetching events. Run again to complete.' }
-        )
-      }
-
-      if (events.length === 0) {
+      if (stats.eventsFetched === 0) {
         console.log('No events to process - sync complete')
 
         await updateSyncLogSuccess(supabase, syncLogId, {
@@ -415,88 +482,7 @@ serve(async (req) => {
         )
       }
 
-      console.log('Converting events to flat rows for batch insert...')
-
-      // Transform Mixpanel events to flat database rows
-      const rawEventRows = []
-      for (const event of events) {
-        // Convert Unix timestamp (seconds) to ISO string
-        const eventTime = new Date(event.properties.time * 1000).toISOString()
-
-        // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
-        const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
-        const distinctId = sanitizeDistinctId(rawDistinctId)
-
-        rawEventRows.push({
-          distinct_id: distinctId,
-          event_name: event.event,
-          event_time: eventTime,
-          portfolio_ticker: event.properties.portfolioTicker || null,
-          synced_at: syncStartTime.toISOString()
-        })
-      }
-
-      console.log(`✓ Prepared ${rawEventRows.length} event rows for batch insert`)
-
-      // Batch upsert to event_sequences_raw (ON CONFLICT DO NOTHING via unique constraint)
-      // This prevents duplicates while allowing re-sync without data loss
-      const batchSize = 1000
-      let totalInserted = 0
-
-      for (let i = 0; i < rawEventRows.length; i += batchSize) {
-        // Check timeout before each batch
-        if (timeoutGuard.isApproachingTimeout()) {
-          console.warn(`⚠️ Approaching timeout - stopping after ${totalInserted} events inserted`)
-          break
-        }
-
-        const batch = rawEventRows.slice(i, i + batchSize)
-        const batchNum = Math.floor(i / batchSize) + 1
-        const totalBatches = Math.ceil(rawEventRows.length / batchSize)
-
-        console.log(`Inserting batch ${batchNum}/${totalBatches} (${batch.length} events)...`)
-
-        try {
-          const { error: insertError } = await supabase
-            .from('event_sequences_raw')
-            .upsert(batch, {
-              onConflict: 'distinct_id,event_time,portfolio_ticker',
-              ignoreDuplicates: true
-            })
-
-          if (insertError) {
-            const errorCode = insertError.code || insertError.error_code || ''
-
-            // Handle statement timeout gracefully
-            if (errorCode === '57014' || insertError.message?.includes('statement timeout')) {
-              console.warn(`  ⚠️ Batch ${batchNum} timed out - continuing`)
-              continue
-            }
-
-            // For other errors, log details and throw
-            console.error(`❌ Error inserting batch ${batchNum}:`, insertError)
-            console.error('   Sample record:', JSON.stringify(batch[0]))
-            throw insertError
-          }
-
-          totalInserted += batch.length
-          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total events)`)
-        } catch (err: any) {
-          const errorCode = err?.code || err?.message
-
-          // Handle timeouts in catch block
-          if (errorCode === '57014' || errorCode?.includes('statement timeout')) {
-            console.warn(`  ⚠️ Batch ${batchNum} timed out (caught) - continuing`)
-            continue
-          }
-
-          throw err
-        }
-      }
-
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
-      stats.eventsInserted = totalInserted
-      stats.copyEventsSynced = copyEventsSynced
 
       // Cleanup old events (>30 days) to prevent unbounded table growth
       if (!timeoutGuard.isApproachingTimeout()) {
