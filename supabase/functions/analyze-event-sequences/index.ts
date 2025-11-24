@@ -57,13 +57,16 @@ serve(async (req) => {
     console.log(`Found ${convertersData.length} converters`)
 
     // Fetch all view events for these converters in a single batch query
+    // Add date filter to limit data volume (only fetch events from last 14 days)
     const converterIds = convertersData.map(c => c.distinct_id)
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    console.log('Fetching view events for all converters in batch...')
+    console.log('Fetching view events for all converters in batch (last 14 days)...')
     const { data: allViews, error: viewsError } = await supabase
       .from('event_sequences_raw')
       .select('distinct_id, event_time, portfolio_ticker')
       .in('distinct_id', converterIds)
+      .gte('event_time', fourteenDaysAgo)
       .order('distinct_id, event_time')
 
     if (viewsError) throw viewsError
