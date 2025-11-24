@@ -297,7 +297,8 @@ serve(async (req) => {
             status,
             priority,
             tags,
-            custom_fields
+            custom_fields,
+            message_count
           `)
           .gte('created_at', startDate.toISOString())
           .lt('created_at', now.toISOString())
@@ -337,7 +338,8 @@ serve(async (req) => {
           const convMessages = messages?.filter(m => m.conversation_id === conv.id) || []
           return {
             ...conv,
-            message_count: convMessages.length,
+            // Use message_count from database if available, otherwise count messages
+            message_count: conv.message_count ?? convMessages.length,
             all_messages: convMessages.map(m => m.body),
             // No Linear data available in fallback mode
             linear_identifier: null,
