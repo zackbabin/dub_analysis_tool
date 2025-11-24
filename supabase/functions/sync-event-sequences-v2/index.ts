@@ -245,14 +245,15 @@ serve(async (req) => {
       let syncMode: 'backfill' | 'incremental'
 
       if (!lastSync) {
-        // BACKFILL MODE: No previous sync - fetch last 7 days
+        // BACKFILL MODE: No previous sync - fetch last 3 days
+        // Reduced from 7 days to avoid Mixpanel Export API timeout
         console.log('📦 BACKFILL MODE: No previous sync detected')
-        const backfillDays = 7
+        const backfillDays = 3
         const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
         fromDate = startDate.toISOString().split('T')[0]
         toDate = now.toISOString().split('T')[0]
         syncMode = 'backfill'
-        console.log(`Fetching ${backfillDays} days of historical data for initial backfill`)
+        console.log(`Fetching ${backfillDays} days of historical data for initial backfill (reduced from 7 to avoid timeout)`)
       } else {
         // INCREMENTAL MODE: Fetch only new events since last sync
         console.log('🔄 INCREMENTAL MODE: Syncing new events since last sync')
