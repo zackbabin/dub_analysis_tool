@@ -301,15 +301,16 @@ serve(async (req) => {
         const copyRows = []
         const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
-        for (const [distinctId, data] of Object.entries(series)) {
+        for (const [rawDistinctId, data] of Object.entries(series)) {
           // Skip $overall aggregation key
-          if (distinctId === '$overall') continue
+          if (rawDistinctId === '$overall') continue
 
-          const sanitizedId = sanitizeDistinctId(distinctId)
+          // Keep ORIGINAL ID (with $device: prefix) for Mixpanel API filtering
+          targetUserIds.push(rawDistinctId)
+
+          // Sanitize ID for database storage (removes $device: prefix)
+          const sanitizedId = sanitizeDistinctId(rawDistinctId)
           if (!sanitizedId) continue
-
-          // Add to target user list
-          targetUserIds.push(sanitizedId)
 
           // Find first timestamp (not "$overall")
           const timestamps = Object.keys(data).filter(k => k !== '$overall')
@@ -317,7 +318,7 @@ serve(async (req) => {
             const firstCopyTime = timestamps[0] // First key is the first copy time
 
             copyRows.push({
-              distinct_id: sanitizedId,
+              distinct_id: sanitizedId, // Store sanitized ID in database
               first_copy_time: firstCopyTime,
               synced_at: syncStartTime.toISOString()
             })
