@@ -50,115 +50,85 @@ serve(async (req) => {
       .from('user_first_copies')
       .select('distinct_id, first_copy_time')
       .order('first_copy_time', { ascending: false })
-      .limit(300)
+      .limit(200)
 
     if (convertersError) throw convertersError
 
-    const converterIds = convertersData.map(c => c.distinct_id)
-    console.log(`Found ${converterIds.length} converters`)
+    console.log(`Found ${convertersData.length} converters`)
 
-    // Fetch their view events BEFORE first copy
+    // Fetch all view events for these converters in a single batch query
+    const converterIds = convertersData.map(c => c.distinct_id)
+
+    console.log('Fetching view events for all converters in batch...')
+    const { data: allViews, error: viewsError } = await supabase
+      .from('event_sequences_raw')
+      .select('distinct_id, event_time, portfolio_ticker')
+      .in('distinct_id', converterIds)
+      .order('distinct_id, event_time')
+
+    if (viewsError) throw viewsError
+
+    console.log(`✓ Fetched ${allViews.length} total view events`)
+
+    // Group views by user and filter to BEFORE first copy
+    const userViewsMap = new Map()
+    for (const view of allViews) {
+      if (!userViewsMap.has(view.distinct_id)) {
+        userViewsMap.set(view.distinct_id, [])
+      }
+      userViewsMap.get(view.distinct_id).push(view)
+    }
+
+    // Build final dataset with views BEFORE first copy
     const convertersWithViews = []
     for (const converter of convertersData) {
-      const { data: views, error: viewsError } = await supabase
-        .from('event_sequences_raw')
-        .select('event_time, portfolio_ticker')
-        .eq('distinct_id', converter.distinct_id)
-        .lt('event_time', converter.first_copy_time) // Only events BEFORE copy
-        .order('event_time')
-
-      if (viewsError) {
-        console.error(`Error fetching views for ${converter.distinct_id}:`, viewsError)
-        continue
-      }
+      const allUserViews = userViewsMap.get(converter.distinct_id) || []
+      const viewsBeforeCopy = allUserViews.filter(v =>
+        new Date(v.event_time) < new Date(converter.first_copy_time)
+      )
 
       convertersWithViews.push({
         distinct_id: converter.distinct_id,
         first_copy_time: converter.first_copy_time,
-        views: views.map(v => ({
+        views: viewsBeforeCopy.map(v => ({
           time: v.event_time,
           portfolio: v.portfolio_ticker
         }))
       })
     }
 
-    // Fetch non-converters (users with views but no copies)
-    console.log('Fetching non-converters from subscribers_insights...')
-    const { data: nonConvertersData, error: nonConvertersError } = await supabase
-      .from('subscribers_insights')
-      .select('distinct_id')
-      .eq('total_copies', 0)
-      .limit(300)
-
-    if (nonConvertersError) throw nonConvertersError
-
-    const nonConverterIds = nonConvertersData.map(nc => nc.distinct_id)
-    console.log(`Found ${nonConverterIds.length} non-converters`)
-
-    // Fetch their view events (all views in 14-day window)
-    const nonConvertersWithViews = []
-    for (const nonConverter of nonConvertersData) {
-      const { data: views, error: viewsError } = await supabase
-        .from('event_sequences_raw')
-        .select('event_time, portfolio_ticker')
-        .eq('distinct_id', nonConverter.distinct_id)
-        .order('event_time')
-
-      if (viewsError) {
-        console.error(`Error fetching views for ${nonConverter.distinct_id}:`, viewsError)
-        continue
-      }
-
-      nonConvertersWithViews.push({
-        distinct_id: nonConverter.distinct_id,
-        views: views.map(v => ({
-          time: v.event_time,
-          portfolio: v.portfolio_ticker
-        }))
-      })
-    }
-
-    console.log(`Prepared data: ${convertersWithViews.length} converters, ${nonConvertersWithViews.length} non-converters`)
+    console.log(`Prepared data: ${convertersWithViews.length} converters with ${allViews.length} total view events`)
 
     // Send to Claude for analysis
     console.log('Sending data to Claude AI for analysis...')
 
-    const systemPrompt = `You are a data scientist analyzing user behavior to identify what drives portfolio copies.
+    const systemPrompt = `You are a data scientist analyzing user behavior to identify portfolio copy patterns.
 
 **Data provided**:
-- Converters: Users who copied at least once, with their portfolio view events BEFORE first copy
-- Non-converters: Users who viewed portfolios but never copied
+- Users who copied at least once, with their "Viewed Portfolio Details" events BEFORE first copy
 
 **Your task**:
-Calculate the MEAN and MEDIAN number of UNIQUE portfolio views (by portfolio ticker) before conversion.
+Calculate the MEAN and MEDIAN number of UNIQUE portfolio views (by portfolio ticker) before first copy.
 
 Example:
 - User A views: [$PELOSI, $AAPL, $PELOSI, $TSLA] → 3 unique portfolios
 - User B views: [$AAPL, $AAPL] → 1 unique portfolio
 
-Provide:
-1. Mean unique portfolio views for converters
-2. Median unique portfolio views for converters
-3. Mean unique portfolio views for non-converters
-4. Key insights about what differentiates converters
+For each user, count the unique portfolio tickers they viewed BEFORE copying, then calculate:
+1. Mean across all users
+2. Median across all users
 
 Format your response as JSON:
 {
   "mean_unique_views_converters": number,
-  "median_unique_views_converters": number,
-  "mean_unique_views_non_converters": number,
-  "insights": ["insight 1", "insight 2"]
+  "median_unique_views_converters": number
 }`
 
-    const userPrompt = `Analyze these user journeys:
+    const userPrompt = `Analyze portfolio views before first copy for ${convertersWithViews.length} users:
 
-**CONVERTERS (${convertersWithViews.length} users)**:
-${JSON.stringify(convertersWithViews.slice(0, 100), null, 2)}
+${JSON.stringify(convertersWithViews, null, 2)}
 
-**NON-CONVERTERS (${nonConvertersWithViews.length} users)**:
-${JSON.stringify(nonConvertersWithViews.slice(0, 100), null, 2)}
-
-Calculate unique portfolio views and provide insights.`
+Calculate mean and median unique portfolio views (by ticker) before first copy.`
 
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -222,7 +192,7 @@ Calculate unique portfolio views and provide insights.`
         analysis: analysis,
         raw_response: analysisText,
         converters_analyzed: convertersWithViews.length,
-        non_converters_analyzed: nonConvertersWithViews.length,
+        total_view_events: allViews.length,
         updated_summary: !updateError,
       }),
       {

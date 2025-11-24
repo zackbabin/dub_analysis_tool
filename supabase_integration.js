@@ -1144,41 +1144,9 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Load latest event sequence analysis results from database
-     * @param {string} outcomeType - Either 'copies' or 'subscriptions'
-     */
-    async loadEventSequenceAnalysis(outcomeType) {
-        const cacheKey = `event_sequence_${outcomeType}`;
-
-        return this.cachedQuery(cacheKey, async () => {
-            try {
-                const { data, error } = await this.supabase
-                    .from('event_sequence_analysis')
-                    .select('*')
-                    .eq('analysis_type', outcomeType)
-                    .order('generated_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();  // Use maybeSingle() instead of single() to avoid 406 error
-
-                if (error || !data) {
-                    // Silently return null if no data exists
-                    return null;
-                }
-
-                return {
-                    predictive_sequences: data.predictive_sequences || [],
-                    critical_triggers: data.critical_triggers || [],
-                    anti_patterns: data.anti_patterns || [],
-                    summary: data.summary || '',
-                    top_recommendations: data.recommendations || []
-                };
-            } catch (error) {
-                // Silently return null on error
-                return null;
-            }
-        });
-    }
+    // REMOVED: loadEventSequenceAnalysis() - Replaced by simplified event_sequence_metrics table
+    // Event sequences workflow now uses Claude AI to calculate mean/median directly
+    // Results stored in event_sequence_metrics and joined into copy_engagement_summary view
 
     // REMOVED: triggerSubscriptionAnalysis() - analyze-subscription-patterns merged into analyze-conversion-patterns
     // Use triggerCopyAnalysis() with analysis_type='subscription' if needed
@@ -1317,28 +1285,9 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * Load event sequences pre-copy metrics
-     * Returns unique creator profiles and portfolios viewed before copying
-     */
-    async loadEventSequencesPreCopyMetrics() {
-        return this.cachedQuery('event_sequences_precopy_metrics', async () => {
-            try {
-                const { data, error } = await this.supabase
-                    .rpc('get_event_sequences_precopy_metrics');
-
-                if (error) {
-                    console.error('Error loading event sequences pre-copy metrics:', error);
-                    throw error;
-                }
-
-                return data;
-            } catch (error) {
-                console.error('Error loading event sequences pre-copy metrics:', error);
-                throw error;
-            }
-        });
-    }
+    // REMOVED: loadEventSequencesPreCopyMetrics() - RPC function no longer exists
+    // Replaced by simplified event_sequence_metrics table populated by Claude AI
+    // Metrics are now available directly in copy_engagement_summary view
 
     /**
      * Trigger copy pattern analysis via Edge Function

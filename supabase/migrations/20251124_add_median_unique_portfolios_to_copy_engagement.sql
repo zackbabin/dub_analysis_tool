@@ -64,6 +64,21 @@ COMMENT ON COLUMN copy_engagement_summary.avg_unique_portfolios IS
 COMMENT ON COLUMN copy_engagement_summary.median_unique_portfolios IS
 'Median unique portfolios viewed (only for did_copy=1). Calculated by Claude from events BEFORE first copy.';
 
+-- Clean up unused columns from event_sequences_raw
+-- creator_username: not populated by sync function
+-- processed_at: not used (no processing step in simplified workflow)
+ALTER TABLE event_sequences_raw
+  DROP COLUMN IF EXISTS creator_username,
+  DROP COLUMN IF EXISTS processed_at;
+
+-- Add composite index for efficient event sequence queries
+-- Used by analyze-event-sequences to filter views by user and time
+CREATE INDEX IF NOT EXISTS idx_event_sequences_raw_distinct_id_event_time
+  ON event_sequences_raw(distinct_id, event_time);
+
+-- Drop old unused index on processed_at (column dropped above)
+DROP INDEX IF EXISTS idx_event_sequences_raw_processed_at;
+
 -- Log the change
 DO $$
 BEGIN
@@ -71,5 +86,7 @@ BEGIN
   RAISE NOTICE '✅ Added median_unique_portfolios to copy_engagement_summary';
   RAISE NOTICE '   - View recreated with new column';
   RAISE NOTICE '   - Values populated by analyze-event-sequences function';
+  RAISE NOTICE '   - Cleaned up unused columns (creator_username, processed_at)';
+  RAISE NOTICE '   - Added composite index (distinct_id, event_time)';
   RAISE NOTICE '';
 END $$;
