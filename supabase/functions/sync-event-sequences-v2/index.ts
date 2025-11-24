@@ -496,7 +496,7 @@ serve(async (req) => {
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log('Tracked events: Viewed Creator Profile (creatorUsername), Viewed Portfolio Details (portfolioTicker)')
-      console.log('Call process-event-sequences to aggregate user-level sequences')
+      console.log('Next: Call analyze-event-sequences to run Claude AI analysis on conversion patterns')
 
       return createSuccessResponse(
         message,
@@ -505,7 +505,7 @@ serve(async (req) => {
           syncMode: syncMode,
           dateRange: `${fromDate} to ${toDate}`,
           note: 'Incremental sync enabled - only fetches new events since last sync',
-          nextSteps: 'Call process-event-sequences to aggregate user-level sequences',
+          nextSteps: 'Call analyze-event-sequences to run Claude AI analysis on conversion patterns',
           partialSync: partialSync
         }
       )
