@@ -262,7 +262,7 @@ serve(async (req) => {
 
       let conversations = null
       let fetchError = null
-      const MAX_CONVERSATIONS = 400
+      const MAX_CONVERSATIONS = 250
 
       // Query enriched view with date filter
       console.log('Fetching from enriched_support_conversations...')
