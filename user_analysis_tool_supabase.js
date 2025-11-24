@@ -283,33 +283,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('\n═══ Steps 4-6: Analysis Workflows (Parallel) ═══');
 
             const [step4Result, step5Result, step6Result] = await Promise.allSettled([
-                // Step 4: Event sequence workflow
+                // Step 4: Event sequence workflow (streamlined - no process step needed)
                 (async () => {
                     console.log('→ Step 4: Event Sequences (starting in parallel)');
                     try {
-                        console.log('  → 4a: Syncing event sequences (Export API)');
+                        console.log('  → 4a: Syncing and aggregating event sequences (Export API)');
                         const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
                         if (seqSyncResult?.success) {
                             const partial = seqSyncResult.partialSync ? ' (partial - timed out)' : '';
-                            console.log(`    ✓ 4a: Event sequences synced${partial}`);
+                            console.log(`    ✓ 4a: Event sequences synced and aggregated${partial}`);
                         } else {
                             console.warn('    ⚠ 4a: Sync failed, using existing data');
                         }
 
-                        console.log('  → 4b: Processing event sequences');
-                        const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
-                        if (processResult?.success) {
-                            console.log('    ✓ 4b: Event sequences processed');
-                        } else {
-                            console.warn('    ⚠ 4b: Processing failed');
-                        }
-
-                        console.log('  → 4c: Analyzing copy patterns with Claude AI');
+                        console.log('  → 4b: Analyzing copy patterns with Claude AI');
                         const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
                         if (copyAnalysisResult?.success) {
-                            console.log('    ✓ 4c: Copy analysis complete');
+                            console.log('    ✓ 4b: Copy analysis complete');
                         } else {
-                            console.warn('    ⚠ 4c: Analysis failed');
+                            console.warn('    ⚠ 4b: Analysis failed');
                         }
 
                         console.log('✅ Step 4: Event Sequences - Complete');

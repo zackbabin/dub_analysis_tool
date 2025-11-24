@@ -335,10 +335,18 @@ serve(async (req) => {
         )
       }
 
-      console.log('Processing events for storage...')
+      console.log('Processing events and aggregating by user...')
 
-      // Transform Mixpanel events to database format
-      const rawEventRows = events.map((event) => {
+      // Group events by user for aggregation
+      const userEventsMap = new Map<string, Array<{
+        event: string
+        time: string
+        count: number
+        portfolioTicker?: string
+        creatorUsername?: string
+      }>>()
+
+      for (const event of events) {
         // Convert Unix timestamp (seconds) to ISO string
         const eventTime = new Date(event.properties.time * 1000).toISOString()
 
@@ -346,30 +354,30 @@ serve(async (req) => {
         const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
         const distinctId = sanitizeDistinctId(rawDistinctId)
 
-        // Extract portfolioTicker or creatorUsername based on event type
-        const portfolioTicker = event.event === 'Viewed Portfolio Details'
-          ? event.properties.portfolioTicker
-          : null
-
-        const creatorUsername = event.event === 'Viewed Creator Profile'
-          ? event.properties.creatorUsername
-          : null
-
-        return {
-          distinct_id: distinctId,
-          event_name: event.event,
-          event_time: eventTime,
-          event_count: 1,
-          portfolio_ticker: portfolioTicker,
-          creator_username: creatorUsername,
-          synced_at: syncStartTime.toISOString()
+        // Get or create user's event array
+        if (!userEventsMap.has(distinctId)) {
+          userEventsMap.set(distinctId, [])
         }
-      })
 
-      console.log(`Prepared ${rawEventRows.length} event records for insertion`)
-      if (rawEventRows.length > 0) {
-        console.log(`Sample record: ${JSON.stringify(rawEventRows[0])}`)
+        // Add event to user's sequence
+        const eventObj: any = {
+          event: event.event,
+          time: eventTime,
+          count: 1
+        }
+
+        // Add optional properties if present
+        if (event.properties.portfolioTicker) {
+          eventObj.portfolioTicker = event.properties.portfolioTicker
+        }
+        if (event.properties.creatorUsername) {
+          eventObj.creatorUsername = event.properties.creatorUsername
+        }
+
+        userEventsMap.get(distinctId)!.push(eventObj)
       }
+
+      console.log(`✓ Grouped ${events.length} events into ${userEventsMap.size} user sequences`)
 
       // Check if we're approaching timeout before starting batch inserts
       if (timeoutGuard.isApproachingTimeout()) {
@@ -384,53 +392,60 @@ serve(async (req) => {
         )
       }
 
-      // Insert events in batches
+      // Build user_event_sequences rows
+      const eventSequenceRows = []
+      for (const [distinctId, eventSequence] of userEventsMap) {
+        eventSequenceRows.push({
+          distinct_id: distinctId,
+          event_sequence: eventSequence,
+          synced_at: syncStartTime.toISOString()
+        })
+      }
+
+      console.log(`Prepared ${eventSequenceRows.length} user sequence records for upsert`)
+
+      // Upsert to user_event_sequences in batches
       const batchSize = 500
       let totalInserted = 0
 
-      for (let i = 0; i < rawEventRows.length; i += batchSize) {
+      for (let i = 0; i < eventSequenceRows.length; i += batchSize) {
         // Check timeout before each batch
         if (timeoutGuard.isApproachingTimeout()) {
-          console.warn(`⚠️ Approaching timeout - stopping early after ${totalInserted} events`)
+          console.warn(`⚠️ Approaching timeout - stopping early after ${totalInserted} users`)
           break
         }
 
-        const batch = rawEventRows.slice(i, i + batchSize)
+        const batch = eventSequenceRows.slice(i, i + batchSize)
         const batchNum = Math.floor(i / batchSize) + 1
-        const totalBatches = Math.ceil(rawEventRows.length / batchSize)
+        const totalBatches = Math.ceil(eventSequenceRows.length / batchSize)
 
-        console.log(`  Inserting batch ${batchNum}/${totalBatches} (${batch.length} events)...`)
+        console.log(`  Upserting batch ${batchNum}/${totalBatches} (${batch.length} users)...`)
 
         try {
-          const { error: insertError } = await supabase
-            .from('event_sequences_raw')
-            .insert(batch, {
-              ignoreDuplicates: true,
+          const { error: upsertError } = await supabase
+            .from('user_event_sequences')
+            .upsert(batch, {
+              onConflict: 'distinct_id',
+              ignoreDuplicates: false  // Update existing records
             })
 
-          if (insertError) {
-            const errorCode = insertError.code || insertError.error_code || ''
-
-            // Handle duplicate keys gracefully (ignoreDuplicates may not work with partial indexes)
-            if (errorCode === '23505' || insertError.message?.includes('duplicate key')) {
-              console.warn(`  ⚠️ Batch ${batchNum} has duplicates - continuing`)
-              continue
-            }
+          if (upsertError) {
+            const errorCode = upsertError.code || upsertError.error_code || ''
 
             // Handle statement timeout gracefully
-            if (errorCode === '57014' || insertError.message?.includes('statement timeout')) {
+            if (errorCode === '57014' || upsertError.message?.includes('statement timeout')) {
               console.warn(`  ⚠️ Batch ${batchNum} timed out - continuing`)
               continue
             }
 
             // For other errors, log details and throw
-            console.error(`❌ Error inserting batch ${batchNum}:`, insertError)
+            console.error(`❌ Error upserting batch ${batchNum}:`, upsertError)
             console.error('   Sample record:', JSON.stringify(batch[0]))
-            throw insertError
+            throw upsertError
           }
 
           totalInserted += batch.length
-          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total)`)
+          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total users)`)
         } catch (err: any) {
           const errorCode = err?.code || err?.message
 
@@ -444,14 +459,14 @@ serve(async (req) => {
         }
       }
 
-      console.log(`✅ Inserted ${totalInserted} events`)
+      console.log(`✅ Upserted ${totalInserted} user event sequences`)
       stats.eventsInserted = totalInserted
 
       // Check if we completed all records or timed out early
-      const partialSync = stats.eventsInserted < rawEventRows.length
+      const partialSync = stats.eventsInserted < eventSequenceRows.length
       const message = partialSync
-        ? `Partial sync completed - ${stats.eventsInserted} of ${rawEventRows.length} events inserted before timeout`
-        : `Event sequences ${syncMode} sync completed - 2 event types tracked`
+        ? `Partial sync completed - ${stats.eventsInserted} of ${eventSequenceRows.length} user sequences upserted before timeout`
+        : `Event sequences ${syncMode} sync completed - ${eventSequenceRows.length} users aggregated from ${events.length} events`
 
       // Update sync status with last sync timestamp (only if not partial)
       if (!partialSync) {

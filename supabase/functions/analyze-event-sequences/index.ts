@@ -74,50 +74,127 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Fetch user event sequences with outcomes
+    // We join with subscribers_insights to get actual copy/subscription counts
     console.log('Fetching event sequences from database...')
 
     let converters, nonConverters
 
     if (outcomeType === 'copies') {
-      // High copy users (3+ copies)
-      const { data: highCopyUsers, error: highCopyError } = await supabase
-        .from('user_event_sequences')
-        .select('distinct_id, event_sequence, total_copies')
+      // First, get high copy users from subscribers_insights (3+ copies)
+      const { data: highCopyUserData, error: highCopyUserError } = await supabase
+        .from('subscribers_insights')
+        .select('distinct_id, total_copies')
         .gte('total_copies', 3)
         .limit(300)
 
-      if (highCopyError) throw highCopyError
-      converters = highCopyUsers || []
+      if (highCopyUserError) throw highCopyUserError
 
-      // Low/no copy users
-      const { data: lowCopyUsers, error: lowCopyError } = await supabase
-        .from('user_event_sequences')
-        .select('distinct_id, event_sequence, total_copies')
+      // Then fetch their event sequences
+      const highCopyDistinctIds = (highCopyUserData || []).map(u => u.distinct_id)
+
+      if (highCopyDistinctIds.length > 0) {
+        const { data: highCopySequences, error: highCopySeqError } = await supabase
+          .from('user_event_sequences')
+          .select('distinct_id, event_sequence')
+          .in('distinct_id', highCopyDistinctIds)
+
+        if (highCopySeqError) throw highCopySeqError
+
+        // Join the data
+        converters = (highCopySequences || []).map(seq => ({
+          ...seq,
+          total_copies: highCopyUserData.find(u => u.distinct_id === seq.distinct_id)?.total_copies || 0
+        }))
+      } else {
+        converters = []
+      }
+
+      // Get low/no copy users from subscribers_insights
+      const { data: lowCopyUserData, error: lowCopyUserError } = await supabase
+        .from('subscribers_insights')
+        .select('distinct_id, total_copies')
         .lt('total_copies', 1)
         .limit(300)
 
-      if (lowCopyError) throw lowCopyError
-      nonConverters = lowCopyUsers || []
+      if (lowCopyUserError) throw lowCopyUserError
+
+      // Then fetch their event sequences
+      const lowCopyDistinctIds = (lowCopyUserData || []).map(u => u.distinct_id)
+
+      if (lowCopyDistinctIds.length > 0) {
+        const { data: lowCopySequences, error: lowCopySeqError } = await supabase
+          .from('user_event_sequences')
+          .select('distinct_id, event_sequence')
+          .in('distinct_id', lowCopyDistinctIds)
+
+        if (lowCopySeqError) throw lowCopySeqError
+
+        // Join the data
+        nonConverters = (lowCopySequences || []).map(seq => ({
+          ...seq,
+          total_copies: lowCopyUserData.find(u => u.distinct_id === seq.distinct_id)?.total_copies || 0
+        }))
+      } else {
+        nonConverters = []
+      }
     } else {
-      // Subscription users
-      const { data: subUsers, error: subError } = await supabase
-        .from('user_event_sequences')
-        .select('distinct_id, event_sequence, total_subscriptions')
+      // Subscription users from subscribers_insights
+      const { data: subUserData, error: subUserError } = await supabase
+        .from('subscribers_insights')
+        .select('distinct_id, total_subscriptions')
         .eq('total_subscriptions', 1)
         .limit(300)
 
-      if (subError) throw subError
-      converters = subUsers || []
+      if (subUserError) throw subUserError
 
-      // Non-subscription users
-      const { data: nonSubUsers, error: nonSubError } = await supabase
-        .from('user_event_sequences')
-        .select('distinct_id, event_sequence, total_subscriptions')
+      // Then fetch their event sequences
+      const subDistinctIds = (subUserData || []).map(u => u.distinct_id)
+
+      if (subDistinctIds.length > 0) {
+        const { data: subSequences, error: subSeqError } = await supabase
+          .from('user_event_sequences')
+          .select('distinct_id, event_sequence')
+          .in('distinct_id', subDistinctIds)
+
+        if (subSeqError) throw subSeqError
+
+        // Join the data
+        converters = (subSequences || []).map(seq => ({
+          ...seq,
+          total_subscriptions: subUserData.find(u => u.distinct_id === seq.distinct_id)?.total_subscriptions || 0
+        }))
+      } else {
+        converters = []
+      }
+
+      // Non-subscription users from subscribers_insights
+      const { data: nonSubUserData, error: nonSubUserError } = await supabase
+        .from('subscribers_insights')
+        .select('distinct_id, total_subscriptions')
         .eq('total_subscriptions', 0)
         .limit(300)
 
-      if (nonSubError) throw nonSubError
-      nonConverters = nonSubUsers || []
+      if (nonSubUserError) throw nonSubUserError
+
+      // Then fetch their event sequences
+      const nonSubDistinctIds = (nonSubUserData || []).map(u => u.distinct_id)
+
+      if (nonSubDistinctIds.length > 0) {
+        const { data: nonSubSequences, error: nonSubSeqError } = await supabase
+          .from('user_event_sequences')
+          .select('distinct_id, event_sequence')
+          .in('distinct_id', nonSubDistinctIds)
+
+        if (nonSubSeqError) throw nonSubSeqError
+
+        // Join the data
+        nonConverters = (nonSubSequences || []).map(seq => ({
+          ...seq,
+          total_subscriptions: nonSubUserData.find(u => u.distinct_id === seq.distinct_id)?.total_subscriptions || 0
+        }))
+      } else {
+        nonConverters = []
+      }
     }
 
     console.log(`Loaded ${converters.length} converters and ${nonConverters.length} non-converters`)
