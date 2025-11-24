@@ -458,10 +458,22 @@ serve(async (req) => {
       console.log(`Converting weekly_volume to average (dividing by ${numberOfWeeks.toFixed(1)} weeks)`)
 
       if (analysis.top_issues && Array.isArray(analysis.top_issues)) {
+        // Debug: Check if avg_message_count exists before processing
+        console.log('🔍 Checking avg_message_count in Claude response:')
+        analysis.top_issues.forEach((issue: any, idx: number) => {
+          console.log(`  Issue ${idx + 1} (${issue.issue_summary?.substring(0, 40)}...): avg_message_count = ${issue.avg_message_count}`)
+        })
+
         analysis.top_issues = analysis.top_issues.map((issue: any) => ({
           ...issue,
           weekly_volume: issue.weekly_volume ? Math.round(issue.weekly_volume / numberOfWeeks) : 0
         }))
+
+        // Debug: Verify avg_message_count still exists after processing
+        console.log('🔍 Verifying avg_message_count after post-processing:')
+        analysis.top_issues.forEach((issue: any, idx: number) => {
+          console.log(`  Issue ${idx + 1}: avg_message_count = ${issue.avg_message_count}`)
+        })
       }
 
       // Store results

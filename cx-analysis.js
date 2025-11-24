@@ -54,6 +54,12 @@ class CXAnalysis {
                 return;
             }
 
+            // Debug: Check if avg_message_count exists in the data
+            console.log('🔍 Checking avg_message_count in top_issues:');
+            analysisResult.top_issues.forEach((issue, idx) => {
+                console.log(`  Issue ${idx + 1}: avg_message_count = ${issue.avg_message_count}`);
+            });
+
             this.displayResults(analysisResult);
 
         } catch (error) {
