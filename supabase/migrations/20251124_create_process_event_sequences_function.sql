@@ -46,12 +46,20 @@ BEGIN
     SELECT
       COALESCE(ues.distinct_id, ne.distinct_id) AS distinct_id,
       CASE
-        -- If existing sequence exists, concatenate and re-sort
+        -- If existing sequence exists, merge and deduplicate
+        -- OPTIMIZATION: Use DISTINCT ON to deduplicate by (event, time) before aggregating
+        -- This avoids duplicate events from overlapping sync windows
         WHEN ues.event_sequence IS NOT NULL THEN (
-          SELECT json_agg(event ORDER BY (event->>'time')::timestamptz ASC)
+          SELECT json_agg(event ORDER BY event_time ASC)
           FROM (
-            SELECT json_array_elements(ues.event_sequence || ne.event_sequence) AS event
-          ) combined
+            SELECT DISTINCT ON (event->>'event', event->>'time')
+              event,
+              (event->>'time')::timestamptz AS event_time
+            FROM (
+              SELECT json_array_elements(ues.event_sequence || ne.event_sequence) AS event
+            ) combined
+            ORDER BY event->>'event', event->>'time', event
+          ) deduplicated
         )
         -- Otherwise, use new events only
         ELSE ne.event_sequence
