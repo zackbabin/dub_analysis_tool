@@ -1,0 +1,92 @@
+-- Cleanup unused columns and views
+-- Drop premium_creator_metrics_latest (not used anywhere)
+-- Remove unused columns from portfolio_creator_engagement_metrics
+-- Date: 2024-11-24
+
+-- Drop unused view
+DROP VIEW IF EXISTS premium_creator_metrics_latest CASCADE;
+
+-- Recreate portfolio_creator_engagement_metrics without unused columns
+DROP MATERIALIZED VIEW IF EXISTS hidden_gems_portfolios CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS portfolio_creator_engagement_metrics CASCADE;
+
+CREATE MATERIALIZED VIEW portfolio_creator_engagement_metrics AS
+SELECT
+  portfolio_ticker,
+  creator_id,
+  MAX(creator_username) AS creator_username,
+
+  -- User counts
+  COUNT(DISTINCT CASE WHEN pdp_view_count > 0 THEN distinct_id END) AS unique_viewers,
+  COUNT(DISTINCT CASE WHEN did_copy THEN distinct_id END) AS unique_copiers,
+
+  -- Aggregated metrics (only the ones actually used)
+  SUM(pdp_view_count) AS total_pdp_views,
+  SUM(CASE WHEN did_copy THEN copy_count ELSE 0 END) AS total_copies,
+  COALESCE(SUM(liquidation_count), 0) AS total_liquidations,
+
+  -- Conversion rate
+  ROUND(
+    (COUNT(DISTINCT CASE WHEN did_copy THEN distinct_id END)::NUMERIC /
+     NULLIF(COUNT(DISTINCT CASE WHEN pdp_view_count > 0 THEN distinct_id END), 0)) * 100,
+    2
+  ) AS conversion_rate_pct
+
+FROM user_portfolio_creator_engagement
+
+GROUP BY portfolio_ticker, creator_id;
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_metrics_ticker
+ON portfolio_creator_engagement_metrics (portfolio_ticker);
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_metrics_creator
+ON portfolio_creator_engagement_metrics (creator_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_metrics_pk
+ON portfolio_creator_engagement_metrics(portfolio_ticker, creator_id);
+
+COMMENT ON MATERIALIZED VIEW portfolio_creator_engagement_metrics IS
+'Portfolio-creator engagement metrics. Only includes columns actually used by dependent views. Refresh after sync.';
+
+-- Recreate hidden_gems_portfolios
+CREATE MATERIALIZED VIEW hidden_gems_portfolios AS
+SELECT
+  portfolio_ticker,
+  creator_id,
+  creator_username,
+  unique_viewers,
+  total_pdp_views,
+  unique_copiers,
+  total_copies,
+  ROUND(
+    (unique_viewers::NUMERIC / NULLIF(unique_copiers, 0)),
+    2
+  ) as viewers_to_copiers_ratio,
+  conversion_rate_pct
+FROM portfolio_creator_engagement_metrics
+WHERE
+  unique_viewers >= 10
+  AND unique_copiers > 0
+  AND (unique_viewers::NUMERIC / NULLIF(unique_copiers, 0)) >= 5
+  AND unique_copiers <= 100
+ORDER BY unique_viewers DESC;
+
+CREATE INDEX IF NOT EXISTS idx_hidden_gems_portfolios_ticker
+ON hidden_gems_portfolios (portfolio_ticker);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hidden_gems_portfolios_pk
+ON hidden_gems_portfolios(portfolio_ticker, creator_id);
+
+COMMENT ON MATERIALIZED VIEW hidden_gems_portfolios IS
+'Hidden gem portfolios: many unique viewers but few unique copiers (ratio >= 5).';
+
+-- Log the cleanup
+DO $$
+BEGIN
+  RAISE NOTICE '✅ Cleaned up portfolio_creator_engagement_metrics';
+  RAISE NOTICE '   - Dropped premium_creator_metrics_latest (unused)';
+  RAISE NOTICE '   - Removed 5 unused columns (subscriptions, profile_views, etc.)';
+  RAISE NOTICE '   - Kept only 9 essential columns';
+  RAISE NOTICE '   Run refresh_portfolio_engagement_views() to populate';
+END $$;
