@@ -396,7 +396,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 ? stats.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%'
                 : '—';
             const medianPerformanceDisplay = stats.median_all_time_performance !== null && stats.median_all_time_performance !== undefined
-                ? `${stats.median_all_time_performance >= 0 ? '+' : ''}${stats.median_all_time_performance.toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                ? `${stats.median_all_time_performance >= 0 ? '+' : ''}${(stats.median_all_time_performance * 100).toLocaleString(undefined, {maximumFractionDigits: 2})}%`
                 : '—';
             const medianCopyCapitalDisplay = stats.median_copy_capital !== null && stats.median_copy_capital !== undefined
                 ? `$${stats.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
