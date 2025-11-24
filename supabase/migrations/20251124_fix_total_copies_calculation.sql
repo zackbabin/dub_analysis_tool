@@ -12,7 +12,7 @@ CREATE MATERIALIZED VIEW portfolio_creator_engagement_metrics AS
 SELECT
   portfolio_ticker,
   creator_id,
-  creator_username,
+  MAX(creator_username) AS creator_username,  -- Handle any username variations
 
   -- Count distinct users
   COUNT(DISTINCT CASE WHEN pdp_view_count > 0 THEN distinct_id END) AS unique_viewers,
@@ -39,7 +39,9 @@ SELECT
 
 FROM user_portfolio_creator_engagement
 
-GROUP BY portfolio_ticker, creator_id, creator_username;
+GROUP BY portfolio_ticker, creator_id
+-- Only group by portfolio_ticker and creator_id
+-- Use MAX(creator_username) to pick one if there are variations;
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_metrics_ticker
