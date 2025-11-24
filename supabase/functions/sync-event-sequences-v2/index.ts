@@ -1,13 +1,12 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// Fetches 2 specific events from Mixpanel Export API:
-//   - "Viewed Creator Profile" -> extracts creatorUsername
-//   - "Viewed Portfolio Details" -> extracts portfolioTicker
+// SIMPLIFIED: Fetches only "Viewed Portfolio Details" from Mixpanel Export API (last 14 days)
+// Also fetches first copy times from Mixpanel chart 86612901
 //
-// Sync Modes:
-//   - BACKFILL: First run fetches last 30 days (when last_sync_timestamp is NULL)
-//   - INCREMENTAL: Subsequent runs fetch only new events since last sync
+// Stores:
+//   - Raw view events in event_sequences_raw (no aggregation)
+//   - First copy times in user_first_copies
 //
-// Stores raw events with extracted properties for downstream analysis
+// No pre-aggregation - analyze-event-sequences queries raw data directly
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -43,6 +42,7 @@ interface MixpanelExportEvent {
 interface SyncStats {
   eventsFetched: number
   eventsInserted: number
+  copyEventsSynced?: number
 }
 
 /**
@@ -244,37 +244,18 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      if (!lastSync) {
-        // BACKFILL MODE: No previous sync - fetch last 3 days
-        // Reduced from 7 days to avoid Mixpanel Export API timeout
-        console.log('📦 BACKFILL MODE: No previous sync detected')
-        const backfillDays = 3
-        const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
-        fromDate = startDate.toISOString().split('T')[0]
-        toDate = now.toISOString().split('T')[0]
-        syncMode = 'backfill'
-        console.log(`Fetching ${backfillDays} days of historical data for initial backfill (reduced from 7 to avoid timeout)`)
-      } else {
-        // INCREMENTAL MODE: Fetch only new events since last sync
-        console.log('🔄 INCREMENTAL MODE: Syncing new events since last sync')
-        const lastSyncDate = new Date(lastSync)
+      // SIMPLIFIED: Always fetch last 14 days (no incremental mode)
+      // This keeps the dataset consistent for Claude analysis
+      console.log('📦 Fetching last 14 days of portfolio view events')
+      const backfillDays = 14
+      const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
+      fromDate = startDate.toISOString().split('T')[0]
+      toDate = now.toISOString().split('T')[0]
+      syncMode = 'backfill'
+      console.log(`Date range: ${fromDate} to ${toDate}`)
 
-        // Fetch from last sync date to today
-        // Add 1 day overlap to ensure we don't miss events
-        const startDate = new Date(lastSyncDate.getTime() - 24 * 60 * 60 * 1000)
-        fromDate = startDate.toISOString().split('T')[0]
-        toDate = now.toISOString().split('T')[0]
-        syncMode = 'incremental'
-
-        const daysSince = Math.ceil((now.getTime() - lastSyncDate.getTime()) / (24 * 60 * 60 * 1000))
-        console.log(`Last sync: ${lastSync} (${daysSince} days ago)`)
-      }
-
-      // Only fetch these 2 events - we extract creatorUsername and portfolioTicker from them
-      const eventNames = [
-        'Viewed Creator Profile',    // Extract creatorUsername
-        'Viewed Portfolio Details',  // Extract portfolioTicker
-      ]
+      // SIMPLIFIED: Only fetch "Viewed Portfolio Details" (single event type)
+      const eventNames = ['Viewed Portfolio Details']
 
       console.log(`Fetching events from ${fromDate} to ${toDate}...`)
 
@@ -353,7 +334,6 @@ serve(async (req) => {
           event_name: event.event,
           event_time: eventTime,
           portfolio_ticker: event.properties.portfolioTicker || null,
-          creator_username: event.properties.creatorUsername || null,
           synced_at: syncStartTime.toISOString()
         })
       }
@@ -415,6 +395,77 @@ serve(async (req) => {
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
       stats.eventsInserted = totalInserted
 
+      // Fetch first copy times from Mixpanel chart 86612901
+      let copyEventsSynced = 0
+      if (!timeoutGuard.isApproachingTimeout()) {
+        console.log('\nFetching first copy events from Mixpanel chart 86612901...')
+        try {
+          const projectId = MIXPANEL_CONFIG.projectId
+          const chartId = '86612901'
+          const chartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${chartId}`
+
+          const chartResponse = await fetch(chartUrl, {
+            headers: {
+              'Authorization': `Bearer ${credentials.secret}`,
+            },
+          })
+
+          if (!chartResponse.ok) {
+            throw new Error(`Chart API failed: ${chartResponse.status}`)
+          }
+
+          const chartData = await chartResponse.json()
+          console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
+
+          // Parse series object to extract first copy times
+          const copyRows = []
+          const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
+
+          for (const [distinctId, data] of Object.entries(series)) {
+            // Skip $overall aggregation key
+            if (distinctId === '$overall') continue
+
+            // Find first timestamp (not "$overall")
+            const timestamps = Object.keys(data).filter(k => k !== '$overall')
+            if (timestamps.length > 0) {
+              const firstCopyTime = timestamps[0] // First key is the first copy time
+              const sanitizedId = sanitizeDistinctId(distinctId)
+
+              copyRows.push({
+                distinct_id: sanitizedId,
+                first_copy_time: firstCopyTime,
+                synced_at: syncStartTime.toISOString()
+              })
+            }
+          }
+
+          console.log(`✓ Extracted ${copyRows.length} first copy events`)
+
+          // Upsert to user_first_copies table
+          if (copyRows.length > 0) {
+            const { error: copyError } = await supabase
+              .from('user_first_copies')
+              .upsert(copyRows, {
+                onConflict: 'distinct_id'
+              })
+
+            if (copyError) {
+              console.error('⚠️ Error inserting copy events:', copyError)
+            } else {
+              copyEventsSynced = copyRows.length
+              console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events`)
+            }
+          }
+        } catch (chartError) {
+          console.error('⚠️ Chart fetch failed (non-fatal):', chartError.message)
+          console.log('   Continuing with view events only')
+        }
+      } else {
+        console.warn('⚠️ Skipping chart fetch - approaching timeout')
+      }
+
+      stats.copyEventsSynced = copyEventsSynced
+
       // Check if we completed all events or timed out early
       const partialSync = totalInserted < events.length
       const message = partialSync
@@ -448,8 +499,8 @@ serve(async (req) => {
       })
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
-      console.log('Tracked events: Viewed Creator Profile (creatorUsername), Viewed Portfolio Details (portfolioTicker)')
-      console.log('Next: Call process-event-sequences to aggregate, then analyze-event-sequences for Claude AI analysis')
+      console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
+      console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
 
       return createSuccessResponse(
         message,
@@ -457,8 +508,10 @@ serve(async (req) => {
         {
           syncMode: syncMode,
           dateRange: `${fromDate} to ${toDate}`,
-          note: 'Events inserted to event_sequences_raw staging table - call process-event-sequences to aggregate',
-          nextSteps: 'Call process-event-sequences to aggregate into user_event_sequences',
+          portfolioViews: stats.eventsInserted,
+          firstCopies: stats.copyEventsSynced,
+          note: 'Simplified workflow - no aggregation needed',
+          nextSteps: 'Call analyze-event-sequences to analyze raw data with Claude AI',
           partialSync: partialSync
         }
       )
