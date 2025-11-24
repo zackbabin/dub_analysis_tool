@@ -492,10 +492,6 @@ serve(async (req) => {
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
 
-      // Skip cleanup - prioritize analyze-event-sequences over cleanup
-      // Cleanup is non-critical and can be done in next sync
-      console.log('⏭️ Skipping cleanup to prioritize analyze-event-sequences call')
-
       // Check if we completed all events or timed out early
       const partialSync = totalInserted < events.length
       const message = partialSync
@@ -532,24 +528,26 @@ serve(async (req) => {
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
       console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
 
-      // ALWAYS call analyze-event-sequences after successful data sync
+      // Call analyze-event-sequences if we have meaningful data for analysis
+      // Requires at least 50 converters (users who copied) to get statistically meaningful results
       // This ensures avg_unique_portfolios and median_unique_portfolios get populated in copy_engagement_summary
-      // Even if we timeout during this call, the data sync is already complete and saved
       let analysisResult = null
       const elapsedSeconds = timeoutGuard.getElapsedSeconds()
       const timeRemaining = 140 - elapsedSeconds
 
       console.log(`⏱️ Time check: ${elapsedSeconds}s elapsed, ${timeRemaining}s remaining`)
 
-      // Always attempt analysis if we have data - it's idempotent and more important than avoiding timeout
-      if (copyEventsSynced > 0 || totalInserted > 0) {
+      const MIN_CONVERTERS_FOR_ANALYSIS = 50 // Minimum sample size for meaningful analysis
+
+      // Check if we have enough data for meaningful analysis
+      if (copyEventsSynced >= MIN_CONVERTERS_FOR_ANALYSIS) {
         try {
           if (timeRemaining < 30) {
             console.warn(`⚠️ Low on time (${timeRemaining}s remaining) but attempting analyze-event-sequences anyway`)
             console.warn('   Data sync is complete, analysis can timeout safely')
           }
 
-          console.log('\n📊 Calling analyze-event-sequences to update copy_engagement_summary...')
+          console.log(`\n📊 Calling analyze-event-sequences (${copyEventsSynced} converters) to update copy_engagement_summary...`)
           const analysisStartTime = Date.now()
 
           const analysisResponse = await supabase.functions.invoke('analyze-event-sequences', {
@@ -575,8 +573,11 @@ serve(async (req) => {
           console.warn('⚠️ analyze-event-sequences error (non-fatal):', analysisError.message)
           console.warn('   Data sync succeeded - you can retry analysis manually if needed')
         }
+      } else if (copyEventsSynced > 0) {
+        console.log(`ℹ️ Only ${copyEventsSynced} converters synced (< ${MIN_CONVERTERS_FOR_ANALYSIS} minimum), skipping analysis`)
+        console.log('   Will analyze when more converters accumulate')
       } else {
-        console.log('ℹ️ No data synced, skipping analyze-event-sequences')
+        console.log('ℹ️ No converters synced, skipping analyze-event-sequences')
       }
 
       return createSuccessResponse(
