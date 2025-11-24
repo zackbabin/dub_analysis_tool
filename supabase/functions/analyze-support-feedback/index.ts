@@ -450,6 +450,18 @@ serve(async (req) => {
 
       console.log(`Analysis complete. Tokens: ${totalTokens}, Cost: $${totalCost.toFixed(4)}`)
 
+      // Post-process: Convert weekly_volume to true weekly average
+      // Claude returns total count in analysis window, we need to divide by number of weeks
+      const numberOfWeeks = analysisWindowDays / 7
+      console.log(`Converting weekly_volume to average (dividing by ${numberOfWeeks.toFixed(1)} weeks)`)
+
+      if (analysis.top_issues && Array.isArray(analysis.top_issues)) {
+        analysis.top_issues = analysis.top_issues.map((issue: any) => ({
+          ...issue,
+          weekly_volume: issue.weekly_volume ? Math.round(issue.weekly_volume / numberOfWeeks) : 0
+        }))
+      }
+
       // Store results
       const { error: saveError } = await supabase
         .from('support_analysis_results')
