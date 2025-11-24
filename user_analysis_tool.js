@@ -1136,7 +1136,10 @@ const SECTION_EXCLUSIONS = {
         'activeCreatedPortfolios',
         'lifetimeCreatedPortfolios',
         'activeCopiedPortfolios',
-        'lifetimeCopiedPortfolios'
+        'lifetimeCopiedPortfolios',
+        'totalCopies',
+        'totalRegularCopies',
+        'totalPremiumCopies'
     ],
     'totalSubscriptions': [
         'totalSubscriptions'
