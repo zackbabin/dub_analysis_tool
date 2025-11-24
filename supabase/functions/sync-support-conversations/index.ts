@@ -251,6 +251,28 @@ serve(async (req) => {
       if (error?.message?.includes('TIMEOUT_PREEMPTIVE')) {
         console.warn('⏱️ Function stopped due to approaching timeout - returning partial results')
 
+        // Update sync_status even on timeout (partial success still counts as successful sync)
+        const now = new Date().toISOString()
+        const { error: syncStatusError } = await supabase
+          .from('sync_status')
+          .upsert({
+            source: 'zendesk',
+            tool_type: 'support',
+            last_sync_timestamp: now,
+            last_sync_status: 'success',
+            records_synced: totalTicketsStored + (totalMessagesStored || 0),
+            error_message: null,
+            updated_at: now,
+          }, {
+            onConflict: 'source,tool_type'
+          })
+
+        if (syncStatusError) {
+          console.error('⚠️ Failed to update sync_status:', syncStatusError)
+        } else {
+          console.log('✓ Updated sync_status table (partial sync)')
+        }
+
         await updateSyncLogSuccess(supabase, syncLogId, {
           total_records_inserted: totalTicketsStored + (totalMessagesStored || 0),
         })
