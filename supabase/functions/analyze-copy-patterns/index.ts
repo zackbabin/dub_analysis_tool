@@ -190,27 +190,41 @@ function evaluateCombination(
   let totalViewsEntity2 = 0
   const userCopiesMap = new Map<string, number>() // Track copies per user to avoid double-counting
 
+  // Create a lookup map for entity views to avoid O(n) lookups
+  const entity1Rows = new Map<string, number>() // distinct_id -> view_count for entity 1
+  const entity2Rows = new Map<string, number>() // distinct_id -> view_count for entity 2
+
   for (const pair of pairRows) {
-    // Only include rows for users who viewed BOTH entities in this combination
-    if (!usersWithBothExposures.has(pair.distinct_id)) continue
-
     const entityId = entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
+    const viewCount = pair[filterColumn] || 0
 
+    // Build lookup maps for both entities
     if (entityId === combination[0]) {
-      totalViewsEntity1 += (pair[filterColumn] || 0)
+      entity1Rows.set(pair.distinct_id, viewCount)
     }
     if (entityId === combination[1]) {
-      totalViewsEntity2 += (pair[filterColumn] || 0)
+      entity2Rows.set(pair.distinct_id, viewCount)
     }
 
-    // Track copies per user (take max to avoid counting same copy multiple times)
+    // Track total copies per user (to avoid double-counting)
     const copyCount = pair.copy_count || pair.subscription_count || 0
-    const currentUserCopies = userCopiesMap.get(pair.distinct_id) || 0
-    userCopiesMap.set(pair.distinct_id, Math.max(currentUserCopies, copyCount))
+    if (copyCount > 0) {
+      const currentUserCopies = userCopiesMap.get(pair.distinct_id) || 0
+      userCopiesMap.set(pair.distinct_id, Math.max(currentUserCopies, copyCount))
+    }
   }
 
-  // Sum unique user copies
-  const totalCopies = Array.from(userCopiesMap.values()).reduce((sum, copies) => sum + copies, 0)
+  // Now sum views ONLY for users who viewed BOTH entities
+  for (const userId of usersWithBothExposures) {
+    totalViewsEntity1 += (entity1Rows.get(userId) || 0)
+    totalViewsEntity2 += (entity2Rows.get(userId) || 0)
+  }
+
+  // Sum unique user copies (only users who viewed BOTH entities)
+  let totalCopies = 0
+  for (const userId of usersWithBothExposures) {
+    totalCopies += (userCopiesMap.get(userId) || 0)
+  }
 
   return {
     combination: combination as [string, string],
