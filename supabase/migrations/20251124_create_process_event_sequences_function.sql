@@ -22,8 +22,44 @@ BEGIN
   FROM event_sequences_raw
   WHERE processed_at IS NULL;
 
-  -- Aggregate events by user and upsert to user_event_sequences
-  -- Uses json_agg to build event sequence array, ordered by event_time
+  -- Aggregate new events by user
+  -- For each user with new events, combine with existing events (if any)
+  WITH new_events AS (
+    SELECT
+      distinct_id,
+      json_agg(
+        json_build_object(
+          'event', event_name,
+          'time', event_time,
+          'count', 1,
+          'portfolioTicker', portfolio_ticker,
+          'creatorUsername', creator_username
+        )
+        ORDER BY event_time ASC
+      ) AS event_sequence,
+      MAX(synced_at) AS synced_at
+    FROM event_sequences_raw
+    WHERE processed_at IS NULL
+    GROUP BY distinct_id
+  ),
+  combined_sequences AS (
+    SELECT
+      COALESCE(ues.distinct_id, ne.distinct_id) AS distinct_id,
+      CASE
+        -- If existing sequence exists, concatenate and re-sort
+        WHEN ues.event_sequence IS NOT NULL THEN (
+          SELECT json_agg(event ORDER BY (event->>'time')::timestamptz ASC)
+          FROM (
+            SELECT json_array_elements(ues.event_sequence || ne.event_sequence) AS event
+          ) combined
+        )
+        -- Otherwise, use new events only
+        ELSE ne.event_sequence
+      END AS event_sequence,
+      ne.synced_at
+    FROM new_events ne
+    LEFT JOIN user_event_sequences ues ON ues.distinct_id = ne.distinct_id
+  )
   INSERT INTO user_event_sequences (
     distinct_id,
     event_sequence,
@@ -31,20 +67,9 @@ BEGIN
   )
   SELECT
     distinct_id,
-    json_agg(
-      json_build_object(
-        'event', event_name,
-        'time', event_time,
-        'count', 1,
-        'portfolioTicker', portfolio_ticker,
-        'creatorUsername', creator_username
-      )
-      ORDER BY event_time ASC
-    ) AS event_sequence,
-    MAX(synced_at) AS synced_at
-  FROM event_sequences_raw
-  WHERE processed_at IS NULL
-  GROUP BY distinct_id
+    event_sequence,
+    synced_at
+  FROM combined_sequences
   ON CONFLICT (distinct_id) DO UPDATE SET
     event_sequence = EXCLUDED.event_sequence,
     synced_at = EXCLUDED.synced_at;
