@@ -287,9 +287,14 @@ serve(async (req) => {
         const chartId = '86612901'
         const chartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${chartId}`
 
+        // Use Basic Auth (same pattern as sync-business-assumptions)
+        const authString = `${credentials.username}:${credentials.secret}`
+        const authHeader = `Basic ${btoa(authString)}`
+
         const chartResponse = await fetch(chartUrl, {
           headers: {
-            'Authorization': `Bearer ${credentials.secret}`,
+            'Authorization': authHeader,
+            'Accept': 'application/json',
           },
         })
 
