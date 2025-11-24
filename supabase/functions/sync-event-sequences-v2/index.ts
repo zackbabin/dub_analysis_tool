@@ -244,10 +244,10 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      // SIMPLIFIED: Always fetch last 14 days (no incremental mode)
-      // This keeps the dataset consistent for Claude analysis
-      console.log('📦 Fetching last 14 days of portfolio view events')
-      const backfillDays = 14
+      // SIMPLIFIED: Always fetch last 7 days (no incremental mode)
+      // This keeps the dataset consistent for Claude analysis while staying under CPU limits
+      console.log('📦 Fetching last 7 days of portfolio view events')
+      const backfillDays = 7
       const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
       fromDate = startDate.toISOString().split('T')[0]
       toDate = now.toISOString().split('T')[0]
