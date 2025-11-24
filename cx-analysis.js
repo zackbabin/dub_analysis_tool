@@ -594,17 +594,36 @@ class CXAnalysis {
             return '-';
         }
 
-        // Build examples content for tooltip - showing ticket IDs, titles, and descriptions
+        // Build examples content for tooltip - showing ticket IDs, titles, dates, and descriptions
         const examplesHTML = examples.map((ex, idx) => {
             // Truncate description to 140 characters if needed
             const description = ex.description ?
                 (ex.description.length > 140 ? ex.description.substring(0, 140) + '...' : ex.description) :
                 '';
 
+            // Format date if available (YYYY-MM-DD or full ISO timestamp)
+            let formattedDate = '';
+            if (ex.created_at) {
+                try {
+                    const date = new Date(ex.created_at);
+                    formattedDate = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                } catch (e) {
+                    formattedDate = ex.created_at.split('T')[0]; // Fallback to YYYY-MM-DD
+                }
+            }
+
+            // Build title - hyperlink if Zendesk URL available, otherwise plain text
+            const titleHTML = ex.zendesk_url
+                ? `<a href="${this.escapeHtml(ex.zendesk_url)}" target="_blank" rel="noopener noreferrer" style="color: #63b3ed; text-decoration: underline; font-weight: 500;">${this.escapeHtml(ex.title)}</a>`
+                : `<span style="font-weight: 500;">${this.escapeHtml(ex.title)}</span>`;
+
             return `
                 <div style="margin-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; padding-bottom: ${idx < examples.length - 1 ? '12px' : '0'}; border-bottom: ${idx < examples.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'};">
-                    <div style="color: #63b3ed; font-weight: 600; margin-bottom: 4px;">🎫 ${this.escapeHtml(ex.conversation_id)}</div>
-                    <div style="margin-bottom: 4px; font-weight: 500;">${this.escapeHtml(ex.title)}</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="color: #63b3ed; font-weight: 600;">🎫 ${this.escapeHtml(ex.conversation_id)}</span>
+                        ${formattedDate ? `<span style="color: #94a3b8; font-size: 11px;">${formattedDate}</span>` : ''}
+                    </div>
+                    <div style="margin-bottom: 4px;">${titleHTML}</div>
                     ${description ? `<div style="color: #cbd5e0; font-size: 11px;">${this.escapeHtml(description)}</div>` : ''}
                 </div>
             `;

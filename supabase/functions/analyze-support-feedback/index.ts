@@ -178,7 +178,9 @@ Return ONLY valid JSON matching this exact structure:
           "conversation_id": "string",
           "title": "string",
           "description": "string (max 140 characters)",
-          "message_count": number
+          "message_count": number,
+          "created_at": "string (YYYY-MM-DD format)",
+          "zendesk_url": "string (full Zendesk ticket URL)"
         }
       ]
     }
@@ -211,6 +213,8 @@ Return ONLY valid JSON matching this exact structure:
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
 - **REQUIRED**: Calculate and include avg_message_count for EVERY issue - this is the average of message_count across ALL conversations you grouped into this issue (not just the 3 examples)
 - Include message_count for each example ticket (from the individual conversation's message_count field)
+- Include created_at (YYYY-MM-DD format) for each example ticket (from the conversation's created_at field)
+- Include zendesk_url for each example ticket (from the conversation's zendesk_url field if available)
 - Add message_count_insight when high message counts (5+) indicate issue complexity or user frustration
 - Focus on actionable product feedback, not general support inquiries
 - Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
@@ -383,6 +387,9 @@ serve(async (req) => {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
         }
 
+        // Extract Zendesk URL from raw_data.url if available
+        const zendesk_url = conv.raw_data?.url || null
+
         return {
           id: idx + 1,
           ticket_id: conv.id, // Ticket ID from source system
@@ -395,6 +402,7 @@ serve(async (req) => {
           custom_fields: conv.custom_fields || {},
           full_conversation: truncatedText,
           message_count: conv.message_count,
+          zendesk_url: zendesk_url,
         }
       })
 
