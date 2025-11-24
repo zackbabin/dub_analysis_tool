@@ -489,20 +489,12 @@ serve(async (req) => {
 
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
 
-      // Cleanup old events (>30 days) to prevent unbounded table growth
-      if (!timeoutGuard.isApproachingTimeout()) {
-        try {
-          console.log('Running cleanup of old event sequences (>30 days)...')
-          const { error: cleanupError } = await supabase.rpc('cleanup_old_event_sequences')
-          if (cleanupError) {
-            console.warn('⚠️ Cleanup failed (non-fatal):', cleanupError.message)
-          } else {
-            console.log('✓ Cleanup complete')
-          }
-        } catch (cleanupErr) {
-          console.warn('⚠️ Cleanup error (non-fatal):', cleanupErr.message)
-        }
-      }
+      // Log timeout status before proceeding
+      console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
+
+      // Skip cleanup - prioritize analyze-event-sequences over cleanup
+      // Cleanup is non-critical and can be done in next sync
+      console.log('⏭️ Skipping cleanup to prioritize analyze-event-sequences call')
 
       // Check if we completed all events or timed out early
       const partialSync = totalInserted < events.length
@@ -540,15 +532,26 @@ serve(async (req) => {
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
       console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
 
-      // ALWAYS call analyze-event-sequences, even after timeout
+      // ALWAYS call analyze-event-sequences if we have enough time (need ~30s buffer)
       // This ensures avg_unique_portfolios and median_unique_portfolios get populated in copy_engagement_summary
       let analysisResult = null
-      if (!timeoutGuard.isApproachingTimeout()) {
+      const elapsedSeconds = timeoutGuard.getElapsedSeconds()
+      const timeRemaining = 140 - elapsedSeconds
+
+      console.log(`⏱️ Time check: ${elapsedSeconds}s elapsed, ${timeRemaining}s remaining`)
+
+      // Need at least 30 seconds for analyze-event-sequences (Claude API call + DB operations)
+      if (timeRemaining >= 30) {
         try {
           console.log('\n📊 Calling analyze-event-sequences to update copy_engagement_summary...')
+          const analysisStartTime = Date.now()
+
           const analysisResponse = await supabase.functions.invoke('analyze-event-sequences', {
             body: { outcome_type: 'copies' }
           })
+
+          const analysisDuration = Math.round((Date.now() - analysisStartTime) / 1000)
+          console.log(`⏱️ analyze-event-sequences took ${analysisDuration}s`)
 
           if (analysisResponse.error) {
             console.warn('⚠️ analyze-event-sequences failed:', analysisResponse.error.message)
@@ -566,7 +569,8 @@ serve(async (req) => {
           console.warn('⚠️ analyze-event-sequences error (non-fatal):', analysisError.message)
         }
       } else {
-        console.warn('⚠️ Skipping analyze-event-sequences - approaching timeout limit')
+        console.warn(`⚠️ Skipping analyze-event-sequences - insufficient time (${timeRemaining}s < 30s required)`)
+        console.warn('   Run analyze-event-sequences manually to populate copy_engagement_summary')
       }
 
       return createSuccessResponse(
