@@ -1,6 +1,10 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// SIMPLIFIED: Fetches only "Viewed Portfolio Details" from Mixpanel Export API (last 14 days)
-// Also fetches first copy times from Mixpanel chart 86612901
+// OPTIMIZED: Two-step process to minimize data volume
+//
+// Step 1: Fetch ~435 users who copied in last 7 days (Mixpanel chart 86612901)
+// Step 2: Fetch "Viewed Portfolio Details" ONLY for those targeted users (Export API)
+//
+// This dramatically reduces data volume from 80k+ events to only events for copiers.
 //
 // Stores:
 //   - Raw view events in event_sequences_raw (no aggregation)
@@ -53,7 +57,8 @@ async function fetchEventsFromExportAPI(
   credentials: { username: string; secret: string },
   fromDate: string,
   toDate: string,
-  eventNames: string[]
+  eventNames: string[],
+  distinctIds?: string[]
 ): Promise<MixpanelExportEvent[]> {
   const { username, secret } = credentials
 
@@ -66,11 +71,25 @@ async function fetchEventsFromExportAPI(
   const eventArray = JSON.stringify(eventNames)
   const eventParam = `event=${encodeURIComponent(eventArray)}`
 
-  const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}`
+  // Build where clause for distinct_id filtering if provided
+  // API expects: where=properties["$distinct_id"] in ["id1","id2","id3"]
+  // Note: Must use $distinct_id (with $ prefix) in where clause
+  let whereParam = ''
+  if (distinctIds && distinctIds.length > 0) {
+    // Format: properties["$distinct_id"] in ["id1","id2","id3"]
+    const idsArray = JSON.stringify(distinctIds)
+    const whereClause = `properties["$distinct_id"] in ${idsArray}`
+    whereParam = `&where=${encodeURIComponent(whereClause)}`
+  }
+
+  const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}${whereParam}`
 
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
   console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
-  console.log(`Full URL: ${url}`)
+  if (distinctIds && distinctIds.length > 0) {
+    console.log(`User filter: ${distinctIds.length} targeted distinct_ids`)
+  }
+  console.log(`Full URL: ${url.substring(0, 200)}...`) // Truncate for logging
 
   // Add 120s timeout for entire Mixpanel API operation (fetch + streaming response)
   // Needs to be longer for backfill mode - streaming large datasets can take time
@@ -244,9 +263,9 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      // SIMPLIFIED: Always fetch last 7 days (no incremental mode)
-      // This keeps the dataset consistent for Claude analysis while staying under CPU limits
-      console.log('📦 Fetching last 7 days of portfolio view events')
+      // OPTIMIZED: Always fetch last 7 days (no incremental mode)
+      // Combined with user filtering, this keeps data volume manageable
+      console.log('📦 Date range: last 7 days')
       const backfillDays = 7
       const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
       fromDate = startDate.toISOString().split('T')[0]
@@ -254,17 +273,95 @@ serve(async (req) => {
       syncMode = 'backfill'
       console.log(`Date range: ${fromDate} to ${toDate}`)
 
-      // SIMPLIFIED: Only fetch "Viewed Portfolio Details" (single event type)
+      // STEP 1: Fetch first copy users from Mixpanel chart 86612901 FIRST
+      // This gives us the targeted list of ~435 users who copied in last 7 days
+      console.log('\n📊 Step 1: Fetching first copy users from Mixpanel chart 86612901...')
+      let targetUserIds: string[] = []
+      let copyEventsSynced = 0
+
+      try {
+        const projectId = MIXPANEL_CONFIG.PROJECT_ID
+        const chartId = '86612901'
+        const chartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${chartId}`
+
+        const chartResponse = await fetch(chartUrl, {
+          headers: {
+            'Authorization': `Bearer ${credentials.secret}`,
+          },
+        })
+
+        if (!chartResponse.ok) {
+          throw new Error(`Chart API failed: ${chartResponse.status}`)
+        }
+
+        const chartData = await chartResponse.json()
+        console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
+
+        // Parse series object to extract first copy times AND build target user list
+        const copyRows = []
+        const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
+
+        for (const [distinctId, data] of Object.entries(series)) {
+          // Skip $overall aggregation key
+          if (distinctId === '$overall') continue
+
+          const sanitizedId = sanitizeDistinctId(distinctId)
+          if (!sanitizedId) continue
+
+          // Add to target user list
+          targetUserIds.push(sanitizedId)
+
+          // Find first timestamp (not "$overall")
+          const timestamps = Object.keys(data).filter(k => k !== '$overall')
+          if (timestamps.length > 0) {
+            const firstCopyTime = timestamps[0] // First key is the first copy time
+
+            copyRows.push({
+              distinct_id: sanitizedId,
+              first_copy_time: firstCopyTime,
+              synced_at: syncStartTime.toISOString()
+            })
+          }
+        }
+
+        console.log(`✓ Extracted ${copyRows.length} first copy events for ${targetUserIds.length} users`)
+
+        // Upsert to user_first_copies table
+        if (copyRows.length > 0) {
+          const { error: copyError } = await supabase
+            .from('user_first_copies')
+            .upsert(copyRows, {
+              onConflict: 'distinct_id'
+            })
+
+          if (copyError) {
+            console.error('⚠️ Error inserting copy events:', copyError)
+          } else {
+            copyEventsSynced = copyRows.length
+            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events`)
+          }
+        }
+      } catch (chartError: any) {
+        console.error('⚠️ Chart fetch failed:', chartError.message)
+        console.log('   Will fetch ALL portfolio view events (no user filter)')
+        // Continue without user filter - fallback to fetching all events
+      }
+
+      // STEP 2: Fetch portfolio view events - FILTERED to target users if available
       const eventNames = ['Viewed Portfolio Details']
 
-      console.log(`Fetching events from ${fromDate} to ${toDate}...`)
+      if (targetUserIds.length > 0) {
+        console.log(`\n📊 Step 2: Fetching portfolio views for ${targetUserIds.length} targeted users (who copied in last 7 days)`)
+      } else {
+        console.log(`\n📊 Step 2: Fetching ALL portfolio views (no user filter available)`)
+      }
 
       const fetchStartMs = Date.now()
       let events: MixpanelExportEvent[] = []
 
       try {
         console.log('Calling fetchEventsFromExportAPI...')
-        events = await fetchEventsFromExportAPI(credentials, fromDate, toDate, eventNames)
+        events = await fetchEventsFromExportAPI(credentials, fromDate, toDate, eventNames, targetUserIds)
         console.log(`✓ fetchEventsFromExportAPI returned ${events.length} events`)
       } catch (error: any) {
         console.error('❌ fetchEventsFromExportAPI failed:', error.message)
@@ -398,76 +495,6 @@ serve(async (req) => {
 
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
       stats.eventsInserted = totalInserted
-
-      // Fetch first copy times from Mixpanel chart 86612901
-      let copyEventsSynced = 0
-      if (!timeoutGuard.isApproachingTimeout()) {
-        console.log('\nFetching first copy events from Mixpanel chart 86612901...')
-        try {
-          const projectId = MIXPANEL_CONFIG.projectId
-          const chartId = '86612901'
-          const chartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${chartId}`
-
-          const chartResponse = await fetch(chartUrl, {
-            headers: {
-              'Authorization': `Bearer ${credentials.secret}`,
-            },
-          })
-
-          if (!chartResponse.ok) {
-            throw new Error(`Chart API failed: ${chartResponse.status}`)
-          }
-
-          const chartData = await chartResponse.json()
-          console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
-
-          // Parse series object to extract first copy times
-          const copyRows = []
-          const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
-
-          for (const [distinctId, data] of Object.entries(series)) {
-            // Skip $overall aggregation key
-            if (distinctId === '$overall') continue
-
-            // Find first timestamp (not "$overall")
-            const timestamps = Object.keys(data).filter(k => k !== '$overall')
-            if (timestamps.length > 0) {
-              const firstCopyTime = timestamps[0] // First key is the first copy time
-              const sanitizedId = sanitizeDistinctId(distinctId)
-
-              copyRows.push({
-                distinct_id: sanitizedId,
-                first_copy_time: firstCopyTime,
-                synced_at: syncStartTime.toISOString()
-              })
-            }
-          }
-
-          console.log(`✓ Extracted ${copyRows.length} first copy events`)
-
-          // Upsert to user_first_copies table
-          if (copyRows.length > 0) {
-            const { error: copyError } = await supabase
-              .from('user_first_copies')
-              .upsert(copyRows, {
-                onConflict: 'distinct_id'
-              })
-
-            if (copyError) {
-              console.error('⚠️ Error inserting copy events:', copyError)
-            } else {
-              copyEventsSynced = copyRows.length
-              console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events`)
-            }
-          }
-        } catch (chartError) {
-          console.error('⚠️ Chart fetch failed (non-fatal):', chartError.message)
-          console.log('   Continuing with view events only')
-        }
-      } else {
-        console.warn('⚠️ Skipping chart fetch - approaching timeout')
-      }
-
       stats.copyEventsSynced = copyEventsSynced
 
       // Check if we completed all events or timed out early
