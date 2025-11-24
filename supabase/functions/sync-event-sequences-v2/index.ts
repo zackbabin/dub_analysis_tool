@@ -498,6 +498,21 @@ serve(async (req) => {
       stats.eventsInserted = totalInserted
       stats.copyEventsSynced = copyEventsSynced
 
+      // Cleanup old events (>30 days) to prevent unbounded table growth
+      if (!timeoutGuard.isApproachingTimeout()) {
+        try {
+          console.log('Running cleanup of old event sequences (>30 days)...')
+          const { error: cleanupError } = await supabase.rpc('cleanup_old_event_sequences')
+          if (cleanupError) {
+            console.warn('⚠️ Cleanup failed (non-fatal):', cleanupError.message)
+          } else {
+            console.log('✓ Cleanup complete')
+          }
+        } catch (cleanupErr) {
+          console.warn('⚠️ Cleanup error (non-fatal):', cleanupErr.message)
+        }
+      }
+
       // Check if we completed all events or timed out early
       const partialSync = totalInserted < events.length
       const message = partialSync
