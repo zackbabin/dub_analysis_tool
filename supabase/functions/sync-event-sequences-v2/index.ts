@@ -377,10 +377,10 @@ serve(async (req) => {
 
       const processBatch = async (events: MixpanelExportEvent[]) => {
         // Check if we should stop syncing and move to analysis
-        // Stop at 90s to leave 60s buffer for analyze-event-sequences (150s total - 90s = 60s)
+        // Stop at 110s to leave 40s buffer for analyze-event-sequences (150s total - 110s = 40s)
         const elapsedSeconds = timeoutGuard.getElapsedSeconds()
-        if (elapsedSeconds >= 90) {
-          console.warn(`⚠️ Reached 90s elapsed time - stopping data sync to ensure time for analysis`)
+        if (elapsedSeconds >= 110) {
+          console.warn(`⚠️ Reached 110s elapsed time - stopping data sync to ensure time for analysis`)
           console.warn(`   Collected ${totalInserted} events so far, proceeding to analyze-event-sequences`)
           // Return early to stop processing more batches
           // The fetchAndProcessEventsStreaming function will continue streaming but we won't process more
