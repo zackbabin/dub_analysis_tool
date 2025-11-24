@@ -441,7 +441,7 @@ serve(async (req) => {
       }
 
       try {
-        console.log('Calling fetchAndProcessEventsStreaming with batch size 5000...')
+        console.log('Calling fetchAndProcessEventsStreaming with batch size 2500...')
         const result = await fetchAndProcessEventsStreaming(
           credentials,
           fromDate,
@@ -449,7 +449,7 @@ serve(async (req) => {
           eventNames,
           targetUserIds,
           processBatch,
-          5000 // Process in chunks of 5000 events
+          2500 // Process in chunks of 2500 events to reduce CPU usage
         )
         stats.eventsFetched = result.totalEvents
         console.log(`✓ Streaming fetch completed - ${result.totalEvents} events fetched`)
