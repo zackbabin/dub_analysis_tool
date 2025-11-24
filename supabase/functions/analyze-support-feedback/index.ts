@@ -171,14 +171,14 @@ Return ONLY valid JSON matching this exact structure:
         "percentage_contribution": number,
         "volume_contribution": number
       },
-      "avg_message_count": number (REQUIRED: average message_count across ALL conversations in this issue group, rounded to 1 decimal),
+      "avg_message_count": number (CRITICAL REQUIRED FIELD: Calculate the MEAN of message_count across ALL conversations you grouped into this issue. If you grouped 50 conversations into this issue, sum up all 50 message_count values and divide by 50. Round to 1 decimal place. This CANNOT be 0 unless all conversations have 0 messages),
       "message_count_insight": "string (optional: brief note if high message count indicates complexity/frustration)",
       "examples": [
         {
           "conversation_id": "string",
           "title": "string",
           "description": "string (max 140 characters)",
-          "message_count": number,
+          "message_count": number (this is the message_count from the individual conversation's data - copy it directly),
           "created_at": "string (YYYY-MM-DD format)",
           "zendesk_url": "string (full Zendesk ticket URL)"
         }
