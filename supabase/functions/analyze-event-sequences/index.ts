@@ -1,9 +1,12 @@
 // Supabase Edge Function: analyze-event-sequences
-// SIMPLIFIED: Uses Claude AI to analyze 2 event types only:
-//   - "Viewed Creator Profile" (with creatorUsername)
-//   - "Viewed Portfolio Details" (with portfolioTicker)
-// Claude determines unique regular/premium PDP views and profile views prior to copying
-// Focus: Identify patterns that lead to portfolio copies
+// SIMPLIFIED: Analyzes raw "Viewed Portfolio Details" events to find conversion patterns
+// Claude calculates average unique portfolio views before first copy
+//
+// Data sources:
+//   - event_sequences_raw: All portfolio view events (last 14 days)
+//   - user_first_copies: Users who copied at least once with first copy timestamp
+//
+// No pre-aggregation - Claude analyzes raw events directly
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -17,38 +20,6 @@ interface AnalyzeRequest {
   outcome_type: 'copies' | 'subscriptions'
 }
 
-interface AnalysisResult {
-  predictive_sequences: Array<{
-    sequence: string[]
-    prevalence_in_converters: number
-    prevalence_in_non_converters: number
-    lift: number
-    avg_time_to_conversion_minutes: number
-    avg_events_before_conversion: number
-    insight: string
-    recommendation: string
-    top_portfolios?: string[]
-    top_creators?: string[]
-  }>
-  critical_triggers: Array<{
-    event: string
-    follows_sequence: string[]
-    conversion_rate_after_trigger: number
-    insight: string
-  }>
-  anti_patterns: Array<{
-    sequence: string[]
-    prevalence_in_non_converters: number
-    insight: string
-  }>
-  summary: string
-  top_recommendations: string[]
-  avg_premium_pdp_views_before_copy?: number
-  avg_regular_pdp_views_before_copy?: number
-  avg_premium_creator_views_before_copy?: number
-  avg_regular_creator_views_before_copy?: number
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -60,7 +31,7 @@ serve(async (req) => {
     const body: AnalyzeRequest = await req.json()
     const outcomeType = body.outcome_type || 'copies'
 
-    console.log(`Starting event sequence analysis for ${outcomeType}...`)
+    console.log(`Starting simplified event sequence analysis for ${outcomeType}...`)
 
     // Get Claude API key from Supabase secrets
     const claudeApiKey = Deno.env.get('ANTHROPIC_API_KEY')
@@ -73,562 +44,180 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Fetch user event sequences with outcomes
-    // We join with subscribers_insights to get actual copy/subscription counts
-    console.log('Fetching event sequences from database...')
+    // Fetch converters (users who copied at least once)
+    console.log('Fetching converters from user_first_copies...')
+    const { data: convertersData, error: convertersError } = await supabase
+      .from('user_first_copies')
+      .select('distinct_id, first_copy_time')
+      .order('first_copy_time', { ascending: false })
+      .limit(300)
 
-    let converters, nonConverters
+    if (convertersError) throw convertersError
 
-    if (outcomeType === 'copies') {
-      // First, get high copy users from subscribers_insights (3+ copies)
-      const { data: highCopyUserData, error: highCopyUserError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_copies')
-        .gte('total_copies', 3)
-        .limit(300)
+    const converterIds = convertersData.map(c => c.distinct_id)
+    console.log(`Found ${converterIds.length} converters`)
 
-      if (highCopyUserError) throw highCopyUserError
+    // Fetch their view events BEFORE first copy
+    const convertersWithViews = []
+    for (const converter of convertersData) {
+      const { data: views, error: viewsError } = await supabase
+        .from('event_sequences_raw')
+        .select('event_time, portfolio_ticker')
+        .eq('distinct_id', converter.distinct_id)
+        .lt('event_time', converter.first_copy_time) // Only events BEFORE copy
+        .order('event_time')
 
-      // Then fetch their event sequences
-      const highCopyDistinctIds = (highCopyUserData || []).map(u => u.distinct_id)
-
-      if (highCopyDistinctIds.length > 0) {
-        const { data: highCopySequences, error: highCopySeqError } = await supabase
-          .from('user_event_sequences')
-          .select('distinct_id, event_sequence')
-          .in('distinct_id', highCopyDistinctIds)
-
-        if (highCopySeqError) throw highCopySeqError
-
-        // Join the data
-        converters = (highCopySequences || []).map(seq => ({
-          ...seq,
-          total_copies: highCopyUserData.find(u => u.distinct_id === seq.distinct_id)?.total_copies || 0
-        }))
-      } else {
-        converters = []
+      if (viewsError) {
+        console.error(`Error fetching views for ${converter.distinct_id}:`, viewsError)
+        continue
       }
 
-      // Get low/no copy users from subscribers_insights
-      const { data: lowCopyUserData, error: lowCopyUserError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_copies')
-        .lt('total_copies', 1)
-        .limit(300)
-
-      if (lowCopyUserError) throw lowCopyUserError
-
-      // Then fetch their event sequences
-      const lowCopyDistinctIds = (lowCopyUserData || []).map(u => u.distinct_id)
-
-      if (lowCopyDistinctIds.length > 0) {
-        const { data: lowCopySequences, error: lowCopySeqError } = await supabase
-          .from('user_event_sequences')
-          .select('distinct_id, event_sequence')
-          .in('distinct_id', lowCopyDistinctIds)
-
-        if (lowCopySeqError) throw lowCopySeqError
-
-        // Join the data
-        nonConverters = (lowCopySequences || []).map(seq => ({
-          ...seq,
-          total_copies: lowCopyUserData.find(u => u.distinct_id === seq.distinct_id)?.total_copies || 0
+      convertersWithViews.push({
+        distinct_id: converter.distinct_id,
+        first_copy_time: converter.first_copy_time,
+        views: views.map(v => ({
+          time: v.event_time,
+          portfolio: v.portfolio_ticker
         }))
-      } else {
-        nonConverters = []
-      }
-    } else {
-      // Subscription users from subscribers_insights
-      const { data: subUserData, error: subUserError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_subscriptions')
-        .eq('total_subscriptions', 1)
-        .limit(300)
-
-      if (subUserError) throw subUserError
-
-      // Then fetch their event sequences
-      const subDistinctIds = (subUserData || []).map(u => u.distinct_id)
-
-      if (subDistinctIds.length > 0) {
-        const { data: subSequences, error: subSeqError } = await supabase
-          .from('user_event_sequences')
-          .select('distinct_id, event_sequence')
-          .in('distinct_id', subDistinctIds)
-
-        if (subSeqError) throw subSeqError
-
-        // Join the data
-        converters = (subSequences || []).map(seq => ({
-          ...seq,
-          total_subscriptions: subUserData.find(u => u.distinct_id === seq.distinct_id)?.total_subscriptions || 0
-        }))
-      } else {
-        converters = []
-      }
-
-      // Non-subscription users from subscribers_insights
-      const { data: nonSubUserData, error: nonSubUserError } = await supabase
-        .from('subscribers_insights')
-        .select('distinct_id, total_subscriptions')
-        .eq('total_subscriptions', 0)
-        .limit(300)
-
-      if (nonSubUserError) throw nonSubUserError
-
-      // Then fetch their event sequences
-      const nonSubDistinctIds = (nonSubUserData || []).map(u => u.distinct_id)
-
-      if (nonSubDistinctIds.length > 0) {
-        const { data: nonSubSequences, error: nonSubSeqError } = await supabase
-          .from('user_event_sequences')
-          .select('distinct_id, event_sequence')
-          .in('distinct_id', nonSubDistinctIds)
-
-        if (nonSubSeqError) throw nonSubSeqError
-
-        // Join the data
-        nonConverters = (nonSubSequences || []).map(seq => ({
-          ...seq,
-          total_subscriptions: nonSubUserData.find(u => u.distinct_id === seq.distinct_id)?.total_subscriptions || 0
-        }))
-      } else {
-        nonConverters = []
-      }
+      })
     }
 
-    console.log(`Loaded ${converters.length} converters and ${nonConverters.length} non-converters`)
+    // Fetch non-converters (users with views but no copies)
+    console.log('Fetching non-converters from subscribers_insights...')
+    const { data: nonConvertersData, error: nonConvertersError } = await supabase
+      .from('subscribers_insights')
+      .select('distinct_id')
+      .eq('total_copies', 0)
+      .limit(300)
 
-    if (converters.length === 0) {
-      throw new Error(`No converter data available for ${outcomeType}`)
+    if (nonConvertersError) throw nonConvertersError
+
+    const nonConverterIds = nonConvertersData.map(nc => nc.distinct_id)
+    console.log(`Found ${nonConverterIds.length} non-converters`)
+
+    // Fetch their view events (all views in 14-day window)
+    const nonConvertersWithViews = []
+    for (const nonConverter of nonConvertersData) {
+      const { data: views, error: viewsError } = await supabase
+        .from('event_sequences_raw')
+        .select('event_time, portfolio_ticker')
+        .eq('distinct_id', nonConverter.distinct_id)
+        .order('event_time')
+
+      if (viewsError) {
+        console.error(`Error fetching views for ${nonConverter.distinct_id}:`, viewsError)
+        continue
+      }
+
+      nonConvertersWithViews.push({
+        distinct_id: nonConverter.distinct_id,
+        views: views.map(v => ({
+          time: v.event_time,
+          portfolio: v.portfolio_ticker
+        }))
+      })
     }
 
-    // Prepare data for Claude with prompt caching
-    // Balance converters and non-converters to equal counts for fair analysis
-    // Cost optimization: Patterns stabilize after ~600 users, conversions happen within first 75 events
-    // Token calculation per batch:
-    // - 250 users × 75 events = 18,750 raw events
-    // - After deduplication (40-60% reduction): ~9,375 events
-    // - 9,375 events × 15 tokens/event = ~140,625 tokens
-    // - System prompt: ~2,000 tokens (cached)
-    // - Total: ~142,625 tokens (71% of 200k limit - safe margin)
-    const BATCH_SIZE = 125 // Per group (converters and non-converters) - 250 total users per batch
-    const EVENTS_PER_USER = 75 // Most conversions happen within first 75 events
-    const MAX_BATCHES = 3 // Process up to 375 converters + 375 non-converters total (750 users)
+    console.log(`Prepared data: ${convertersWithViews.length} converters, ${nonConvertersWithViews.length} non-converters`)
 
-    // Balance to equal sizes
-    const minSize = Math.min(converters.length, nonConverters.length)
-    const balancedConverters = converters.slice(0, minSize)
-    const balancedNonConverters = nonConverters.slice(0, minSize)
+    // Send to Claude for analysis
+    console.log('Sending data to Claude AI for analysis...')
 
-    console.log(`Balanced dataset: ${balancedConverters.length} converters, ${balancedNonConverters.length} non-converters`)
+    const systemPrompt = `You are a data scientist analyzing user behavior to identify what drives portfolio copies.
 
-    // Build system prompt (will be cached across batches)
-    const systemPrompt = `You are a data scientist analyzing user behavior sequences to identify predictive patterns for ${outcomeType}.
+**Data provided**:
+- Converters: Users who copied at least once, with their portfolio view events BEFORE first copy
+- Non-converters: Users who viewed portfolios but never copied
 
-<context>
-Platform: Investment social network where users copy portfolios and subscribe to creators
-Outcome: ${outcomeType} (${outcomeType === 'copies' ? 'total_copies >= 3' : 'has subscribed'})
-Goal: Find event sequences that PREDICT conversion (not just correlate)
+**Your task**:
+Calculate the average number of UNIQUE portfolio views (by portfolio ticker) before conversion.
 
-IMPORTANT: Events may include contextual properties in parentheses:
-- "Viewed Premium PDP ($PELOSI by @dubAdvisors)" = User viewed the $PELOSI portfolio by creator @dubAdvisors
-- "Viewed Regular Creator Profile (@brettsimba)" = User viewed @brettsimba's profile
-When these properties are present, analyze which specific portfolios/creators drive conversions.
-</context>
+Example:
+- User A views: [$PELOSI, $AAPL, $PELOSI, $TSLA] → 3 unique portfolios
+- User B views: [$AAPL, $AAPL] → 1 unique portfolio
 
-<analysis_instructions>
-1. TEMPORAL PATTERNS: Identify sequences where order matters (e.g., "Profile View → PDP View → Copy" vs "PDP View → Profile View")
-2. FREQUENCY THRESHOLDS: Find minimum event counts that predict conversion (e.g., "3+ profile views before first copy")
-3. KEY DIFFERENTIATORS: Events present in converters but rare in non-converters
-4. TIME WINDOWS: Average time between key events in successful conversion paths
-5. CRITICAL MOMENTS: Last 2-3 events before conversion (immediate triggers)
-6. PORTFOLIO/CREATOR ANALYSIS: When events include properties like "(ticker by @username)", identify which specific portfolios and creators have the highest conversion rates
-7. AVERAGE EVENTS BEFORE FIRST COPY: **CRITICAL ANALYSIS** - For users who copy (total_copies >= 3), calculate the average count of these 4 specific events that occur BEFORE their first copy:
-   a) Average count of "Viewed Premium PDP" events before first copy
-   b) Average count of "Viewed Regular PDP" events before first copy
-   c) Average count of "Viewed Premium Creator Profile" events before first copy
-   d) Average count of "Viewed Regular Creator Profile" events before first copy
-   e) These 4 metrics will be displayed as metric cards in the UI
-   f) Include these findings in your summary and recommendations
-8. Focus on actionable patterns that product teams can optimize
+Provide:
+1. Average unique portfolio views for converters
+2. Average unique portfolio views for non-converters
+3. Key insights about what differentiates converters
+4. Recommended minimum views to predict conversion
 
-CONSISTENCY REQUIREMENTS:
-- Use the EXACT event names as they appear in the data provided - do not rename, rephrase, or clean up event names
-- Preserve the property format exactly: "Event Name (property)"
-- Maintain stable pattern identification - if data hasn't materially changed, return the same top patterns in the same order
-- Keep insights and recommendations similarly worded when the underlying patterns are consistent
-- Calculate metrics (lift, prevalence) using the same methodology each time
-- This ensures analysis stability and makes trend tracking easier over time
-</analysis_instructions>
-
-<output_format>
-Return ONLY valid JSON with this exact structure (no markdown, no code blocks):
-
-IMPORTANT: Sort "predictive_sequences" by their impact score, calculated as:
-  Impact = lift × prevalence_in_converters
-This prioritizes patterns that have both high predictive power (lift) AND affect the most converters (prevalence).
-Order from highest impact to lowest impact.
-
+Format your response as JSON:
 {
-  "predictive_sequences": [
-    {
-      "sequence": ["Event A", "Event B", "Event C"],
-      "prevalence_in_converters": 0.67,
-      "prevalence_in_non_converters": 0.12,
-      "lift": 5.58,
-      "avg_time_to_conversion_minutes": 240,
-      "avg_events_before_conversion": 8,
-      "insight": "Users who view 3+ creator profiles before PDP interaction are 5.6x more likely to copy",
-      "recommendation": "Encourage profile browsing before portfolio exposure",
-      "top_portfolios": ["$PELOSI", "$BRETTSIMBA", "$AAPL"],
-      "top_creators": ["@dubAdvisors", "@brettsimba", "@KianSaidi"]
-    }
-  ],
-  "critical_triggers": [
-    {
-      "event": "Paywall View",
-      "follows_sequence": ["Profile View", "PDP View"],
-      "conversion_rate_after_trigger": 0.34,
-      "insight": "34% of users subscribe within 24h after paywall view if they previously viewed profile + PDP"
-    }
-  ],
-  "anti_patterns": [
-    {
-      "sequence": ["Direct PDP View", "Immediate Exit"],
-      "prevalence_in_non_converters": 0.45,
-      "insight": "Users who land directly on PDP without profile context have 45% churn rate"
-    }
-  ],
-  "summary": "Overall predictive findings in 2-3 sentences",
-  "top_recommendations": ["Action 1", "Action 2", "Action 3"],
-  "avg_premium_pdp_views_before_copy": 4.2,
-  "avg_regular_pdp_views_before_copy": 6.8,
-  "avg_premium_creator_views_before_copy": 2.5,
-  "avg_regular_creator_views_before_copy": 3.1
-}
+  "avg_unique_views_converters": number,
+  "avg_unique_views_non_converters": number,
+  "insights": ["insight 1", "insight 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"]
+}`
 
-IMPORTANT:
-1. For each predictive_sequence, include "top_portfolios" and "top_creators" arrays with the top 3 most common portfolios/creators found in that pattern (based on the enriched event properties). If no properties are present in the sequence, use empty arrays [].
-2. Calculate these 4 metrics for users who have copied (total_copies >= 3):
-   - "avg_premium_pdp_views_before_copy": Average count of "Viewed Premium PDP" events that occurred before their first copy
-   - "avg_regular_pdp_views_before_copy": Average count of "Viewed Regular PDP" events that occurred before their first copy
-   - "avg_premium_creator_views_before_copy": Average count of "Viewed Premium Creator Profile" events that occurred before their first copy
-   - "avg_regular_creator_views_before_copy": Average count of "Viewed Regular Creator Profile" events that occurred before their first copy
-3. If analyzing subscriptions (not copies), these four fields should be null
-</output_format>`
+    const userPrompt = `Analyze these user journeys:
 
-    // Process users in batches with prompt caching
-    console.log('Processing users in batches with prompt caching...')
+**CONVERTERS (${convertersWithViews.length} users)**:
+${JSON.stringify(convertersWithViews.slice(0, 100), null, 2)}
 
-    const totalBatches = Math.min(
-      Math.ceil(balancedConverters.length / BATCH_SIZE),
-      MAX_BATCHES
-    )
+**NON-CONVERTERS (${nonConvertersWithViews.length} users)**:
+${JSON.stringify(nonConvertersWithViews.slice(0, 100), null, 2)}
 
-    // Helper function to format event with properties into readable string
-    const formatEvent = (event: any): string => {
-      const eventName = event.event || event
+Calculate unique portfolio views and provide insights.`
 
-      // If event is already a string (legacy format), return as-is
-      if (typeof event === 'string') return eventName
+    const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': claudeApiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }),
+    })
 
-      // Format PDP views with properties
-      if ((eventName === 'Viewed Premium PDP' || eventName === 'Viewed Regular PDP') &&
-          event.portfolioTicker && event.creatorUsername) {
-        return `${eventName} (${event.portfolioTicker} by ${event.creatorUsername})`
-      }
-
-      // Format Creator Profile views with properties
-      if ((eventName === 'Viewed Premium Creator Profile' || eventName === 'Viewed Regular Creator Profile') &&
-          event.creatorUsername) {
-        return `${eventName} (${event.creatorUsername})`
-      }
-
-      // Return plain event name if no properties
-      return eventName
+    if (!claudeResponse.ok) {
+      const errorText = await claudeResponse.text()
+      throw new Error(`Claude API error: ${claudeResponse.status} - ${errorText}`)
     }
 
-    // Helper function to deduplicate consecutive identical events
-    // e.g., ["View", "View", "View", "Click", "Click"] -> ["View", "Click"]
-    const dedupeSequence = (sequence: string[]): string[] => {
-      if (!sequence || sequence.length === 0) return []
-      const deduped: string[] = [sequence[0]]
-      for (let i = 1; i < sequence.length; i++) {
-        if (sequence[i] !== sequence[i - 1]) {
-          deduped.push(sequence[i])
-        }
-      }
-      return deduped
-    }
+    const claudeResult = await claudeResponse.json()
+    const analysisText = claudeResult.content[0].text
 
-    const allBatchResults: AnalysisResult[] = []
+    // Parse JSON from Claude's response
+    const jsonMatch = analysisText.match(/\{[\s\S]*\}/)
+    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {}
 
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-      const start = batchIndex * BATCH_SIZE
-      const end = Math.min(start + BATCH_SIZE, balancedConverters.length)
-
-      let totalRawEvents = 0
-      let totalDedupedEvents = 0
-
-      const convertersBatch = balancedConverters.slice(start, end).map(u => {
-        const rawEvents = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
-        // Format events with properties, then deduplicate
-        const formattedSequence = rawEvents.map(formatEvent)
-        const dedupedSequence = dedupeSequence(formattedSequence)
-        totalRawEvents += rawEvents.length
-        totalDedupedEvents += dedupedSequence.length
-        return {
-          id: u.distinct_id?.slice(0, 8) || 'unknown',
-          sequence: dedupedSequence,
-          outcome_count: outcomeType === 'copies' ? u.total_copies : u.total_subscriptions
-        }
-      })
-
-      const nonConvertersBatch = balancedNonConverters.slice(start, end).map(u => {
-        const rawEvents = (u.event_sequence || []).slice(0, EVENTS_PER_USER)
-        // Format events with properties, then deduplicate
-        const formattedSequence = rawEvents.map(formatEvent)
-        const dedupedSequence = dedupeSequence(formattedSequence)
-        totalRawEvents += rawEvents.length
-        totalDedupedEvents += dedupedSequence.length
-        return {
-          id: u.distinct_id?.slice(0, 8) || 'unknown',
-          sequence: dedupedSequence
-        }
-      })
-
-      const reductionPercent = ((1 - totalDedupedEvents / totalRawEvents) * 100).toFixed(1)
-      console.log(`Processing batch ${batchIndex + 1}/${totalBatches}: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters (${convertersBatch.length + nonConvertersBatch.length} total users)`)
-      console.log(`Event deduplication: ${totalRawEvents} raw events → ${totalDedupedEvents} unique events (${reductionPercent}% reduction)`)
-
-      // Build data section for this batch
-      const dataPrompt = `<data>
-Dataset size: ${convertersBatch.length} converters, ${nonConvertersBatch.length} non-converters (Batch ${batchIndex + 1}/${totalBatches})
-
-HIGH CONVERTERS:
-${JSON.stringify(convertersBatch, null, 2)}
-
-NON-CONVERTERS:
-${JSON.stringify(nonConvertersBatch, null, 2)}
-</data>
-
-Analyze this batch and return the top predictive patterns found.`
-
-      // Call Claude API with retry logic for 502/500 errors
-      let claudeResponse
-      let retryCount = 0
-      const maxRetries = 3
-
-      while (retryCount <= maxRetries) {
-        try {
-          claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': claudeApiKey,
-              'anthropic-version': '2023-06-01',
-              'anthropic-beta': 'prompt-caching-2024-07-31'
-            },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 8000,
-              system: [
-                {
-                  type: 'text',
-                  text: systemPrompt,
-                  cache_control: { type: 'ephemeral' }
-                }
-              ],
-              messages: [{
-                role: 'user',
-                content: dataPrompt
-              }]
-            })
-          })
-
-          // Check if response is OK or if it's a retryable error
-          if (claudeResponse.ok) {
-            break // Success - exit retry loop
-          }
-
-          // Check if error is retryable (502, 500, 503, 529)
-          if ([500, 502, 503, 529].includes(claudeResponse.status) && retryCount < maxRetries) {
-            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000) // Exponential backoff, max 10s
-            console.warn(`⚠️ Claude API error ${claudeResponse.status} (batch ${batchIndex + 1}), retrying in ${waitTime}ms (attempt ${retryCount + 1}/${maxRetries})...`)
-            await new Promise(resolve => setTimeout(resolve, waitTime))
-            retryCount++
-            continue
-          }
-
-          // Non-retryable error or max retries reached
-          const errorText = await claudeResponse.text()
-          throw new Error(`Claude API error (batch ${batchIndex + 1}): ${claudeResponse.status} - ${errorText}`)
-        } catch (error) {
-          // Network error or other fetch error
-          if (retryCount < maxRetries) {
-            const waitTime = Math.min(1000 * Math.pow(2, retryCount), 10000)
-            console.warn(`⚠️ Network error calling Claude API (batch ${batchIndex + 1}), retrying in ${waitTime}ms (attempt ${retryCount + 1}/${maxRetries})...`)
-            await new Promise(resolve => setTimeout(resolve, waitTime))
-            retryCount++
-            continue
-          }
-          throw error
-        }
-      }
-
-      const claudeData = await claudeResponse.json()
-
-      // Log cache usage
-      const usage = claudeData.usage
-      console.log(`Batch ${batchIndex + 1} tokens:`, {
-        input: usage?.input_tokens || 0,
-        cache_creation: usage?.cache_creation_input_tokens || 0,
-        cache_read: usage?.cache_read_input_tokens || 0,
-        output: usage?.output_tokens || 0
-      })
-
-      // Parse batch result
-      try {
-        const responseText = claudeData.content[0].text
-        const cleanedText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-        const batchResult: AnalysisResult = JSON.parse(cleanedText)
-        allBatchResults.push(batchResult)
-      } catch (parseError) {
-        console.error(`Failed to parse batch ${batchIndex + 1} response:`, parseError)
-        console.error('Raw response:', claudeData.content[0].text)
-        throw new Error(`Failed to parse batch ${batchIndex + 1} analysis results`)
-      }
-    }
-
-    console.log(`✓ Completed ${totalBatches} batches, merging results...`)
-
-    // Merge results from all batches
-    const analysisResult = mergeBatchResults(allBatchResults)
-    console.log('✓ Analysis completed and merged')
-
-    // Helper function to merge batch results
-    function mergeBatchResults(results: AnalysisResult[]): AnalysisResult {
-      if (results.length === 1) return results[0]
-
-      // Collect all sequences and sort by impact (lift × prevalence)
-      const allSequences = results.flatMap(r => r.predictive_sequences)
-      const sortedSequences = allSequences
-        .sort((a, b) => {
-          const impactA = a.lift * a.prevalence_in_converters
-          const impactB = b.lift * b.prevalence_in_converters
-          return impactB - impactA
-        })
-        .slice(0, 10) // Keep top 10
-
-      // Collect all triggers and patterns
-      const allTriggers = results.flatMap(r => r.critical_triggers || []).slice(0, 5)
-      const allAntiPatterns = results.flatMap(r => r.anti_patterns || []).slice(0, 5)
-
-      // Combine summaries
-      const summaries = results.map(r => r.summary).filter(Boolean)
-      const combinedSummary = summaries.length > 0
-        ? `Analysis of ${totalBatches} batches (${balancedConverters.length} total users): ${summaries[0]}`
-        : 'Combined analysis across multiple batches'
-
-      // Combine recommendations
-      const allRecommendations = results.flatMap(r => r.top_recommendations || [])
-      const uniqueRecommendations = [...new Set(allRecommendations)].slice(0, 5)
-
-      // Average the metrics across all batches
-      const avgMetrics: {
-        avg_premium_pdp_views_before_copy?: number
-        avg_regular_pdp_views_before_copy?: number
-        avg_premium_creator_views_before_copy?: number
-        avg_regular_creator_views_before_copy?: number
-      } = {}
-
-      // Only calculate averages if we're analyzing copies (not subscriptions)
-      if (results.length > 0 && results[0].avg_premium_pdp_views_before_copy !== undefined) {
-        const validResults = results.filter(r =>
-          r.avg_premium_pdp_views_before_copy !== undefined &&
-          r.avg_regular_pdp_views_before_copy !== undefined &&
-          r.avg_premium_creator_views_before_copy !== undefined &&
-          r.avg_regular_creator_views_before_copy !== undefined
-        )
-
-        if (validResults.length > 0) {
-          avgMetrics.avg_premium_pdp_views_before_copy =
-            validResults.reduce((sum, r) => sum + (r.avg_premium_pdp_views_before_copy || 0), 0) / validResults.length
-          avgMetrics.avg_regular_pdp_views_before_copy =
-            validResults.reduce((sum, r) => sum + (r.avg_regular_pdp_views_before_copy || 0), 0) / validResults.length
-          avgMetrics.avg_premium_creator_views_before_copy =
-            validResults.reduce((sum, r) => sum + (r.avg_premium_creator_views_before_copy || 0), 0) / validResults.length
-          avgMetrics.avg_regular_creator_views_before_copy =
-            validResults.reduce((sum, r) => sum + (r.avg_regular_creator_views_before_copy || 0), 0) / validResults.length
-        }
-      }
-
-      return {
-        predictive_sequences: sortedSequences,
-        critical_triggers: allTriggers,
-        anti_patterns: allAntiPatterns,
-        summary: combinedSummary,
-        top_recommendations: uniqueRecommendations,
-        ...avgMetrics
-      }
-    }
-
-    // Store results in database
-    console.log('Storing analysis results...')
-    const { error: insertError } = await supabase
-      .from('event_sequence_analysis')
-      .insert({
-        analysis_type: outcomeType,
-        predictive_sequences: analysisResult.predictive_sequences,
-        critical_triggers: analysisResult.critical_triggers || [],
-        anti_patterns: analysisResult.anti_patterns || [],
-        summary: analysisResult.summary,
-        recommendations: analysisResult.top_recommendations,
-        model_used: 'claude-sonnet-4-20250514',
-        avg_premium_pdp_views_before_copy: analysisResult.avg_premium_pdp_views_before_copy || null,
-        avg_regular_pdp_views_before_copy: analysisResult.avg_regular_pdp_views_before_copy || null,
-        avg_premium_creator_views_before_copy: analysisResult.avg_premium_creator_views_before_copy || null,
-        avg_regular_creator_views_before_copy: analysisResult.avg_regular_creator_views_before_copy || null
-      })
-
-    if (insertError) {
-      console.error('Failed to store analysis results:', insertError)
-      throw insertError
-    }
-
-    console.log('✓ Analysis results stored successfully')
+    console.log('✅ Analysis complete')
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Event sequence analysis for ${outcomeType} completed successfully`,
-        analysis: analysisResult,
-        stats: {
-          total_converters_analyzed: balancedConverters.length,
-          total_non_converters_analyzed: balancedNonConverters.length,
-          batches_processed: totalBatches,
-          events_per_user: EVENTS_PER_USER,
-          patterns_found: analysisResult.predictive_sequences.length
-        }
+        analysis: analysis,
+        raw_response: analysisText,
+        converters_analyzed: convertersWithViews.length,
+        non_converters_analyzed: nonConvertersWithViews.length,
       }),
       {
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-        status: 200,
       }
     )
-  } catch (error) {
-    console.error('Error in analyze-event-sequences function:', error)
+  } catch (error: any) {
+    console.error('Error in analyze-event-sequences:', error)
 
     return new Response(
       JSON.stringify({
         success: false,
-        error: error?.message || 'Unknown error occurred',
-        details: error?.stack || String(error)
+        error: error.message,
+        details: error.stack,
       }),
       {
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         status: 500,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       }
     )
   }

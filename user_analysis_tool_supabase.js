@@ -283,41 +283,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('\n═══ Steps 4-6: Analysis Workflows (Parallel) ═══');
 
             const [step4Result, step5Result, step6Result] = await Promise.allSettled([
-                // Step 4: Event sequence workflow - DISABLED (causes DB overload)
-                // TODO: Re-architect event sequences to avoid expensive JSON aggregation
-                // Issue: APPEND operation with json_array_elements + re-sorting causes high CPU/Disk IO
-                // See: commits 5ee2eb5, cf07cda for context
-                (async () => {
-                    console.log('→ Step 4: Event Sequences - SKIPPED (disabled)');
-                    return { success: true, skipped: true };
-                })(),
-                /*
+                // Step 4: Event sequence workflow (SIMPLIFIED - 2 steps only)
+                // Sync → Analyze (no aggregation step needed)
                 (async () => {
                     console.log('→ Step 4: Event Sequences (starting in parallel)');
                     try {
-                        console.log('  → 4a: Syncing raw events (Export API)');
+                        console.log('  → 4a: Syncing portfolio views + first copies');
                         const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
                         if (seqSyncResult?.success) {
-                            const partial = seqSyncResult.partialSync ? ' (partial - timed out)' : '';
-                            console.log(`    ✓ 4a: Raw events synced${partial}`);
+                            console.log(`    ✓ 4a: Synced ${seqSyncResult.portfolioViews || 0} views, ${seqSyncResult.firstCopies || 0} copies`);
                         } else {
                             console.warn('    ⚠ 4a: Sync failed, using existing data');
                         }
 
-                        console.log('  → 4b: Aggregating event sequences (SQL)');
-                        const processResult = await this.supabaseIntegration.triggerEventSequenceProcessing();
-                        if (processResult?.success) {
-                            console.log(`    ✓ 4b: Events aggregated (${processResult.user_sequences_upserted || 0} users)`);
-                        } else {
-                            console.warn('    ⚠ 4b: Processing failed');
-                        }
-
-                        console.log('  → 4c: Analyzing copy patterns with Claude AI');
+                        console.log('  → 4b: Analyzing with Claude AI');
                         const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
                         if (copyAnalysisResult?.success) {
-                            console.log('    ✓ 4c: Copy analysis complete');
+                            console.log('    ✓ 4b: Analysis complete');
                         } else {
-                            console.warn('    ⚠ 4c: Analysis failed');
+                            console.warn('    ⚠ 4b: Analysis failed');
                         }
 
                         console.log('✅ Step 4: Event Sequences - Complete');
@@ -327,7 +311,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         return { success: false, error: error.message };
                     }
                 })(),
-                */
 
                 // Step 5: Subscription price analysis
                 (async () => {
