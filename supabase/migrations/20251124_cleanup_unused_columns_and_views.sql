@@ -81,6 +81,50 @@ ON hidden_gems_portfolios(portfolio_ticker, creator_id);
 COMMENT ON MATERIALIZED VIEW hidden_gems_portfolios IS
 'Hidden gem portfolios: many unique viewers but few unique copiers (ratio >= 5).';
 
+-- Recreate premium_creator_stock_holdings (was dropped by CASCADE)
+CREATE MATERIALIZED VIEW premium_creator_stock_holdings AS
+SELECT
+  pc.creator_username,
+  psh.stock_ticker,
+  SUM(psh.total_quantity) AS total_quantity,
+  SUM(psh.total_quantity * COALESCE(psh.avg_price, 0)) AS total_value,
+  MAX(pcem.total_copies) AS creator_total_copies
+FROM premium_creators pc
+JOIN portfolio_creator_engagement_metrics pcem
+  ON pc.creator_id = pcem.creator_id
+JOIN portfolio_stock_holdings psh
+  ON pcem.portfolio_ticker = psh.portfolio_ticker
+GROUP BY pc.creator_username, psh.stock_ticker;
+
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_creator
+ON premium_creator_stock_holdings(creator_username);
+
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_stock
+ON premium_creator_stock_holdings(stock_ticker);
+
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_quantity
+ON premium_creator_stock_holdings(total_quantity DESC);
+
+COMMENT ON MATERIALIZED VIEW premium_creator_stock_holdings IS
+'Stock holdings aggregated by premium creator. Joins portfolio_creator_engagement_metrics with portfolio_stock_holdings.';
+
+-- Recreate top_stocks_all_premium_creators (depends on premium_creator_stock_holdings)
+CREATE MATERIALIZED VIEW top_stocks_all_premium_creators AS
+SELECT
+  stock_ticker,
+  SUM(total_quantity) AS total_quantity,
+  COUNT(DISTINCT creator_username) AS creator_count,
+  ROW_NUMBER() OVER (ORDER BY SUM(total_quantity) DESC) AS rank
+FROM premium_creator_stock_holdings
+GROUP BY stock_ticker
+ORDER BY total_quantity DESC;
+
+CREATE INDEX IF NOT EXISTS idx_top_stocks_rank
+ON top_stocks_all_premium_creators(rank);
+
+COMMENT ON MATERIALIZED VIEW top_stocks_all_premium_creators IS
+'Top stocks held across all premium creators, ranked by total quantity.';
+
 -- Log the cleanup
 DO $$
 BEGIN
