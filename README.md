@@ -1,6 +1,6 @@
 # Dub Analysis Tool
 
-**Version**: 2.2.0 (November 2024)
+**Version**: 2.3.0 (November 2024)
 
 Comprehensive analytics platform for analyzing user behavior, creator performance, and business metrics for an investment social network.
 
@@ -82,13 +82,27 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 #### 1.3 Event Sequences Analysis (AI)
 **Purpose**: Discover behavioral patterns that predict conversions using Claude AI
 
+**Architecture** (optimized Nov 2024):
+- **sync-event-sequences-v2**: Fetches events from Mixpanel Export API and aggregates by user in real-time
+  - Tracks 2 events: "Viewed Creator Profile" (creatorUsername), "Viewed Portfolio Details" (portfolioTicker)
+  - Writes directly to `user_event_sequences` table (no intermediate storage)
+  - Incremental sync: Only fetches new events since last sync (1-day overlap)
+  - Initial backfill: 7 days of historical data
+- **analyze-event-sequences**: Claude AI analysis with JOIN to `subscribers_insights` for copy/subscription counts
+  - Processes in batches (125 converters + 125 non-converters per batch)
+  - Deduplicates consecutive events to reduce token usage (40-60% reduction)
+  - Stores results in `event_sequence_analysis` table
+
 **What it finds**:
 - Predictive sequences (e.g., Profile → PDP → Paywall)
 - Critical trigger events before conversion
 - Anti-patterns common in non-converters
 - Timing patterns between key events
+- Top portfolios/creators that drive conversions
 
-**Trigger**: Manual only (~$1.71 per run, analyzes 600 users)
+**Performance**: 95% reduction in DB operations vs. previous 3-step workflow
+
+**Trigger**: Auto-synced daily, AI analysis manual only (~$1.71 per run, analyzes 600 users)
 
 #### 1.4 Time Funnels Analysis
 **Purpose**: Track time-to-conversion for key milestones
@@ -105,22 +119,25 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 2. `sync-mixpanel-user-properties-v2` - User properties from Engage API (~5-10 min)
 3. `sync-mixpanel-engagement` - Granular engagement data (~60-90s)
    - Frontend orchestrates 3 steps: fetch → process-portfolio → process-creator
-4. `sync-creator-data` - Creator performance metrics (~30s)
-5. `sync-support-conversations` - Support workflow starter (~30s)
+4. `sync-event-sequences-v2` - Event sequences with real-time aggregation (~60-180s)
+   - Fetches from Mixpanel Export API
+   - Aggregates by user and writes directly to `user_event_sequences`
+5. `sync-creator-data` - Creator performance metrics (~30s)
+6. `sync-support-conversations` - Support workflow starter (~30s)
    - Auto-triggers 3-step chain: sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
    - Background completion: ~2-3 min total
-6. `sync-event-sequences` - Raw event data for pattern analysis
-7. `process-event-sequences` - Join with conversion data
-8. `analyze-event-sequences` - Claude AI pattern analysis (copies only)
-9. `analyze-subscription-price` - Subscription pricing analysis
-10. `analyze-copy-patterns` - Portfolio/creator combinations
-11. `refresh-materialized-views` - Update all database views (runs in finally block)
+7. `analyze-subscription-price` - Subscription pricing analysis (~30s)
+8. `analyze-copy-patterns` - Portfolio/creator combinations (~45s)
+9. `refresh-materialized-views` - Update all database views (runs in finally block)
+
+**Note**: `analyze-event-sequences` (Claude AI) is triggered manually from UI (~$1.71/run)
 
 **Automatic Daily Sync** (2:00-3:00 AM UTC via cron):
 1. `sync-mixpanel-user-events-v2` - Event metrics (~2-5 min)
 2. `sync-mixpanel-user-properties-v2` - User properties (~5-10 min)
 3. `sync-mixpanel-engagement` - Granular engagement (~60-90s)
    - Auto-triggers pattern analysis functions
+4. `sync-event-sequences-v2` - Event sequences aggregation (~60-180s)
 
 ---
 
@@ -367,6 +384,7 @@ All syncs run automatically via pg_cron:
 2. `sync-mixpanel-user-properties-v2` - User properties from Engage API
 3. `sync-mixpanel-engagement` - Granular engagement data
    - Auto-triggers pattern analysis functions
+4. `sync-event-sequences-v2` - Event sequences aggregation
 
 **Creator Analysis** (3:15 AM UTC):
 - `sync-creator-data` - Creator performance metrics
