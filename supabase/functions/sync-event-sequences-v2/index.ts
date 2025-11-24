@@ -376,9 +376,14 @@ serve(async (req) => {
       let totalInserted = 0
 
       const processBatch = async (events: MixpanelExportEvent[]) => {
-        // Check timeout before processing batch
-        if (timeoutGuard.isApproachingTimeout()) {
-          console.warn(`⚠️ Approaching timeout - skipping batch of ${events.length} events`)
+        // Check if we should stop syncing and move to analysis
+        // Stop at 90s to leave 60s buffer for analyze-event-sequences (150s total - 90s = 60s)
+        const elapsedSeconds = timeoutGuard.getElapsedSeconds()
+        if (elapsedSeconds >= 90) {
+          console.warn(`⚠️ Reached 90s elapsed time - stopping data sync to ensure time for analysis`)
+          console.warn(`   Collected ${totalInserted} events so far, proceeding to analyze-event-sequences`)
+          // Return early to stop processing more batches
+          // The fetchAndProcessEventsStreaming function will continue streaming but we won't process more
           return
         }
 
@@ -426,7 +431,7 @@ serve(async (req) => {
           }
 
           totalInserted += rawEventRows.length
-          console.log(`  ✓ Inserted ${rawEventRows.length} events (${totalInserted} total)`)
+          console.log(`  ✓ Inserted ${rawEventRows.length} events (${totalInserted} total) at ${elapsedSeconds}s`)
         } catch (err: any) {
           const errorCode = err?.code || err?.message
 
