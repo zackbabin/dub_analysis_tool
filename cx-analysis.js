@@ -107,7 +107,7 @@ class CXAnalysis {
         timestamp.textContent = `Data as of: ${formattedTimestamp}`;
         resultsDiv.appendChild(timestamp);
 
-        // Add data scope (top left) - shows week start date
+        // Add data scope (top left) - shows conversation count analyzed by Claude
         const dataScope = document.createElement('div');
         dataScope.className = 'qda-data-scope';
 
@@ -119,7 +119,9 @@ class CXAnalysis {
             year: 'numeric'
         });
 
-        dataScope.textContent = `Analysis of Zendesk tickets since ${formattedWeekStart}`;
+        // Get total conversations analyzed from Claude's response
+        const totalAnalyzed = data.analysis_summary?.total_conversations_analyzed || data.conversation_count || 'N/A';
+        dataScope.textContent = `Analysis of ${totalAnalyzed} Zendesk tickets since ${formattedWeekStart}`;
         resultsDiv.insertBefore(dataScope, timestamp);
 
         // Add H1 title (using qda-result-section for consistent spacing)
