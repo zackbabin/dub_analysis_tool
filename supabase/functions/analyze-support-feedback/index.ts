@@ -171,7 +171,7 @@ Return ONLY valid JSON matching this exact structure:
         "percentage_contribution": number,
         "volume_contribution": number
       },
-      "avg_message_count": number,
+      "avg_message_count": number (REQUIRED: average message_count across ALL conversations in this issue group, rounded to 1 decimal),
       "message_count_insight": "string (optional: brief note if high message count indicates complexity/frustration)",
       "examples": [
         {
@@ -209,8 +209,8 @@ Return ONLY valid JSON matching this exact structure:
 - Prioritize consistency in issue identification over finding new variations of the same problem
 - Show priority calculation breakdown for transparency
 - Include category_breakdown in analysis_summary showing count of issues per category across ALL conversations
-- Include avg_message_count for each issue (average of message_count across related conversations)
-- Include message_count for each example ticket
+- **REQUIRED**: Calculate and include avg_message_count for EVERY issue - this is the average of message_count across ALL conversations you grouped into this issue (not just the 3 examples)
+- Include message_count for each example ticket (from the individual conversation's message_count field)
 - Add message_count_insight when high message counts (5+) indicate issue complexity or user frustration
 - Focus on actionable product feedback, not general support inquiries
 - Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
@@ -458,22 +458,10 @@ serve(async (req) => {
       console.log(`Converting weekly_volume to average (dividing by ${numberOfWeeks.toFixed(1)} weeks)`)
 
       if (analysis.top_issues && Array.isArray(analysis.top_issues)) {
-        // Debug: Check if avg_message_count exists before processing
-        console.log('🔍 Checking avg_message_count in Claude response:')
-        analysis.top_issues.forEach((issue: any, idx: number) => {
-          console.log(`  Issue ${idx + 1} (${issue.issue_summary?.substring(0, 40)}...): avg_message_count = ${issue.avg_message_count}`)
-        })
-
         analysis.top_issues = analysis.top_issues.map((issue: any) => ({
           ...issue,
           weekly_volume: issue.weekly_volume ? Math.round(issue.weekly_volume / numberOfWeeks) : 0
         }))
-
-        // Debug: Verify avg_message_count still exists after processing
-        console.log('🔍 Verifying avg_message_count after post-processing:')
-        analysis.top_issues.forEach((issue: any, idx: number) => {
-          console.log(`  Issue ${idx + 1}: avg_message_count = ${issue.avg_message_count}`)
-        })
       }
 
       // Store results
