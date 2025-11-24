@@ -39,9 +39,9 @@ SELECT
 
 FROM user_portfolio_creator_engagement
 
-GROUP BY portfolio_ticker, creator_id
--- Only group by portfolio_ticker and creator_id
--- Use MAX(creator_username) to pick one if there are variations;
+-- Only group by portfolio_ticker and creator_id (not creator_username)
+-- Use MAX(creator_username) to pick one if there are variations
+GROUP BY portfolio_ticker, creator_id;
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_portfolio_creator_engagement_metrics_ticker
