@@ -1087,6 +1087,35 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger event sequence processing via Supabase Edge Function
+     * Aggregates raw events from event_sequences_raw into user_event_sequences using SQL
+     */
+    async triggerEventSequenceProcessing() {
+        console.log('Triggering event sequence processing...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('process-event-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Event sequence processing failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during event sequence processing');
+            }
+
+            console.log('✅ Event sequence processing completed:', data);
+            return data;
+        } catch (error) {
+            console.error('Error calling event sequence processing Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Trigger event sequence analysis via Supabase Edge Function with Claude AI
      * @param {string} outcomeType - Either 'copies' or 'subscriptions'
      */

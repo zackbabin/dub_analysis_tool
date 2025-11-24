@@ -335,17 +335,10 @@ serve(async (req) => {
         )
       }
 
-      console.log('Processing events and aggregating by user...')
+      console.log('Converting events to flat rows for batch insert...')
 
-      // Group events by user for aggregation
-      const userEventsMap = new Map<string, Array<{
-        event: string
-        time: string
-        count: number
-        portfolioTicker?: string
-        creatorUsername?: string
-      }>>()
-
+      // Transform Mixpanel events to flat database rows
+      const rawEventRows = []
       for (const event of events) {
         // Convert Unix timestamp (seconds) to ISO string
         const eventTime = new Date(event.properties.time * 1000).toISOString()
@@ -354,98 +347,57 @@ serve(async (req) => {
         const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
         const distinctId = sanitizeDistinctId(rawDistinctId)
 
-        // Get or create user's event array
-        if (!userEventsMap.has(distinctId)) {
-          userEventsMap.set(distinctId, [])
-        }
-
-        // Add event to user's sequence
-        const eventObj: any = {
-          event: event.event,
-          time: eventTime,
-          count: 1
-        }
-
-        // Add optional properties if present
-        if (event.properties.portfolioTicker) {
-          eventObj.portfolioTicker = event.properties.portfolioTicker
-        }
-        if (event.properties.creatorUsername) {
-          eventObj.creatorUsername = event.properties.creatorUsername
-        }
-
-        userEventsMap.get(distinctId)!.push(eventObj)
-      }
-
-      console.log(`✓ Grouped ${events.length} events into ${userEventsMap.size} user sequences`)
-
-      // Check if we're approaching timeout before starting batch inserts
-      if (timeoutGuard.isApproachingTimeout()) {
-        console.warn('⚠️ Approaching timeout before batch inserts - returning partial results')
-        await updateSyncLogSuccess(supabase, syncLogId, {
-          total_records_inserted: 0,
-        })
-        return createSuccessResponse(
-          'Partial sync - fetched events but timed out before insert',
-          { ...stats, warning: 'Timeout before insert - no events stored' },
-          { note: 'Function timed out before inserting events. Run again to complete.' }
-        )
-      }
-
-      // Build user_event_sequences rows
-      const eventSequenceRows = []
-      for (const [distinctId, eventSequence] of userEventsMap) {
-        eventSequenceRows.push({
+        rawEventRows.push({
           distinct_id: distinctId,
-          event_sequence: eventSequence,
+          event_name: event.event,
+          event_time: eventTime,
+          portfolio_ticker: event.properties.portfolioTicker || null,
+          creator_username: event.properties.creatorUsername || null,
           synced_at: syncStartTime.toISOString()
         })
       }
 
-      console.log(`Prepared ${eventSequenceRows.length} user sequence records for upsert`)
+      console.log(`✓ Prepared ${rawEventRows.length} event rows for batch insert`)
 
-      // Upsert to user_event_sequences in batches
-      const batchSize = 500
+      // Batch insert to event_sequences_raw
+      const batchSize = 1000
       let totalInserted = 0
 
-      for (let i = 0; i < eventSequenceRows.length; i += batchSize) {
+      for (let i = 0; i < rawEventRows.length; i += batchSize) {
         // Check timeout before each batch
         if (timeoutGuard.isApproachingTimeout()) {
-          console.warn(`⚠️ Approaching timeout - stopping early after ${totalInserted} users`)
+          console.warn(`⚠️ Approaching timeout - stopping after ${totalInserted} events inserted`)
           break
         }
 
-        const batch = eventSequenceRows.slice(i, i + batchSize)
+        const batch = rawEventRows.slice(i, i + batchSize)
         const batchNum = Math.floor(i / batchSize) + 1
-        const totalBatches = Math.ceil(eventSequenceRows.length / batchSize)
+        const totalBatches = Math.ceil(rawEventRows.length / batchSize)
 
-        console.log(`  Upserting batch ${batchNum}/${totalBatches} (${batch.length} users)...`)
+        console.log(`Inserting batch ${batchNum}/${totalBatches} (${batch.length} events)...`)
 
         try {
-          const { error: upsertError } = await supabase
-            .from('user_event_sequences')
-            .upsert(batch, {
-              onConflict: 'distinct_id',
-              ignoreDuplicates: false  // Update existing records
-            })
+          const { error: insertError } = await supabase
+            .from('event_sequences_raw')
+            .insert(batch)
 
-          if (upsertError) {
-            const errorCode = upsertError.code || upsertError.error_code || ''
+          if (insertError) {
+            const errorCode = insertError.code || insertError.error_code || ''
 
             // Handle statement timeout gracefully
-            if (errorCode === '57014' || upsertError.message?.includes('statement timeout')) {
+            if (errorCode === '57014' || insertError.message?.includes('statement timeout')) {
               console.warn(`  ⚠️ Batch ${batchNum} timed out - continuing`)
               continue
             }
 
             // For other errors, log details and throw
-            console.error(`❌ Error upserting batch ${batchNum}:`, upsertError)
+            console.error(`❌ Error inserting batch ${batchNum}:`, insertError)
             console.error('   Sample record:', JSON.stringify(batch[0]))
-            throw upsertError
+            throw insertError
           }
 
           totalInserted += batch.length
-          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total users)`)
+          console.log(`  ✓ Batch ${batchNum}/${totalBatches} complete (${totalInserted} total events)`)
         } catch (err: any) {
           const errorCode = err?.code || err?.message
 
@@ -459,14 +411,14 @@ serve(async (req) => {
         }
       }
 
-      console.log(`✅ Upserted ${totalInserted} user event sequences`)
+      console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
       stats.eventsInserted = totalInserted
 
-      // Check if we completed all records or timed out early
-      const partialSync = stats.eventsInserted < eventSequenceRows.length
+      // Check if we completed all events or timed out early
+      const partialSync = totalInserted < events.length
       const message = partialSync
-        ? `Partial sync completed - ${stats.eventsInserted} of ${eventSequenceRows.length} user sequences upserted before timeout`
-        : `Event sequences ${syncMode} sync completed - ${eventSequenceRows.length} users aggregated from ${events.length} events`
+        ? `Partial sync completed - ${stats.eventsInserted} of ${events.length} events inserted before timeout`
+        : `Event sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
 
       // Update sync status with last sync timestamp (only if not partial)
       if (!partialSync) {
@@ -496,7 +448,7 @@ serve(async (req) => {
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log('Tracked events: Viewed Creator Profile (creatorUsername), Viewed Portfolio Details (portfolioTicker)')
-      console.log('Next: Call analyze-event-sequences to run Claude AI analysis on conversion patterns')
+      console.log('Next: Call process-event-sequences to aggregate, then analyze-event-sequences for Claude AI analysis')
 
       return createSuccessResponse(
         message,
@@ -504,8 +456,8 @@ serve(async (req) => {
         {
           syncMode: syncMode,
           dateRange: `${fromDate} to ${toDate}`,
-          note: 'Incremental sync enabled - only fetches new events since last sync',
-          nextSteps: 'Call analyze-event-sequences to run Claude AI analysis on conversion patterns',
+          note: 'Events inserted to event_sequences_raw staging table - call process-event-sequences to aggregate',
+          nextSteps: 'Call process-event-sequences to aggregate into user_event_sequences',
           partialSync: partialSync
         }
       )
