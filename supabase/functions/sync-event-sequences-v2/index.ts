@@ -532,17 +532,23 @@ serve(async (req) => {
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
       console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
 
-      // ALWAYS call analyze-event-sequences if we have enough time (need ~30s buffer)
+      // ALWAYS call analyze-event-sequences after successful data sync
       // This ensures avg_unique_portfolios and median_unique_portfolios get populated in copy_engagement_summary
+      // Even if we timeout during this call, the data sync is already complete and saved
       let analysisResult = null
       const elapsedSeconds = timeoutGuard.getElapsedSeconds()
       const timeRemaining = 140 - elapsedSeconds
 
       console.log(`⏱️ Time check: ${elapsedSeconds}s elapsed, ${timeRemaining}s remaining`)
 
-      // Need at least 30 seconds for analyze-event-sequences (Claude API call + DB operations)
-      if (timeRemaining >= 30) {
+      // Always attempt analysis if we have data - it's idempotent and more important than avoiding timeout
+      if (copyEventsSynced > 0 || totalInserted > 0) {
         try {
+          if (timeRemaining < 30) {
+            console.warn(`⚠️ Low on time (${timeRemaining}s remaining) but attempting analyze-event-sequences anyway`)
+            console.warn('   Data sync is complete, analysis can timeout safely')
+          }
+
           console.log('\n📊 Calling analyze-event-sequences to update copy_engagement_summary...')
           const analysisStartTime = Date.now()
 
@@ -567,10 +573,10 @@ serve(async (req) => {
           }
         } catch (analysisError: any) {
           console.warn('⚠️ analyze-event-sequences error (non-fatal):', analysisError.message)
+          console.warn('   Data sync succeeded - you can retry analysis manually if needed')
         }
       } else {
-        console.warn(`⚠️ Skipping analyze-event-sequences - insufficient time (${timeRemaining}s < 30s required)`)
-        console.warn('   Run analyze-event-sequences manually to populate copy_engagement_summary')
+        console.log('ℹ️ No data synced, skipping analyze-event-sequences')
       }
 
       return createSuccessResponse(
