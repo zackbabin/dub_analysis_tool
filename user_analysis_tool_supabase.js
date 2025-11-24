@@ -283,7 +283,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('\n═══ Steps 4-6: Analysis Workflows (Parallel) ═══');
 
             const [step4Result, step5Result, step6Result] = await Promise.allSettled([
-                // Step 4: Event sequence workflow (3-step: sync → process → analyze)
+                // Step 4: Event sequence workflow - DISABLED (causes DB overload)
+                // TODO: Re-architect event sequences to avoid expensive JSON aggregation
+                // Issue: APPEND operation with json_array_elements + re-sorting causes high CPU/Disk IO
+                // See: commits 5ee2eb5, cf07cda for context
+                (async () => {
+                    console.log('→ Step 4: Event Sequences - SKIPPED (disabled)');
+                    return { success: true, skipped: true };
+                })(),
+                /*
                 (async () => {
                     console.log('→ Step 4: Event Sequences (starting in parallel)');
                     try {
@@ -319,6 +327,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         return { success: false, error: error.message };
                     }
                 })(),
+                */
 
                 // Step 5: Subscription price analysis
                 (async () => {
