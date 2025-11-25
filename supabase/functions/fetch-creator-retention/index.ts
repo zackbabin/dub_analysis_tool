@@ -11,11 +11,10 @@ import {
   initializeSupabaseClient,
   handleCorsRequest,
   checkAndHandleSkipSync,
-  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
-const SUBSCRIBED_CHART_ID = '85857452'  // "Subscribed to Creator" metric
-const RENEWED_CHART_ID = '86188712'      // "Renewed Subscription" metric
+const SUBSCRIBED_CHART_ID = '85857452'  // "Subscribed to Creator" metric - now uses $user_id
+const RENEWED_CHART_ID = '86188712'      // "Renewed Subscription" metric - now uses $user_id
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -182,10 +181,11 @@ serve(async (req) => {
  * Process TWO Mixpanel Insights Charts into retention event records
  *
  * Input:
- * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"]
- * - renewedChartData: Chart 86188712 with series["Renewed Subscription"]
+ * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"] - now uses $user_id
+ * - renewedChartData: Chart 86188712 with series["Renewed Subscription"] - now uses $user_id
  *
- * Structure: series[metric][$distinct_id][creatorUsername]["Month Year"] = { all: count }
+ * Structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
+ * Note: Charts now return $user_id instead of distinct_id, which we map to distinct_id column in DB
  */
 function processRetentionChartData(subscribedChartData: any, renewedChartData: any): any[] {
   const events: any[] = []
@@ -207,8 +207,8 @@ function processRetentionChartData(subscribedChartData: any, renewedChartData: a
   const subscribedData = subscribedChartData.series['Subscribed to Creator'] || {}
   const renewedData = renewedChartData.series['Renewed Subscription'] || {}
 
-  console.log(`Subscribed data has ${Object.keys(subscribedData).length} distinct_ids`)
-  console.log(`Renewed data has ${Object.keys(renewedData).length} distinct_ids`)
+  console.log(`Subscribed data has ${Object.keys(subscribedData).length} user_ids`)
+  console.log(`Renewed data has ${Object.keys(renewedData).length} user_ids`)
 
   // Process subscribed events
   processMetric(subscribedData, eventMap, 'subscribed')
@@ -234,19 +234,19 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
   let skippedZero = 0
   let skippedOverall = 0
 
-  for (const [rawDistinctId, distinctIdData] of Object.entries(metricData)) {
-    if (rawDistinctId === '$overall') {
+  for (const [userId, userIdData] of Object.entries(metricData)) {
+    if (userId === '$overall') {
       skippedOverall++
       continue
     }
 
-    // Sanitize distinct_id (remove $device: prefix if present)
-    const distinctId = sanitizeDistinctId(rawDistinctId)
-    if (!distinctId) continue
+    // userId is the $user_id from Mixpanel (no $device: prefix anymore)
+    // Map to distinct_id column in DB
+    if (!userId) continue
 
-    if (typeof distinctIdData !== 'object') continue
+    if (typeof userIdData !== 'object') continue
 
-    for (const [creatorUsername, creatorData] of Object.entries(distinctIdData as Record<string, any>)) {
+    for (const [creatorUsername, creatorData] of Object.entries(userIdData as Record<string, any>)) {
       if (creatorUsername === '$overall') {
         skippedOverall++
         continue
@@ -267,11 +267,12 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
         }
 
         // Create unique key
-        const key = `${distinctId}|${creatorUsername}|${cohortMonth}`
+        // Map $user_id to distinct_id column (DB column name stays the same)
+        const key = `${userId}|${creatorUsername}|${cohortMonth}`
 
         if (!eventMap.has(key)) {
           eventMap.set(key, {
-            distinct_id: distinctId,
+            distinct_id: userId,  // Maps $user_id to distinct_id column
             creator_username: creatorUsername,
             cohort_month: cohortMonth,
             cohort_date: parseCohortMonth(cohortMonth),

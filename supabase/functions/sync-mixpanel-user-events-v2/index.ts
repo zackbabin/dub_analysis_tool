@@ -14,7 +14,6 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
-  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
 const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 17 event metrics
@@ -63,8 +62,9 @@ interface UserMetrics {
 
 /**
  * Parse Insights API response and transpose to user-centric format
- * Insights API format: { series: { "metric_key": { "distinct_id": { "all": count } } } }
- * Output format: Map<distinct_id, { metric1: count1, metric2: count2, ... }>
+ * Insights API format: { series: { "metric_key": { "$user_id": { "all": count } } } }
+ * Output format: Map<user_id, { metric1: count1, metric2: count2, ... }>
+ * Note: Chart now returns $user_id instead of distinct_id, which we map to distinct_id column in DB
  */
 function parseInsightsResponse(data: any): Map<string, UserMetrics> {
   const userMetricsMap = new Map<string, UserMetrics>()
@@ -82,23 +82,21 @@ function parseInsightsResponse(data: any): Map<string, UserMetrics> {
       continue
     }
 
-    // Iterate through each distinct_id for this metric
-    for (const [rawDistinctId, distinctIdData] of Object.entries(metricData as Record<string, any>)) {
+    // Iterate through each $user_id for this metric
+    for (const [userId, userIdData] of Object.entries(metricData as Record<string, any>)) {
       // Skip $overall aggregate
-      if (rawDistinctId === '$overall') continue
+      if (userId === '$overall') continue
+      if (!userId) continue
 
-      // Sanitize distinct_id (remove $device: prefix if present)
-      const distinctId = sanitizeDistinctId(rawDistinctId)
-      if (!distinctId) continue
-
-      // Get count for this distinct_id
-      const count = distinctIdData?.all || 0
+      // Get count for this user_id
+      const count = userIdData?.all || 0
 
       // Get or create user metrics object
-      let userMetrics = userMetricsMap.get(distinctId)
+      // Map $user_id to distinct_id column (DB column name stays the same)
+      let userMetrics = userMetricsMap.get(userId)
       if (!userMetrics) {
-        userMetrics = { distinct_id: distinctId }
-        userMetricsMap.set(distinctId, userMetrics)
+        userMetrics = { distinct_id: userId }
+        userMetricsMap.set(userId, userMetrics)
       }
 
       // Set metric value

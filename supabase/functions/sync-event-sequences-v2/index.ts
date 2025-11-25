@@ -306,18 +306,22 @@ serve(async (req) => {
         console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
 
         // Parse series object to extract first copy times AND build target user list
+        // Chart 86612901 now returns $user_id instead of distinct_id
         const copyRows = []
         const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
-        for (const [rawDistinctId, data] of Object.entries(series)) {
+        for (const [userId, data] of Object.entries(series)) {
           // Skip $overall aggregation key
-          if (rawDistinctId === '$overall') continue
+          if (userId === '$overall') continue
+          if (!userId) continue
 
-          // Keep ORIGINAL ID (with $device: prefix) for Mixpanel API filtering
-          targetUserIds.push(rawDistinctId)
+          // For Export API filtering, we need to use the user_id as-is
+          // (Export API expects $user_id format from charts migrated to new identifier)
+          targetUserIds.push(userId)
 
-          // Sanitize ID for database storage (removes $device: prefix)
-          const sanitizedId = sanitizeDistinctId(rawDistinctId)
+          // For backward compatibility with joins, also sanitize to create distinct_id
+          // (removes $device: prefix if present in legacy data)
+          const sanitizedId = sanitizeDistinctId(userId)
           if (!sanitizedId) continue
 
           // Find first timestamp (not "$overall")
@@ -326,7 +330,8 @@ serve(async (req) => {
             const firstCopyTime = timestamps[0] // First key is the first copy time
 
             copyRows.push({
-              distinct_id: sanitizedId, // Store sanitized ID in database
+              distinct_id: sanitizedId, // Legacy column for joins (sanitized)
+              user_id: userId,          // NEW: Store clean $user_id
               first_copy_time: firstCopyTime,
               synced_at: syncStartTime.toISOString()
             })
@@ -393,12 +398,20 @@ serve(async (req) => {
           // Convert Unix timestamp (seconds) to ISO string
           const eventTime = new Date(event.properties.time * 1000).toISOString()
 
-          // Use $distinct_id_before_identity as the distinct_id (the actual user ID from Export API)
-          const rawDistinctId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
-          const distinctId = sanitizeDistinctId(rawDistinctId)
+          // Extract user identifier from Export API
+          // Use $distinct_id_before_identity as primary, fallback to distinct_id
+          const rawUserId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+
+          // Get clean $user_id (should match chart 86612901 user_ids)
+          const userId = event.properties.$user_id || rawUserId
+
+          // For backward compatibility with joins, sanitize to create distinct_id
+          // (removes $device: prefix if present)
+          const distinctId = sanitizeDistinctId(rawUserId)
 
           rawEventRows.push({
-            distinct_id: distinctId,
+            distinct_id: distinctId,  // Legacy column for joins (sanitized)
+            user_id: userId,           // NEW: Store clean $user_id
             event_name: event.event,
             event_time: eventTime,
             portfolio_ticker: event.properties.portfolioTicker || null,
@@ -411,7 +424,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('event_sequences_raw')
             .upsert(rawEventRows, {
-              onConflict: 'distinct_id,event_time,portfolio_ticker',
+              onConflict: 'distinct_id,event_time,portfolio_ticker',  // Keep using distinct_id for conflict detection
               ignoreDuplicates: true
             })
 

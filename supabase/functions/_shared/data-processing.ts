@@ -37,23 +37,19 @@ export function processFunnelData(data: any, funnelType: string): any[] {
 
   const rows: any[] = []
 
-  // Funnels API returns data grouped by date, then by distinct_id
-  // Structure: { data: { "2025-09-29": { "$overall": [...], "distinct_id_1": [...], ... } } }
+  // Funnels API returns data grouped by date, then by user_id
+  // Structure: { data: { "2025-09-29": { "$overall": [...], "$user_id_1": [...], ... } } }
 
   Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
     if (!dateData || typeof dateData !== 'object') return
 
-    Object.entries(dateData).forEach(([key, steps]: [string, any]) => {
+    Object.entries(dateData).forEach(([userId, steps]: [string, any]) => {
       // Skip $overall aggregate
-      if (key === '$overall') return
+      if (userId === '$overall') return
 
-      // Key can be distinct_id or $device:xxx format
-      let distinctId = key
-
-      // If it's a device ID format, extract just the device ID part
-      if (key.startsWith('$device:')) {
-        distinctId = key.replace('$device:', '')
-      }
+      // userId is the $user_id from Mixpanel (no $device: prefix anymore)
+      // Map to distinct_id column in DB
+      const distinctId = userId
 
       // steps is an array of funnel steps
       if (!Array.isArray(steps) || steps.length === 0) return
@@ -90,11 +86,12 @@ export function processFunnelData(data: any, funnelType: string): any[] {
 /**
  * Process portfolio-creator engagement data to create user-level pairs
  * Combines profile views, PDP views, subscriptions, copies, and liquidations into normalized pairs
- * @param profileViewsData - Profile views by creator (chart 85165851)
- * @param pdpViewsData - PDP views, copies, liquidations by portfolio/creator (chart 85165580)
- * @param subscriptionsData - Subscription events by user (chart 85165590)
+ * @param profileViewsData - Profile views by creator (chart 85165851) - now uses $user_id
+ * @param pdpViewsData - PDP views, copies, liquidations by portfolio/creator (chart 85165580) - now uses $user_id
+ * @param subscriptionsData - Subscription events by user (chart 85165590) - now uses $user_id
  * @param syncedAt - Timestamp for sync tracking
  * @returns Object with two arrays: portfolioCreatorPairs and creatorPairs
+ * Note: Charts now return $user_id instead of distinct_id, which we map to distinct_id column in DB
  */
 export function processPortfolioCreatorPairs(
   profileViewsData: any,
@@ -111,8 +108,8 @@ export function processPortfolioCreatorPairs(
   const creatorIdToUsername = new Map<string, string>()
   const profileMetric = profileViewsData?.series?.['Total Profile Views']
   if (profileMetric) {
-    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+    Object.entries(profileMetric).forEach(([userId, creatorData]: [string, any]) => {
+      if (userId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
       Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
         if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
@@ -132,10 +129,10 @@ export function processPortfolioCreatorPairs(
   }
 
   // Build creator-level engagement pairs (profile views)
-  // Chart 85165851 structure: distinctId -> creatorId -> creatorUsername -> { all: count }
+  // Chart 85165851 structure: $user_id -> creatorId -> creatorUsername -> { all: count }
   if (profileMetric) {
-    Object.entries(profileMetric).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+    Object.entries(profileMetric).forEach(([userId, creatorData]: [string, any]) => {
+      if (userId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
       Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
         if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
@@ -151,14 +148,15 @@ export function processPortfolioCreatorPairs(
 
             if (count > 0) {
               // Use Map for O(1) lookup instead of array.find() O(n)
-              const key = `${distinctId}|${creatorId}`
+              // Map $user_id to distinct_id column (DB column name stays the same)
+              const key = `${userId}|${creatorId}`
               const existingPair = creatorPairsMap.get(key)
 
               if (existingPair) {
                 existingPair.profile_view_count += count
               } else {
                 const newPair = {
-                  distinct_id: distinctId,
+                  distinct_id: userId,  // Maps $user_id to distinct_id column
                   creator_id: creatorId,
                   creator_username: username,
                   profile_view_count: count,
@@ -176,11 +174,11 @@ export function processPortfolioCreatorPairs(
   }
 
   // Build subscription data and add to creator pairs
-  // Chart 85165590 structure: distinctId -> creatorId -> creatorUsername -> { all: count }
+  // Chart 85165590 structure: $user_id -> creatorId -> creatorUsername -> { all: count }
   const subsMetric = subscriptionsData?.series?.['Total Subscriptions']
   if (subsMetric) {
-    Object.entries(subsMetric).forEach(([distinctId, creatorData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
+    Object.entries(subsMetric).forEach(([userId, creatorData]: [string, any]) => {
+      if (userId === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
 
       Object.entries(creatorData).forEach(([rawCreatorId, usernameData]: [string, any]) => {
         if (rawCreatorId === '$overall' || typeof usernameData !== 'object' || usernameData === null) return
@@ -196,7 +194,8 @@ export function processPortfolioCreatorPairs(
 
             if (count > 0) {
               // Use Map for O(1) lookup instead of array.find() O(n)
-              const key = `${distinctId}|${creatorId}`
+              // Map $user_id to distinct_id column (DB column name stays the same)
+              const key = `${userId}|${creatorId}`
               const existingPair = creatorPairsMap.get(key)
 
               if (existingPair) {
@@ -204,7 +203,7 @@ export function processPortfolioCreatorPairs(
                 existingPair.subscription_count = count
               } else {
                 const newPair = {
-                  distinct_id: distinctId,
+                  distinct_id: userId,  // Maps $user_id to distinct_id column
                   creator_id: creatorId,
                   creator_username: username,
                   profile_view_count: 0,
@@ -223,19 +222,19 @@ export function processPortfolioCreatorPairs(
 
   // Process PDP views to create portfolio-creator pairs
   // Chart 85165580 contains: A. Total PDP Views, B. Total Copies, C. Total Liquidations
-  // All metrics share the same nested structure: distinctId -> portfolioTicker -> creatorId -> creatorUsername -> { all: count }
+  // All metrics share the same nested structure: $user_id -> portfolioTicker -> creatorId -> creatorUsername -> { all: count }
   const pdpMetric = pdpViewsData?.series?.['A. Total PDP Views']
   const copiesMetric = pdpViewsData?.series?.['B. Total Copies']
   const liquidationsMetric = pdpViewsData?.series?.['C. Total Liquidations']
 
-  // Collect all unique (distinctId, portfolioTicker, creatorId) combinations from ALL metrics
+  // Collect all unique ($user_id, portfolioTicker, creatorId) combinations from ALL metrics
   // This ensures we don't miss copies or liquidations that exist without PDP views
   const allCombinations = new Set<string>()
 
   const addCombinationsFromMetric = (metric: any) => {
     if (!metric) return
-    Object.entries(metric).forEach(([distinctId, portfolioData]: [string, any]) => {
-      if (distinctId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
+    Object.entries(metric).forEach(([userId, portfolioData]: [string, any]) => {
+      if (userId === '$overall' || typeof portfolioData !== 'object' || portfolioData === null) return
       Object.entries(portfolioData).forEach(([portfolioTicker, creatorData]: [string, any]) => {
         if (portfolioTicker === '$overall' || typeof creatorData !== 'object' || creatorData === null) return
         if (!portfolioTicker || portfolioTicker.length <= 1 || portfolioTicker === 'null' || portfolioTicker === 'undefined') return
@@ -243,7 +242,7 @@ export function processPortfolioCreatorPairs(
           if (rawCreatorId === '$overall') return
           // Normalize creator_id to handle duplicates
           const creatorId = normalizeCreatorId(rawCreatorId)
-          allCombinations.add(`${distinctId}|${portfolioTicker}|${creatorId}`)
+          allCombinations.add(`${userId}|${portfolioTicker}|${creatorId}`)
         })
       })
     })
@@ -257,13 +256,13 @@ export function processPortfolioCreatorPairs(
 
   // Now process each unique combination
   allCombinations.forEach(combinationKey => {
-    const [distinctId, rawPortfolioTicker, creatorId] = combinationKey.split('|')
+    const [userId, rawPortfolioTicker, creatorId] = combinationKey.split('|')
 
     // Get the username data from any metric that has it (prefer PDP metric)
-    // Use rawPortfolioTicker (as it appears in Mixpanel) for lookup
-    let usernameData = pdpMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = copiesMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = liquidationsMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    // Use rawPortfolioTicker (as it appears in Mixpanel) for lookup with $user_id
+    let usernameData = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = copiesMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
+    if (!usernameData) usernameData = liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
 
     if (!usernameData || typeof usernameData !== 'object') return
 
@@ -289,7 +288,7 @@ export function processPortfolioCreatorPairs(
 
     // Extract PDP view count
     let pdpCount = 0
-    const pdpData = pdpMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    const pdpData = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
     if (pdpData) {
       if (pdpData['$overall']) {
         const overallData = pdpData['$overall']
@@ -307,7 +306,7 @@ export function processPortfolioCreatorPairs(
     // Extract copy count
     let copyCount = 0
     let didCopy = false
-    const copyData = copiesMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    const copyData = copiesMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
     if (copyData) {
       if (copyData['$overall']) {
         const overallCopyData = copyData['$overall']
@@ -325,7 +324,7 @@ export function processPortfolioCreatorPairs(
 
     // Extract liquidation count
     let liquidationCount = 0
-    const liqData = liquidationsMetric?.[distinctId]?.[rawPortfolioTicker]?.[creatorId]
+    const liqData = liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
     if (liqData) {
       if (liqData['$overall']) {
         const overallLiqData = liqData['$overall']
@@ -341,7 +340,7 @@ export function processPortfolioCreatorPairs(
     }
 
     // Get profile views and subscriptions for this creator from the creatorPairsMap
-    const creatorKey = `${distinctId}|${creatorId}`
+    const creatorKey = `${userId}|${creatorId}`
     const creatorPair = creatorPairsMap.get(creatorKey)
     const profileViewCount = creatorPair?.profile_view_count || 0
     const subscriptionCount = creatorPair?.subscription_count || 0
@@ -350,8 +349,9 @@ export function processPortfolioCreatorPairs(
     if (profileViewCount === 0 && pdpCount === 0 && copyCount === 0 && liquidationCount === 0 && subscriptionCount === 0) return
 
     // Add portfolio-creator engagement pair with correct column names for staging table
+    // Map $user_id to distinct_id column (DB column name stays the same)
     portfolioCreatorPairs.push({
-      distinct_id: distinctId,
+      distinct_id: userId,  // Maps $user_id to distinct_id column
       portfolio_ticker: portfolioTicker,
       creator_id: creatorId,
       creator_username: creatorUsername,  // Include for hidden_gems and other views
