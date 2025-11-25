@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=133"></script>
+    <script src="csv_utils.js?v=134"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=133"></script>
+    <script src="analysis_utils.js?v=134"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=133"></script>
+    <script src="supabase_integration.js?v=134"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=133"></script>
+    <script src="user_analysis_tool.js?v=134"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=133"></script>
+    <script src="user_analysis_tool_supabase.js?v=134"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=133"></script>
+    <script src="creator_analysis_tool.js?v=134"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=133"></script>
+    <script src="creator_analysis_tool_supabase.js?v=134"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=133"></script>
+    <script src="business-model-analysis.js?v=134"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=133"></script>
+    <script src="crypto-analysis.js?v=134"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=133"></script>
+    <script src="cx-analysis.js?v=134"></script>
 
     <script>
         // Supabase Configuration
@@ -122,9 +122,9 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <!-- Buttons - center aligned -->
-                <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-                    <div style="display: flex; gap: 10px;">
+                <!-- Buttons - right aligned with padding -->
+                <div style="display: flex; justify-content: center; padding: 15px 0; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 10px; max-width: 1400px; width: 100%; justify-content: flex-end;">
                         <button id="syncLiveDataBtn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Sync Live Data</button>
                         <button id="manualUploadBtn" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Upload Data</button>
                         <button id="refreshDataBtn" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Refresh Data</button>

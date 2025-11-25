@@ -358,7 +358,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Add H1 title with tooltip and refresh button
         section.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+            <div style="margin-bottom: 0.25rem;">
                 <h1 style="margin: 0;"><span class="info-tooltip">Premium Creator Analysis<span class="info-icon">i</span>
                     <span class="tooltip-text">
                         <strong>Premium Creator Analysis</strong>

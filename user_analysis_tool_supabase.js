@@ -627,7 +627,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
                 <div class="qda-result-section">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                    <div style="margin-bottom: 0.25rem;">
                         <h1 style="margin: 0;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
                             <span class="tooltip-text">
                                 <strong>Behavior Analysis</strong>
