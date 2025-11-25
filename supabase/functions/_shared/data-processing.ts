@@ -167,8 +167,9 @@ export function processPortfolioCreatorPairs(
   const liquidationsMetric = pdpViewsData?.series?.['C. Total Liquidations']
 
   // Collect all unique ($user_id, portfolioTicker, creatorId) combinations from ALL metrics
-  // This ensures we don't miss copies or liquidations that exist without PDP views
-  const allCombinations = new Set<string>()
+  // Store both raw and normalized creator IDs to properly aggregate duplicates
+  // Key: normalized triplet, Value: array of raw creator IDs that map to it
+  const allCombinations = new Map<string, string[]>()
 
   const addCombinationsFromMetric = (metric: any) => {
     if (!metric) return
@@ -180,8 +181,16 @@ export function processPortfolioCreatorPairs(
         Object.keys(creatorData).forEach(rawCreatorId => {
           if (rawCreatorId === '$overall') return
           // Normalize creator_id to handle duplicates
-          const creatorId = normalizeCreatorId(rawCreatorId)
-          allCombinations.add(`${userId}|${portfolioTicker}|${creatorId}`)
+          const normalizedCreatorId = normalizeCreatorId(rawCreatorId)
+          const key = `${userId}|${portfolioTicker}|${normalizedCreatorId}`
+
+          // Track all raw creator IDs that map to this normalized combination
+          if (!allCombinations.has(key)) {
+            allCombinations.set(key, [])
+          }
+          if (!allCombinations.get(key)!.includes(rawCreatorId)) {
+            allCombinations.get(key)!.push(rawCreatorId)
+          }
         })
       })
     })
@@ -194,92 +203,103 @@ export function processPortfolioCreatorPairs(
   console.log(`Found ${allCombinations.size} unique portfolio-creator combinations across all metrics`)
 
   // Now process each unique combination
-  allCombinations.forEach(combinationKey => {
-    const [userId, rawPortfolioTicker, creatorId] = combinationKey.split('|')
+  allCombinations.forEach((rawCreatorIds, combinationKey) => {
+    const [userId, rawPortfolioTicker, normalizedCreatorId] = combinationKey.split('|')
 
-    // Get the username data from any metric that has it (prefer PDP metric)
-    // Use rawPortfolioTicker (as it appears in Mixpanel) for lookup with $user_id
-    let usernameData = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = copiesMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
-    if (!usernameData) usernameData = liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
+    // Aggregate data across all raw creator IDs that map to the normalized ID
+    // This handles cases where duplicate creator IDs (like '118' and '211855351476994048') need to be merged
+    let usernameData = null
+    for (const rawCreatorId of rawCreatorIds) {
+      const data = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+        || copiesMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+        || liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+      if (data && typeof data === 'object') {
+        usernameData = data
+        break
+      }
+    }
 
     if (!usernameData || typeof usernameData !== 'object') return
 
     // Get creator username from the pre-built map OR extract from current metric data
-    let creatorUsername = creatorIdToUsername.get(creatorId)
+    let creatorUsername = creatorIdToUsername.get(normalizedCreatorId)
 
     // If not in map, try to extract from the usernameData
     if (!creatorUsername) {
       const usernameKeys = Object.keys(usernameData).filter(k => k !== '$overall')
       if (usernameKeys.length > 0) {
         creatorUsername = usernameKeys[0]
-        creatorIdToUsername.set(creatorId, creatorUsername)
+        creatorIdToUsername.set(normalizedCreatorId, creatorUsername)
       }
     }
 
     if (!creatorUsername) {
-      console.warn(`No username found for creatorId ${creatorId} on portfolio ${rawPortfolioTicker}`)
+      console.warn(`No username found for creatorId ${normalizedCreatorId} on portfolio ${rawPortfolioTicker}`)
       return
     }
 
     // Normalize portfolio ticker: ensure it always has $ prefix
     const portfolioTicker = rawPortfolioTicker.startsWith('$') ? rawPortfolioTicker : '$' + rawPortfolioTicker
 
-    // Extract PDP view count
+    // Aggregate metrics across all raw creator IDs that map to the normalized ID
     let pdpCount = 0
-    const pdpData = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
-    if (pdpData) {
-      if (pdpData['$overall']) {
-        const overallData = pdpData['$overall']
-        pdpCount = typeof overallData === 'object' && overallData !== null && 'all' in overallData
-          ? parseInt(String(overallData.all)) || 0
-          : parseInt(String(overallData)) || 0
-      } else if (pdpData[creatorUsername]) {
-        const usernameViewData = pdpData[creatorUsername]
-        pdpCount = typeof usernameViewData === 'object' && usernameViewData !== null && 'all' in usernameViewData
-          ? parseInt(String(usernameViewData.all)) || 0
-          : parseInt(String(usernameViewData)) || 0
-      }
-    }
-
-    // Extract copy count
     let copyCount = 0
-    let didCopy = false
-    const copyData = copiesMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
-    if (copyData) {
-      if (copyData['$overall']) {
-        const overallCopyData = copyData['$overall']
-        copyCount = typeof overallCopyData === 'object' && overallCopyData !== null && 'all' in overallCopyData
-          ? parseInt(String(overallCopyData.all)) || 0
-          : parseInt(String(overallCopyData)) || 0
-      } else if (copyData[creatorUsername]) {
-        const creatorCopyData = copyData[creatorUsername]
-        copyCount = typeof creatorCopyData === 'object' && creatorCopyData !== null && 'all' in creatorCopyData
-          ? parseInt(String(creatorCopyData.all)) || 0
-          : parseInt(String(creatorCopyData)) || 0
+    let liquidationCount = 0
+
+    for (const rawCreatorId of rawCreatorIds) {
+      // Extract PDP view count
+      const pdpData = pdpMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+      if (pdpData) {
+        if (pdpData['$overall']) {
+          const overallData = pdpData['$overall']
+          pdpCount += typeof overallData === 'object' && overallData !== null && 'all' in overallData
+            ? parseInt(String(overallData.all)) || 0
+            : parseInt(String(overallData)) || 0
+        } else if (pdpData[creatorUsername]) {
+          const usernameViewData = pdpData[creatorUsername]
+          pdpCount += typeof usernameViewData === 'object' && usernameViewData !== null && 'all' in usernameViewData
+            ? parseInt(String(usernameViewData.all)) || 0
+            : parseInt(String(usernameViewData)) || 0
+        }
       }
-      didCopy = copyCount > 0
+
+      // Extract copy count
+      const copyData = copiesMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+      if (copyData) {
+        if (copyData['$overall']) {
+          const overallCopyData = copyData['$overall']
+          copyCount += typeof overallCopyData === 'object' && overallCopyData !== null && 'all' in overallCopyData
+            ? parseInt(String(overallCopyData.all)) || 0
+            : parseInt(String(overallCopyData)) || 0
+        } else if (copyData[creatorUsername]) {
+          const creatorCopyData = copyData[creatorUsername]
+          copyCount += typeof creatorCopyData === 'object' && creatorCopyData !== null && 'all' in creatorCopyData
+            ? parseInt(String(creatorCopyData.all)) || 0
+            : parseInt(String(creatorCopyData)) || 0
+        }
+      }
+
+      // Extract liquidation count
+      const liqData = liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[rawCreatorId]
+      if (liqData) {
+        if (liqData['$overall']) {
+          const overallLiqData = liqData['$overall']
+          liquidationCount += typeof overallLiqData === 'object' && overallLiqData !== null && 'all' in overallLiqData
+            ? parseInt(String(overallLiqData.all)) || 0
+            : parseInt(String(overallLiqData)) || 0
+        } else if (liqData[creatorUsername]) {
+          const creatorLiqData = liqData[creatorUsername]
+          liquidationCount += typeof creatorLiqData === 'object' && creatorLiqData !== null && 'all' in creatorLiqData
+            ? parseInt(String(creatorLiqData.all)) || 0
+            : parseInt(String(creatorLiqData)) || 0
+        }
+      }
     }
 
-    // Extract liquidation count
-    let liquidationCount = 0
-    const liqData = liquidationsMetric?.[userId]?.[rawPortfolioTicker]?.[creatorId]
-    if (liqData) {
-      if (liqData['$overall']) {
-        const overallLiqData = liqData['$overall']
-        liquidationCount = typeof overallLiqData === 'object' && overallLiqData !== null && 'all' in overallLiqData
-          ? parseInt(String(overallLiqData.all)) || 0
-          : parseInt(String(overallLiqData)) || 0
-      } else if (liqData[creatorUsername]) {
-        const creatorLiqData = liqData[creatorUsername]
-        liquidationCount = typeof creatorLiqData === 'object' && creatorLiqData !== null && 'all' in creatorLiqData
-          ? parseInt(String(creatorLiqData.all)) || 0
-          : parseInt(String(creatorLiqData)) || 0
-      }
-    }
+    const didCopy = copyCount > 0
 
     // Get profile views and subscriptions for this creator from the creatorPairsMap
-    const creatorKey = `${userId}|${creatorId}`
+    const creatorKey = `${userId}|${normalizedCreatorId}`
     const creatorPair = creatorPairsMap.get(creatorKey)
     const profileViewCount = creatorPair?.profile_view_count || 0
     const subscriptionCount = creatorPair?.subscription_count || 0
@@ -291,7 +311,7 @@ export function processPortfolioCreatorPairs(
     portfolioCreatorPairs.push({
       user_id: userId,  // Mixpanel $user_id
       portfolio_ticker: portfolioTicker,
-      creator_id: creatorId,
+      creator_id: normalizedCreatorId,  // Use normalized ID to prevent duplicates
       creator_username: creatorUsername,  // Include for hidden_gems and other views
       total_profile_views: profileViewCount,
       total_pdp_views: pdpCount,
