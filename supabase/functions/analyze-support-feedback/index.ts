@@ -416,7 +416,7 @@ serve(async (req) => {
       // Call Claude API
       const message = await anthropic.messages.create({
         model: 'claude-opus-4-5-20251101',
-        max_tokens: 10000, // Increased to accommodate descriptions in examples (10 issues x 3 examples x 140 chars)
+        max_tokens: 16000, // Increased to handle 250 conversations with examples
         temperature: 0.3,
         messages: [
           {
@@ -429,8 +429,17 @@ serve(async (req) => {
       const textContent = message.content[0].type === 'text' ? message.content[0].text : ''
 
       console.log('Claude response length:', textContent.length)
+      console.log('Stop reason:', message.stop_reason)
+      console.log('Input tokens:', message.usage.input_tokens)
+      console.log('Output tokens:', message.usage.output_tokens)
       console.log('First 500 chars:', textContent.substring(0, 500))
       console.log('Last 500 chars:', textContent.substring(textContent.length - 500))
+
+      // Check if response was truncated
+      if (message.stop_reason === 'max_tokens') {
+        console.warn('⚠️ Claude response was truncated - hit max_tokens limit')
+        throw new Error('Claude response truncated: hit max_tokens limit. Reduce conversation count or increase max_tokens.')
+      }
 
       // Parse Claude's response with better error handling
       let analysis
