@@ -1,6 +1,6 @@
 /**
  * Shared Mixpanel API utilities
- * Used by: sync-mixpanel-user-events, sync-mixpanel-funnels, sync-mixpanel-engagement,
+ * Used by: sync-mixpanel-user-events, sync-mixpanel-engagement,
  *          sync-mixpanel-portfolio-events, sync-creator-data
  */
 
@@ -158,60 +158,6 @@ export async function fetchInsightsData(
       throw error
     }
   }
-}
-
-// ============================================================================
-// Mixpanel API - Funnels
-// ============================================================================
-
-/**
- * Fetch data from Mixpanel Funnels API
- * @param credentials - Mixpanel service account credentials
- * @param funnelId - ID of the funnel
- * @param name - Human-readable name for logging
- * @param fromDate - Start date (YYYY-MM-DD)
- * @param toDate - End date (YYYY-MM-DD)
- */
-export async function fetchFunnelData(
-  credentials: MixpanelCredentials,
-  funnelId: string,
-  name: string,
-  fromDate: string,
-  toDate: string
-) {
-  console.log(`Fetching ${name} funnel data (ID: ${funnelId})...`)
-
-  const params = new URLSearchParams({
-    project_id: MIXPANEL_CONFIG.PROJECT_ID,
-    funnel_id: funnelId,
-    from_date: fromDate,
-    to_date: toDate,
-    users: 'true', // Request user-level data
-  })
-
-  const authString = `${credentials.username}:${credentials.secret}`
-  const authHeader = `Basic ${btoa(authString)}`
-
-  const response = await fetch(`${MIXPANEL_CONFIG.API_BASE}/query/funnels?${params}`, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Mixpanel API error (${response.status}): ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log(`✓ ${name} fetch successful`)
-  console.log(`Response structure:`, JSON.stringify(Object.keys(data), null, 2))
-  if (data.data) {
-    console.log(`Data keys:`, JSON.stringify(Object.keys(data.data), null, 2))
-  }
-  return data
 }
 
 // ============================================================================

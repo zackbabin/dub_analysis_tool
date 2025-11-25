@@ -1,6 +1,6 @@
 /**
  * Shared data processing utilities
- * Used by: sync-mixpanel-funnels, sync-mixpanel-engagement
+ * Used by: sync-mixpanel-engagement
  */
 
 // ============================================================================
@@ -16,67 +16,6 @@ const CREATOR_ID_DEDUP_MAP: Record<string, string> = {
 // Helper function to normalize creator_id (resolve duplicates)
 const normalizeCreatorId = (creatorId: string): string => {
   return CREATOR_ID_DEDUP_MAP[creatorId] || creatorId
-}
-
-// ============================================================================
-// Funnel Data Processing
-// ============================================================================
-
-/**
- * Process funnel data from Mixpanel Funnels API
- * Extracts user-level completion times for funnel analysis
- * @param data - Raw funnel data from Mixpanel
- * @param funnelType - Type identifier (e.g., 'time_to_first_copy')
- * @returns Array of processed funnel records
- */
-export function processFunnelData(data: any, funnelType: string): any[] {
-  if (!data || !data.data) {
-    console.log(`No funnel data for ${funnelType}`)
-    return []
-  }
-
-  const rows: any[] = []
-
-  // Funnels API returns data grouped by date, then by user_id
-  // Structure: { data: { "2025-09-29": { "$overall": [...], "$user_id_1": [...], ... } } }
-
-  Object.entries(data.data).forEach(([date, dateData]: [string, any]) => {
-    if (!dateData || typeof dateData !== 'object') return
-
-    Object.entries(dateData).forEach(([userId, steps]: [string, any]) => {
-      // Skip $overall aggregate
-      if (userId === '$overall') return
-
-      // userId is the $user_id from Mixpanel (no $device: prefix anymore)
-      // Map to distinct_id column in DB
-      const distinctId = userId
-
-      // steps is an array of funnel steps
-      if (!Array.isArray(steps) || steps.length === 0) return
-
-      // Get the last step (final conversion step)
-      const finalStep = steps[steps.length - 1]
-
-      // Only include if user completed the funnel (count > 0 on final step)
-      // and we have a time value
-      if (finalStep.count > 0 && finalStep.avg_time_from_start) {
-        const timeInSeconds = parseFloat(finalStep.avg_time_from_start)
-
-        if (timeInSeconds > 0) {
-          rows.push({
-            distinct_id: distinctId,
-            funnel_type: funnelType,
-            time_in_seconds: timeInSeconds,
-            time_in_days: timeInSeconds / 86400,
-            synced_at: new Date().toISOString(),
-          })
-        }
-      }
-    })
-  })
-
-  console.log(`Processed ${rows.length} ${funnelType} records`)
-  return rows
 }
 
 // ============================================================================
