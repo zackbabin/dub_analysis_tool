@@ -632,7 +632,7 @@ class SupabaseIntegration {
         ];
 
         const rows = data.map(row => [
-            row.distinct_id || '',
+            row.user_id || row.distinct_id || '',  // Use user_id (primary) or distinct_id (fallback)
             (row.total_bank_links && row.total_bank_links > 0) ? '1' : '0',
             row.income || '',
             row.net_worth || '',
