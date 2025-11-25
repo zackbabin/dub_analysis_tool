@@ -1060,6 +1060,24 @@ function processComprehensiveData(contents) {
         });
 
         // Map key columns with flexible matching (includes Supabase snake_case fields)
+        // Demographic/property fields
+        clean['Income'] = getColumnValue(row, 'Income', 'income') || clean['Income'] || '';
+        clean['Net Worth'] = getColumnValue(row, 'Net Worth', 'netWorth', 'net_worth') || clean['Net Worth'] || '';
+        clean['Investing Activity'] = getColumnValue(row, 'Investing Activity', 'investingActivity', 'investing_activity') || clean['Investing Activity'] || '';
+        clean['Investing Experience Years'] = getColumnValue(row, 'Investing Experience Years', 'investingExperienceYears', 'investing_experience_years') || clean['Investing Experience Years'] || '';
+        clean['Investing Objective'] = getColumnValue(row, 'Investing Objective', 'investingObjective', 'investing_objective') || clean['Investing Objective'] || '';
+        clean['Investment Type'] = getColumnValue(row, 'Investment Type', 'investmentType', 'investment_type') || clean['Investment Type'] || '';
+        clean['Acquisition Survey'] = getColumnValue(row, 'Acquisition Survey', 'acquisitionSurvey', 'acquisition_survey') || clean['Acquisition Survey'] || '';
+        clean['Available Copy Credits'] = getColumnValue(row, 'Available Copy Credits', 'availableCopyCredits', 'available_copy_credits') || clean['Available Copy Credits'] || '';
+        clean['Buying Power'] = getColumnValue(row, 'Buying Power', 'buyingPower', 'buying_power') || clean['Buying Power'] || '';
+
+        // Portfolio fields
+        clean['Active Created Portfolios'] = getColumnValue(row, 'Active Created Portfolios', 'activeCreatedPortfolios', 'active_created_portfolios') || clean['Active Created Portfolios'] || '';
+        clean['Lifetime Created Portfolios'] = getColumnValue(row, 'Lifetime Created Portfolios', 'lifetimeCreatedPortfolios', 'lifetime_created_portfolios') || clean['Lifetime Created Portfolios'] || '';
+        clean['Active Copied Portfolios'] = getColumnValue(row, 'Active Copied Portfolios', 'activeCopiedPortfolios', 'active_copied_portfolios') || clean['Active Copied Portfolios'] || '';
+        clean['Lifetime Copied Portfolios'] = getColumnValue(row, 'Lifetime Copied Portfolios', 'lifetimeCopiedPortfolios', 'lifetime_copied_portfolios') || clean['Lifetime Copied Portfolios'] || '';
+
+        // Financial/account fields
         clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank', 'total_bank_links') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
         clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits', 'total_deposits') || clean['Total Deposits'] || '';
         clean['Total Deposit Count'] = getColumnValue(row, 'C. Total Deposit Count', 'D. Total Deposit Count', 'total_deposit_count') || clean['Total Deposit Count'] || '';
