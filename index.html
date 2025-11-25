@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=119"></script>
+    <script src="csv_utils.js?v=120"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=119"></script>
+    <script src="analysis_utils.js?v=120"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=119"></script>
+    <script src="supabase_integration.js?v=120"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=119"></script>
+    <script src="user_analysis_tool.js?v=120"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=119"></script>
+    <script src="user_analysis_tool_supabase.js?v=120"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=119"></script>
+    <script src="creator_analysis_tool.js?v=120"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=119"></script>
+    <script src="creator_analysis_tool_supabase.js?v=120"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=119"></script>
+    <script src="business-model-analysis.js?v=120"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=119"></script>
+    <script src="crypto-analysis.js?v=120"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=119"></script>
+    <script src="cx-analysis.js?v=120"></script>
 
     <script>
         // Supabase Configuration
@@ -122,18 +122,13 @@
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div style="display: flex; justify-content: center;">
-                    <div style="background: white; border: 2px solid #6c757d; border-radius: 10px; padding: 20px; box-shadow: 0 4px 4px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 650px; width: 100%;">
-                        <h4 style="margin: 0 0 15px 0; color: #333; text-align: center;">Select Data Source</h4>
-                        <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-                            <div id="syncLiveDataBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Sync Live Data</div>
-                                <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from Mixpanel</div>
-                            </div>
-                            <div id="manualUploadBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                                <div style="font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 8px;">Upload Manual Data</div>
-                                <div style="font-size: 12px; color: #6c757d;">Fetch the latest data from file uploads</div>
-                            </div>
+                <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+                    <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; max-width: 650px; width: 100%;">
+                        <div id="syncLiveDataBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px;">Sync Live Data</div>
+                        </div>
+                        <div id="manualUploadBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
+                            <div style="font-weight: bold; color: #28a745; font-size: 16px;">Upload Manual Data</div>
                         </div>
                     </div>
                 </div>
@@ -160,29 +155,25 @@
             const syncHoverIn = () => {
                 if (!syncBtn.disabled) {
                     syncBtn.style.background = '#28a745';
-                    syncBtn.querySelector('div:first-child').style.color = 'white';
-                    syncBtn.querySelector('div:last-child').style.color = 'white';
+                    syncBtn.querySelector('div').style.color = 'white';
                 }
             };
             const syncHoverOut = () => {
                 if (!syncBtn.disabled) {
                     syncBtn.style.background = 'white';
-                    syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                    syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+                    syncBtn.querySelector('div').style.color = '#28a745';
                 }
             };
             const uploadHoverIn = () => {
                 if (!uploadBtn.disabled) {
                     uploadBtn.style.background = '#28a745';
-                    uploadBtn.querySelector('div:first-child').style.color = 'white';
-                    uploadBtn.querySelector('div:last-child').style.color = 'white';
+                    uploadBtn.querySelector('div').style.color = 'white';
                 }
             };
             const uploadHoverOut = () => {
                 if (!uploadBtn.disabled) {
                     uploadBtn.style.background = 'white';
-                    uploadBtn.querySelector('div:first-child').style.color = '#28a745';
-                    uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
+                    uploadBtn.querySelector('div').style.color = '#28a745';
                 }
             };
 
@@ -427,8 +418,7 @@
             syncBtn.style.borderColor = '#28a745';
             syncBtn.style.cursor = 'pointer';
             syncBtn.style.pointerEvents = 'auto';
-            syncBtn.querySelector('div:first-child').style.color = '#28a745';
-            syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+            syncBtn.querySelector('div').style.color = '#28a745';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
 
@@ -445,16 +435,13 @@
                 isSyncing = true;
 
                 // Disable button and update UI
-                const titleDiv = syncBtn.querySelector('div:first-child');
-                const descDiv = syncBtn.querySelector('div:last-child');
+                const titleDiv = syncBtn.querySelector('div');
                 const originalTitle = titleDiv.textContent;
-                const originalDesc = descDiv.textContent;
 
                 syncBtn.style.cursor = 'not-allowed';
                 syncBtn.style.opacity = '0.6';
                 syncBtn.style.pointerEvents = 'none';
                 titleDiv.textContent = 'Syncing...';
-                descDiv.textContent = 'Please wait, this may take a few minutes';
 
                 try {
                     // Run the complete 7-step workflow (includes user data, creator data, support analysis, and materialized views)
@@ -469,11 +456,9 @@
 
                     // Show success state briefly
                     titleDiv.textContent = '✓ Sync Complete';
-                    descDiv.textContent = 'Data is up to date';
                     syncBtn.style.background = '#28a745';
                     syncBtn.style.cursor = 'default';
-                    syncBtn.querySelector('div:first-child').style.color = 'white';
-                    syncBtn.querySelector('div:last-child').style.color = 'white';
+                    syncBtn.querySelector('div').style.color = 'white';
 
                     // After 3 seconds, return to normal state
                     setTimeout(() => {
@@ -483,19 +468,15 @@
                         syncBtn.style.pointerEvents = 'auto';
                         syncBtn.style.background = 'white';
                         titleDiv.textContent = originalTitle;
-                        descDiv.textContent = originalDesc;
-                        syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                        syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+                        syncBtn.querySelector('div').style.color = '#28a745';
                     }, 3000);
                 } catch (error) {
                     console.error('❌ Sync workflow failed:', error);
 
                     // Show error state
                     titleDiv.textContent = '✗ Sync Failed';
-                    descDiv.textContent = 'Please try again';
                     syncBtn.style.background = '#dc3545';
-                    syncBtn.querySelector('div:first-child').style.color = 'white';
-                    syncBtn.querySelector('div:last-child').style.color = 'white';
+                    syncBtn.querySelector('div').style.color = 'white';
 
                     // After 3 seconds, return to normal state
                     setTimeout(() => {
@@ -505,9 +486,7 @@
                         syncBtn.style.pointerEvents = 'auto';
                         syncBtn.style.background = 'white';
                         titleDiv.textContent = originalTitle;
-                        descDiv.textContent = originalDesc;
-                        syncBtn.querySelector('div:first-child').style.color = '#28a745';
-                        syncBtn.querySelector('div:last-child').style.color = '#6c757d';
+                        syncBtn.querySelector('div').style.color = '#28a745';
                     }, 3000);
                 }
             };
@@ -520,10 +499,8 @@
                 uploadBtn.style.borderColor = '#28a745';
                 uploadBtn.style.cursor = 'pointer';
                 uploadBtn.style.pointerEvents = 'auto';
-                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
-                uploadBtn.querySelector('div:first-child').textContent = 'Upload Manual Data';
-                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
-                uploadBtn.querySelector('div:last-child').textContent = 'Fetch the latest data from file uploads';
+                uploadBtn.querySelector('div').style.color = '#28a745';
+                uploadBtn.querySelector('div').textContent = 'Upload Manual Data';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
@@ -536,10 +513,8 @@
                 uploadBtn.style.borderColor = '#28a745';
                 uploadBtn.style.cursor = 'pointer';
                 uploadBtn.style.pointerEvents = 'auto';
-                uploadBtn.querySelector('div:first-child').style.color = '#28a745';
-                uploadBtn.querySelector('div:first-child').textContent = 'Upload Manual Data';
-                uploadBtn.querySelector('div:last-child').style.color = '#6c757d';
-                uploadBtn.querySelector('div:last-child').textContent = 'Fetch the latest data from file uploads';
+                uploadBtn.querySelector('div').style.color = '#28a745';
+                uploadBtn.querySelector('div').textContent = 'Upload Manual Data';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
@@ -552,8 +527,7 @@
                 uploadBtn.style.borderColor = '#e9ecef';
                 uploadBtn.style.cursor = 'not-allowed';
                 uploadBtn.style.pointerEvents = 'none';
-                uploadBtn.querySelector('div:first-child').style.color = '#adb5bd';
-                uploadBtn.querySelector('div:last-child').style.color = '#ced4da';
+                uploadBtn.querySelector('div').style.color = '#adb5bd';
                 uploadBtn.onmouseover = null;
                 uploadBtn.onmouseout = null;
             }
