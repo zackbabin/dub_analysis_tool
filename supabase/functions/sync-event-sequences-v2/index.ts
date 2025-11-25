@@ -416,9 +416,17 @@ serve(async (req) => {
           // (removes $device: prefix if present)
           const distinctId = sanitizeDistinctId(rawUserId)
 
+          // Build user_id → distinct_id mapping for user_first_copies
+          if (userId && distinctId && copyRowsMap.has(userId)) {
+            const copyRow = copyRowsMap.get(userId)
+            if (!copyRow.distinct_id) {
+              copyRow.distinct_id = distinctId
+            }
+          }
+
           rawEventRows.push({
-            distinct_id: distinctId,  // Legacy column for joins (sanitized)
-            user_id: userId,           // NEW: Store clean $user_id
+            distinct_id: distinctId,  // Sanitized distinct_id (no $device: prefix)
+            user_id: userId,           // $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
             portfolio_ticker: event.properties.portfolioTicker || null,
@@ -495,6 +503,33 @@ serve(async (req) => {
 
       const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
       console.log(`✓ Fetch and insert completed in ${fetchElapsedSec}s - Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
+
+      // Now that we have user_id → distinct_id mappings from Export API, insert user_first_copies
+      if (copyRowsMap.size > 0) {
+        const copyRows = Array.from(copyRowsMap.values())
+        const rowsWithDistinctId = copyRows.filter(row => row.distinct_id !== null)
+        const rowsWithoutDistinctId = copyRows.filter(row => row.distinct_id === null)
+
+        if (rowsWithoutDistinctId.length > 0) {
+          console.warn(`⚠️ ${rowsWithoutDistinctId.length} users have no distinct_id mapping from Export API`)
+          console.warn(`   These users may not have any "Viewed Portfolio Details" events in the date range`)
+        }
+
+        if (rowsWithDistinctId.length > 0) {
+          const { error: copyError } = await supabase
+            .from('user_first_copies')
+            .upsert(rowsWithDistinctId, {
+              onConflict: 'user_id'  // PRIMARY KEY is user_id
+            })
+
+          if (copyError) {
+            console.error('⚠️ Error inserting user_first_copies:', copyError)
+          } else {
+            copyEventsSynced = rowsWithDistinctId.length
+            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events with distinct_id mappings`)
+          }
+        }
+      }
 
       stats.eventsInserted = totalInserted
       stats.copyEventsSynced = copyEventsSynced
