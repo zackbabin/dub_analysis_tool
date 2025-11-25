@@ -17,7 +17,7 @@ import {
   sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
-const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 17 event metrics (returns both $user_id and $distinct_id)
+const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 18 event metrics (returns both $user_id and $distinct_id)
 
 // Map Mixpanel metric keys to database column names
 const METRIC_MAP: Record<string, string> = {
@@ -38,6 +38,7 @@ const METRIC_MAP: Record<string, string> = {
   'O. Stripe Modal Views': 'stripe_modal_views',
   'P. Creator Card Taps': 'creator_card_taps',
   'Q. Portfolio Card Taps': 'portfolio_card_taps',
+  'R. Total ACH Deposits': 'total_ach_deposits',
 }
 
 interface UserMetrics {
@@ -60,6 +61,7 @@ interface UserMetrics {
   stripe_modal_views?: number
   creator_card_taps?: number
   portfolio_card_taps?: number
+  total_ach_deposits?: number
 }
 
 /**
