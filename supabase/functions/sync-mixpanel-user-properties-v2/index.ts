@@ -1,6 +1,12 @@
 // Supabase Edge Function: sync-mixpanel-user-properties-v2
 // Fetches user properties from Mixpanel Engage API (paginated, auto-chains)
 // Uses Engage API instead of Insights API for better performance and simpler parsing
+//
+// Strategy:
+// - Engage API returns only $distinct_id (no $user_id)
+// - Looks up existing records in subscribers_insights by distinct_id
+// - Updates properties on existing records (user_id already set by sync-mixpanel-user-events-v2)
+// - Does NOT create new records (users must exist from sync-mixpanel-user-events-v2 first)
 // Automatically chains to next page until all users are synced
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -275,9 +281,18 @@ async function updateUserPropertiesBatch(
         }
       }
 
-      // Filter batch to only include users with changes
+      // Filter batch to only include users with changes AND existing records
+      // (Engage API should only update, not create new users)
+      let skippedNew = 0
       const usersToUpsert = batch.filter(user => {
         const existing = existingMap.get(user.distinct_id)
+
+        // Skip if user doesn't exist (no user_id from sync-mixpanel-user-events-v2)
+        if (!existing) {
+          skippedNew++
+          return false
+        }
+
         const needsUpdate = hasUserPropertiesChanged(existing, user)
 
         if (!needsUpdate) {
@@ -287,14 +302,14 @@ async function updateUserPropertiesBatch(
         return needsUpdate
       })
 
-      console.log(`  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${usersToUpsert.length} changed, ${batch.length - usersToUpsert.length} unchanged (skipped)`)
+      console.log(`  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${usersToUpsert.length} changed, ${batch.length - usersToUpsert.length - skippedNew} unchanged (skipped), ${skippedNew} new (skipped - needs user_id from events sync first)`)
 
       // Only upsert if there are changes
       if (usersToUpsert.length > 0) {
         const { error, count } = await supabase
           .from('subscribers_insights')
           .upsert(usersToUpsert, {
-            onConflict: 'distinct_id',
+            onConflict: 'distinct_id',  // Lookup by distinct_id, update existing record
             count: 'exact'
           })
 

@@ -14,9 +14,10 @@ import {
   updateSyncLogFailure,
   createSuccessResponse,
   createErrorResponse,
+  sanitizeDistinctId,
 } from '../_shared/sync-helpers.ts'
 
-const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 17 event metrics
+const INSIGHTS_CHART_ID = '85713544' // Mixpanel Insights chart with 17 event metrics (returns both $user_id and $distinct_id)
 
 // Map Mixpanel metric keys to database column names
 const METRIC_MAP: Record<string, string> = {
@@ -40,7 +41,8 @@ const METRIC_MAP: Record<string, string> = {
 }
 
 interface UserMetrics {
-  distinct_id: string
+  user_id: string        // Primary identifier from Mixpanel $user_id
+  distinct_id: string    // Secondary identifier for Engage API mapping
   total_bank_links?: number
   total_copies?: number
   total_regular_copies?: number
@@ -62,9 +64,26 @@ interface UserMetrics {
 
 /**
  * Parse Insights API response and transpose to user-centric format
- * Insights API format: { series: { "metric_key": { "$user_id": { "all": count } } } }
- * Output format: Map<user_id, { metric1: count1, metric2: count2, ... }>
- * Note: Chart now returns $user_id instead of distinct_id, which we map to distinct_id column in DB
+ *
+ * Chart 85713544 structure (with both identifiers):
+ * {
+ *   series: {
+ *     "metric_key": {
+ *       "$user_id": {
+ *         "$overall": { "all": total_count },
+ *         "$distinct_id_1": { "all": count1 },
+ *         "$distinct_id_2": { "all": count2 }
+ *       }
+ *     }
+ *   }
+ * }
+ *
+ * Strategy:
+ * - Use $user_id as primary key (unique per user)
+ * - Use $overall count for metrics (aggregates across all distinct_ids)
+ * - Pick one distinct_id for Engage API mapping (prefer non-$device: if available)
+ *
+ * Output format: Map<user_id, { user_id, distinct_id, metric1, metric2, ... }>
  */
 function parseInsightsResponse(data: any): Map<string, UserMetrics> {
   const userMetricsMap = new Map<string, UserMetrics>()
@@ -88,18 +107,47 @@ function parseInsightsResponse(data: any): Map<string, UserMetrics> {
       if (userId === '$overall') continue
       if (!userId) continue
 
-      // Get count for this user_id
-      const count = userIdData?.all || 0
+      // Get $overall count (aggregates across all distinct_ids for this user)
+      const overallData = userIdData['$overall']
+      const count = overallData?.all || 0
 
       // Get or create user metrics object
-      // Map $user_id to distinct_id column (DB column name stays the same)
       let userMetrics = userMetricsMap.get(userId)
       if (!userMetrics) {
-        userMetrics = { distinct_id: userId }
+        // Extract a distinct_id for Engage API mapping
+        // Preference: non-$device: distinct_id, otherwise use any available
+        let distinctId: string | null = null
+
+        for (const [key, value] of Object.entries(userIdData)) {
+          if (key === '$overall') continue
+
+          // Found a distinct_id key
+          if (key.startsWith('$device:')) {
+            // Sanitize $device: prefix
+            const sanitized = sanitizeDistinctId(key)
+            if (sanitized && !distinctId) {
+              distinctId = sanitized  // Use as fallback
+            }
+          } else {
+            // Prefer non-$device: distinct_id
+            distinctId = key
+            break  // Stop searching, we found the preferred type
+          }
+        }
+
+        // If no distinct_id found in nested data, use user_id as fallback
+        if (!distinctId) {
+          distinctId = userId
+        }
+
+        userMetrics = {
+          user_id: userId,           // Primary identifier
+          distinct_id: distinctId    // Secondary identifier for Engage API
+        }
         userMetricsMap.set(userId, userMetrics)
       }
 
-      // Set metric value
+      // Set metric value using $overall count
       (userMetrics as any)[dbColumn] = count
     }
   }
@@ -127,7 +175,7 @@ async function upsertUserMetrics(
       const { error, count } = await supabase
         .from('subscribers_insights')
         .upsert(batch, {
-          onConflict: 'distinct_id',
+          onConflict: 'user_id',  // Use user_id as primary key
           count: 'exact'
         })
 
