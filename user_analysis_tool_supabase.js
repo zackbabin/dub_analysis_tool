@@ -642,11 +642,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                                 </ul>
                             </span>
                         </span></h1>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button onclick="if(window.userAnalysisTool) window.userAnalysisTool.runWorkflow('github')" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">Sync Live Data</button>
-                            <button disabled style="padding: 8px 16px; background: #e9ecef; color: #adb5bd; border: none; border-radius: 6px; cursor: not-allowed; font-size: 14px; font-weight: 500; opacity: 0.6;" title="Upload not available for this tab">Upload Data</button>
-                            <button onclick="window.refreshAllTabs(event)" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
-                        </div>
                     </div>
                     ${metricsHTML}
                     ${hiddenGemsHTML}

@@ -84,47 +84,55 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=130"></script>
+    <script src="csv_utils.js?v=131"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=130"></script>
+    <script src="analysis_utils.js?v=131"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=130"></script>
+    <script src="supabase_integration.js?v=131"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=130"></script>
+    <script src="user_analysis_tool.js?v=131"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=130"></script>
+    <script src="user_analysis_tool_supabase.js?v=131"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=130"></script>
+    <script src="creator_analysis_tool.js?v=131"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=130"></script>
+    <script src="creator_analysis_tool_supabase.js?v=131"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=130"></script>
+    <script src="business-model-analysis.js?v=131"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=130"></script>
+    <script src="crypto-analysis.js?v=131"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=130"></script>
+    <script src="cx-analysis.js?v=131"></script>
 
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
 
-        // Create unified data source component (buttons removed - now in tab headers)
+        // Create unified data source component with smaller left-aligned buttons
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
+                <!-- Buttons - left aligned with content -->
+                <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 10px; max-width: 1400px; width: 100%;">
+                        <button id="syncLiveDataBtn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Sync Live Data</button>
+                        <button id="manualUploadBtn" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Upload Data</button>
+                        <button id="refreshDataBtn" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Refresh Data</button>
+                    </div>
+                </div>
                 <!-- Progress bar -->
                 <div style="display: flex; justify-content: center;">
-                    <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px; max-width: 800px; width: 100%;">
+                    <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px; max-width: 1400px; width: 100%;">
                         <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
                             <div id="unifiedProgressBar" style="background: linear-gradient(90deg, #17a2b8, #138496); height: 100%; width: 0%; transition: width 0.3s; position: relative; color: white; font-weight: bold; font-size: 12px;">
                                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); white-space: nowrap; width: max-content;">0%</div>
@@ -136,15 +144,51 @@
                 <div id="unifiedStatusSection" style="display: none;"></div>
             `;
 
-            // Return empty objects since buttons are now in tab headers
-            return {
-                syncBtn: null,
-                uploadBtn: null,
-                syncHoverIn: () => {},
-                syncHoverOut: () => {},
-                uploadHoverIn: () => {},
-                uploadHoverOut: () => {}
+            const syncBtn = document.getElementById('syncLiveDataBtn');
+            const uploadBtn = document.getElementById('manualUploadBtn');
+            const refreshBtn = document.getElementById('refreshDataBtn');
+
+            // Hover effects for sync button
+            const syncHoverIn = () => {
+                if (!syncBtn.disabled) {
+                    syncBtn.style.background = '#218838';
+                }
             };
+            const syncHoverOut = () => {
+                if (!syncBtn.disabled) {
+                    syncBtn.style.background = '#28a745';
+                }
+            };
+
+            // Hover effects for upload button
+            const uploadHoverIn = () => {
+                if (!uploadBtn.disabled) {
+                    uploadBtn.style.background = '#5a6268';
+                }
+            };
+            const uploadHoverOut = () => {
+                if (!uploadBtn.disabled) {
+                    uploadBtn.style.background = '#6c757d';
+                }
+            };
+
+            // Hover effects for refresh button
+            const refreshHoverIn = () => {
+                refreshBtn.style.background = '#138496';
+            };
+            const refreshHoverOut = () => {
+                refreshBtn.style.background = '#17a2b8';
+            };
+
+            syncBtn.onmouseover = syncHoverIn;
+            syncBtn.onmouseout = syncHoverOut;
+            uploadBtn.onmouseover = uploadHoverIn;
+            uploadBtn.onmouseout = uploadHoverOut;
+            refreshBtn.onmouseover = refreshHoverIn;
+            refreshBtn.onmouseout = refreshHoverOut;
+            refreshBtn.onclick = window.refreshAllTabs;
+
+            return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
         // Initialize Process Files button handler
@@ -394,30 +438,26 @@
             }
         };
 
-        // Update button states for unified component (only used on first 3 tabs)
+        // Update button states for unified component based on active tab
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
 
-            // Buttons are now in tab headers - this function is kept for compatibility but does nothing
             if (!syncBtn || !uploadBtn) {
                 return;
             }
 
-            // Unified component is only shown on user tabs (summary, portfolio, subscription)
-            // Sync Live Data button is always enabled on these tabs
+            // Sync Live Data button is always enabled
             syncBtn.disabled = false;
-            syncBtn.style.background = 'white';
-            syncBtn.style.borderColor = '#28a745';
+            syncBtn.style.background = '#28a745';
+            syncBtn.style.color = 'white';
             syncBtn.style.cursor = 'pointer';
-            syncBtn.style.pointerEvents = 'auto';
-            syncBtn.querySelector('div').style.color = '#28a745';
+            syncBtn.style.opacity = '1';
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
 
-            let isSyncing = false; // Flag to prevent multiple simultaneous syncs
+            let isSyncing = false;
 
             syncBtn.onclick = async () => {
-                // Prevent multiple clicks while sync is in progress
                 if (isSyncing) {
                     console.log('⚠️ Sync already in progress, ignoring click');
                     return;
@@ -426,73 +466,55 @@
                 console.log('🔵 Unified sync button clicked - syncing both user and creator data');
                 isSyncing = true;
 
-                // Disable button and update UI
-                const titleDiv = syncBtn.querySelector('div');
-                const originalTitle = titleDiv.textContent;
-
+                const originalText = syncBtn.textContent;
                 syncBtn.style.cursor = 'not-allowed';
                 syncBtn.style.opacity = '0.6';
-                syncBtn.style.pointerEvents = 'none';
-                titleDiv.textContent = 'Syncing...';
+                syncBtn.textContent = 'Syncing...';
 
                 try {
-                    // Run the complete 7-step workflow (includes user data, creator data, support analysis, and materialized views)
                     console.log('🔄 Starting complete data sync workflow...');
                     await userTool.runWorkflow('github');
                     console.log('✅ Complete data sync workflow finished');
 
-                    // Refresh creator analysis UI (load and render data)
                     console.log('🔄 Refreshing creator analysis UI...');
                     await creatorTool.refreshFromDatabaseOnly();
                     console.log('✅ Creator analysis UI refreshed');
 
-                    // Show success state briefly
-                    titleDiv.textContent = '✓ Sync Complete';
+                    syncBtn.textContent = '✓ Sync Complete';
                     syncBtn.style.background = '#28a745';
                     syncBtn.style.cursor = 'default';
-                    syncBtn.querySelector('div').style.color = 'white';
+                    syncBtn.style.opacity = '1';
 
-                    // After 3 seconds, return to normal state
                     setTimeout(() => {
                         isSyncing = false;
                         syncBtn.style.cursor = 'pointer';
-                        syncBtn.style.opacity = '1';
-                        syncBtn.style.pointerEvents = 'auto';
-                        syncBtn.style.background = 'white';
-                        titleDiv.textContent = originalTitle;
-                        syncBtn.querySelector('div').style.color = '#28a745';
+                        syncBtn.textContent = originalText;
+                        syncBtn.style.background = '#28a745';
                     }, 3000);
                 } catch (error) {
                     console.error('❌ Sync workflow failed:', error);
-
-                    // Show error state
-                    titleDiv.textContent = '✗ Sync Failed';
+                    syncBtn.textContent = '✗ Sync Failed';
                     syncBtn.style.background = '#dc3545';
-                    syncBtn.querySelector('div').style.color = 'white';
 
-                    // After 3 seconds, return to normal state
                     setTimeout(() => {
                         isSyncing = false;
                         syncBtn.style.cursor = 'pointer';
                         syncBtn.style.opacity = '1';
-                        syncBtn.style.pointerEvents = 'auto';
-                        syncBtn.style.background = 'white';
-                        titleDiv.textContent = originalTitle;
-                        syncBtn.querySelector('div').style.color = '#28a745';
+                        syncBtn.textContent = originalText;
+                        syncBtn.style.background = '#28a745';
                     }, 3000);
                 }
             };
 
-            // Manually Upload Data button behavior depends on active tab
+            // Upload Data button behavior depends on active tab
             if (activeTab === 'creator') {
                 // On creator tab: Show two upload options
                 uploadBtn.disabled = false;
-                uploadBtn.style.background = 'white';
-                uploadBtn.style.borderColor = '#28a745';
+                uploadBtn.style.background = '#6c757d';
+                uploadBtn.style.color = 'white';
                 uploadBtn.style.cursor = 'pointer';
-                uploadBtn.style.pointerEvents = 'auto';
-                uploadBtn.querySelector('div').style.color = '#28a745';
-                uploadBtn.querySelector('div').textContent = 'Upload Manual Data';
+                uploadBtn.style.opacity = '1';
+                uploadBtn.textContent = 'Upload Data';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
@@ -501,27 +523,27 @@
             } else if (activeTab === 'summary') {
                 // On summary tab: Enable for marketing data upload
                 uploadBtn.disabled = false;
-                uploadBtn.style.background = 'white';
-                uploadBtn.style.borderColor = '#28a745';
+                uploadBtn.style.background = '#6c757d';
+                uploadBtn.style.color = 'white';
                 uploadBtn.style.cursor = 'pointer';
-                uploadBtn.style.pointerEvents = 'auto';
-                uploadBtn.querySelector('div').style.color = '#28a745';
-                uploadBtn.querySelector('div').textContent = 'Upload Manual Data';
+                uploadBtn.style.opacity = '1';
+                uploadBtn.textContent = 'Upload Data';
                 uploadBtn.onmouseover = uploadHoverIn;
                 uploadBtn.onmouseout = uploadHoverOut;
                 uploadBtn.onclick = () => {
                     showMarketingUploadModal(userTool);
                 };
             } else {
-                // On portfolio tab: DISABLED
+                // On portfolio (Behavior Analysis) and CX tabs: DISABLED
                 uploadBtn.disabled = true;
-                uploadBtn.style.background = '#f8f9fa';
-                uploadBtn.style.borderColor = '#e9ecef';
+                uploadBtn.style.background = '#e9ecef';
+                uploadBtn.style.color = '#adb5bd';
                 uploadBtn.style.cursor = 'not-allowed';
-                uploadBtn.style.pointerEvents = 'none';
-                uploadBtn.querySelector('div').style.color = '#adb5bd';
+                uploadBtn.style.opacity = '0.6';
+                uploadBtn.textContent = 'Upload Data';
                 uploadBtn.onmouseover = null;
                 uploadBtn.onmouseout = null;
+                uploadBtn.onclick = null;
             }
         }
 
