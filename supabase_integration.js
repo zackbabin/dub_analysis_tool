@@ -558,8 +558,8 @@ class SupabaseIntegration {
 
             // Silently load data - verbose logging removed for cleaner console
 
-            // Convert to CSV format for compatibility with existing analysis code
-            return this.convertToCSVFormat(allData);
+            // Return JSON directly - processComprehensiveData now handles JSON input
+            return allData;
         } catch (error) {
             console.error('❌ Error loading data from Supabase:', error);
             throw error;

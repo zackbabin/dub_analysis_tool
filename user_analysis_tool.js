@@ -971,17 +971,28 @@ function processComprehensiveData(contents) {
         return value;
     }
 
-    console.log('Parsing CSV files...');
-    const [
-        demoData,
-        firstCopyData,
-        fundedAccountData,
-        linkedBankData
-    ] = contents.map(parseCSV);
+    // Handle JSON input directly from Supabase (array of objects)
+    // If contents is an array of objects (JSON from Supabase), use it directly
+    // If contents is an array of CSV strings (legacy upload), parse them
+    let demoData, firstCopyData, fundedAccountData, linkedBankData;
+
+    if (Array.isArray(contents) && contents.length > 0 && typeof contents[0] === 'object' && !contents[0].hasOwnProperty('length')) {
+        // JSON input from Supabase - contents is the data array directly
+        console.log('Processing JSON data from Supabase...');
+        demoData = { data: contents, headers: Object.keys(contents[0] || {}) };
+        // Empty data for time-based fields (not used in Supabase flow)
+        firstCopyData = { data: [], headers: [] };
+        fundedAccountData = { data: [], headers: [] };
+        linkedBankData = { data: [], headers: [] };
+    } else {
+        // Legacy CSV input from file upload
+        console.log('Parsing CSV files...');
+        [demoData, firstCopyData, fundedAccountData, linkedBankData] = contents.map(parseCSV);
+    }
 
     // Normalize distinct_id keys
     function normalizeId(row) {
-        return row['Distinct ID'] || row['$distinct_id'];
+        return row['Distinct ID'] || row['$distinct_id'] || row['user_id'];
     }
 
     // Create time mappings
@@ -1048,27 +1059,28 @@ function processComprehensiveData(contents) {
             clean[cleanedName] = cleanValue(row[k]);
         });
 
-        // Map key columns with flexible matching
-        clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
-        clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits') || clean['Total Deposits'] || '';
-        clean['Total Deposit Count'] = getColumnValue(row, 'C. Total Deposit Count', 'D. Total Deposit Count') || clean['Total Deposit Count'] || '';
+        // Map key columns with flexible matching (includes Supabase snake_case fields)
+        clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank', 'total_bank_links') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
+        clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits', 'total_deposits') || clean['Total Deposits'] || '';
+        clean['Total Deposit Count'] = getColumnValue(row, 'C. Total Deposit Count', 'D. Total Deposit Count', 'total_deposit_count') || clean['Total Deposit Count'] || '';
+        clean['Total ACH Deposits'] = getColumnValue(row, 'D. Total ACH Deposits', 'total_ach_deposits') || clean['Total ACH Deposits'] || '';
         clean['Subscribed Within 7 Days'] = getColumnValue(row, 'D. Subscribed within 7 days', 'F. Subscribed within 7 days') || clean['Subscribed Within 7 Days'] || '';
-        clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies') || clean['Total Copies'] || '';
-        clean['Total Regular Copies'] = getColumnValue(row, 'F. Total Regular Copies', 'H. Total Regular Copies') || clean['Total Regular Copies'] || '';
-        clean['Total Premium Copies'] = getColumnValue(row, 'G. Total Premium Copies') || clean['Total Premium Copies'] || '';
-        clean['Regular PDP Views'] = getColumnValue(row, 'H. Regular PDP Views', 'I. Regular PDP Views') || clean['Regular PDP Views'] || '';
-        clean['Premium PDP Views'] = getColumnValue(row, 'I. Premium PDP Views', 'J. Premium PDP Views') || clean['Premium PDP Views'] || '';
-        clean['Paywall Views'] = getColumnValue(row, 'J. Paywall Views', 'K. Paywall Views') || clean['Paywall Views'] || '';
-        clean['Regular Creator Profile Views'] = getColumnValue(row, 'K. Regular Creator Profile Views', 'L. Regular Creator Profile Views') || clean['Regular Creator Profile Views'] || '';
-        clean['Premium Creator Profile Views'] = getColumnValue(row, 'L. Premium Creator Profile Views', 'M. Premium Creator Profile Views') || clean['Premium Creator Profile Views'] || '';
-        clean['Total Subscriptions'] = getColumnValue(row, 'M. Total Subscriptions', 'E. Total Subscriptions') || clean['Total Subscriptions'] || '';
-        clean['App Sessions'] = getColumnValue(row, 'N. App Sessions') || clean['App Sessions'] || '';
-        clean['Discover Tab Views'] = getColumnValue(row, 'O. Discover Tab Views') || clean['Discover Tab Views'] || '';
-        clean['Leaderboard Tab Views'] = getColumnValue(row, 'P. Leaderboard Tab Views', 'P. Leaderboard Views') || clean['Leaderboard Tab Views'] || clean['Leaderboard Views'] || '';
-        clean['Premium Tab Views'] = getColumnValue(row, 'Q. Premium Tab Views') || clean['Premium Tab Views'] || '';
-        clean['Stripe Modal Views'] = getColumnValue(row, 'R. Stripe Modal Views') || clean['Stripe Modal Views'] || '';
-        clean['Creator Card Taps'] = getColumnValue(row, 'S. Creator Card Taps') || clean['Creator Card Taps'] || '';
-        clean['Portfolio Card Taps'] = getColumnValue(row, 'T. Portfolio Card Taps') || clean['Portfolio Card Taps'] || '';
+        clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies', 'total_copies') || clean['Total Copies'] || '';
+        clean['Total Regular Copies'] = getColumnValue(row, 'F. Total Regular Copies', 'H. Total Regular Copies', 'total_regular_copies') || clean['Total Regular Copies'] || '';
+        clean['Total Premium Copies'] = getColumnValue(row, 'G. Total Premium Copies', 'total_premium_copies') || clean['Total Premium Copies'] || '';
+        clean['Regular PDP Views'] = getColumnValue(row, 'H. Regular PDP Views', 'I. Regular PDP Views', 'regular_pdp_views') || clean['Regular PDP Views'] || '';
+        clean['Premium PDP Views'] = getColumnValue(row, 'I. Premium PDP Views', 'J. Premium PDP Views', 'premium_pdp_views') || clean['Premium PDP Views'] || '';
+        clean['Paywall Views'] = getColumnValue(row, 'J. Paywall Views', 'K. Paywall Views', 'paywall_views') || clean['Paywall Views'] || '';
+        clean['Regular Creator Profile Views'] = getColumnValue(row, 'K. Regular Creator Profile Views', 'L. Regular Creator Profile Views', 'regular_creator_views') || clean['Regular Creator Profile Views'] || '';
+        clean['Premium Creator Profile Views'] = getColumnValue(row, 'L. Premium Creator Profile Views', 'M. Premium Creator Profile Views', 'premium_creator_views') || clean['Premium Creator Profile Views'] || '';
+        clean['Total Subscriptions'] = getColumnValue(row, 'M. Total Subscriptions', 'E. Total Subscriptions', 'total_subscriptions') || clean['Total Subscriptions'] || '';
+        clean['App Sessions'] = getColumnValue(row, 'N. App Sessions', 'app_sessions') || clean['App Sessions'] || '';
+        clean['Discover Tab Views'] = getColumnValue(row, 'O. Discover Tab Views', 'discover_tab_views') || clean['Discover Tab Views'] || '';
+        clean['Leaderboard Tab Views'] = getColumnValue(row, 'P. Leaderboard Tab Views', 'P. Leaderboard Views', 'leaderboard_tab_views') || clean['Leaderboard Tab Views'] || clean['Leaderboard Views'] || '';
+        clean['Premium Tab Views'] = getColumnValue(row, 'Q. Premium Tab Views', 'premium_tab_views') || clean['Premium Tab Views'] || '';
+        clean['Stripe Modal Views'] = getColumnValue(row, 'R. Stripe Modal Views', 'stripe_modal_views') || clean['Stripe Modal Views'] || '';
+        clean['Creator Card Taps'] = getColumnValue(row, 'S. Creator Card Taps', 'creator_card_taps') || clean['Creator Card Taps'] || '';
+        clean['Portfolio Card Taps'] = getColumnValue(row, 'T. Portfolio Card Taps', 'portfolio_card_taps') || clean['Portfolio Card Taps'] || '';
 
         // Add time columns
         clean['Time To First Copy'] = secondsToDays(timeToFirstCopyMap[id]);
@@ -1081,10 +1093,13 @@ function processComprehensiveData(contents) {
 
         const totalCopyStarts = (conv.total_creator_copy_starts || 0) + (port.total_portfolio_copy_starts || 0);
 
-        clean['Total Stripe Views'] = conv.total_stripe_views || 0;
+        // Use Supabase fields if available, otherwise fall back to aggregates
+        clean['Total Stripe Views'] = getColumnValue(row, 'stripe_modal_views', 'Total Stripe Views') || conv.total_stripe_views || 0;
         clean['Total Copy Starts'] = totalCopyStarts;
-        clean['Unique Creators Interacted'] = conv.unique_creators_interacted ? conv.unique_creators_interacted.size : 0;
-        clean['Unique Portfolios Interacted'] = port.unique_portfolios_interacted ? port.unique_portfolios_interacted.size : 0;
+        clean['Unique Creators Interacted'] = getColumnValue(row, 'unique_creators_viewed', 'Unique Creators Interacted') || (conv.unique_creators_interacted ? conv.unique_creators_interacted.size : 0);
+        clean['Unique Portfolios Interacted'] = getColumnValue(row, 'unique_portfolios_viewed', 'Unique Portfolios Interacted') || (port.unique_portfolios_interacted ? port.unique_portfolios_interacted.size : 0);
+        clean['Total Profile Views'] = getColumnValue(row, 'total_profile_views', 'Total Profile Views') || clean['Total Profile Views'] || 0;
+        clean['Total PDP Views'] = getColumnValue(row, 'total_pdp_views', 'Total PDP Views') || clean['Total PDP Views'] || 0;
 
         return clean;
     });
@@ -1573,7 +1588,7 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
         buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
         totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
-        totalAchDeposits: cleanNumeric(row['total_ach_deposits']),
+        totalAchDeposits: cleanNumeric(row['Total ACH Deposits'] || row['total_ach_deposits']),
         totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
         totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
 
