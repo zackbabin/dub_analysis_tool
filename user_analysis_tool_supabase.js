@@ -1048,7 +1048,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
         // Extract unique portfolios mean and median from copiers data (populated by Claude AI via event_sequence_metrics table)
-        const uniquePortfoliosMean = copiersData.avg_unique_portfolios || 0;
+        const uniquePortfoliosMean = copiersData.mean_unique_portfolios || 0;
         const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
 
         const metrics = [

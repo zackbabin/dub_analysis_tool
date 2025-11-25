@@ -100,6 +100,7 @@ async function fetchAndProcessEventsStreaming(
   const timeoutId = setTimeout(() => controller.abort(), 120000)
 
   let response: Response
+  let lineCount = 0
 
   try {
     console.log('Starting Mixpanel API fetch...')
@@ -136,7 +137,6 @@ async function fetchAndProcessEventsStreaming(
     let eventBatch: MixpanelExportEvent[] = []
     let buffer = ''
     let totalBytes = 0
-    let lineCount = 0
 
     // Get readable stream from response body
     const reader = response.body?.getReader()
