@@ -103,22 +103,19 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Analytics and reporting requests
 
 **RANKING METHODOLOGY:**
-Calculate a composite priority score (0-100) for each issue using this formula with EQUAL WEIGHT for all components:
+Calculate a composite priority score (0-100) for each issue using this formula:
 
-Priority Score = (Category Weight × 0.33) + (Percentage × 3 × 0.33) + (min(Volume, 50) / 50 × 100 × 0.34)
+Priority Score = (Category Weight × 0.32) + (Percentage × 3 × 0.32) + (min(Volume, 50) / 50 × 100 × 0.31) + (min(avg_message_count, 10) / 10 × 100 × 0.05)
 
 Where:
 - Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40
 - Percentage: The percentage of total conversations (e.g., 15.5)
 - Volume: Number of occurrences this week (capped at 50 for calculation)
-- Each component now has equal weight (33.33% each)
+- avg_message_count: The average message count across all conversations in this issue (capped at 10 for calculation)
+- Component weights: 32% + 32% + 31% + 5% = 100%
 
 **MESSAGE COUNT ANALYSIS:**
-When analyzing conversations, consider the number of back-and-forth messages between user and agent as an indicator of issue complexity/severity:
-- Higher message count (5+ messages) often indicates complex issues, user frustration, or inadequate resolution
-- Lower message count (1-2 messages) may indicate simple issues or quick resolutions
-- Use message_count field from conversation data to inform your analysis
-- Include this insight in your issue_summary when relevant (e.g., "Users report X issue requiring multiple back-and-forth exchanges to resolve")
+The avg_message_count (average number of back-and-forth messages across conversations for this issue) is incorporated into the priority score with 5% weight. Higher message counts (5+ messages) often indicate complex issues or user frustration, giving those issues a slight priority boost.
 
 Then rank all issues by priority score (highest to lowest) and return the top 10.
 
@@ -169,10 +166,10 @@ Return ONLY valid JSON matching this exact structure:
         "category_weight": number,
         "category_weight_contribution": number,
         "percentage_contribution": number,
-        "volume_contribution": number
+        "volume_contribution": number,
+        "message_count_contribution": number
       },
       "avg_message_count": number (CRITICAL REQUIRED FIELD: Calculate the MEAN of message_count across ALL conversations you grouped into this issue. If you grouped 50 conversations into this issue, sum up all 50 message_count values and divide by 50. Round to 1 decimal place. This CANNOT be 0 unless all conversations have 0 messages),
-      "message_count_insight": "string (optional: brief note if high message count indicates complexity/frustration)",
       "examples": [
         {
           "conversation_id": "string",
@@ -193,7 +190,8 @@ Return ONLY valid JSON matching this exact structure:
 - Ensure all 10 issues have exactly 3 examples each
 - STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Trading > App Functionality > Feedback)
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
-- Calculate priority scores exactly as specified in the formula with equal 33% weight for each component
+- Calculate priority scores exactly as specified in the formula: 32% category weight, 32% percentage, 31% volume, 5% message count
+- Include message_count_contribution in priority_calculation breakdown
 - Rank issues 1-10 by priority score (highest score = rank 1)
 
 **SPECIFICITY REQUIREMENTS:**
@@ -215,7 +213,6 @@ Return ONLY valid JSON matching this exact structure:
 - Include message_count for each example ticket (from the individual conversation's message_count field)
 - Include created_at (YYYY-MM-DD format) for each example ticket (from the conversation's created_at field)
 - Include zendesk_url for each example ticket (from the conversation's zendesk_url field if available)
-- Add message_count_insight when high message counts (5+) indicate issue complexity or user frustration
 - Focus on actionable product feedback, not general support inquiries
 - Money Movement issues automatically get highest priority since users cannot deposit or withdraw money
 - Keep issue_summary to 140 characters or less for UI display
