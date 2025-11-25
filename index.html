@@ -375,6 +375,25 @@
         window.showCreatorUploadModal = showCreatorUploadModal;
         window.showMarketingUploadModal = showMarketingUploadModal;
 
+        // Debug: Confirm functions are exposed
+        console.log('✅ Modal functions exposed to window:', {
+            showCreatorUploadModal: typeof window.showCreatorUploadModal,
+            showMarketingUploadModal: typeof window.showMarketingUploadModal
+        });
+
+        // Global test function to verify modal works
+        window.testUploadModal = function() {
+            console.log('Testing upload modal...');
+            if (window.showMarketingUploadModal && window.userAnalysisTool) {
+                window.showMarketingUploadModal(window.userAnalysisTool);
+            } else {
+                console.error('Missing:', {
+                    showMarketingUploadModal: !!window.showMarketingUploadModal,
+                    userAnalysisTool: !!window.userAnalysisTool
+                });
+            }
+        };
+
         // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
