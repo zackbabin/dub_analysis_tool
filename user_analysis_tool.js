@@ -1822,11 +1822,18 @@ function displaySummaryStatsInline(stats) {
     uploadBtn.onmouseover = () => uploadBtn.style.background = '#5a6268';
     uploadBtn.onmouseout = () => uploadBtn.style.background = '#6c757d';
     uploadBtn.onclick = () => {
+        console.log('Upload button clicked!');
+        console.log('window.showMarketingUploadModal:', window.showMarketingUploadModal);
+        console.log('window.userAnalysisTool:', window.userAnalysisTool);
         // For Summary Stats tab, show marketing upload modal
         if (window.showMarketingUploadModal && window.userAnalysisTool) {
+            console.log('Calling showMarketingUploadModal');
             window.showMarketingUploadModal(window.userAnalysisTool);
         } else if (window.userAnalysisTool) {
+            console.log('Fallback to runWorkflow upload');
             window.userAnalysisTool.runWorkflow('upload');
+        } else {
+            console.error('Neither modal function nor userAnalysisTool available!');
         }
     };
 
