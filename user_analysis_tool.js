@@ -1781,7 +1781,7 @@ function displaySummaryStatsInline(stats) {
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
 
-    // Wrapper for H1 and refresh button
+    // Wrapper for H1 and buttons
     const headerWrapper = document.createElement('div');
     headerWrapper.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;';
 
@@ -1799,7 +1799,35 @@ function displaySummaryStatsInline(stats) {
         </span>
     </span>`;
 
-    // Add refresh button
+    // Button container
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = 'display: flex; gap: 10px; align-items: center;';
+
+    // Sync Live Data button
+    const syncBtn = document.createElement('button');
+    syncBtn.textContent = 'Sync Live Data';
+    syncBtn.style.cssText = 'padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;';
+    syncBtn.onmouseover = () => syncBtn.style.background = '#218838';
+    syncBtn.onmouseout = () => syncBtn.style.background = '#28a745';
+    syncBtn.onclick = () => {
+        if (window.userAnalysisTool) {
+            window.userAnalysisTool.runWorkflow('github');
+        }
+    };
+
+    // Upload Data button
+    const uploadBtn = document.createElement('button');
+    uploadBtn.textContent = 'Upload Data';
+    uploadBtn.style.cssText = 'padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;';
+    uploadBtn.onmouseover = () => uploadBtn.style.background = '#5a6268';
+    uploadBtn.onmouseout = () => uploadBtn.style.background = '#6c757d';
+    uploadBtn.onclick = () => {
+        if (window.userAnalysisTool) {
+            window.userAnalysisTool.runWorkflow('upload');
+        }
+    };
+
+    // Refresh Data button
     const refreshBtn = document.createElement('button');
     refreshBtn.textContent = 'Refresh Data';
     refreshBtn.style.cssText = 'padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;';
@@ -1807,8 +1835,12 @@ function displaySummaryStatsInline(stats) {
     refreshBtn.onmouseout = () => refreshBtn.style.background = '#17a2b8';
     refreshBtn.onclick = window.refreshAllTabs;
 
+    buttonContainer.appendChild(syncBtn);
+    buttonContainer.appendChild(uploadBtn);
+    buttonContainer.appendChild(refreshBtn);
+
     headerWrapper.appendChild(title);
-    headerWrapper.appendChild(refreshBtn);
+    headerWrapper.appendChild(buttonContainer);
     resultSection.appendChild(headerWrapper);
 
     const metricSummary = document.createElement('div');

@@ -375,7 +375,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         </ul>
                     </span>
                 </span></h1>
-                <button onclick="window.refreshAllTabs(event)" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button onclick="if(window.userAnalysisTool) window.userAnalysisTool.runWorkflow('github')" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">Sync Live Data</button>
+                    <button onclick="if(window.userAnalysisTool) window.userAnalysisTool.runWorkflow('upload')" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">Upload Data</button>
+                    <button onclick="window.refreshAllTabs(event)" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">Refresh Data</button>
+                </div>
             </div>
         `;
         container.appendChild(section);
