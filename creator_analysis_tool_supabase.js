@@ -1864,8 +1864,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 Shows which other creators are most frequently copied by users who copied each Premium creator.
                 <ul>
                     <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85130412%22" target="_blank" style="color: #17a2b8;">Chart 85130412</a> (Creator User Profiles)
+                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (User-Level Engagement)
                     </li>
                     <li><strong>Analysis:</strong> User-level co-copying patterns showing which creators are copied together by the same users</li>
                     <li><strong>Format:</strong> Shows both Premium and Regular creators copied by each Premium creator's audience</li>

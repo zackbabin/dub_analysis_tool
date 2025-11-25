@@ -273,7 +273,7 @@ Frontend: "Sync Live Data" button
 Analyzes premium creator performance and copy behavior patterns.
 
 **Data Sources**:
-- Mixpanel Insights API (charts 85165580, 85165590, 85154450, 85130412)
+- Mixpanel Insights API (charts 85165580, 85165590, 85154450)
 - Synced automatically via daily cron jobs
 
 ### Core Analyses

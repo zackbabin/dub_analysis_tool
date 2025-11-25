@@ -21,11 +21,11 @@ import {
 
 // Mixpanel Chart IDs
 const CHART_IDS = {
-  creatorProfiles: '85130412',  // User profile data for creators
   premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
   premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
   portfolioCreatorCopyMetrics: '86055000',  // Portfolio-Creator Copy/Liquidation aggregates (not user-level)
   // Note: Chart 85810770 (Portfolio Metrics) is no longer used - all portfolio metrics aggregated from user_portfolio_creator_engagement
+  // Note: Chart 85130412 (Creator User Profiles) is no longer used - creators_insights table was removed due to timeouts and unused data
 }
 
 interface SyncStats {
@@ -64,12 +64,8 @@ serve(async (req) => {
         console.log(`Fetching premium creators from Mixpanel chart ${CHART_IDS.premiumCreators}...`)
         premiumCreatorsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreators, 'Premium Creators')
 
-        // COMMENTED OUT: User profile data is processed but never stored anywhere (creators_insights table removed)
-        // This fetch was causing timeouts and the data wasn't being used
-        // Keeping commented for testing - if no issues arise, will remove completely
-        // console.log(`Fetching user profile data from Mixpanel chart ${CHART_IDS.creatorProfiles}...`)
-        // userProfileData = await fetchInsightsData(credentials, CHART_IDS.creatorProfiles, 'User Profiles')
-        userProfileData = null // Set to null to skip processing
+        // User profile data is no longer fetched - creators_insights table was removed
+        userProfileData = null
 
         // Note: Portfolio metrics (PDP views, copies, liquidations) are now aggregated from user-level data
         // No need to fetch chart 85810770 - premium_creator_portfolio_metrics table is deprecated
