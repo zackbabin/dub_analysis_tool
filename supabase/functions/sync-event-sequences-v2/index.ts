@@ -498,9 +498,9 @@ serve(async (req) => {
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
 
       // Check if we completed all events or timed out early
-      const partialSync = totalInserted < events.length
+      const partialSync = totalInserted < stats.eventsFetched
       const message = partialSync
-        ? `Partial sync completed - ${stats.eventsInserted} of ${events.length} events inserted before timeout`
+        ? `Partial sync completed - ${stats.eventsInserted} of ${stats.eventsFetched} events inserted before timeout`
         : `Event sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
 
       // Update sync status with last sync timestamp (only if not partial)
