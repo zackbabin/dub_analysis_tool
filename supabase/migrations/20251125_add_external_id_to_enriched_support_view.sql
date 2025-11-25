@@ -2,6 +2,27 @@
 -- Date: 2025-11-25
 -- Purpose: Include external_id so we can construct proper Zendesk web UI URLs
 
+-- First, add external_id column to raw_support_conversations if it doesn't exist
+ALTER TABLE raw_support_conversations
+ADD COLUMN IF NOT EXISTS external_id TEXT;
+
+-- Add unique constraint on (source, external_id) if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'raw_support_conversations_source_external_id_key'
+  ) THEN
+    ALTER TABLE raw_support_conversations
+    ADD CONSTRAINT raw_support_conversations_source_external_id_key UNIQUE (source, external_id);
+  END IF;
+END $$;
+
+-- Add comment explaining the column
+COMMENT ON COLUMN raw_support_conversations.external_id IS
+'External ticket ID from source system (e.g., Zendesk ticket ID). Used to construct web UI URLs.';
+
+-- Now recreate the view with external_id included
 DROP VIEW IF EXISTS enriched_support_conversations CASCADE;
 
 CREATE VIEW enriched_support_conversations AS
