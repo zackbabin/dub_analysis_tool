@@ -471,12 +471,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Full control over results display with integrated caching
      */
     async displayResults(results) {
+        // Cache version for button layout changes
+        const CACHE_VERSION = 2;
+
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                if (data.timestamp) {
+                // Check cache version - invalidate if old version
+                if (data.cacheVersion !== CACHE_VERSION) {
+                    console.log('⚠️ Cache version mismatch, clearing old cache');
+                    localStorage.removeItem('dubAnalysisResults');
+                } else if (data.timestamp) {
                     // Restore cached HTML to each tab (if available)
                     if (data.summary) {
                         this.outputContainers.summary.innerHTML = data.summary;
@@ -514,6 +521,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
+            const CACHE_VERSION = 2;
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
@@ -522,7 +530,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 summary: this.outputContainers.summary?.innerHTML || '',
                 portfolio: this.outputContainers.portfolio?.innerHTML || '',
                 // Preserve existing timestamp - it should only be updated during actual sync operations
-                timestamp: existingData.timestamp || new Date().toISOString()
+                timestamp: existingData.timestamp || new Date().toISOString(),
+                cacheVersion: CACHE_VERSION
             };
             console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
             localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
