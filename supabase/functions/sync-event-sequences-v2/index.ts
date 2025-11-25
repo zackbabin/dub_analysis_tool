@@ -305,38 +305,39 @@ serve(async (req) => {
         const chartData = await chartResponse.json()
         console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
 
-        // Parse series object to extract first copy times AND build target user list
-        // Chart 86612901 returns $user_id (merged identity), but we need distinct_id for joins
-        // Strategy: Store user_id + first_copy_time now, will populate distinct_id from Export API events later
-        const copyRowsMap = new Map<string, any>() // key: user_id, value: row
+        // Parse series object to extract first copy times
+        // Chart 86612901 structure: metric -> $distinct_id -> $user_id -> $time
+        // Headers: ["$metric", "$distinct_id", "$user_id", "$time"]
+        const copyRows = []
         const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
-        for (const [userId, data] of Object.entries(series)) {
+        for (const [rawDistinctId, distinctIdData] of Object.entries(series)) {
           // Skip $overall aggregation key
-          if (userId === '$overall') continue
-          if (!userId) continue
+          if (rawDistinctId === '$overall') continue
+          if (!rawDistinctId) continue
 
-          // For Export API filtering, we need to use the user_id as-is
-          targetUserIds.push(userId)
+          // Sanitize distinct_id (remove $device: prefix)
+          const distinctId = sanitizeDistinctId(rawDistinctId)
+          if (!distinctId) continue
 
-          // Navigate nested structure: user -> snowflake_id -> timestamp
-          // Structure: { user_id: { $overall: {...}, snowflake_id: { $overall: {...}, iso_timestamp: {...} } } }
-          const snowflakeIds = Object.keys(data).filter(k => k !== '$overall')
-          if (snowflakeIds.length === 0) continue
+          // Navigate nested structure: distinct_id -> user_id -> timestamp
+          // Structure: { distinct_id: { $overall: {...}, user_id: { $overall: {...}, iso_timestamp: {...} } } }
+          const userIds = Object.keys(distinctIdData).filter(k => k !== '$overall')
+          if (userIds.length === 0) continue
 
-          // Get first snowflake ID
-          const firstSnowflakeId = snowflakeIds[0]
-          const snowflakeData = data[firstSnowflakeId]
+          // Get first user_id (should typically be only one after identity merge)
+          const userId = userIds[0]
+          const userIdData = distinctIdData[userId]
 
-          if (!snowflakeData || typeof snowflakeData !== 'object') {
-            console.warn(`Skipping user ${userId} - no snowflake data`)
+          if (!userIdData || typeof userIdData !== 'object') {
+            console.warn(`Skipping distinct_id ${distinctId} - no user_id data`)
             continue
           }
 
-          // Find ISO timestamp within snowflake data (exclude $overall)
-          const isoTimestamps = Object.keys(snowflakeData).filter(k => k !== '$overall')
+          // Find ISO timestamp within user_id data (exclude $overall)
+          const isoTimestamps = Object.keys(userIdData).filter(k => k !== '$overall')
           if (isoTimestamps.length === 0) {
-            console.warn(`Skipping user ${userId} - no timestamp in snowflake data`)
+            console.warn(`Skipping distinct_id ${distinctId} - no timestamp in user_id data`)
             continue
           }
 
@@ -345,23 +346,39 @@ serve(async (req) => {
 
           // Validate it's a proper ISO timestamp
           if (!firstCopyTime.includes('T') && !firstCopyTime.includes('-')) {
-            console.warn(`Skipping user ${userId} - invalid timestamp format: ${firstCopyTime}`)
+            console.warn(`Skipping distinct_id ${distinctId} - invalid timestamp format: ${firstCopyTime}`)
             continue
           }
 
-          // Store in map - will populate distinct_id from Export API events
-          copyRowsMap.set(userId, {
-            user_id: userId,
-            distinct_id: null,  // Will be populated from Export API
+          // For Export API filtering, we need to collect user_ids
+          targetUserIds.push(userId)
+
+          // Store both distinct_id and user_id from chart
+          copyRows.push({
+            user_id: userId,          // $user_id from chart (merged identity)
+            distinct_id: distinctId,  // Sanitized $distinct_id from chart
             first_copy_time: new Date(firstCopyTime).toISOString(),
             synced_at: syncStartTime.toISOString()
           })
         }
 
-        console.log(`✓ Extracted ${copyRowsMap.size} first copy events for ${targetUserIds.length} users`)
-        console.log(`   (distinct_id will be populated from Export API events)`)
+        console.log(`✓ Extracted ${copyRows.length} first copy events with user_id and distinct_id mappings`)
 
-        // Don't insert yet - we'll populate distinct_id from Export API and insert after processing events
+        // Insert user_first_copies immediately - this provides the mapping table for event_sequences_raw
+        if (copyRows.length > 0) {
+          const { error: copyError } = await supabase
+            .from('user_first_copies')
+            .upsert(copyRows, {
+              onConflict: 'user_id'  // PRIMARY KEY is user_id
+            })
+
+          if (copyError) {
+            console.error('⚠️ Error inserting user_first_copies:', copyError)
+          } else {
+            copyEventsSynced = copyRows.length
+            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events to user_first_copies`)
+          }
+        }
       } catch (chartError: any) {
         console.error('⚠️ Chart fetch failed:', chartError.message)
         console.log('   Will fetch ALL portfolio view events (no user filter)')
@@ -412,21 +429,13 @@ serve(async (req) => {
           // Get clean $user_id (should match chart 86612901 user_ids)
           const userId = event.properties.$user_id || rawUserId
 
-          // For backward compatibility with joins, sanitize to create distinct_id
-          // (removes $device: prefix if present)
+          // Sanitize distinct_id (removes $device: prefix)
           const distinctId = sanitizeDistinctId(rawUserId)
 
-          // Build user_id → distinct_id mapping for user_first_copies
-          if (userId && distinctId && copyRowsMap.has(userId)) {
-            const copyRow = copyRowsMap.get(userId)
-            if (!copyRow.distinct_id) {
-              copyRow.distinct_id = distinctId
-            }
-          }
-
+          // Note: user_id will be NULL here - it gets populated later from user_first_copies join
           rawEventRows.push({
             distinct_id: distinctId,  // Sanitized distinct_id (no $device: prefix)
-            user_id: userId,           // $user_id (merged identity)
+            user_id: null,             // Will be populated by DB function via user_first_copies join
             event_name: event.event,
             event_time: eventTime,
             portfolio_ticker: event.properties.portfolioTicker || null,
@@ -504,33 +513,6 @@ serve(async (req) => {
       const fetchElapsedSec = Math.round((Date.now() - fetchStartMs) / 1000)
       console.log(`✓ Fetch and insert completed in ${fetchElapsedSec}s - Total elapsed: ${timeoutGuard.getElapsedSeconds()}s / 140s`)
 
-      // Now that we have user_id → distinct_id mappings from Export API, insert user_first_copies
-      if (copyRowsMap.size > 0) {
-        const copyRows = Array.from(copyRowsMap.values())
-        const rowsWithDistinctId = copyRows.filter(row => row.distinct_id !== null)
-        const rowsWithoutDistinctId = copyRows.filter(row => row.distinct_id === null)
-
-        if (rowsWithoutDistinctId.length > 0) {
-          console.warn(`⚠️ ${rowsWithoutDistinctId.length} users have no distinct_id mapping from Export API`)
-          console.warn(`   These users may not have any "Viewed Portfolio Details" events in the date range`)
-        }
-
-        if (rowsWithDistinctId.length > 0) {
-          const { error: copyError } = await supabase
-            .from('user_first_copies')
-            .upsert(rowsWithDistinctId, {
-              onConflict: 'user_id'  // PRIMARY KEY is user_id
-            })
-
-          if (copyError) {
-            console.error('⚠️ Error inserting user_first_copies:', copyError)
-          } else {
-            copyEventsSynced = rowsWithDistinctId.length
-            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events with distinct_id mappings`)
-          }
-        }
-      }
-
       stats.eventsInserted = totalInserted
       stats.copyEventsSynced = copyEventsSynced
 
@@ -548,6 +530,20 @@ serve(async (req) => {
       }
 
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
+
+      // Populate user_id in event_sequences_raw by joining with user_first_copies
+      if (copyEventsSynced > 0) {
+        console.log('Populating user_id in event_sequences_raw from user_first_copies...')
+        const { data: populateResult, error: populateError } = await supabase
+          .rpc('populate_event_sequences_user_id')
+
+        if (populateError) {
+          console.error('⚠️ Error populating user_id:', populateError)
+        } else {
+          const rowsUpdated = populateResult?.[0]?.rows_updated || 0
+          console.log(`✅ Populated user_id for ${rowsUpdated} event records`)
+        }
+      }
 
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
