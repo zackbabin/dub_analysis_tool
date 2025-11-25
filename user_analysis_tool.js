@@ -1483,7 +1483,7 @@ function calculateDemographicBreakdown(data, key) {
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
     const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
-    const usersWithDeposits = data.filter(d => d.totalDepositCount > 0).length;
+    const usersWithDeposits = data.filter(d => d.totalAchDeposits > 0).length;
     const usersWithSubscriptions = data.filter(d => d.totalSubscriptions > 0).length;
 
     const demographicKeys = [
@@ -1573,6 +1573,7 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
         buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
         totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
+        totalAchDeposits: cleanNumeric(row['total_ach_deposits']),
         totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
         totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
 

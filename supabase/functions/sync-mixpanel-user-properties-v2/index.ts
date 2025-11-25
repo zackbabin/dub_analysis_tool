@@ -43,6 +43,7 @@ const OUTPUT_PROPERTIES = [
   'lifetimeCopiedPortfolios',
   'totalDeposits',
   'totalDepositCount',
+  'totalAchDeposits',  // NEW: R. Total ACH Deposits from chart 85713544
 ]
 
 interface UserPropertyRow {
@@ -62,6 +63,7 @@ interface UserPropertyRow {
   lifetime_copied_portfolios?: number
   total_deposits?: number
   total_deposit_count?: number
+  total_ach_deposits?: number  // NEW: ACH deposits
 }
 
 /**
@@ -83,6 +85,7 @@ const PROPERTY_MAP: Record<string, string> = {
   'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'totalDeposits': 'total_deposits',
   'totalDepositCount': 'total_deposit_count',
+  'totalAchDeposits': 'total_ach_deposits',  // NEW: ACH deposits mapping
 }
 
 /**
@@ -123,7 +126,8 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           if (dbColumn === 'available_copy_credits' || dbColumn === 'buying_power' ||
               dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios' ||
               dbColumn === 'active_copied_portfolios' || dbColumn === 'lifetime_copied_portfolios' ||
-              dbColumn === 'total_deposits' || dbColumn === 'total_deposit_count') {
+              dbColumn === 'total_deposits' || dbColumn === 'total_deposit_count' ||
+              dbColumn === 'total_ach_deposits') {
             (row as any)[dbColumn] = 0
           }
           continue
@@ -151,7 +155,8 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           dbColumn === 'active_copied_portfolios' ||
           dbColumn === 'lifetime_copied_portfolios' ||
           dbColumn === 'total_deposits' ||
-          dbColumn === 'total_deposit_count'
+          dbColumn === 'total_deposit_count' ||
+          dbColumn === 'total_ach_deposits'
         ) {
           // Numeric fields - handle both number and string types
           if (typeof value === 'number') {
@@ -201,6 +206,7 @@ function hasUserPropertiesChanged(existing: any, incoming: UserPropertyRow): boo
     'lifetime_copied_portfolios',
     'total_deposits',
     'total_deposit_count',
+    'total_ach_deposits',
   ]
 
   // Check each field - if ANY field differs, return true (needs update)
@@ -321,6 +327,7 @@ async function updateUserPropertiesBatch(
               lifetime_copied_portfolios: user.lifetime_copied_portfolios,
               total_deposits: user.total_deposits,
               total_deposit_count: user.total_deposit_count,
+              total_ach_deposits: user.total_ach_deposits,
             })
             .eq('user_id', existing.user_id)
 
