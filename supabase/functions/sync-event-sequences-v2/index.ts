@@ -345,7 +345,7 @@ serve(async (req) => {
           const { error: copyError } = await supabase
             .from('user_first_copies')
             .upsert(copyRows, {
-              onConflict: 'distinct_id'
+              onConflict: 'user_id'  // PRIMARY KEY is user_id
             })
 
           if (copyError) {
