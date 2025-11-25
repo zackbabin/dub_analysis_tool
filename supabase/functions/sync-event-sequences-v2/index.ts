@@ -324,18 +324,42 @@ serve(async (req) => {
           const sanitizedId = sanitizeDistinctId(userId)
           if (!sanitizedId) continue
 
-          // Find first timestamp (not "$overall")
-          const timestamps = Object.keys(data).filter(k => k !== '$overall')
-          if (timestamps.length > 0) {
-            const firstCopyTime = timestamps[0] // First key is the first copy time
+          // Navigate nested structure: user -> snowflake_id -> timestamp
+          // Structure: { user_id: { $overall: {...}, snowflake_id: { $overall: {...}, iso_timestamp: {...} } } }
+          const snowflakeIds = Object.keys(data).filter(k => k !== '$overall')
+          if (snowflakeIds.length === 0) continue
 
-            copyRows.push({
-              distinct_id: sanitizedId, // Legacy column for joins (sanitized)
-              user_id: userId,          // NEW: Store clean $user_id
-              first_copy_time: firstCopyTime,
-              synced_at: syncStartTime.toISOString()
-            })
+          // Get first snowflake ID
+          const firstSnowflakeId = snowflakeIds[0]
+          const snowflakeData = data[firstSnowflakeId]
+
+          if (!snowflakeData || typeof snowflakeData !== 'object') {
+            console.warn(`Skipping user ${userId} - no snowflake data`)
+            continue
           }
+
+          // Find ISO timestamp within snowflake data (exclude $overall)
+          const isoTimestamps = Object.keys(snowflakeData).filter(k => k !== '$overall')
+          if (isoTimestamps.length === 0) {
+            console.warn(`Skipping user ${userId} - no timestamp in snowflake data`)
+            continue
+          }
+
+          // First ISO timestamp is the first copy time
+          const firstCopyTime = isoTimestamps[0]
+
+          // Validate it's a proper ISO timestamp
+          if (!firstCopyTime.includes('T') && !firstCopyTime.includes('-')) {
+            console.warn(`Skipping user ${userId} - invalid timestamp format: ${firstCopyTime}`)
+            continue
+          }
+
+          copyRows.push({
+            distinct_id: sanitizedId, // Legacy column for joins (sanitized)
+            user_id: userId,          // NEW: Store clean $user_id
+            first_copy_time: new Date(firstCopyTime).toISOString(),
+            synced_at: syncStartTime.toISOString()
+          })
         }
 
         console.log(`✓ Extracted ${copyRows.length} first copy events for ${targetUserIds.length} users`)

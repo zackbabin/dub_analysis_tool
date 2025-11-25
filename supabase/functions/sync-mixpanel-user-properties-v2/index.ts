@@ -255,21 +255,8 @@ async function updateUserPropertiesBatch(
 
       if (fetchError) {
         console.error(`Error fetching existing records for comparison:`, fetchError.message)
-        // On error, fall back to upserting all (safe fallback - no data loss)
-        console.warn('Falling back to upserting all records in batch (no change detection)')
-        const { error, count } = await supabase
-          .from('subscribers_insights')
-          .upsert(batch, {
-            onConflict: 'distinct_id',
-            count: 'exact'
-          })
-
-        if (error) {
-          console.error(`Error upserting batch:`, error.message)
-        } else {
-          const batchCount = count || batch.length
-          totalUpserted += batchCount
-        }
+        // On error, skip batch to avoid data corruption (safe fallback)
+        console.warn('Skipping batch due to fetch error')
         continue
       }
 
@@ -304,21 +291,48 @@ async function updateUserPropertiesBatch(
 
       console.log(`  Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${usersToUpsert.length} changed, ${batch.length - usersToUpsert.length - skippedNew} unchanged (skipped), ${skippedNew} new (skipped - needs user_id from events sync first)`)
 
-      // Only upsert if there are changes
+      // Only update if there are changes
       if (usersToUpsert.length > 0) {
-        const { error, count } = await supabase
-          .from('subscribers_insights')
-          .upsert(usersToUpsert, {
-            onConflict: 'distinct_id',  // Lookup by distinct_id, update existing record
-            count: 'exact'
-          })
+        // Update records one by one using distinct_id lookup
+        let successCount = 0
+        for (const user of usersToUpsert) {
+          const existing = existingMap.get(user.distinct_id)
+          if (!existing || !existing.user_id) {
+            console.warn(`Skipping user ${user.distinct_id} - no user_id found`)
+            continue
+          }
 
-        if (error) {
-          console.error(`Error upserting batch:`, error.message)
-        } else {
-          const batchCount = count || usersToUpsert.length
-          totalUpserted += batchCount
+          // Update by user_id (primary key) with property values
+          const { error } = await supabase
+            .from('subscribers_insights')
+            .update({
+              income: user.income,
+              net_worth: user.net_worth,
+              investing_activity: user.investing_activity,
+              investing_experience_years: user.investing_experience_years,
+              investing_objective: user.investing_objective,
+              investment_type: user.investment_type,
+              acquisition_survey: user.acquisition_survey,
+              available_copy_credits: user.available_copy_credits,
+              buying_power: user.buying_power,
+              active_created_portfolios: user.active_created_portfolios,
+              lifetime_created_portfolios: user.lifetime_created_portfolios,
+              active_copied_portfolios: user.active_copied_portfolios,
+              lifetime_copied_portfolios: user.lifetime_copied_portfolios,
+              total_deposits: user.total_deposits,
+              total_deposit_count: user.total_deposit_count,
+            })
+            .eq('user_id', existing.user_id)
+
+          if (error) {
+            console.error(`Error updating user ${user.distinct_id}:`, error.message)
+          } else {
+            successCount++
+          }
         }
+
+        totalUpserted += successCount
+        console.log(`  Successfully updated ${successCount}/${usersToUpsert.length} records`)
       }
     } catch (batchError) {
       console.error(`Exception in batch processing:`, batchError.message)

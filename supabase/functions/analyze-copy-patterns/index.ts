@@ -11,7 +11,7 @@ import { TimeoutGuard } from '../_shared/sync-helpers.ts'
 // Portfolio copy analysis configuration
 const ANALYSIS_CONFIG = {
   table: 'user_portfolio_creator_copies',  // Regular view (converted from materialized) - always current
-  select: 'distinct_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
+  select: 'user_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
   filterColumn: 'pdp_view_count',
   outcomeColumn: 'did_copy',
   entityType: 'portfolio',
@@ -20,7 +20,7 @@ const ANALYSIS_CONFIG = {
 }
 
 interface UserData {
-  distinct_id: string
+  user_id: string
   entity_ids: Set<string>  // Can be creator_ids or portfolio_tickers
   did_convert: boolean
   conversion_count: number
@@ -142,7 +142,7 @@ function evaluateCombination(
     y.push(user.did_convert ? 1 : 0)
 
     if (hasExposure) {
-      usersWithBothExposures.add(user.distinct_id)
+      usersWithBothExposures.add(user.user_id)
     }
   }
 
@@ -191,8 +191,8 @@ function evaluateCombination(
   const userCopiesMap = new Map<string, number>() // Track copies per user to avoid double-counting
 
   // Create a lookup map for entity views to avoid O(n) lookups
-  const entity1Rows = new Map<string, number>() // distinct_id -> view_count for entity 1
-  const entity2Rows = new Map<string, number>() // distinct_id -> view_count for entity 2
+  const entity1Rows = new Map<string, number>() // user_id -> view_count for entity 1
+  const entity2Rows = new Map<string, number>() // user_id -> view_count for entity 2
 
   for (const pair of pairRows) {
     const entityId = entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
@@ -200,17 +200,17 @@ function evaluateCombination(
 
     // Build lookup maps for both entities
     if (entityId === combination[0]) {
-      entity1Rows.set(pair.distinct_id, viewCount)
+      entity1Rows.set(pair.user_id, viewCount)
     }
     if (entityId === combination[1]) {
-      entity2Rows.set(pair.distinct_id, viewCount)
+      entity2Rows.set(pair.user_id, viewCount)
     }
 
     // Track total copies per user (to avoid double-counting)
     const copyCount = pair.copy_count || pair.subscription_count || 0
     if (copyCount > 0) {
-      const currentUserCopies = userCopiesMap.get(pair.distinct_id) || 0
-      userCopiesMap.set(pair.distinct_id, Math.max(currentUserCopies, copyCount))
+      const currentUserCopies = userCopiesMap.get(pair.user_id) || 0
+      userCopiesMap.set(pair.user_id, Math.max(currentUserCopies, copyCount))
     }
   }
 
@@ -257,23 +257,23 @@ function pairsToUserData(
   for (const pair of pairs) {
     const entityId = entityColumn === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
 
-    if (!userMap.has(pair.distinct_id)) {
-      userMap.set(pair.distinct_id, {
-        distinct_id: pair.distinct_id,
+    if (!userMap.has(pair.user_id)) {
+      userMap.set(pair.user_id, {
+        user_id: pair.user_id,
         entity_ids: new Set(),
         did_convert: pair[outcomeColumn],
         conversion_count: pair.copy_count || pair.subscription_count || 0,
       })
     } else {
       // Update did_convert to true if ANY row has did_copy = true (OR logic)
-      const userData = userMap.get(pair.distinct_id)!
+      const userData = userMap.get(pair.user_id)!
       if (pair[outcomeColumn]) {
         userData.did_convert = true
       }
       // Accumulate conversion count
       userData.conversion_count += (pair.copy_count || pair.subscription_count || 0)
     }
-    userMap.get(pair.distinct_id)!.entity_ids.add(entityId)
+    userMap.get(pair.user_id)!.entity_ids.add(entityId)
   }
 
   return Array.from(userMap.values())
@@ -405,7 +405,7 @@ serve(async (req) => {
     // Sample a few users to verify data structure
     const sampleUsers = users.slice(0, 3)
     console.log(`📊 DIAGNOSTIC - Sample users:`, JSON.stringify(sampleUsers.map(u => ({
-      distinct_id: u.distinct_id,
+      user_id: u.user_id,
       entity_count: u.entity_ids.size,
       entity_ids: Array.from(u.entity_ids),
       did_convert: u.did_convert,
