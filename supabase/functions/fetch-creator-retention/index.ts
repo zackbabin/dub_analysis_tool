@@ -97,7 +97,7 @@ serve(async (req) => {
         const { error: upsertError } = await supabase
           .from('premium_creator_retention_events')
           .upsert(processedEvents, {
-            onConflict: 'distinct_id,creator_username,cohort_month',
+            onConflict: 'user_id,creator_username,cohort_month',
             ignoreDuplicates: false
           })
 
@@ -181,11 +181,11 @@ serve(async (req) => {
  * Process TWO Mixpanel Insights Charts into retention event records
  *
  * Input:
- * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"] - now uses $user_id
- * - renewedChartData: Chart 86188712 with series["Renewed Subscription"] - now uses $user_id
+ * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"] - uses $user_id
+ * - renewedChartData: Chart 86188712 with series["Renewed Subscription"] - uses $user_id
  *
  * Structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
- * Note: Charts now return $user_id instead of distinct_id, which we map to distinct_id column in DB
+ * Note: Charts return $user_id, which maps to user_id column in DB
  */
 function processRetentionChartData(subscribedChartData: any, renewedChartData: any): any[] {
   const events: any[] = []
@@ -240,8 +240,7 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
       continue
     }
 
-    // userId is the $user_id from Mixpanel (no $device: prefix anymore)
-    // Map to distinct_id column in DB
+    // userId is the $user_id from Mixpanel
     if (!userId) continue
 
     if (typeof userIdData !== 'object') continue
@@ -267,12 +266,11 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
         }
 
         // Create unique key
-        // Map $user_id to distinct_id column (DB column name stays the same)
         const key = `${userId}|${creatorUsername}|${cohortMonth}`
 
         if (!eventMap.has(key)) {
           eventMap.set(key, {
-            distinct_id: userId,  // Maps $user_id to distinct_id column
+            user_id: userId,  // Mixpanel $user_id
             creator_username: creatorUsername,
             cohort_month: cohortMonth,
             cohort_date: parseCohortMonth(cohortMonth),

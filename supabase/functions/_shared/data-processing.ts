@@ -86,12 +86,12 @@ export function processFunnelData(data: any, funnelType: string): any[] {
 /**
  * Process portfolio-creator engagement data to create user-level pairs
  * Combines profile views, PDP views, subscriptions, copies, and liquidations into normalized pairs
- * @param profileViewsData - Profile views by creator (chart 85165851) - now uses $user_id
- * @param pdpViewsData - PDP views, copies, liquidations by portfolio/creator (chart 85165580) - now uses $user_id
- * @param subscriptionsData - Subscription events by user (chart 85165590) - now uses $user_id
+ * @param profileViewsData - Profile views by creator (chart 85165851) - uses $user_id
+ * @param pdpViewsData - PDP views, copies, liquidations by portfolio/creator (chart 85165580) - uses $user_id
+ * @param subscriptionsData - Subscription events by user (chart 85165590) - uses $user_id
  * @param syncedAt - Timestamp for sync tracking
  * @returns Object with two arrays: portfolioCreatorPairs and creatorPairs
- * Note: Charts now return $user_id instead of distinct_id, which we map to distinct_id column in DB
+ * Note: Charts return $user_id, which maps to user_id column in staging tables
  */
 export function processPortfolioCreatorPairs(
   profileViewsData: any,
@@ -156,7 +156,7 @@ export function processPortfolioCreatorPairs(
                 existingPair.profile_view_count += count
               } else {
                 const newPair = {
-                  distinct_id: userId,  // Maps $user_id to distinct_id column
+                  user_id: userId,  // Mixpanel $user_id
                   creator_id: creatorId,
                   creator_username: username,
                   profile_view_count: count,
@@ -203,7 +203,7 @@ export function processPortfolioCreatorPairs(
                 existingPair.subscription_count = count
               } else {
                 const newPair = {
-                  distinct_id: userId,  // Maps $user_id to distinct_id column
+                  user_id: userId,  // Mixpanel $user_id
                   creator_id: creatorId,
                   creator_username: username,
                   profile_view_count: 0,
@@ -349,9 +349,8 @@ export function processPortfolioCreatorPairs(
     if (profileViewCount === 0 && pdpCount === 0 && copyCount === 0 && liquidationCount === 0 && subscriptionCount === 0) return
 
     // Add portfolio-creator engagement pair with correct column names for staging table
-    // Map $user_id to distinct_id column (DB column name stays the same)
     portfolioCreatorPairs.push({
-      distinct_id: userId,  // Maps $user_id to distinct_id column
+      user_id: userId,  // Mixpanel $user_id
       portfolio_ticker: portfolioTicker,
       creator_id: creatorId,
       creator_username: creatorUsername,  // Include for hidden_gems and other views
