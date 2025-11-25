@@ -16,6 +16,7 @@ import {
 
 interface EnrichedConversation {
   id: string // Ticket ID (Zendesk ticket.id, Instabug bug.id)
+  external_id: string // External ticket ID from source system
   source: string
   title: string
   description: string
@@ -384,8 +385,12 @@ serve(async (req) => {
           truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
         }
 
-        // Extract Zendesk URL from raw_data.url if available
-        const zendesk_url = conv.raw_data?.url || null
+        // Construct proper Zendesk web UI URL if source is Zendesk
+        let zendesk_url = null
+        if (conv.source === 'zendesk' && conv.external_id) {
+          const subdomain = Deno.env.get('ZENDESK_SUBDOMAIN') || 'dubinvest'
+          zendesk_url = `https://${subdomain}.zendesk.com/agent/tickets/${conv.external_id}`
+        }
 
         return {
           id: idx + 1,
