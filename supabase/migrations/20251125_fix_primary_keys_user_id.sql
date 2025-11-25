@@ -121,16 +121,17 @@ CREATE VIEW user_portfolio_creator_copies AS
 SELECT
   user_id,  -- Changed from distinct_id
   portfolio_ticker,
-  SUM(pdp_view_count) AS pdp_view_count,
-  BOOL_OR(did_copy) AS did_copy,
-  SUM(copy_count) AS copy_count,
-  SUM(liquidation_count) AS liquidation_count,
-  MAX(synced_at) AS synced_at
-FROM user_portfolio_creator_engagement
-GROUP BY user_id, portfolio_ticker;
+  creator_id,
+  creator_username,
+  pdp_view_count,
+  copy_count,
+  liquidation_count,
+  (copy_count > 0) AS did_copy,
+  synced_at
+FROM user_portfolio_creator_engagement;
 
 COMMENT ON VIEW user_portfolio_creator_copies IS
-'Aggregates portfolio engagement by user and portfolio (across all creators).
+'Portfolio-level engagement showing user interactions with specific portfolios.
 Updated to use user_id instead of distinct_id.';
 
 -- Drop and recreate user_creator_profile_copies view (cannot rename columns with CREATE OR REPLACE)
@@ -138,17 +139,26 @@ DROP VIEW IF EXISTS user_creator_profile_copies CASCADE;
 
 CREATE VIEW user_creator_profile_copies AS
 SELECT
-  user_id,  -- Changed from distinct_id
-  creator_id,
-  creator_username,
-  profile_view_count,
-  did_subscribe AS did_copy,  -- Renamed for consistency
-  subscription_count AS copy_count,  -- Renamed for consistency
-  synced_at
-FROM user_creator_engagement;
+  uce.user_id,  -- Changed from distinct_id
+  uce.creator_id,
+  uce.creator_username,
+  uce.profile_view_count,
+  COALESCE(agg.did_copy, false) AS did_copy,
+  COALESCE(agg.copy_count, 0) AS copy_count
+FROM user_creator_engagement uce
+LEFT JOIN (
+  SELECT
+    user_id,  -- Changed from distinct_id
+    creator_id,
+    MAX(CASE WHEN did_copy THEN 1 ELSE 0 END)::boolean AS did_copy,
+    SUM(copy_count)::integer AS copy_count
+  FROM user_portfolio_creator_engagement
+  GROUP BY user_id, creator_id  -- Changed from distinct_id
+) agg ON (uce.user_id = agg.user_id AND uce.creator_id = agg.creator_id);  -- Changed from distinct_id
 
 COMMENT ON VIEW user_creator_profile_copies IS
-'Shows creator profile engagement per user.
+'Creator-level engagement with copy behavior aggregated across all portfolios by that creator.
+Used for analyzing which creator profile view combinations drive copies.
 Updated to use user_id instead of distinct_id.';
 
 -- Log the changes
