@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=126"></script>
+    <script src="csv_utils.js?v=127"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=126"></script>
+    <script src="analysis_utils.js?v=127"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=126"></script>
+    <script src="supabase_integration.js?v=127"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=126"></script>
+    <script src="user_analysis_tool.js?v=127"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=126"></script>
+    <script src="user_analysis_tool_supabase.js?v=127"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=126"></script>
+    <script src="creator_analysis_tool.js?v=127"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=126"></script>
+    <script src="creator_analysis_tool_supabase.js?v=127"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=126"></script>
+    <script src="business-model-analysis.js?v=127"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=126"></script>
+    <script src="crypto-analysis.js?v=127"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=126"></script>
+    <script src="cx-analysis.js?v=127"></script>
 
     <script>
         // Supabase Configuration
@@ -368,6 +368,10 @@
                 }
             };
         }
+
+        // Expose modal functions to global window object
+        window.showCreatorUploadModal = showCreatorUploadModal;
+        window.showMarketingUploadModal = showMarketingUploadModal;
 
         // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
