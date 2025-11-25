@@ -306,8 +306,9 @@ serve(async (req) => {
         console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
 
         // Parse series object to extract first copy times AND build target user list
-        // Chart 86612901 now returns $user_id instead of distinct_id
-        const copyRows = []
+        // Chart 86612901 returns $user_id (merged identity), but we need distinct_id for joins
+        // Strategy: Store user_id + first_copy_time now, will populate distinct_id from Export API events later
+        const copyRowsMap = new Map<string, any>() // key: user_id, value: row
         const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
         for (const [userId, data] of Object.entries(series)) {
@@ -316,13 +317,7 @@ serve(async (req) => {
           if (!userId) continue
 
           // For Export API filtering, we need to use the user_id as-is
-          // (Export API expects $user_id format from charts migrated to new identifier)
           targetUserIds.push(userId)
-
-          // For backward compatibility with joins, also sanitize to create distinct_id
-          // (removes $device: prefix if present in legacy data)
-          const sanitizedId = sanitizeDistinctId(userId)
-          if (!sanitizedId) continue
 
           // Navigate nested structure: user -> snowflake_id -> timestamp
           // Structure: { user_id: { $overall: {...}, snowflake_id: { $overall: {...}, iso_timestamp: {...} } } }
@@ -354,31 +349,19 @@ serve(async (req) => {
             continue
           }
 
-          copyRows.push({
-            distinct_id: sanitizedId, // Legacy column for joins (sanitized)
-            user_id: userId,          // NEW: Store clean $user_id
+          // Store in map - will populate distinct_id from Export API events
+          copyRowsMap.set(userId, {
+            user_id: userId,
+            distinct_id: null,  // Will be populated from Export API
             first_copy_time: new Date(firstCopyTime).toISOString(),
             synced_at: syncStartTime.toISOString()
           })
         }
 
-        console.log(`✓ Extracted ${copyRows.length} first copy events for ${targetUserIds.length} users`)
+        console.log(`✓ Extracted ${copyRowsMap.size} first copy events for ${targetUserIds.length} users`)
+        console.log(`   (distinct_id will be populated from Export API events)`)
 
-        // Upsert to user_first_copies table
-        if (copyRows.length > 0) {
-          const { error: copyError } = await supabase
-            .from('user_first_copies')
-            .upsert(copyRows, {
-              onConflict: 'user_id'  // PRIMARY KEY is user_id
-            })
-
-          if (copyError) {
-            console.error('⚠️ Error inserting copy events:', copyError)
-          } else {
-            copyEventsSynced = copyRows.length
-            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events`)
-          }
-        }
+        // Don't insert yet - we'll populate distinct_id from Export API and insert after processing events
       } catch (chartError: any) {
         console.error('⚠️ Chart fetch failed:', chartError.message)
         console.log('   Will fetch ALL portfolio view events (no user filter)')
