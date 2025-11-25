@@ -114,8 +114,10 @@ COMMENT ON COLUMN user_portfolio_creator_engagement.creator_id IS
 -- 4. Update dependent views
 -- ============================================================================
 
--- Fix user_portfolio_creator_copies view to use user_id instead of distinct_id
-CREATE OR REPLACE VIEW user_portfolio_creator_copies AS
+-- Drop and recreate user_portfolio_creator_copies view (cannot rename columns with CREATE OR REPLACE)
+DROP VIEW IF EXISTS user_portfolio_creator_copies CASCADE;
+
+CREATE VIEW user_portfolio_creator_copies AS
 SELECT
   user_id,  -- Changed from distinct_id
   portfolio_ticker,
@@ -131,8 +133,10 @@ COMMENT ON VIEW user_portfolio_creator_copies IS
 'Aggregates portfolio engagement by user and portfolio (across all creators).
 Updated to use user_id instead of distinct_id.';
 
--- Fix user_creator_profile_copies view to use user_id instead of distinct_id
-CREATE OR REPLACE VIEW user_creator_profile_copies AS
+-- Drop and recreate user_creator_profile_copies view (cannot rename columns with CREATE OR REPLACE)
+DROP VIEW IF EXISTS user_creator_profile_copies CASCADE;
+
+CREATE VIEW user_creator_profile_copies AS
 SELECT
   user_id,  -- Changed from distinct_id
   creator_id,
