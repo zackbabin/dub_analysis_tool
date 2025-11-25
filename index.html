@@ -84,55 +84,45 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=123"></script>
+    <script src="csv_utils.js?v=124"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=123"></script>
+    <script src="analysis_utils.js?v=124"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=123"></script>
+    <script src="supabase_integration.js?v=124"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=123"></script>
+    <script src="user_analysis_tool.js?v=124"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=123"></script>
+    <script src="user_analysis_tool_supabase.js?v=124"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=123"></script>
+    <script src="creator_analysis_tool.js?v=124"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=123"></script>
+    <script src="creator_analysis_tool_supabase.js?v=124"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=123"></script>
+    <script src="business-model-analysis.js?v=124"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=123"></script>
+    <script src="crypto-analysis.js?v=124"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=123"></script>
+    <script src="cx-analysis.js?v=124"></script>
 
     <script>
         // Supabase Configuration
         const SUPABASE_URL = 'https://rnpfeblxapdafrbmomix.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJucGZlYmx4YXBkYWZyYm1vbWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMjMwNjIsImV4cCI6MjA3NDg5OTA2Mn0.qGTxaIkqspHZcCN1bcyUj6y1HvkOqj4DTmmgDe-df1Q';
 
-        // Create unified data source component
+        // Create unified data source component (buttons removed - now in tab headers)
         function createUnifiedDataSource(userTool, creatorTool) {
             const container = document.getElementById('unifiedDataSource');
             container.innerHTML = `
-                <div style="display: flex; justify-content: center; margin-bottom: 20px;">
-                    <div class="data-source-buttons" style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; max-width: 650px; width: 100%;">
-                        <div id="syncLiveDataBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                            <div style="font-weight: bold; color: #28a745; font-size: 16px;">Sync Live Data</div>
-                        </div>
-                        <div id="manualUploadBtn" style="flex: 1; min-width: 180px; padding: 20px; background: white; border: 2px solid #28a745; border-radius: 8px; cursor: pointer; transition: all 0.3s; text-align: center;">
-                            <div style="font-weight: bold; color: #28a745; font-size: 16px;">Upload Manual Data</div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Progress bar - same width as data source component -->
+                <!-- Progress bar -->
                 <div style="display: flex; justify-content: center;">
                     <div id="unifiedProgressSection" style="display: none; margin-bottom: 10px; max-width: 800px; width: 100%;">
                         <div style="background: #e9ecef; border-radius: 5px; overflow: hidden; height: 30px;">
@@ -146,43 +136,15 @@
                 <div id="unifiedStatusSection" style="display: none;"></div>
             `;
 
-            const syncBtn = document.getElementById('syncLiveDataBtn');
-            const uploadBtn = document.getElementById('manualUploadBtn');
-
-            // Click handlers will be set by updateButtonStates() based on active tab
-
-            // Store original hover functions to restore later
-            const syncHoverIn = () => {
-                if (!syncBtn.disabled) {
-                    syncBtn.style.background = '#28a745';
-                    syncBtn.querySelector('div').style.color = 'white';
-                }
+            // Return empty objects since buttons are now in tab headers
+            return {
+                syncBtn: null,
+                uploadBtn: null,
+                syncHoverIn: () => {},
+                syncHoverOut: () => {},
+                uploadHoverIn: () => {},
+                uploadHoverOut: () => {}
             };
-            const syncHoverOut = () => {
-                if (!syncBtn.disabled) {
-                    syncBtn.style.background = 'white';
-                    syncBtn.querySelector('div').style.color = '#28a745';
-                }
-            };
-            const uploadHoverIn = () => {
-                if (!uploadBtn.disabled) {
-                    uploadBtn.style.background = '#28a745';
-                    uploadBtn.querySelector('div').style.color = 'white';
-                }
-            };
-            const uploadHoverOut = () => {
-                if (!uploadBtn.disabled) {
-                    uploadBtn.style.background = 'white';
-                    uploadBtn.querySelector('div').style.color = '#28a745';
-                }
-            };
-
-            syncBtn.onmouseover = syncHoverIn;
-            syncBtn.onmouseout = syncHoverOut;
-            uploadBtn.onmouseover = uploadHoverIn;
-            uploadBtn.onmouseout = uploadHoverOut;
-
-            return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
 
         // Initialize Process Files button handler
@@ -410,6 +372,11 @@
         // Update button states for unified component (only used on first 3 tabs)
         function updateButtonStates(activeTab, buttons, userTool, creatorTool) {
             const { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut } = buttons;
+
+            // Buttons are now in tab headers - this function is kept for compatibility but does nothing
+            if (!syncBtn || !uploadBtn) {
+                return;
+            }
 
             // Unified component is only shown on user tabs (summary, portfolio, subscription)
             // Sync Live Data button is always enabled on these tabs

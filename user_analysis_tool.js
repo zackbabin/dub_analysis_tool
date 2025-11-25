@@ -1822,7 +1822,10 @@ function displaySummaryStatsInline(stats) {
     uploadBtn.onmouseover = () => uploadBtn.style.background = '#5a6268';
     uploadBtn.onmouseout = () => uploadBtn.style.background = '#6c757d';
     uploadBtn.onclick = () => {
-        if (window.userAnalysisTool) {
+        // For Summary Stats tab, show marketing upload modal
+        if (window.showMarketingUploadModal && window.userAnalysisTool) {
+            window.showMarketingUploadModal(window.userAnalysisTool);
+        } else if (window.userAnalysisTool) {
             window.userAnalysisTool.runWorkflow('upload');
         }
     };
