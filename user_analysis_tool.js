@@ -1781,9 +1781,9 @@ function displaySummaryStatsInline(stats) {
     const resultSection = document.createElement('div');
     resultSection.className = 'qda-result-section';
 
-    // Wrapper for H1 and buttons
+    // Wrapper for H1
     const headerWrapper = document.createElement('div');
-    headerWrapper.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;';
+    headerWrapper.style.cssText = 'margin-bottom: 0.25rem;';
 
     const title = document.createElement('h1');
     title.style.cssText = 'margin: 0;';
