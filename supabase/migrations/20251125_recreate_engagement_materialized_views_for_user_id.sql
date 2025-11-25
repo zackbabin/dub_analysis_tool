@@ -65,27 +65,27 @@ Refreshed via refresh_portfolio_engagement_views().';
 
 -- Recreate premium_creator_stock_holdings
 CREATE MATERIALIZED VIEW premium_creator_stock_holdings AS
-SELECT DISTINCT
-  c.creator_id,
-  c.creator_username,
-  c.tier,
-  c.portfolio_ticker,
-  c.portfolio_name,
-  s.symbol,
-  s.weight,
-  s.snapshot_date
-FROM premium_creators c
-INNER JOIN portfolio_assets_breakdown s
-  ON c.portfolio_ticker = s.portfolio_ticker
-WHERE c.tier = 'premium'
-  AND s.symbol IS NOT NULL
-ORDER BY c.creator_username, s.weight DESC;
+SELECT
+  pc.creator_username,
+  psh.stock_ticker,
+  SUM(psh.total_quantity) AS total_quantity,
+  SUM(psh.total_quantity * COALESCE(psh.avg_price, 0)) AS total_value,
+  MAX(pcem.total_copies) AS creator_total_copies
+FROM premium_creators pc
+JOIN portfolio_creator_engagement_metrics pcem
+  ON pc.creator_id = pcem.creator_id
+JOIN portfolio_stock_holdings psh
+  ON pcem.portfolio_ticker = psh.portfolio_ticker
+GROUP BY pc.creator_username, psh.stock_ticker;
 
-CREATE INDEX idx_premium_creator_stock_holdings_creator
-  ON premium_creator_stock_holdings(creator_id);
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_creator
+  ON premium_creator_stock_holdings(creator_username);
 
-CREATE INDEX idx_premium_creator_stock_holdings_symbol
-  ON premium_creator_stock_holdings(symbol);
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_stock
+  ON premium_creator_stock_holdings(stock_ticker);
+
+CREATE INDEX IF NOT EXISTS idx_premium_creator_stock_holdings_quantity
+  ON premium_creator_stock_holdings(total_quantity DESC);
 
 COMMENT ON MATERIALIZED VIEW premium_creator_stock_holdings IS
 'Stock holdings for all premium creators with weights. Updated to use user_id.
@@ -94,19 +94,16 @@ Refreshed via refresh_portfolio_engagement_views() or upload-portfolio-metrics.'
 -- Recreate top_stocks_all_premium_creators
 CREATE MATERIALIZED VIEW top_stocks_all_premium_creators AS
 SELECT
-  symbol,
-  COUNT(DISTINCT creator_id) as creator_count,
-  ROUND(AVG(weight), 4) as avg_weight,
-  ROUND(SUM(weight), 4) as total_weight,
-  MAX(snapshot_date) as latest_snapshot
+  stock_ticker,
+  SUM(total_quantity) AS total_quantity,
+  COUNT(DISTINCT creator_username) AS creator_count,
+  ROW_NUMBER() OVER (ORDER BY SUM(total_quantity) DESC) AS rank
 FROM premium_creator_stock_holdings
-WHERE symbol IS NOT NULL
-GROUP BY symbol
-HAVING COUNT(DISTINCT creator_id) >= 1
-ORDER BY creator_count DESC, total_weight DESC;
+GROUP BY stock_ticker
+ORDER BY total_quantity DESC;
 
-CREATE UNIQUE INDEX idx_top_stocks_all_premium_creators_symbol
-  ON top_stocks_all_premium_creators(symbol);
+CREATE INDEX IF NOT EXISTS idx_top_stocks_rank
+  ON top_stocks_all_premium_creators(rank);
 
 COMMENT ON MATERIALIZED VIEW top_stocks_all_premium_creators IS
 'Aggregates stock holdings across all premium creators. Updated to use user_id.
