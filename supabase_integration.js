@@ -433,16 +433,6 @@ class SupabaseIntegration {
                 portfolioProcessData = { stats: { failed: true, skipped: true } };
             }
 
-            // Refresh main_analysis view after all source tables are populated
-            // (subscribers_insights + user_portfolio_creator_engagement)
-            console.log('→ Refreshing main_analysis materialized view...');
-            try {
-                await this.supabase.rpc('refresh_main_analysis');
-                console.log('  ✓ main_analysis refreshed');
-            } catch (refreshError) {
-                console.warn('  ⚠ Failed to refresh main_analysis:', refreshError.message);
-            }
-
             // Part 5: Process creator engagement (only if fetch succeeded)
             let creatorProcessData = null;
             if (engagementFilename) {
@@ -470,6 +460,16 @@ class SupabaseIntegration {
                 console.log('  ⊘ 5/5: Skipped (no engagement file)');
 
                 creatorProcessData = { stats: { failed: true, skipped: true } };
+            }
+
+            // Refresh main_analysis view after all source tables and processing are complete
+            // (subscribers_insights + user_portfolio_creator_engagement + all engagement processing)
+            console.log('→ Refreshing main_analysis materialized view...');
+            try {
+                await this.supabase.rpc('refresh_main_analysis');
+                console.log('  ✓ main_analysis refreshed');
+            } catch (refreshError) {
+                console.warn('  ⚠ Failed to refresh main_analysis:', refreshError.message);
             }
 
             console.log('✅ Mixpanel Sync: Complete');
