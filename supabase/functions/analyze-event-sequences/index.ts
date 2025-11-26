@@ -3,8 +3,8 @@
 // Claude calculates average unique portfolio views before first copy
 //
 // Data sources:
-//   - event_sequences_raw: All portfolio view events (last 14 days)
-//   - user_first_copies: Users who copied at least once with first copy timestamp
+//   - event_sequences: View joining event_sequences_raw + user_first_copies (complete event history)
+//   - user_first_copies: 200 most recent users who copied at least once
 //
 // No pre-aggregation - Claude analyzes raw events directly
 
@@ -56,17 +56,14 @@ serve(async (req) => {
 
     console.log(`Found ${convertersData.length} converters`)
 
-    // Fetch all view events for these converters in a single batch query
-    // Add date filter to limit data volume (only fetch events from last 14 days)
+    // Fetch ALL view events for these converters (complete event history)
     const converterIds = convertersData.map(c => c.distinct_id)
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 
-    console.log('Fetching view events for all converters in batch (last 14 days)...')
+    console.log('Fetching ALL view events for converters (complete event history)...')
     const { data: allViews, error: viewsError } = await supabase
-      .from('event_sequences_raw')
+      .from('event_sequences')
       .select('distinct_id, event_time, portfolio_ticker')
       .in('distinct_id', converterIds)
-      .gte('event_time', fourteenDaysAgo)
       .order('distinct_id, event_time')
 
     if (viewsError) throw viewsError

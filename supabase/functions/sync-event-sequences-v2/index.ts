@@ -1,14 +1,15 @@
 // Supabase Edge Function: sync-event-sequences-v2
 // OPTIMIZED: Two-step process to minimize data volume
 //
-// Step 1: Fetch ~435 users who copied in last 7 days (Mixpanel chart 86612901)
-// Step 2: Stream "Viewed Portfolio Details" for those users, processing in 5000-event chunks
+// Step 1: Fetch users who copied (Mixpanel chart 86612901)
+// Step 2: Stream "Viewed Portfolio Details" for those users (last 30 days), processing in 5000-event chunks
 //
 // Streaming approach avoids CPU timeout by processing batches incrementally.
 //
 // Stores:
-//   - Raw view events in event_sequences_raw (no aggregation)
+//   - Raw view events in event_sequences_raw (pure Mixpanel Export API data, no user_id)
 //   - First copy times in user_first_copies
+//   - user_id available via event_sequences view (joins raw + user_first_copies)
 //
 // No pre-aggregation - analyze-event-sequences queries raw data directly
 
@@ -266,10 +267,10 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      // OPTIMIZED: Always fetch last 14 days (no incremental mode)
+      // OPTIMIZED: Always fetch last 30 days (no incremental mode)
       // Combined with user filtering, this keeps data volume manageable
-      console.log('📦 Date range: last 14 days')
-      const backfillDays = 14
+      console.log('📦 Date range: last 30 days')
+      const backfillDays = 30
       const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
       // Use yesterday as toDate to avoid timezone issues with Mixpanel API
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
@@ -434,10 +435,9 @@ serve(async (req) => {
           // Sanitize distinct_id (removes $device: prefix)
           const distinctId = sanitizeDistinctId(rawUserId)
 
-          // Note: user_id will be NULL here - it gets populated later from user_first_copies join
+          // Store raw event data (user_id available via event_sequences view join)
           rawEventRows.push({
             distinct_id: distinctId,  // Sanitized distinct_id (no $device: prefix)
-            user_id: null,             // Will be populated by DB function via user_first_copies join
             event_name: event.event,
             event_time: eventTime,
             portfolio_ticker: event.properties.portfolioTicker || null,
@@ -639,19 +639,7 @@ serve(async (req) => {
 
       console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
 
-      // Populate user_id in event_sequences_raw by joining with user_first_copies
-      if (copyEventsSynced > 0) {
-        console.log('Populating user_id in event_sequences_raw from user_first_copies...')
-        const { data: populateResult, error: populateError } = await supabase
-          .rpc('populate_event_sequences_user_id')
-
-        if (populateError) {
-          console.error('⚠️ Error populating user_id:', populateError)
-        } else {
-          const rowsUpdated = populateResult?.[0]?.rows_updated || 0
-          console.log(`✅ Populated user_id for ${rowsUpdated} event records`)
-        }
-      }
+      // Note: user_id is available via event_sequences view (joins with user_first_copies)
 
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
