@@ -65,15 +65,15 @@ premium_creator_copiers AS (
     AND upce.did_copy = true
 ),
 premium_totals AS (
-  -- Get aggregated totals from premium_creator_portfolio_metrics
+  -- Get aggregated totals from portfolio_creator_copy_metrics
   SELECT
     pc.creator_username AS premium_creator,
-    SUM(pcpm.total_copies) AS total_copies,
-    SUM(pcpm.total_liquidations) AS total_liquidations
+    SUM(pccm.total_copies) AS total_copies,
+    SUM(pccm.total_liquidations) AS total_liquidations
   FROM premium_creators_list pc
   CROSS JOIN LATERAL unnest(pc.creator_ids) AS pc_creator_id
-  LEFT JOIN premium_creator_portfolio_metrics_latest pcpm
-    ON pc_creator_id = pcpm.creator_id
+  LEFT JOIN portfolio_creator_copy_metrics pccm
+    ON pc_creator_id = pccm.creator_id
   GROUP BY pc.creator_username
 ),
 affinity_raw AS (
