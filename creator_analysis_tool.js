@@ -1060,7 +1060,7 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.11'; // Removed dead behavioral driver code
+            const CACHE_VERSION = '2.12'; // Fixed missing user analysis functions
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
             if (cachedVersion !== CACHE_VERSION) {

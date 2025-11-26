@@ -1224,6 +1224,94 @@ function calculateCorrelation(x, y) {
     return denominator === 0 ? 0 : numerator / denominator;
 }
 
+function classifyPersona(user) {
+    function isLowerOrUnknownIncome(income) {
+        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k'];
+        if (!income) return true;
+        const incomeStr = String(income);
+        return incomeStr.trim() === '' || lowerIncomes.includes(incomeStr);
+    }
+
+    function isLowerOrUnknownNetWorth(netWorth) {
+        const lowerNetWorths = ['Less than $10,000', '<10k', '$10,000-$49,999', '10k–50k', '$50,000-$99,999', '50k–100k'];
+        if (!netWorth) return true;
+        const netWorthStr = String(netWorth);
+        return netWorthStr.trim() === '' || lowerNetWorths.includes(netWorthStr);
+    }
+
+    function isHigherOrUnknownIncome(income) {
+        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k'];
+        if (!income) return true;
+        const incomeStr = String(income);
+        return incomeStr.trim() === '' || !lowerIncomes.includes(incomeStr);
+    }
+
+    const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
+    const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
+    const hasCopied = user.totalCopies >= 1;
+
+    // HIERARCHICAL PRIORITY ORDER
+    if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
+        return 'premium';
+    }
+
+    if (user.totalSubscriptions === 0 &&
+        hasCopied &&
+        isHigherOrUnknownIncome(user.income) &&
+        user.totalDeposits >= 1000) {
+        return 'aspiringPremium';
+    }
+
+    if (user.totalSubscriptions === 0) {
+        const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1);
+        const engagementQualifies = (hasCopied || totalPDPViews >= 2);
+
+        if (depositQualifies || engagementQualifies) {
+            return 'core';
+        }
+    }
+
+    if (isHigherOrUnknownIncome(user.income) &&
+        user.hasLinkedBank === 0 &&
+        user.totalDeposits === 0 &&
+        user.totalCopies === 0 &&
+        totalCreatorViews > 0 &&
+        totalPDPViews < 2) {
+        return 'activationTargets';
+    }
+
+    const hasEngagement = hasCopied || totalPDPViews >= 1;
+    if (user.totalDeposits <= 200 &&
+        isLowerOrUnknownIncome(user.income) &&
+        isLowerOrUnknownNetWorth(user.netWorth) &&
+        user.totalSubscriptions === 0 &&
+        user.hasLinkedBank === 1 &&
+        !hasEngagement) {
+        return 'lowerIncome';
+    }
+
+    if (user.hasLinkedBank === 0 &&
+        user.totalDeposits === 0 &&
+        totalPDPViews === 0 &&
+        totalCreatorViews === 0) {
+        return 'nonActivated';
+    }
+
+    return 'unclassified';
+}
+
+function calculateDemographicBreakdown(data, key) {
+    let totalResponses = 0;
+    const counts = data.reduce((acc, d) => {
+        const value = d[key];
+        if (value && typeof value === 'string' && value.trim() !== '') {
+            acc[value] = (acc[value] || 0) + 1;
+            totalResponses++;
+        }
+        return acc;
+    }, {});
+    return { counts, totalResponses };
+}
 
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
@@ -1844,8 +1932,8 @@ function displayCombinedAnalysisInline(correlationResults, regressionResults, cl
         const allVariables = Object.keys(correlationResults[outcome]);
         const regressionData = regressionResults[outcome.replace('total', '').toLowerCase()];
 
-        const excludedVars = SECTION_EXCLUSIONS[outcome] || [];
-        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
+        // Note: Variable filtering now handled by Edge Function via INCLUSIONS
+        const filteredVariables = allVariables;
 
         const combinedData = filteredVariables.map(variable => {
             const correlation = correlationResults[outcome][variable];
