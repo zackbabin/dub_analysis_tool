@@ -595,7 +595,7 @@ class UserAnalysisTool {
         // Pre-group all data in a single pass through the dataset
         const preGroupedData = preGroupDataForTippingPoints(cleanData);
 
-        ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
+        ['didCopy', 'didDeposit', 'didSubscribe'].forEach(outcome => {
             tippingPoints[outcome] = {};
 
             const variables = Object.keys(correlationResults[outcome]);
@@ -1340,11 +1340,11 @@ function calculateCorrelations(data) {
 
     // Pre-extract all variable arrays once to avoid repeated map operations
     const variableArrays = {};
-    ['totalCopies', 'totalDeposits', 'totalSubscriptions'].concat(variables).forEach(varName => {
+    ['didCopy', 'didDeposit', 'didSubscribe'].concat(variables).forEach(varName => {
         variableArrays[varName] = data.map(d => d[varName]);
     });
 
-    ['totalCopies', 'totalDeposits', 'totalSubscriptions'].forEach(outcome => {
+    ['didCopy', 'didDeposit', 'didSubscribe'].forEach(outcome => {
         correlations[outcome] = {};
         variables.forEach(variable => {
             if (variable !== outcome) {
@@ -1393,7 +1393,7 @@ function performRegression(data, outcome, correlations) {
 function preGroupDataForTippingPoints(data) {
     const allGroups = {};
     const variables = getAllVariables(data);  // Use dynamic variable detection
-    const outcomes = ['totalCopies', 'totalDeposits', 'totalSubscriptions'];
+    const outcomes = ['didCopy', 'didDeposit', 'didSubscribe'];
 
     // Single pass through the dataset, grouping all variable/outcome combinations
     data.forEach(user => {
@@ -1689,7 +1689,12 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         investingActivity: row['Investing Activity'] || row['investingActivity'] || '',
         investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
         investmentType: row['Investment Type'] || row['investmentType'] || '',
-        acquisitionSurvey: row['Acquisition Survey'] || row['acquisitionSurvey'] || ''
+        acquisitionSurvey: row['Acquisition Survey'] || row['acquisitionSurvey'] || '',
+
+        // Boolean conversion flags (for behavioral driver analysis)
+        didCopy: row['Did Copy'] || row['did_copy'] || 0,
+        didSubscribe: row['Did Subscribe'] || row['did_subscribe'] || 0,
+        didDeposit: row['Did Deposit'] || row['did_deposit'] || 0
     }));
 
     // Step 2: Dynamically add any new columns that weren't hardcoded above
@@ -1732,9 +1737,9 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
     const summaryStats = calculateSummaryStats(cleanData);
     const correlationResults = calculateCorrelations(cleanData);
     const regressionResults = {
-        copies: performRegression(cleanData, 'totalCopies', correlationResults),
-        deposits: performRegression(cleanData, 'totalDeposits', correlationResults),
-        subscriptions: performRegression(cleanData, 'totalSubscriptions', correlationResults)
+        copies: performRegression(cleanData, 'didCopy', correlationResults),
+        deposits: performRegression(cleanData, 'didDeposit', correlationResults),
+        subscriptions: performRegression(cleanData, 'didSubscribe', correlationResults)
     };
 
     return {

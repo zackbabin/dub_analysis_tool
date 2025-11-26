@@ -48,7 +48,7 @@ serve(async (req) => {
     console.log('Fetching converters from user_first_copies...')
     const { data: convertersData, error: convertersError } = await supabase
       .from('user_first_copies')
-      .select('distinct_id, first_copy_time')
+      .select('user_id, first_copy_time')
       .order('first_copy_time', { ascending: false })
       .limit(200)
 
@@ -57,14 +57,14 @@ serve(async (req) => {
     console.log(`Found ${convertersData.length} converters`)
 
     // Fetch ALL view events for these converters (complete event history)
-    const converterIds = convertersData.map(c => c.distinct_id)
+    const converterIds = convertersData.map(c => c.user_id)
 
     console.log('Fetching ALL view events for converters (complete event history)...')
     const { data: allViews, error: viewsError } = await supabase
       .from('event_sequences')
-      .select('distinct_id, event_time, portfolio_ticker')
-      .in('distinct_id', converterIds)
-      .order('distinct_id, event_time')
+      .select('user_id, event_time, portfolio_ticker')
+      .in('user_id', converterIds)
+      .order('user_id, event_time')
 
     if (viewsError) throw viewsError
 
@@ -73,22 +73,22 @@ serve(async (req) => {
     // Group views by user and filter to BEFORE first copy
     const userViewsMap = new Map()
     for (const view of allViews) {
-      if (!userViewsMap.has(view.distinct_id)) {
-        userViewsMap.set(view.distinct_id, [])
+      if (!userViewsMap.has(view.user_id)) {
+        userViewsMap.set(view.user_id, [])
       }
-      userViewsMap.get(view.distinct_id).push(view)
+      userViewsMap.get(view.user_id).push(view)
     }
 
     // Build final dataset with views BEFORE first copy
     const convertersWithViews = []
     for (const converter of convertersData) {
-      const allUserViews = userViewsMap.get(converter.distinct_id) || []
+      const allUserViews = userViewsMap.get(converter.user_id) || []
       const viewsBeforeCopy = allUserViews.filter(v =>
         new Date(v.event_time) < new Date(converter.first_copy_time)
       )
 
       convertersWithViews.push({
-        distinct_id: converter.distinct_id,
+        user_id: converter.user_id,
         first_copy_time: converter.first_copy_time,
         views: viewsBeforeCopy.map(v => ({
           time: v.event_time,

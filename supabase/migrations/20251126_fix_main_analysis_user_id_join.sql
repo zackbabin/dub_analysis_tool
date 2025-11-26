@@ -61,7 +61,8 @@ SELECT
   COALESCE(ue.unique_portfolios_viewed, 0) as unique_portfolios_viewed,
   -- Boolean flags for filtering
   CASE WHEN si.total_copies > 0 THEN 1 ELSE 0 END as did_copy,
-  CASE WHEN si.total_subscriptions > 0 THEN 1 ELSE 0 END as did_subscribe
+  CASE WHEN si.total_subscriptions > 0 THEN 1 ELSE 0 END as did_subscribe,
+  CASE WHEN si.total_ach_deposits > 0 THEN 1 ELSE 0 END as did_deposit
 FROM subscribers_insights si
 LEFT JOIN unique_engagement ue ON si.user_id = ue.user_id;
 
@@ -74,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_main_analysis_distinct_id ON main_analysis (disti
 -- Indexes for filtering and aggregation queries
 CREATE INDEX IF NOT EXISTS idx_main_analysis_did_copy ON main_analysis (did_copy);
 CREATE INDEX IF NOT EXISTS idx_main_analysis_did_subscribe ON main_analysis (did_subscribe);
+CREATE INDEX IF NOT EXISTS idx_main_analysis_did_deposit ON main_analysis (did_deposit);
 
 -- Grant permissions
 GRANT SELECT ON main_analysis TO authenticated, anon, service_role;

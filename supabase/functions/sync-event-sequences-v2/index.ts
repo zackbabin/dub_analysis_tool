@@ -1,15 +1,15 @@
 // Supabase Edge Function: sync-event-sequences-v2
 // OPTIMIZED: Two-step process to minimize data volume
 //
-// Step 1: Fetch users who copied (Mixpanel chart 86612901)
+// Step 1: Fetch ~200 users who copied at least once (Mixpanel Insights API chart 86612901)
 // Step 2: Stream "Viewed Portfolio Details" for those users (last 30 days), processing in 5000-event chunks
 //
 // Streaming approach avoids CPU timeout by processing batches incrementally.
 //
 // Stores:
-//   - Raw view events in event_sequences_raw (pure Mixpanel Export API data, no user_id)
-//   - First copy times in user_first_copies
-//   - user_id available via event_sequences view (joins raw + user_first_copies)
+//   - Raw view events in event_sequences_raw (Export API with user_id from $user_id)
+//   - First copy times in user_first_copies (Insights API with user_id from $user_id)
+//   - event_sequences view (pass-through of event_sequences_raw)
 //
 // No pre-aggregation - analyze-event-sequences queries raw data directly
 
@@ -25,7 +25,6 @@ import {
   handleRateLimitError,
   createSuccessResponse,
   createErrorResponse,
-  sanitizeDistinctId,
   TimeoutGuard,
 } from '../_shared/sync-helpers.ts'
 import { MIXPANEL_CONFIG } from '../_shared/mixpanel-api.ts'
@@ -309,38 +308,26 @@ serve(async (req) => {
         console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
 
         // Parse series object to extract first copy times
-        // Chart 86612901 structure: metric -> $distinct_id -> $user_id -> $time
-        // Headers: ["$metric", "$distinct_id", "$user_id", "$time"]
+        // Chart 86612901 structure: metric -> $user_id -> $time
+        // Headers: ["$metric", "$user_id", "$time"]
         const copyRows = []
         const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
-        for (const [rawDistinctId, distinctIdData] of Object.entries(series)) {
+        for (const [userId, userIdData] of Object.entries(series)) {
           // Skip $overall aggregation key
-          if (rawDistinctId === '$overall') continue
-          if (!rawDistinctId) continue
+          if (userId === '$overall') continue
+          if (!userId) continue
 
-          // Sanitize distinct_id (remove $device: prefix)
-          const distinctId = sanitizeDistinctId(rawDistinctId)
-          if (!distinctId) continue
-
-          // Navigate nested structure: distinct_id -> user_id -> timestamp
-          // Structure: { distinct_id: { $overall: {...}, user_id: { $overall: {...}, iso_timestamp: {...} } } }
-          const userIds = Object.keys(distinctIdData).filter(k => k !== '$overall')
-          if (userIds.length === 0) continue
-
-          // Get first user_id (should typically be only one after identity merge)
-          const userId = userIds[0]
-          const userIdData = distinctIdData[userId]
-
+          // Validate userIdData is an object
           if (!userIdData || typeof userIdData !== 'object') {
-            console.warn(`Skipping distinct_id ${distinctId} - no user_id data`)
+            console.warn(`Skipping user_id ${userId} - no timestamp data`)
             continue
           }
 
           // Find ISO timestamp within user_id data (exclude $overall)
           const isoTimestamps = Object.keys(userIdData).filter(k => k !== '$overall')
           if (isoTimestamps.length === 0) {
-            console.warn(`Skipping distinct_id ${distinctId} - no timestamp in user_id data`)
+            console.warn(`Skipping user_id ${userId} - no timestamp in data`)
             continue
           }
 
@@ -349,23 +336,21 @@ serve(async (req) => {
 
           // Validate it's a proper ISO timestamp
           if (!firstCopyTime.includes('T') && !firstCopyTime.includes('-')) {
-            console.warn(`Skipping distinct_id ${distinctId} - invalid timestamp format: ${firstCopyTime}`)
+            console.warn(`Skipping user_id ${userId} - invalid timestamp format: ${firstCopyTime}`)
             continue
           }
 
           // For Export API filtering, we need to collect user_ids
           targetUserIds.push(userId)
 
-          // Store both distinct_id and user_id from chart
+          // Store user_id and first copy time from chart
           copyRows.push({
             user_id: userId,          // $user_id from chart (merged identity)
-            distinct_id: distinctId,  // Sanitized $distinct_id from chart
-            first_copy_time: new Date(firstCopyTime).toISOString(),
-            synced_at: syncStartTime.toISOString()
+            first_copy_time: new Date(firstCopyTime).toISOString()
           })
         }
 
-        console.log(`✓ Extracted ${copyRows.length} first copy events with user_id and distinct_id mappings`)
+        console.log(`✓ Extracted ${copyRows.length} first copy events with user_ids`)
 
         // Insert user_first_copies immediately - this provides the mapping table for event_sequences_raw
         if (copyRows.length > 0) {
@@ -425,23 +410,21 @@ serve(async (req) => {
           // Convert Unix timestamp (seconds) to ISO string
           const eventTime = new Date(event.properties.time * 1000).toISOString()
 
-          // Extract user identifier from Export API
-          // Use $distinct_id_before_identity as primary, fallback to distinct_id
-          const rawUserId = event.properties.$distinct_id_before_identity || event.properties.distinct_id
+          // Extract user_id from Export API (merged identity)
+          const userId = event.properties.$user_id
 
-          // Get clean $user_id (should match chart 86612901 user_ids)
-          const userId = event.properties.$user_id || rawUserId
+          // Skip events without user_id
+          if (!userId) {
+            console.warn(`Skipping event without $user_id: ${event.event}`)
+            continue
+          }
 
-          // Sanitize distinct_id (removes $device: prefix)
-          const distinctId = sanitizeDistinctId(rawUserId)
-
-          // Store raw event data (user_id available via event_sequences view join)
+          // Store raw event data with user_id from Export API
           rawEventRows.push({
-            distinct_id: distinctId,  // Sanitized distinct_id (no $device: prefix)
+            user_id: userId,          // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
-            portfolio_ticker: event.properties.portfolioTicker || null,
-            synced_at: syncStartTime.toISOString()
+            portfolio_ticker: event.properties.portfolioTicker || null
           })
         }
 
@@ -452,21 +435,21 @@ serve(async (req) => {
 
         try {
           // Build composite keys for checking existence
-          // Format: "distinct_id|event_time|portfolio_ticker"
+          // Format: "user_id|event_time|portfolio_ticker"
           const compositeKeys = rawEventRows.map(row =>
-            `${row.distinct_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}`
+            `${row.user_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}`
           )
 
           // Fetch existing records using the same conflict key as upsert
-          // This matches the database unique constraint: (distinct_id, event_time, portfolio_ticker)
-          const distinctIds = [...new Set(rawEventRows.map(r => r.distinct_id))]
+          // This matches the database unique constraint: (user_id, event_time, portfolio_ticker)
+          const userIds = [...new Set(rawEventRows.map(r => r.user_id))]
           const minEventTime = rawEventRows.reduce((min, r) => r.event_time < min ? r.event_time : min, rawEventRows[0].event_time)
           const maxEventTime = rawEventRows.reduce((max, r) => r.event_time > max ? r.event_time : max, rawEventRows[0].event_time)
 
           const { data: existingRecords, error: fetchError } = await supabase
             .from('event_sequences_raw')
-            .select('distinct_id, event_time, portfolio_ticker')
-            .in('distinct_id', distinctIds)
+            .select('user_id, event_time, portfolio_ticker')
+            .in('user_id', userIds)
             .gte('event_time', minEventTime)
             .lte('event_time', maxEventTime)
 
@@ -477,7 +460,7 @@ serve(async (req) => {
             // Build set of existing composite keys for fast lookup
             const existingKeys = new Set(
               existingRecords.map(r =>
-                `${r.distinct_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}`
+                `${r.user_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}`
               )
             )
 
