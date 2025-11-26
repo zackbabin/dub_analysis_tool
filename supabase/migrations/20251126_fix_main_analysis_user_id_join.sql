@@ -1,13 +1,15 @@
--- Create or update main_analysis view (SIMPLIFIED)
--- This view maps all columns from subscribers_insights and calculates derived metrics
--- All base metrics are already aggregated in subscribers_insights by the sync process
--- Execute this in Supabase SQL Editor
+-- Migration: Fix main_analysis to properly join on user_id
+-- Created: 2025-11-26
+-- Purpose: Fix unique_engagement CTE and join to use user_id instead of distinct_id
+--
+-- Issue: user_portfolio_creator_engagement was renamed to use user_id, but
+-- the schema file still referenced distinct_id causing join failures
 
 DROP MATERIALIZED VIEW IF EXISTS main_analysis CASCADE;
 
 CREATE MATERIALIZED VIEW main_analysis AS
 WITH unique_engagement AS (
-  -- Only calculate metrics that aren't in subscribers_insights
+  -- Calculate unique engagement metrics from engagement table (uses user_id)
   SELECT
     user_id,
     COUNT(DISTINCT creator_id) as unique_creators_viewed,
@@ -68,20 +70,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_main_analysis_user_id ON main_analysis (us
 -- Indexes for filtering and aggregation queries
 CREATE INDEX IF NOT EXISTS idx_main_analysis_did_copy ON main_analysis (did_copy);
 CREATE INDEX IF NOT EXISTS idx_main_analysis_did_subscribe ON main_analysis (did_subscribe);
-CREATE INDEX IF NOT EXISTS idx_main_analysis_total_copies ON main_analysis (total_copies);
-CREATE INDEX IF NOT EXISTS idx_main_analysis_total_subscriptions ON main_analysis (total_subscriptions);
-
--- Create function to refresh main_analysis
-CREATE OR REPLACE FUNCTION refresh_main_analysis()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  REFRESH MATERIALIZED VIEW main_analysis;
-END;
-$$;
 
 -- Grant permissions
-GRANT EXECUTE ON FUNCTION refresh_main_analysis() TO authenticated, anon, service_role;
 GRANT SELECT ON main_analysis TO authenticated, anon, service_role;
+
+-- Log the changes
+DO $$
+BEGIN
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Fixed main_analysis to use user_id for joins';
+  RAISE NOTICE '   - unique_engagement CTE now groups by user_id';
+  RAISE NOTICE '   - Join between subscribers_insights and unique_engagement uses user_id';
+  RAISE NOTICE '';
+END $$;
