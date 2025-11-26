@@ -123,6 +123,7 @@ Updated 2025-11-26 to remove liquidation_count and use user_id instead of distin
 -- Step 5: Recreate premium_creator_affinity_display view
 CREATE VIEW premium_creator_affinity_display AS
 WITH all_premium_creators AS (
+  -- Get ALL premium creators from the authoritative table
   SELECT
     creator_username AS premium_creator,
     COALESCE(MAX(pt.total_copies), 0)::bigint AS premium_creator_total_copies,
@@ -144,34 +145,60 @@ ranked_regular AS (
     copied_creator,
     total_copies,
     unique_copiers,
-    ROW_NUMBER() OVER (PARTITION BY premium_creator ORDER BY unique_copiers DESC, total_copies DESC) AS rank
+    ROW_NUMBER() OVER (
+      PARTITION BY premium_creator
+      ORDER BY unique_copiers DESC, total_copies DESC
+    ) AS rank
   FROM premium_creator_copy_affinity_base
   WHERE copy_type = 'Regular'
 ),
-top_5_regular AS (
+ranked_premium AS (
   SELECT
     premium_creator,
-    MAX(CASE WHEN rank = 1 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_1,
-    MAX(CASE WHEN rank = 2 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_2,
-    MAX(CASE WHEN rank = 3 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_3,
-    MAX(CASE WHEN rank = 4 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_4,
-    MAX(CASE WHEN rank = 5 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_5
-  FROM ranked_regular
-  WHERE rank <= 5
-  GROUP BY premium_creator
+    copied_creator,
+    total_copies,
+    unique_copiers,
+    ROW_NUMBER() OVER (
+      PARTITION BY premium_creator
+      ORDER BY unique_copiers DESC, total_copies DESC
+    ) AS rank
+  FROM premium_creator_copy_affinity_base
+  WHERE copy_type = 'Premium'
 )
 SELECT
   apc.premium_creator,
   apc.premium_creator_total_copies,
   apc.premium_creator_total_liquidations,
-  t5.top_1,
-  t5.top_2,
-  t5.top_3,
-  t5.top_4,
-  t5.top_5
+  -- Top 1: Regular and Premium combined
+  MAX(CASE WHEN rr.rank = 1 THEN rr.copied_creator || ' (Regular): ' || rr.total_copies END) ||
+    CASE WHEN MAX(CASE WHEN rp.rank = 1 THEN 1 END) = 1 THEN ' | ' ELSE '' END ||
+    MAX(CASE WHEN rp.rank = 1 THEN rp.copied_creator || ' (Premium): ' || rp.total_copies END) AS top_1,
+  -- Top 2: Regular and Premium combined
+  MAX(CASE WHEN rr.rank = 2 THEN rr.copied_creator || ' (Regular): ' || rr.total_copies END) ||
+    CASE WHEN MAX(CASE WHEN rp.rank = 2 THEN 1 END) = 1 THEN ' | ' ELSE '' END ||
+    MAX(CASE WHEN rp.rank = 2 THEN rp.copied_creator || ' (Premium): ' || rp.total_copies END) AS top_2,
+  -- Top 3: Regular and Premium combined
+  MAX(CASE WHEN rr.rank = 3 THEN rr.copied_creator || ' (Regular): ' || rr.total_copies END) ||
+    CASE WHEN MAX(CASE WHEN rp.rank = 3 THEN 1 END) = 1 THEN ' | ' ELSE '' END ||
+    MAX(CASE WHEN rp.rank = 3 THEN rp.copied_creator || ' (Premium): ' || rp.total_copies END) AS top_3,
+  -- Top 4: Regular and Premium combined
+  MAX(CASE WHEN rr.rank = 4 THEN rr.copied_creator || ' (Regular): ' || rr.total_copies END) ||
+    CASE WHEN MAX(CASE WHEN rp.rank = 4 THEN 1 END) = 1 THEN ' | ' ELSE '' END ||
+    MAX(CASE WHEN rp.rank = 4 THEN rp.copied_creator || ' (Premium): ' || rp.total_copies END) AS top_4,
+  -- Top 5: Regular and Premium combined
+  MAX(CASE WHEN rr.rank = 5 THEN rr.copied_creator || ' (Regular): ' || rr.total_copies END) ||
+    CASE WHEN MAX(CASE WHEN rp.rank = 5 THEN 1 END) = 1 THEN ' | ' ELSE '' END ||
+    MAX(CASE WHEN rp.rank = 5 THEN rp.copied_creator || ' (Premium): ' || rp.total_copies END) AS top_5
 FROM all_premium_creators apc
-LEFT JOIN top_5_regular t5 ON apc.premium_creator = t5.premium_creator
-ORDER BY apc.premium_creator_total_copies DESC;
+LEFT JOIN ranked_regular rr
+  ON apc.premium_creator = rr.premium_creator AND rr.rank <= 5
+LEFT JOIN ranked_premium rp
+  ON apc.premium_creator = rp.premium_creator AND rp.rank <= 5
+GROUP BY
+  apc.premium_creator,
+  apc.premium_creator_total_copies,
+  apc.premium_creator_total_liquidations
+ORDER BY apc.premium_creator_total_copies DESC NULLS LAST, apc.premium_creator;
 
 GRANT SELECT ON premium_creator_affinity_display TO service_role, authenticated, anon;
 
