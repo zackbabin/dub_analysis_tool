@@ -467,7 +467,7 @@ serve(async (req) => {
     if (config.entityType === 'creator') {
       console.log('Building creator username map...')
       for (const pair of pairRows) {
-        if (pair.creator_id && pair.creator_username && !entityIdToDisplayName.has(pair.creator_id)) {
+        if (pair.creator_id && pair.creator_username) {
           entityIdToDisplayName.set(pair.creator_id, pair.creator_username)
         }
       }
@@ -475,7 +475,7 @@ serve(async (req) => {
     } else if (config.entityType === 'portfolio') {
       console.log('Building portfolio ticker map...')
       for (const pair of pairRows) {
-        if (pair.portfolio_ticker && !entityIdToDisplayName.has(pair.portfolio_ticker)) {
+        if (pair.portfolio_ticker) {
           entityIdToDisplayName.set(pair.portfolio_ticker, pair.portfolio_ticker)
         }
       }
@@ -510,7 +510,8 @@ serve(async (req) => {
     }
 
     // Parallel evaluation with controlled concurrency
-    const EVAL_CONCURRENCY = 4
+    // Increased from 4 to 8 for better CPU utilization
+    const EVAL_CONCURRENCY = 8
     const allCombinations = Array.from(generateCombinations(topEntities, 2))
 
     console.log(`Starting parallel evaluation with concurrency ${EVAL_CONCURRENCY}...`)
@@ -527,10 +528,8 @@ serve(async (req) => {
 
       const chunk = allCombinations.slice(i, Math.min(i + EVAL_CONCURRENCY, allCombinations.length))
 
-      // Evaluate chunk in parallel
-      const chunkResults = await Promise.all(
-        chunk.map(combo => Promise.resolve(evaluateCombination(combo, users, pairRows, config.entityType, config.filterColumn)))
-      )
+      // Evaluate chunk synchronously (evaluateCombination is not async)
+      const chunkResults = chunk.map(combo => evaluateCombination(combo, users, pairRows, config.entityType, config.filterColumn))
 
       // Filter and collect results
       for (const result of chunkResults) {

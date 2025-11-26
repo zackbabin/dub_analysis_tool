@@ -547,17 +547,57 @@ serve(async (req) => {
 
       try {
         console.log('Calling fetchAndProcessEventsStreaming with batch size 2500...')
-        const result = await fetchAndProcessEventsStreaming(
-          credentials,
-          fromDate,
-          toDate,
-          eventNames,
-          targetUserIds,
-          processBatch,
-          2500 // Process in chunks of 2500 events to reduce CPU usage
-        )
-        stats.eventsFetched = result.totalEvents
-        console.log(`✓ Streaming fetch completed - ${result.totalEvents} events fetched`)
+
+        // If we have many user IDs, batch them to avoid 414 URI Too Long errors
+        // Mixpanel Export API has URL length limits (~8KB), so we batch user IDs
+        // Using 500 per batch to balance URL length vs API rate limits (60/hour, 3/sec)
+        const MAX_USER_IDS_PER_REQUEST = 500
+        let totalEventsFetched = 0
+
+        if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {
+          console.log(`📦 Batching ${targetUserIds.length} user IDs into chunks of ${MAX_USER_IDS_PER_REQUEST} to avoid URL length limits`)
+
+          // Split user IDs into batches
+          for (let i = 0; i < targetUserIds.length; i += MAX_USER_IDS_PER_REQUEST) {
+            // Check timeout before starting each batch
+            if (timeoutGuard.isApproachingTimeout()) {
+              console.warn(`⚠️ Approaching timeout at batch ${Math.floor(i / MAX_USER_IDS_PER_REQUEST) + 1} - stopping early`)
+              console.warn(`   Fetched ${totalEventsFetched} events so far from ${i} users`)
+              break
+            }
+
+            const batchUserIds = targetUserIds.slice(i, Math.min(i + MAX_USER_IDS_PER_REQUEST, targetUserIds.length))
+            console.log(`  Fetching batch ${Math.floor(i / MAX_USER_IDS_PER_REQUEST) + 1}/${Math.ceil(targetUserIds.length / MAX_USER_IDS_PER_REQUEST)} (${batchUserIds.length} users)`)
+
+            const result = await fetchAndProcessEventsStreaming(
+              credentials,
+              fromDate,
+              toDate,
+              eventNames,
+              batchUserIds,
+              processBatch,
+              2500
+            )
+            totalEventsFetched += result.totalEvents
+            console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
+          }
+
+          stats.eventsFetched = totalEventsFetched
+          console.log(`✓ All batches completed - ${totalEventsFetched} total events fetched`)
+        } else {
+          // Single request for small user ID lists
+          const result = await fetchAndProcessEventsStreaming(
+            credentials,
+            fromDate,
+            toDate,
+            eventNames,
+            targetUserIds,
+            processBatch,
+            2500 // Process in chunks of 2500 events to reduce CPU usage
+          )
+          stats.eventsFetched = result.totalEvents
+          console.log(`✓ Streaming fetch completed - ${result.totalEvents} events fetched`)
+        }
       } catch (error: any) {
         console.error('❌ fetchAndProcessEventsStreaming failed:', error.message)
         console.error('Error stack:', error.stack)
