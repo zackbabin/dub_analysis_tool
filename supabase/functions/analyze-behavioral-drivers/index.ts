@@ -1,6 +1,6 @@
-// Analyzes behavioral drivers for deposits and copies
+// Analyzes behavioral drivers for deposits, copies, and subscriptions
 // Calculates correlation coefficients and t-statistics for all predictor variables
-// Stores results in deposit_drivers and copy_drivers tables
+// Stores results in deposit_drivers, copy_drivers, and subscription_drivers tables
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
@@ -54,6 +54,15 @@ const EXCLUSIONS = {
     'active_copied_portfolios', 'lifetime_copied_portfolios',
     'total_copies', 'total_regular_copies', 'total_premium_copies', 'did_copy',
     // Subscription metrics
+    'total_subscriptions', 'did_subscribe',
+    // Metadata
+    'user_id', 'distinct_id', 'updated_at'
+  ],
+  did_subscribe: [
+    // Profile fields (N/A in mapping)
+    'income', 'net_worth', 'investing_activity', 'investing_experience_years',
+    'investing_objective', 'investment_type', 'acquisition_survey',
+    // Subscription metrics (circular dependency)
     'total_subscriptions', 'did_subscribe',
     // Metadata
     'user_id', 'distinct_id', 'updated_at'
@@ -273,6 +282,15 @@ Deno.serve(async (req) => {
     )
     console.log(`✓ Calculated ${copyDrivers.length} copy drivers`)
 
+    // Analyze subscription drivers
+    console.log('📈 Analyzing subscription drivers...')
+    const subscriptionDrivers = analyzeBehavioralDrivers(
+      mainAnalysisData,
+      'did_subscribe',
+      EXCLUSIONS.did_subscribe
+    )
+    console.log(`✓ Calculated ${subscriptionDrivers.length} subscription drivers`)
+
     // Clear existing data and insert new results
     const syncedAt = new Date().toISOString()
 
@@ -316,6 +334,26 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to insert copy_drivers: ${insertCopyError.message}`)
     }
 
+    console.log('💾 Clearing old subscription drivers...')
+    const { error: deleteSubscriptionError } = await supabase
+      .from('subscription_drivers')
+      .delete()
+      .neq('id', 0) // Delete all rows
+
+    if (deleteSubscriptionError) {
+      console.warn('Warning: Failed to clear subscription_drivers:', deleteSubscriptionError.message)
+    }
+
+    console.log('💾 Inserting new subscription drivers...')
+    const subscriptionInserts = subscriptionDrivers.map(d => ({ ...d, synced_at: syncedAt }))
+    const { error: insertSubscriptionError } = await supabase
+      .from('subscription_drivers')
+      .insert(subscriptionInserts)
+
+    if (insertSubscriptionError) {
+      throw new Error(`Failed to insert subscription_drivers: ${insertSubscriptionError.message}`)
+    }
+
     console.log('✅ Behavioral drivers analysis complete')
 
     return new Response(
@@ -326,8 +364,10 @@ Deno.serve(async (req) => {
           total_users: mainAnalysisData.length,
           deposit_drivers_count: depositDrivers.length,
           copy_drivers_count: copyDrivers.length,
+          subscription_drivers_count: subscriptionDrivers.length,
           top_deposit_driver: depositDrivers[0]?.variable_name || null,
           top_copy_driver: copyDrivers[0]?.variable_name || null,
+          top_subscription_driver: subscriptionDrivers[0]?.variable_name || null,
           synced_at: syncedAt
         }
       }),

@@ -236,6 +236,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     console.log('✅ Step 2: Behavioral Drivers - Complete');
                     console.log(`   - ${data.stats?.deposit_drivers_count || 0} deposit drivers calculated`);
                     console.log(`   - ${data.stats?.copy_drivers_count || 0} copy drivers calculated`);
+                    console.log(`   - ${data.stats?.subscription_drivers_count || 0} subscription drivers calculated`);
                 } else {
                     console.warn('⚠ Step 2: Behavioral Drivers - Failed');
                 }
@@ -540,10 +541,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Step 2: Build complete HTML with fresh data (modifies DOM directly)
         await this.buildCompleteHTML(results);
 
-        // Step 2.5: Save subscription regression results to database for creator tool access
-        await this.saveSubscriptionDriversToDatabase(results);
-
-        // Step 2.6: Refresh subscription drivers display now that data is saved to database
+        // Step 2.5: Refresh subscription drivers display from database
+        // (Data is calculated and saved during Step 2 of sync workflow via analyze-behavioral-drivers edge function)
         await this.displayTopSubscriptionDrivers();
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
@@ -1871,85 +1870,6 @@ window.toggleHiddenGems = function() {
             row.style.display = 'none';
         });
         button.textContent = 'Show More';
-    }
-};
-
-/**
- * Save subscription regression results to database
- * This allows the creator analysis tool to display Top Subscription Drivers
- */
-UserAnalysisToolSupabase.prototype.saveSubscriptionDriversToDatabase = async function(results) {
-    try {
-        if (!this.supabaseIntegration) {
-            console.warn('Supabase not configured, skipping subscription drivers save');
-            return;
-        }
-
-        if (!results?.correlationResults?.totalSubscriptions || !results?.regressionResults?.subscriptions) {
-            console.warn('No subscription regression results to save');
-            return;
-        }
-
-        console.log('💾 Saving subscription drivers to database...');
-
-        const correlationData = results.correlationResults.totalSubscriptions;
-        const regressionData = results.regressionResults.subscriptions;
-        const tippingPoints = results.tippingPoints || {};
-        const outcome = 'totalSubscriptions';
-
-        // Build the combined data array (same logic as buildCorrelationTable)
-        const allVariables = Object.keys(correlationData);
-        const excludedVars = window.SECTION_EXCLUSIONS?.[outcome] || [];
-        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
-
-        const driversData = filteredVariables.map(variable => {
-            const correlation = correlationData[variable];
-            const regressionItem = regressionData.find(item => item.variable === variable);
-            const tStat = regressionItem ? regressionItem.tStat : 0;
-
-            let tippingPoint = null;
-            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
-                tippingPoint = String(tippingPoints[outcome][variable]);
-            }
-
-            // Calculate predictive strength
-            const strengthResult = window.calculatePredictiveStrength?.(correlation, tStat) || { strength: 'N/A' };
-
-            return {
-                variable_name: variable,
-                correlation_coefficient: correlation,
-                t_stat: tStat,
-                tipping_point: tippingPoint,
-                predictive_strength: strengthResult.strength
-            };
-        });
-
-        // Sort by absolute correlation (descending)
-        driversData.sort((a, b) => Math.abs(b.correlation_coefficient) - Math.abs(a.correlation_coefficient));
-
-        // Debug: Log first few drivers with tipping points
-        console.log('Top 3 subscription drivers with tipping points:',
-            driversData.slice(0, 3).map(d => ({
-                variable: d.variable_name,
-                tipping_point: d.tipping_point
-            }))
-        );
-
-        // Use upsert RPC function to atomically replace data (avoids race conditions and duplicates)
-        const { error: upsertError } = await this.supabaseIntegration.supabase.rpc(
-            'upsert_subscription_drivers',
-            { drivers: driversData }
-        );
-
-        if (upsertError) {
-            console.error('Error upserting subscription drivers:', upsertError);
-            console.error('Upsert error details:', JSON.stringify(upsertError));
-            return;
-        }
-
-        console.log(`✅ Saved ${driversData.length} subscription drivers to database`);
-    } catch (error) {
-        console.error('Error saving subscription drivers:', error);
     }
 };
 
