@@ -74,6 +74,96 @@ CREATE INDEX IF NOT EXISTS idx_main_analysis_did_subscribe ON main_analysis (did
 -- Grant permissions
 GRANT SELECT ON main_analysis TO authenticated, anon, service_role;
 
+-- ============================================================================
+-- Recreate dependent views that were dropped by CASCADE
+-- ============================================================================
+
+-- 1. Recreate copy_engagement_summary (depends on main_analysis)
+DROP VIEW IF EXISTS copy_engagement_summary CASCADE;
+
+CREATE VIEW copy_engagement_summary AS
+WITH base_stats AS (
+  SELECT
+    ma.did_copy,
+    COUNT(DISTINCT ma.user_id) AS total_users,
+    ROUND(AVG(ma.total_profile_views), 2) AS avg_profile_views,
+    ROUND(AVG(ma.total_pdp_views), 2) AS avg_pdp_views
+  FROM main_analysis ma
+  GROUP BY ma.did_copy
+),
+metrics AS (
+  SELECT
+    mean_unique_portfolios,
+    median_unique_portfolios
+  FROM event_sequence_metrics
+  WHERE id = 1
+  LIMIT 1
+)
+SELECT
+  bs.did_copy,
+  bs.total_users,
+  bs.avg_profile_views,
+  bs.avg_pdp_views,
+  CASE WHEN bs.did_copy = 1 THEN m.mean_unique_portfolios ELSE NULL END AS mean_unique_portfolios,
+  CASE WHEN bs.did_copy = 1 THEN m.median_unique_portfolios ELSE NULL END AS median_unique_portfolios
+FROM base_stats bs
+CROSS JOIN metrics m;
+
+GRANT SELECT ON copy_engagement_summary TO service_role, authenticated, anon;
+
+COMMENT ON VIEW copy_engagement_summary IS
+'Compares engagement metrics between users who copied vs. haven''t copied. mean_unique_portfolios and median_unique_portfolios (for did_copy=1 only) are populated by analyze-event-sequences Edge Function from event_sequences_raw.';
+
+-- 2. Recreate enriched_support_conversations (depends on subscribers_insights)
+DROP VIEW IF EXISTS enriched_support_conversations CASCADE;
+
+CREATE VIEW enriched_support_conversations AS
+SELECT
+  -- Core conversation data
+  c.id,
+  c.source,
+  c.title,
+  c.description,
+  c.status,
+  c.priority,
+  c.created_at,
+  c.updated_at,
+  c.resolved_at,
+  c.user_id,
+  c.assignee_id,
+  c.tags,
+  c.custom_fields,
+  c.raw_data,
+  c.synced_at,
+  c.message_count,
+
+  -- Linear integration
+  c.has_linear_ticket,
+  c.linear_issue_id,
+
+  -- User enrichment from subscribers_insights
+  u.income as user_income,
+  u.net_worth as user_net_worth,
+  u.investing_activity as user_investing_activity,
+  u.total_copies as user_total_copies,
+  u.total_subscriptions as user_total_subscriptions,
+  u.app_sessions as user_app_sessions,
+
+  -- Linear issue details
+  li.identifier as linear_identifier,
+  li.title as linear_title,
+  li.state_name as linear_state,
+  li.url as linear_url
+
+FROM raw_support_conversations c
+LEFT JOIN subscribers_insights u ON c.user_id = u.user_id
+LEFT JOIN linear_issues li ON c.linear_issue_id = li.identifier;
+
+GRANT SELECT ON enriched_support_conversations TO service_role, authenticated, anon;
+
+COMMENT ON VIEW enriched_support_conversations IS
+'Regular view (not materialized) that enriches support conversations with user data and Linear issue details. Refreshes on every query.';
+
 -- Log the changes
 DO $$
 BEGIN
@@ -81,5 +171,8 @@ BEGIN
   RAISE NOTICE '✅ Fixed main_analysis to use user_id for joins';
   RAISE NOTICE '   - unique_engagement CTE now groups by user_id';
   RAISE NOTICE '   - Join between subscribers_insights and unique_engagement uses user_id';
+  RAISE NOTICE '✅ Recreated dependent views:';
+  RAISE NOTICE '   - copy_engagement_summary';
+  RAISE NOTICE '   - enriched_support_conversations';
   RAISE NOTICE '';
 END $$;
