@@ -11,7 +11,7 @@ import { TimeoutGuard } from '../_shared/sync-helpers.ts'
 // Portfolio copy analysis configuration
 const ANALYSIS_CONFIG = {
   table: 'user_portfolio_creator_copies',  // Regular view (converted from materialized) - always current
-  select: 'user_id, portfolio_ticker, pdp_view_count, copy_count, liquidation_count, did_copy, synced_at',
+  select: 'user_id, portfolio_ticker, pdp_view_count, copy_count, did_copy, synced_at',
   filterColumn: 'pdp_view_count',
   outcomeColumn: 'did_copy',
   entityType: 'portfolio',
