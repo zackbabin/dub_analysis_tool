@@ -8,8 +8,10 @@
 -- - No Mixpanel events track liquidations
 -- - Column is always NULL/0, providing no value
 
--- Step 1: Drop dependent views that reference liquidation_count
+-- Step 1: Drop dependent views using CASCADE
 DROP VIEW IF EXISTS user_portfolio_creator_copies CASCADE;
+DROP VIEW IF EXISTS premium_creator_affinity_display CASCADE;
+DROP VIEW IF EXISTS premium_creator_copy_affinity_base CASCADE;
 
 -- Step 2: Remove liquidation_count column from table
 ALTER TABLE user_portfolio_creator_engagement
@@ -39,6 +41,144 @@ COMMENT ON VIEW user_portfolio_creator_copies IS
 Simple read-only view of user_portfolio_creator_engagement.
 Updated 2025-11-26 to remove liquidation_count column.';
 
+-- Step 4: Recreate premium_creator_copy_affinity_base view (without liquidation_count)
+CREATE OR REPLACE VIEW premium_creator_copy_affinity_base AS
+WITH premium_creators_list AS (
+  -- Premium creators from the authoritative Mixpanel list
+  SELECT
+    creator_username,
+    array_agg(creator_id) as creator_ids
+  FROM premium_creators
+  GROUP BY creator_username
+),
+premium_creator_copiers AS (
+  -- Get all users who copied each premium creator
+  SELECT
+    pc.creator_username AS premium_creator,
+    upce.user_id AS copier_id,
+    upce.portfolio_ticker,
+    upce.copy_count
+  FROM premium_creators_list pc
+  CROSS JOIN LATERAL unnest(pc.creator_ids) AS pc_creator_id
+  JOIN user_portfolio_creator_engagement upce
+    ON pc_creator_id = upce.creator_id
+    AND upce.did_copy = true
+),
+premium_totals AS (
+  -- Get aggregated totals from premium_creator_portfolio_metrics
+  SELECT
+    pc.creator_username AS premium_creator,
+    SUM(pcpm.total_copies) AS total_copies,
+    SUM(pcpm.total_liquidations) AS total_liquidations
+  FROM premium_creators_list pc
+  CROSS JOIN LATERAL unnest(pc.creator_ids) AS pc_creator_id
+  LEFT JOIN premium_creator_portfolio_metrics_latest pcpm
+    ON pc_creator_id = pcpm.creator_id
+  GROUP BY pc.creator_username
+),
+affinity_raw AS (
+  -- Find what else these copiers copied
+  SELECT
+    pcc.premium_creator,
+    upce2.creator_username AS copied_creator,
+    upce2.user_id AS copier_id,
+    upce2.portfolio_ticker,
+    upce2.copy_count
+  FROM premium_creator_copiers pcc
+  JOIN user_portfolio_creator_engagement upce2
+    ON pcc.copier_id = upce2.user_id
+    AND upce2.did_copy = true
+  WHERE upce2.creator_username != pcc.premium_creator
+)
+SELECT
+  ar.premium_creator,
+  pt.total_copies AS premium_creator_total_copies,
+  pt.total_liquidations AS premium_creator_total_liquidations,
+  ar.copied_creator,
+  CASE
+    WHEN pc.creator_username IS NOT NULL THEN 'Premium'
+    ELSE 'Regular'
+  END AS copy_type,
+  COUNT(DISTINCT ar.copier_id) AS unique_copiers,
+  COUNT(*) AS total_copies
+FROM affinity_raw ar
+JOIN premium_totals pt
+  ON ar.premium_creator = pt.premium_creator
+LEFT JOIN premium_creators_list pc
+  ON ar.copied_creator = pc.creator_username
+GROUP BY
+  ar.premium_creator,
+  pt.total_copies,
+  pt.total_liquidations,
+  ar.copied_creator,
+  pc.creator_username
+ORDER BY ar.premium_creator, unique_copiers DESC;
+
+GRANT SELECT ON premium_creator_copy_affinity_base TO service_role, authenticated, anon;
+
+COMMENT ON VIEW premium_creator_copy_affinity_base IS
+'Base affinity data showing what other creators are copied by premium creator copiers.
+Updated 2025-11-26 to remove liquidation_count and use user_id instead of distinct_id.';
+
+-- Step 5: Recreate premium_creator_affinity_display view
+CREATE VIEW premium_creator_affinity_display AS
+WITH all_premium_creators AS (
+  SELECT
+    creator_username AS premium_creator,
+    COALESCE(MAX(pt.total_copies), 0)::bigint AS premium_creator_total_copies,
+    COALESCE(MAX(pt.total_liquidations), 0)::bigint AS premium_creator_total_liquidations
+  FROM premium_creators pc
+  LEFT JOIN (
+    SELECT
+      premium_creator,
+      MAX(premium_creator_total_copies) AS total_copies,
+      MAX(premium_creator_total_liquidations) AS total_liquidations
+    FROM premium_creator_copy_affinity_base
+    GROUP BY premium_creator
+  ) pt ON pc.creator_username = pt.premium_creator
+  GROUP BY creator_username
+),
+ranked_regular AS (
+  SELECT
+    premium_creator,
+    copied_creator,
+    total_copies,
+    unique_copiers,
+    ROW_NUMBER() OVER (PARTITION BY premium_creator ORDER BY unique_copiers DESC, total_copies DESC) AS rank
+  FROM premium_creator_copy_affinity_base
+  WHERE copy_type = 'Regular'
+),
+top_5_regular AS (
+  SELECT
+    premium_creator,
+    MAX(CASE WHEN rank = 1 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_1,
+    MAX(CASE WHEN rank = 2 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_2,
+    MAX(CASE WHEN rank = 3 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_3,
+    MAX(CASE WHEN rank = 4 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_4,
+    MAX(CASE WHEN rank = 5 THEN copied_creator || ' (' || unique_copiers::text || ')' END) AS top_5
+  FROM ranked_regular
+  WHERE rank <= 5
+  GROUP BY premium_creator
+)
+SELECT
+  apc.premium_creator,
+  apc.premium_creator_total_copies,
+  apc.premium_creator_total_liquidations,
+  t5.top_1,
+  t5.top_2,
+  t5.top_3,
+  t5.top_4,
+  t5.top_5
+FROM all_premium_creators apc
+LEFT JOIN top_5_regular t5 ON apc.premium_creator = t5.premium_creator
+ORDER BY apc.premium_creator_total_copies DESC;
+
+GRANT SELECT ON premium_creator_affinity_display TO service_role, authenticated, anon;
+
+COMMENT ON VIEW premium_creator_affinity_display IS
+'Display-ready affinity data showing top 5 regular creators copied by premium creator copiers.
+Updated 2025-11-26 to remove liquidation_count and use user_id instead of distinct_id.';
+
 -- Log the changes
 DO $$
 BEGIN
@@ -46,5 +186,7 @@ BEGIN
   RAISE NOTICE '✅ Removed liquidation_count column';
   RAISE NOTICE '   - Dropped from user_portfolio_creator_engagement table';
   RAISE NOTICE '   - Recreated user_portfolio_creator_copies view without liquidation_count';
+  RAISE NOTICE '   - Recreated premium_creator_copy_affinity_base view without liquidation_count';
+  RAISE NOTICE '   - Recreated premium_creator_affinity_display view';
   RAISE NOTICE '';
 END $$;
