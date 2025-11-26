@@ -165,7 +165,8 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
                 description: 'Median number of unique portfolio views before first copy'
               }
             },
-            required: ['mean_unique_views_converters', 'median_unique_views_converters']
+            required: ['mean_unique_views_converters', 'median_unique_views_converters'],
+            additionalProperties: false
           }
         }
       }),
