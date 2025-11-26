@@ -16,8 +16,9 @@ WITH unique_engagement AS (
   GROUP BY user_id
 )
 SELECT
-  -- Use user_id as primary identifier
+  -- Include BOTH user_id (primary) and distinct_id (for Engage API compatibility)
   si.user_id,
+  si.distinct_id,
   si.income,
   si.net_worth,
   si.investing_activity,
@@ -64,6 +65,9 @@ LEFT JOIN unique_engagement ue ON si.user_id = ue.user_id;
 
 -- Create indexes for faster queries on materialized view
 CREATE UNIQUE INDEX IF NOT EXISTS idx_main_analysis_user_id ON main_analysis (user_id);
+
+-- Create index on distinct_id for Engage API compatibility
+CREATE INDEX IF NOT EXISTS idx_main_analysis_distinct_id ON main_analysis (distinct_id);
 
 -- Indexes for filtering and aggregation queries
 CREATE INDEX IF NOT EXISTS idx_main_analysis_did_copy ON main_analysis (did_copy);
