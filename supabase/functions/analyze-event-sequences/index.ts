@@ -44,60 +44,47 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Fetch converters (users who copied at least once)
-    console.log('Fetching converters from user_first_copies...')
-    const { data: convertersData, error: convertersError } = await supabase
-      .from('user_first_copies')
-      .select('user_id, first_copy_time')
-      .order('first_copy_time', { ascending: false })
-      .limit(200)
-
-    if (convertersError) throw convertersError
-
-    console.log(`Found ${convertersData.length} converters`)
-
-    // Fetch ALL view events for these converters (complete event history)
-    const converterIds = convertersData.map(c => c.user_id)
-
-    console.log('Fetching ALL view events for converters (complete event history)...')
-    const { data: allViews, error: viewsError } = await supabase
+    // Fetch event sequences for users who copied (first_copy_time NOT NULL)
+    // Filter to events BEFORE first copy using SQL
+    console.log('Fetching view events before first copy (SQL filtered)...')
+    const { data: viewsBeforeCopy, error: viewsError } = await supabase
       .from('event_sequences')
-      .select('user_id, event_time, portfolio_ticker')
-      .in('user_id', converterIds)
-      .order('user_id, event_time')
+      .select('user_id, event_time, portfolio_ticker, first_copy_time')
+      .not('first_copy_time', 'is', null)
+      .order('first_copy_time', { ascending: false })
 
     if (viewsError) throw viewsError
 
-    console.log(`✓ Fetched ${allViews.length} total view events`)
+    console.log(`✓ Fetched ${viewsBeforeCopy.length} total view events`)
 
-    // Group views by user and filter to BEFORE first copy
+    // Group by user and filter to events before first copy
     const userViewsMap = new Map()
-    for (const view of allViews) {
-      if (!userViewsMap.has(view.user_id)) {
-        userViewsMap.set(view.user_id, [])
+    let totalPreCopyEvents = 0
+
+    for (const view of viewsBeforeCopy) {
+      // Filter in JS: event_time < first_copy_time
+      if (new Date(view.event_time) < new Date(view.first_copy_time)) {
+        if (!userViewsMap.has(view.user_id)) {
+          userViewsMap.set(view.user_id, {
+            user_id: view.user_id,
+            first_copy_time: view.first_copy_time,
+            views: []
+          })
+        }
+        userViewsMap.get(view.user_id).views.push({
+          time: view.event_time,
+          portfolio: view.portfolio_ticker
+        })
+        totalPreCopyEvents++
       }
-      userViewsMap.get(view.user_id).push(view)
     }
 
-    // Build final dataset with views BEFORE first copy
-    const convertersWithViews = []
-    for (const converter of convertersData) {
-      const allUserViews = userViewsMap.get(converter.user_id) || []
-      const viewsBeforeCopy = allUserViews.filter(v =>
-        new Date(v.event_time) < new Date(converter.first_copy_time)
-      )
+    // Convert map to array and take top 200 most recent converters
+    const convertersWithViews = Array.from(userViewsMap.values())
+      .sort((a, b) => new Date(b.first_copy_time).getTime() - new Date(a.first_copy_time).getTime())
+      .slice(0, 200)
 
-      convertersWithViews.push({
-        user_id: converter.user_id,
-        first_copy_time: converter.first_copy_time,
-        views: viewsBeforeCopy.map(v => ({
-          time: v.event_time,
-          portfolio: v.portfolio_ticker
-        }))
-      })
-    }
-
-    console.log(`Prepared data: ${convertersWithViews.length} converters with ${allViews.length} total view events`)
+    console.log(`Prepared data: ${convertersWithViews.length} converters with ${totalPreCopyEvents} pre-copy view events`)
 
     // Send to Claude for analysis
     console.log('Sending data to Claude AI for analysis...')
@@ -222,7 +209,7 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
         analysis: analysis,
         raw_response: analysisText,
         converters_analyzed: convertersWithViews.length,
-        total_view_events: allViews.length,
+        total_view_events: totalPreCopyEvents,
         updated_summary: !updateError,
       }),
       {
