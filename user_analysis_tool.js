@@ -1165,9 +1165,7 @@ const SECTION_EXCLUSIONS = {
         'totalRegularCopies',
         'totalPremiumCopies',
         'didCopy',
-        'didSubscribe',
-        'uniqueCreatorsViewed',
-        'uniquePortfoliosViewed'
+        'didSubscribe'
     ],
     'totalCopies': [
         'availableCopyCredits',
@@ -1180,8 +1178,6 @@ const SECTION_EXCLUSIONS = {
         'totalPremiumCopies',
         'didCopy',
         'didSubscribe',
-        'uniqueCreatorsViewed',
-        'uniquePortfoliosViewed',
         'totalDepositCount',
         'totalWithdrawals',
         'totalWithdrawalCount'
@@ -1767,8 +1763,8 @@ function getVariableLabel(variable) {
         'totalDepositCount': 'Total Deposit Count',
         'totalWithdrawals': 'Total Withdrawals',
         'totalWithdrawalCount': 'Total Withdrawal Count',
-        'uniqueCreatorsViewed': 'Unique Creators Viewed',
-        'uniquePortfoliosViewed': 'Unique Portfolios Viewed',
+        'uniqueCreatorsViewed': 'Unique Creator Views',
+        'uniquePortfoliosViewed': 'Unique Portfolio Views',
         'didCopy': 'Did Copy',
         'didSubscribe': 'Did Subscribe',
         'activeCreatedPortfolios': 'Active Created Portfolios',
