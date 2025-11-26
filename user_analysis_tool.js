@@ -1139,6 +1139,8 @@ const ALL_VARIABLES = [
     'regularPDPViews', 'premiumPDPViews', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
     'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
     'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalOfUserProfiles',
+    'totalDepositCount', 'totalWithdrawals', 'totalWithdrawalCount',
+    'uniqueCreatorsViewed', 'uniquePortfoliosViewed', 'uniqueCreatorsInteracted', 'uniquePortfoliosInteracted',
     'totalRegularCopies',
     'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
     'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps',
@@ -1155,10 +1157,16 @@ const SECTION_EXCLUSIONS = {
         'lifetimeCopiedPortfolios',
         'totalDeposits',
         'totalAchDeposits',
+        'totalDepositCount',
+        'totalWithdrawals',
+        'totalWithdrawalCount',
         'hasLinkedBank',
         'totalCopies',
         'totalRegularCopies',
-        'totalPremiumCopies'
+        'totalPremiumCopies',
+        'didCopy',
+        'uniqueCreatorsViewed',
+        'uniquePortfoliosViewed'
     ],
     'totalCopies': [
         'availableCopyCredits',
@@ -1168,7 +1176,13 @@ const SECTION_EXCLUSIONS = {
         'lifetimeCopiedPortfolios',
         'totalCopies',
         'totalRegularCopies',
-        'totalPremiumCopies'
+        'totalPremiumCopies',
+        'didSubscribe',
+        'uniqueCreatorsViewed',
+        'uniquePortfoliosViewed',
+        'totalDepositCount',
+        'totalWithdrawals',
+        'totalWithdrawalCount'
     ],
     'totalSubscriptions': [
         'totalSubscriptions'
@@ -1746,6 +1760,13 @@ function getVariableLabel(variable) {
         'availableCopyCredits': 'Available Copy Credits',
         'buyingPower': 'Buying Power',
         'totalAchDeposits': 'Total ACH Deposits',
+        'totalDepositCount': 'Total Deposit Count',
+        'totalWithdrawals': 'Total Withdrawals',
+        'totalWithdrawalCount': 'Total Withdrawal Count',
+        'uniqueCreatorsViewed': 'Unique Creators Viewed',
+        'uniquePortfoliosViewed': 'Unique Portfolios Viewed',
+        'didCopy': 'Did Copy',
+        'didSubscribe': 'Did Subscribe',
         'activeCreatedPortfolios': 'Active Created Portfolios',
         'lifetimeCreatedPortfolios': 'Lifetime Created Portfolios',
         'activeCopiedPortfolios': 'Active Copied Portfolios',
