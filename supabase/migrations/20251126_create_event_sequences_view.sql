@@ -30,7 +30,6 @@ SELECT
   esr.event_name,
   esr.event_time,
   esr.portfolio_ticker,
-  esr.creator_username,
   esr.synced_at,
   esr.processed_at,
   esr.created_at
