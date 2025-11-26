@@ -120,7 +120,7 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           if (dbColumn === 'available_copy_credits' || dbColumn === 'buying_power' ||
               dbColumn === 'active_created_portfolios' || dbColumn === 'lifetime_created_portfolios' ||
               dbColumn === 'active_copied_portfolios' || dbColumn === 'lifetime_copied_portfolios' ||
-              dbColumn === 'total_deposits' || dbColumn === 'total_deposit_count') {
+              dbColumn === 'total_deposits') {
             (row as any)[dbColumn] = 0
           }
           continue
@@ -147,8 +147,7 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
           dbColumn === 'lifetime_created_portfolios' ||
           dbColumn === 'active_copied_portfolios' ||
           dbColumn === 'lifetime_copied_portfolios' ||
-          dbColumn === 'total_deposits' ||
-          dbColumn === 'total_deposit_count'
+          dbColumn === 'total_deposits'
         ) {
           // Numeric fields - handle both number and string types
           if (typeof value === 'number') {
@@ -197,7 +196,6 @@ function hasUserPropertiesChanged(existing: any, incoming: UserPropertyRow): boo
     'active_copied_portfolios',
     'lifetime_copied_portfolios',
     'total_deposits',
-    'total_deposit_count',
   ]
 
   // Check each field - if ANY field differs, return true (needs update)
@@ -315,7 +313,6 @@ async function updateUserPropertiesBatch(
               active_copied_portfolios: user.active_copied_portfolios,
               lifetime_copied_portfolios: user.lifetime_copied_portfolios,
               total_deposits: user.total_deposits,
-              total_deposit_count: user.total_deposit_count,
             }
           })
           .filter(record => record !== null)
