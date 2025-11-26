@@ -15,14 +15,8 @@ serve(async (req) => {
 
     console.log('Starting materialized view refresh...')
 
-    // Refresh main_analysis
-    console.log('Refreshing main_analysis...')
-    const { error: mainAnalysisError } = await supabase.rpc('refresh_main_analysis')
-    if (mainAnalysisError) {
-      console.warn('⚠️ main_analysis failed:', mainAnalysisError)
-    } else {
-      console.log('✓ main_analysis refreshed')
-    }
+    // Note: main_analysis is now refreshed during Mixpanel sync workflow
+    // (after all source data is populated in supabase_integration.js)
 
     // Refresh portfolio engagement views
     // This RPC refreshes 4 materialized views:
@@ -52,7 +46,6 @@ serve(async (req) => {
     return createSuccessResponse(
       'Materialized views refreshed successfully',
       {
-        main_analysis_refreshed: !mainAnalysisError,
         portfolio_views_refreshed: !portfolioRefreshError,
         retention_analysis_refreshed: !retentionError
       }
