@@ -150,6 +150,9 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
             content: userPrompt,
           },
         ],
+        response_format: {
+          type: 'json'
+        }
       }),
     })
 
@@ -161,9 +164,34 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
     const claudeResult = await claudeResponse.json()
     const analysisText = claudeResult.content[0].text
 
+    console.log('Claude response text:', analysisText.substring(0, 200))
+
     // Parse JSON from Claude's response
-    const jsonMatch = analysisText.match(/\{[\s\S]*\}/)
-    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {}
+    // Handle both raw JSON and markdown code blocks
+    let jsonText = analysisText
+
+    // Remove markdown code blocks if present
+    const codeBlockMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
+    if (codeBlockMatch) {
+      jsonText = codeBlockMatch[1]
+    } else {
+      // Try to extract JSON object
+      const jsonMatch = analysisText.match(/\{[\s\S]*?\}/)
+      if (jsonMatch) {
+        jsonText = jsonMatch[0]
+      }
+    }
+
+    console.log('Extracted JSON text:', jsonText.substring(0, 200))
+
+    let analysis = {}
+    try {
+      analysis = JSON.parse(jsonText)
+    } catch (parseError) {
+      console.error('Failed to parse JSON:', parseError)
+      console.error('Raw text:', jsonText)
+      throw new Error(`Failed to parse Claude response as JSON: ${parseError.message}`)
+    }
 
     console.log('✅ Analysis complete')
     console.log(`Mean: ${analysis.mean_unique_views_converters}, Median: ${analysis.median_unique_views_converters}`)
