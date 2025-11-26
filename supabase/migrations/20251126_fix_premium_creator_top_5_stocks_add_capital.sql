@@ -13,7 +13,8 @@ WITH stock_aggregation AS (
   SELECT
     pc.creator_username,
     psh.stock_ticker,
-    psh.total_quantity
+    psh.total_quantity,
+    psh.avg_price  -- ADD: Include avg_price for percentage calculations
   FROM premium_creators pc
   LEFT JOIN portfolio_creator_engagement_metrics pcem
     ON pc.creator_id = pcem.creator_id
@@ -26,6 +27,7 @@ ranked_stocks AS (
     creator_username,
     stock_ticker,
     SUM(total_quantity) AS total_quantity,
+    AVG(avg_price) AS avg_price,  -- ADD: Average price across portfolios
     ROW_NUMBER() OVER (
       PARTITION BY creator_username
       ORDER BY SUM(total_quantity) DESC
@@ -38,7 +40,8 @@ SELECT
   ARRAY_AGG(
     json_build_object(
       'ticker', rs.stock_ticker,
-      'quantity', rs.total_quantity
+      'quantity', rs.total_quantity,
+      'avg_price', rs.avg_price  -- ADD: Include avg_price for UI percentage calculation
     ) ORDER BY rs.rank
   ) FILTER (WHERE rs.rank <= 5) AS top_5_stocks,
   pcb.total_copies,
@@ -52,7 +55,7 @@ GROUP BY rs.creator_username, pcb.total_copies, pcb.total_copy_capital;
 GRANT SELECT ON premium_creator_top_5_stocks TO anon, authenticated, service_role;
 
 COMMENT ON VIEW premium_creator_top_5_stocks IS
-'Top 5 stock holdings for each premium creator. Includes total_copies and total_copy_capital for sorting and display.';
+'Top 5 stock holdings for each premium creator. Includes total_copies and total_copy_capital for sorting and display. Each stock includes ticker, quantity, and avg_price for percentage calculations.';
 
 -- Log the changes
 DO $$
