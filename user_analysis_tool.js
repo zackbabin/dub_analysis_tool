@@ -1080,7 +1080,6 @@ function processComprehensiveData(contents) {
         // Financial/account fields
         clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank', 'total_bank_links') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
         clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits', 'total_deposits') || clean['Total Deposits'] || '';
-        clean['Total Deposit Count'] = getColumnValue(row, 'C. Total Deposit Count', 'D. Total Deposit Count', 'total_deposit_count') || clean['Total Deposit Count'] || '';
         clean['Total ACH Deposits'] = getColumnValue(row, 'D. Total ACH Deposits', 'total_ach_deposits') || clean['Total ACH Deposits'] || '';
         clean['Subscribed Within 7 Days'] = getColumnValue(row, 'D. Subscribed within 7 days', 'F. Subscribed within 7 days') || clean['Subscribed Within 7 Days'] || '';
         clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies', 'total_copies') || clean['Total Copies'] || '';
@@ -1143,7 +1142,7 @@ const ALL_VARIABLES = [
     'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
     'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
     'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
-    'totalDepositCount', 'subscribedWithin7Days', 'totalRegularCopies',
+    'subscribedWithin7Days', 'totalRegularCopies',
     'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
     'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps',
     'totalProfileViews', 'totalPDPViews'
@@ -1158,7 +1157,6 @@ const SECTION_EXCLUSIONS = {
         'activeCopiedPortfolios',
         'lifetimeCopiedPortfolios',
         'totalDeposits',
-        'totalDepositCount',
         'totalAchDeposits',
         'hasLinkedBank',
         'totalCopies',
@@ -1606,7 +1604,6 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
                         row['A. Linked Bank Account'] === 1 || row['A. Linked Bank Account'] === '1') ? 1 : 0,
         availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
         buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
-        totalDepositCount: cleanNumeric(row['Total Deposit Count'] || row['C. Total Deposit Count']),
         totalAchDeposits: cleanNumeric(row['Total ACH Deposits'] || row['total_ach_deposits']),
         totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
         totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
@@ -1760,7 +1757,6 @@ function getVariableLabel(variable) {
         'hasLinkedBank': 'Has Linked Bank',
         'availableCopyCredits': 'Available Copy Credits',
         'buyingPower': 'Buying Power',
-        'totalDepositCount': 'Total Deposit Count',
         'totalAchDeposits': 'Total ACH Deposits',
         'totalWithdrawals': 'Total Withdrawals',
         'totalWithdrawalCount': 'Total Withdrawal Count',
