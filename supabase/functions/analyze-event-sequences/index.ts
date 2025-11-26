@@ -139,6 +139,7 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
         'Content-Type': 'application/json',
         'X-API-Key': claudeApiKey,
         'anthropic-version': '2023-06-01',
+        'anthropic-beta': 'structured-outputs-2025-11-13',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5-20251101',
@@ -150,8 +151,22 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
             content: userPrompt,
           },
         ],
-        response_format: {
-          type: 'json'
+        output_format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              mean_unique_views_converters: {
+                type: 'number',
+                description: 'Mean number of unique portfolio views before first copy'
+              },
+              median_unique_views_converters: {
+                type: 'number',
+                description: 'Median number of unique portfolio views before first copy'
+              }
+            },
+            required: ['mean_unique_views_converters', 'median_unique_views_converters']
+          }
         }
       }),
     })
@@ -162,35 +177,21 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
     }
 
     const claudeResult = await claudeResponse.json()
+
+    // With structured outputs, the JSON is directly in the content[0].text field
+    // No need to parse markdown or extract - it's already valid JSON
     const analysisText = claudeResult.content[0].text
 
-    console.log('Claude response text:', analysisText.substring(0, 200))
+    console.log('Claude structured output response:', analysisText.substring(0, 200))
 
-    // Parse JSON from Claude's response
-    // Handle both raw JSON and markdown code blocks
-    let jsonText = analysisText
-
-    // Remove markdown code blocks if present
-    const codeBlockMatch = analysisText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1]
-    } else {
-      // Try to extract JSON object
-      const jsonMatch = analysisText.match(/\{[\s\S]*?\}/)
-      if (jsonMatch) {
-        jsonText = jsonMatch[0]
-      }
-    }
-
-    console.log('Extracted JSON text:', jsonText.substring(0, 200))
-
-    let analysis = {}
+    let analysis: any = {}
     try {
-      analysis = JSON.parse(jsonText)
-    } catch (parseError) {
-      console.error('Failed to parse JSON:', parseError)
-      console.error('Raw text:', jsonText)
-      throw new Error(`Failed to parse Claude response as JSON: ${parseError.message}`)
+      analysis = JSON.parse(analysisText)
+      console.log('✅ Parsed structured output:', analysis)
+    } catch (parseError: any) {
+      console.error('Failed to parse structured output:', parseError)
+      console.error('Raw response:', analysisText)
+      throw new Error(`Failed to parse Claude structured output: ${parseError?.message || String(parseError)}`)
     }
 
     console.log('✅ Analysis complete')

@@ -134,24 +134,92 @@ serve(async (req) => {
       const creatorMetricsRows = processSubscriptionMetrics(subscriptionMetricsData, premiumCreatorRows)
       console.log(`Processed subscription metrics for ${creatorMetricsRows.length} creators`)
 
-      // Store creator-level metrics in separate table
+      // Store creator-level metrics in separate table with change detection
       if (creatorMetricsRows.length > 0) {
-        console.log('Upserting premium creator-level metrics...')
-        const { error: creatorMetricsError } = await supabase
-          .from('premium_creator_metrics')
-          .upsert(creatorMetricsRows, {
-            onConflict: 'creator_id,synced_at',
-            ignoreDuplicates: false,
-          })
+        console.log('Upserting premium creator-level metrics with change detection...')
 
-        if (creatorMetricsError) {
-          console.error('Error upserting creator metrics:', creatorMetricsError)
-          throw creatorMetricsError
+        // CHANGE DETECTION: Fetch existing metrics to avoid unnecessary writes
+        let metricsToUpsert = creatorMetricsRows
+        let skippedUnchanged = 0
+
+        try {
+          // Fetch latest metrics for each creator (most recent synced_at per creator_id)
+          const creatorIds = creatorMetricsRows.map(r => r.creator_id)
+
+          // Get the most recent record for each creator_id
+          const { data: existingMetrics, error: fetchError } = await supabase
+            .from('premium_creator_metrics')
+            .select('creator_id, total_subscriptions, total_paywall_views, total_stripe_modal_views, total_cancellations')
+            .in('creator_id', creatorIds)
+            .order('synced_at', { ascending: false })
+
+          if (fetchError) {
+            console.warn(`⚠️ Change detection fetch failed, upserting all records as fallback:`, fetchError.message)
+          } else if (existingMetrics && existingMetrics.length > 0) {
+            // Create map of creator_id -> latest metrics (dedupe to get only most recent per creator)
+            const existingMap = new Map()
+            for (const record of existingMetrics) {
+              if (!existingMap.has(record.creator_id)) {
+                existingMap.set(record.creator_id, record)
+              }
+            }
+
+            // Filter to only creators whose metrics have changed
+            metricsToUpsert = creatorMetricsRows.filter(newRecord => {
+              const existing = existingMap.get(newRecord.creator_id)
+
+              if (!existing) {
+                // New creator - needs insert
+                return true
+              }
+
+              // Check if any metric has changed
+              const hasChanged =
+                existing.total_subscriptions !== newRecord.total_subscriptions ||
+                existing.total_paywall_views !== newRecord.total_paywall_views ||
+                existing.total_stripe_modal_views !== newRecord.total_stripe_modal_views ||
+                existing.total_cancellations !== newRecord.total_cancellations
+
+              if (!hasChanged) {
+                skippedUnchanged++
+              }
+
+              return hasChanged
+            })
+
+            if (skippedUnchanged > 0) {
+              console.log(`📊 Change detection: ${skippedUnchanged} unchanged creators skipped, ${metricsToUpsert.length} creators with changes to upsert`)
+            }
+          }
+        } catch (changeDetectionError) {
+          console.warn(`⚠️ Change detection error, upserting all records as fallback:`, changeDetectionError)
+          metricsToUpsert = creatorMetricsRows
         }
-        console.log(`✅ Upserted ${creatorMetricsRows.length} creator-level metrics rows`)
+
+        // Upsert only creators with changed metrics
+        if (metricsToUpsert.length > 0) {
+          const { error: creatorMetricsError } = await supabase
+            .from('premium_creator_metrics')
+            .upsert(metricsToUpsert, {
+              onConflict: 'creator_id,synced_at',
+              ignoreDuplicates: false,
+            })
+
+          if (creatorMetricsError) {
+            console.error('Error upserting creator metrics:', creatorMetricsError)
+            throw creatorMetricsError
+          }
+
+          const efficiency = skippedUnchanged > 0
+            ? ` (${Math.round((skippedUnchanged / creatorMetricsRows.length) * 100)}% unchanged)`
+            : ''
+          console.log(`✅ Upserted ${metricsToUpsert.length} creator-level metrics rows${efficiency}`)
+        } else {
+          console.log(`✅ All ${creatorMetricsRows.length} creator metrics unchanged (skipped upsert)`)
+        }
       }
 
-      // Process and upsert portfolio-creator copy metrics
+      // Process and upsert portfolio-creator copy metrics with change detection
       if (portfolioCreatorCopyMetricsData) {
         console.log('Processing portfolio-creator copy metrics...')
         const copyMetricsRows = processPortfolioCreatorCopyMetrics(
@@ -160,18 +228,84 @@ serve(async (req) => {
         )
 
         if (copyMetricsRows.length > 0) {
-          const { error: copyMetricsError } = await supabase
-            .from('portfolio_creator_copy_metrics')
-            .upsert(copyMetricsRows, {
-              onConflict: 'portfolio_ticker,creator_id',
-              ignoreDuplicates: false,
-            })
+          console.log('Upserting portfolio-creator copy metrics with change detection...')
 
-          if (copyMetricsError) {
-            console.error('Error upserting portfolio-creator copy metrics:', copyMetricsError)
-            throw copyMetricsError
+          // CHANGE DETECTION: Fetch existing copy metrics to avoid unnecessary writes
+          let copyMetricsToUpsert = copyMetricsRows
+          let skippedUnchangedCopy = 0
+
+          try {
+            // Build composite keys for lookup
+            const compositeKeys = copyMetricsRows.map(r => `${r.portfolio_ticker}|${r.creator_id}`)
+
+            // Fetch existing records
+            const portfolioTickers = [...new Set(copyMetricsRows.map(r => r.portfolio_ticker))]
+            const { data: existingCopyMetrics, error: fetchError } = await supabase
+              .from('portfolio_creator_copy_metrics')
+              .select('portfolio_ticker, creator_id, total_copies, total_liquidations')
+              .in('portfolio_ticker', portfolioTickers)
+
+            if (fetchError) {
+              console.warn(`⚠️ Change detection fetch failed, upserting all records as fallback:`, fetchError.message)
+            } else if (existingCopyMetrics && existingCopyMetrics.length > 0) {
+              // Create map of composite key -> existing metrics
+              const existingCopyMap = new Map()
+              for (const record of existingCopyMetrics) {
+                const key = `${record.portfolio_ticker}|${record.creator_id}`
+                existingCopyMap.set(key, record)
+              }
+
+              // Filter to only records with changed metrics
+              copyMetricsToUpsert = copyMetricsRows.filter((newRecord, idx) => {
+                const existing = existingCopyMap.get(compositeKeys[idx])
+
+                if (!existing) {
+                  // New portfolio-creator pair - needs insert
+                  return true
+                }
+
+                // Check if metrics have changed
+                const hasChanged =
+                  existing.total_copies !== newRecord.total_copies ||
+                  existing.total_liquidations !== newRecord.total_liquidations
+
+                if (!hasChanged) {
+                  skippedUnchangedCopy++
+                }
+
+                return hasChanged
+              })
+
+              if (skippedUnchangedCopy > 0) {
+                console.log(`📊 Change detection: ${skippedUnchangedCopy} unchanged portfolio-creator pairs skipped, ${copyMetricsToUpsert.length} pairs with changes to upsert`)
+              }
+            }
+          } catch (changeDetectionError) {
+            console.warn(`⚠️ Change detection error, upserting all records as fallback:`, changeDetectionError)
+            copyMetricsToUpsert = copyMetricsRows
           }
-          console.log(`✅ Upserted ${copyMetricsRows.length} portfolio-creator copy metrics rows`)
+
+          // Upsert only changed records
+          if (copyMetricsToUpsert.length > 0) {
+            const { error: copyMetricsError } = await supabase
+              .from('portfolio_creator_copy_metrics')
+              .upsert(copyMetricsToUpsert, {
+                onConflict: 'portfolio_ticker,creator_id',
+                ignoreDuplicates: false,
+              })
+
+            if (copyMetricsError) {
+              console.error('Error upserting portfolio-creator copy metrics:', copyMetricsError)
+              throw copyMetricsError
+            }
+
+            const efficiency = skippedUnchangedCopy > 0
+              ? ` (${Math.round((skippedUnchangedCopy / copyMetricsRows.length) * 100)}% unchanged)`
+              : ''
+            console.log(`✅ Upserted ${copyMetricsToUpsert.length} portfolio-creator copy metrics rows${efficiency}`)
+          } else {
+            console.log(`✅ All ${copyMetricsRows.length} portfolio-creator copy metrics unchanged (skipped upsert)`)
+          }
         }
       }
 
