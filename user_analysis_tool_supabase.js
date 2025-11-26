@@ -219,21 +219,27 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         console.log('🔄 Sync Live Data: Starting workflow...');
 
         try {
-            // Step 1: Sync user data (Mixpanel)
+            // Step 1: Sync user data (Mixpanel) - 0% → 14%
+            this.updateProgress(0, 'Step 1/7: Syncing user data...');
             console.log('\n═══ Step 1: User Data (Mixpanel) ═══');
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
+            this.updateProgress(14, 'Step 1/7: User data synced');
 
-            // Step 2: Sync creator data
+            // Step 2: Sync creator data - 14% → 28%
+            this.updateProgress(14, 'Step 2/7: Syncing creator data...');
             console.log('\n═══ Step 2: Creator Data ═══');
             let creatorResult = null;
             try {
                 creatorResult = await this.supabaseIntegration.triggerCreatorSync();
                 console.log('✅ Creator Sync: Complete');
+                this.updateProgress(28, 'Step 2/7: Creator data synced');
             } catch (error) {
                 console.warn('⚠ Creator Sync: Failed, continuing with existing data');
+                this.updateProgress(28, 'Step 2/7: Creator sync failed, continuing');
             }
 
-            // Step 3: Support analysis workflow (Zendesk + Linear)
+            // Step 3: Support analysis workflow (Zendesk + Linear) - 28% → 42%
+            this.updateProgress(28, 'Step 3/7: Syncing support data...');
             console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
             try {
                 const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
@@ -275,11 +281,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     await window.cxAnalysis.refresh();
                     console.log('  ✓ 3c: CX Analysis refreshed');
                 }
+                this.updateProgress(42, 'Step 3/7: Support analysis complete');
             } catch (error) {
                 console.warn('⚠ Support Analysis: Workflow failed, continuing');
+                this.updateProgress(42, 'Step 3/7: Support analysis failed, continuing');
             }
 
-            // Steps 4-6: Run in parallel (independent operations)
+            // Steps 4-6: Run in parallel (independent operations) - 42% → 71%
+            this.updateProgress(42, 'Steps 4-6/7: Running analysis workflows...');
             console.log('\n═══ Steps 4-6: Analysis Workflows (Parallel) ═══');
 
             const [step4Result, step5Result, step6Result] = await Promise.allSettled([
@@ -349,9 +358,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Log parallel completion
             console.log('\n✅ Parallel workflows (Steps 4-6) completed');
+            this.updateProgress(71, 'Steps 4-6/7: Analysis workflows complete');
 
         } finally {
-            // Step 7: Refresh materialized views
+            // Step 7: Refresh materialized views - 71% → 100%
+            this.updateProgress(71, 'Step 7/7: Refreshing materialized views...');
             console.log('\n═══ Step 7: Materialized Views ═══');
             console.log('Refreshing:');
             console.log('  1. main_analysis');
@@ -365,11 +376,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
                 if (refreshResult?.success) {
                     console.log('✅ All 6 materialized views refreshed');
+                    this.updateProgress(100, 'Step 7/7: Complete!');
                 } else {
                     console.warn('⚠ Materialized views refresh failed');
+                    this.updateProgress(100, 'Step 7/7: Complete (views refresh failed)');
                 }
             } catch (error) {
                 console.warn('⚠ Materialized views refresh failed, continuing');
+                this.updateProgress(100, 'Step 7/7: Complete (views refresh failed)');
             }
 
             console.log('\n✅ Sync Live Data: Workflow complete\n');
