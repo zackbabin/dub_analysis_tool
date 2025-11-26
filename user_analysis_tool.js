@@ -1165,6 +1165,7 @@ const SECTION_EXCLUSIONS = {
         'totalRegularCopies',
         'totalPremiumCopies',
         'didCopy',
+        'didSubscribe',
         'uniqueCreatorsViewed',
         'uniquePortfoliosViewed'
     ],
@@ -1177,6 +1178,7 @@ const SECTION_EXCLUSIONS = {
         'totalCopies',
         'totalRegularCopies',
         'totalPremiumCopies',
+        'didCopy',
         'didSubscribe',
         'uniqueCreatorsViewed',
         'uniquePortfoliosViewed',
@@ -1185,7 +1187,9 @@ const SECTION_EXCLUSIONS = {
         'totalWithdrawalCount'
     ],
     'totalSubscriptions': [
-        'totalSubscriptions'
+        'totalSubscriptions',
+        'didCopy',
+        'didSubscribe'
     ]
 };
 
