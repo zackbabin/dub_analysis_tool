@@ -580,6 +580,11 @@ serve(async (req) => {
             )
             totalEventsFetched += result.totalEvents
             console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
+
+            // Add 500ms delay between batches to respect Mixpanel rate limits (3 req/sec)
+            if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
+              await new Promise(resolve => setTimeout(resolve, 500))
+            }
           }
 
           stats.eventsFetched = totalEventsFetched
