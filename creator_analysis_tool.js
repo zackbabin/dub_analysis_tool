@@ -1060,7 +1060,7 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.3'; // Updated for optimized edge functions
+            const CACHE_VERSION = '2.4'; // Updated data scope text and variable exclusions
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
             if (cachedVersion !== CACHE_VERSION) {
