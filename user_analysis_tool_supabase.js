@@ -500,7 +500,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async displayResults(results) {
         // Cache version for button layout changes
-        const CACHE_VERSION = 10; // Fixed behavioral drivers to use INCLUSIONS lists
+        const CACHE_VERSION = 12; // Removed dead behavioral driver code
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -547,7 +547,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 10; // Fixed behavioral drivers to use INCLUSIONS lists
+            const CACHE_VERSION = 12; // Removed dead behavioral driver code
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
@@ -629,17 +629,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         displayDemographicBreakdownInline(results.summaryStats);
         displayPersonaBreakdownInline(results.summaryStats);
 
-        // Load tipping points for correlation analysis
-        const analysisData = JSON.parse(localStorage.getItem('qdaAnalysisResults') || 'null');
-        const tippingPoints = analysisData?.tippingPoints || JSON.parse(localStorage.getItem('qdaTippingPoints') || 'null');
-
-        // Transform correlationResults from object to array format expected by render functions
-        const correlationArray = [
-            { outcome: 'totalCopies', variables: results.correlationResults.totalCopies },
-            { outcome: 'totalDeposits', variables: results.correlationResults.totalDeposits },
-            { outcome: 'totalSubscriptions', variables: results.correlationResults.totalSubscriptions }
-        ];
-
         // === PORTFOLIO TAB ===
         const portfolioContainer = this.outputContainers.portfolio;
         portfolioContainer.innerHTML = `
@@ -651,7 +640,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Build Portfolio Content Section
         const portfolioContentSection = document.getElementById('portfolioContentSection');
 
-        if (results.correlationResults?.totalCopies && results.regressionResults?.copies) {
+        // Check if we have summary stats (indicating analysis was run)
+        if (results.summaryStats) {
             // Build all HTML sections first
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
@@ -1451,142 +1441,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         return wrapper;
     }
 
-    /**
-     * Build correlation table (reusable for Deposits, Copies, Subscriptions)
-     */
-    buildCorrelationTable(correlationData, regressionData, outcomeKey, tippingPoints) {
-        const outcomeMap = {
-            'deposits': 'totalDeposits',
-            'copies': 'totalCopies',
-            'subscriptions': 'totalSubscriptions'
-        };
-        const outcome = outcomeMap[outcomeKey];
-
-        const allVariables = Object.keys(correlationData);
-        const excludedVars = window.SECTION_EXCLUSIONS?.[outcome] || [];
-        const filteredVariables = allVariables.filter(variable => !excludedVars.includes(variable));
-
-        const combinedData = filteredVariables.map(variable => {
-            const correlation = correlationData[variable];
-            const regressionItem = regressionData.find(item => item.variable === variable);
-
-            let tippingPoint = 'N/A';
-            if (tippingPoints && tippingPoints[outcome] && tippingPoints[outcome][variable]) {
-                tippingPoint = tippingPoints[outcome][variable];
-            }
-
-            return {
-                variable: variable,
-                correlation: correlation,
-                tStat: regressionItem ? regressionItem.tStat : 0,
-                tippingPoint: tippingPoint
-            };
-        }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-
-        // Calculate predictive strength using window function
-        combinedData.forEach(item => {
-            const result = window.calculatePredictiveStrength?.(item.correlation, item.tStat) || { strength: 'N/A', className: '' };
-            item.predictiveStrength = result.strength;
-            item.predictiveClass = result.className;
-        });
-
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const headers = [
-            { text: 'Variable', tooltip: null },
-            { text: 'Correlation', tooltip: null },
-            { text: 'T-Statistic', tooltip: null },
-            {
-                text: 'Predictive Strength',
-                tooltip: `<strong>Predictive Strength</strong>
-                    Combines statistical significance and effect size using a two-stage approach:
-                    <ul>
-                        <li><strong>Stage 1:</strong> T-statistic ≥1.96 (95% confidence)</li>
-                        <li><strong>Stage 2:</strong> Weighted score = Correlation (90%) + T-stat (10%)</li>
-                        <li><strong>Ranges:</strong> Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5)</li>
-                    </ul>
-                    Higher scores indicate stronger and more reliable predictive relationships.`
-            },
-            {
-                text: 'Tipping Point',
-                tooltip: `<strong>Tipping Point</strong>
-                    The "magic number" threshold where user behavior changes significantly:
-                    <ul>
-                        <li>Identifies the value where the largest jump in conversion rate occurs</li>
-                        <li>Only considers groups with 10+ users and >10% conversion rate</li>
-                        <li>Represents the minimum exposure needed for behavioral change</li>
-                    </ul>
-                    Example: If tipping point is 5, users who view 5+ items convert at much higher rates.`
-            }
-        ];
-
-        headers.forEach(headerData => {
-            const th = document.createElement('th');
-            if (headerData.tooltip) {
-                th.innerHTML = `<span class="info-tooltip">${headerData.text}<span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
-            } else {
-                th.textContent = headerData.text;
-            }
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        const fragment = document.createDocumentFragment();
-
-        combinedData.slice(0, 10).forEach(item => {
-            const row = document.createElement('tr');
-
-            // Variable
-            const varCell = document.createElement('td');
-            // Use getVariableLabel for consistent formatting across all tables
-            const displayName = window.getVariableLabel?.(item.variable) || item.variable;
-            varCell.textContent = displayName;
-            varCell.style.width = '200px'; // Consistent variable column width
-            row.appendChild(varCell);
-
-            // Correlation
-            const corrCell = document.createElement('td');
-            corrCell.textContent = item.correlation.toFixed(2);
-            row.appendChild(corrCell);
-
-            // T-Stat
-            const tStatCell = document.createElement('td');
-            tStatCell.textContent = item.tStat.toFixed(2);
-            row.appendChild(tStatCell);
-
-            // Predictive Strength
-            const strengthCell = document.createElement('td');
-            const strengthSpan = document.createElement('span');
-            strengthSpan.className = item.predictiveClass;
-            strengthSpan.textContent = item.predictiveStrength;
-            strengthCell.appendChild(strengthSpan);
-            row.appendChild(strengthCell);
-
-            // Tipping Point
-            const tpCell = document.createElement('td');
-            tpCell.textContent = item.tippingPoint !== 'N/A' ?
-                (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
-                'N/A';
-            row.appendChild(tpCell);
-
-            fragment.appendChild(row);
-        });
-
-        tbody.appendChild(fragment);
-        table.appendChild(tbody);
-
-        // Wrap table in a scrollable container for mobile
-        const wrapper = document.createElement('div');
-        wrapper.className = 'table-wrapper';
-        wrapper.appendChild(table);
-
-        return wrapper;
-    }
 
     /**
      * Process creator data for display

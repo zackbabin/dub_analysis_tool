@@ -13,7 +13,7 @@ interface MainAnalysisRow {
   user_id: string
   distinct_id: string
   // Outcome variables
-  total_deposits: number
+  total_ach_deposits: number
   total_copies: number
   total_subscriptions: number
   // All other numeric fields are potential predictors
@@ -31,7 +31,7 @@ interface DriverResult {
 // Variable inclusions per outcome - ONLY these variables should be analyzed
 // Based on CSV mappings provided by user
 const INCLUSIONS = {
-  total_deposits: [
+  total_ach_deposits: [
     // Deposit Funds: 14 specific variables from CSV
     'regular_pdp_views',           // E. Regular PDP Views
     'premium_pdp_views',           // F. Premium PDP Views
@@ -70,7 +70,7 @@ const INCLUSIONS = {
     'buying_power',                // buyingPower
     'total_deposits',              // totalDeposits
   ],
-  did_subscribe: [
+  total_subscriptions: [
     // Subscriptions: 26 specific variables from CSV
     'total_bank_links',            // A. Total Bank Links
     'total_copies',                // B. Total Copies
@@ -311,8 +311,8 @@ Deno.serve(async (req) => {
     console.log('📈 Analyzing deposit drivers...')
     const depositDrivers = analyzeBehavioralDrivers(
       mainAnalysisData,
-      'total_deposits',
-      INCLUSIONS.total_deposits
+      'total_ach_deposits',
+      INCLUSIONS.total_ach_deposits
     )
     console.log(`✓ Calculated ${depositDrivers.length} deposit drivers`)
 
@@ -329,8 +329,8 @@ Deno.serve(async (req) => {
     console.log('📈 Analyzing subscription drivers...')
     const subscriptionDrivers = analyzeBehavioralDrivers(
       mainAnalysisData,
-      'did_subscribe',
-      INCLUSIONS.did_subscribe
+      'total_subscriptions',
+      INCLUSIONS.total_subscriptions
     )
     console.log(`✓ Calculated ${subscriptionDrivers.length} subscription drivers`)
 

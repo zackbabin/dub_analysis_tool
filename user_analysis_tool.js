@@ -451,13 +451,7 @@ class UserAnalysisTool {
 
         this.updateProgress(90, 'Generating insights...');
 
-        // Step 4: Calculate tipping points for all variables and outcomes
-        const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
-
-        // Clear cleanData reference to free memory (it's large and no longer needed)
-        results.cleanData = null;
-
-        // Step 5: Save results and hash to localStorage in single batch write
+        // Step 4: Save results and hash to localStorage
         const now = new Date();
         const timestamp = now.toLocaleString('en-US', {
             month: 'short',
@@ -468,12 +462,9 @@ class UserAnalysisTool {
             hour12: true
         });
 
-        // Batch all results into single localStorage write (reduces I/O operations)
+        // Save only summary stats (behavioral drivers are in database)
         localStorage.setItem('qdaAnalysisResults', JSON.stringify({
             summaryStats: results.summaryStats,
-            correlationResults: results.correlationResults,
-            regressionResults: results.regressionResults,
-            tippingPoints: tippingPoints,
             lastUpdated: timestamp
         }));
 
@@ -585,31 +576,6 @@ class UserAnalysisTool {
         this.saveAnalysisResults(this.outputContainer.innerHTML);
     }
 
-    /**
-     * Calculate tipping points for all variables and outcomes
-     * Optimized: Pre-groups data in single pass instead of 105 separate iterations
-     */
-    calculateAllTippingPoints(cleanData, correlationResults) {
-        const tippingPoints = {};
-
-        // Pre-group all data in a single pass through the dataset
-        const preGroupedData = preGroupDataForTippingPoints(cleanData);
-
-        ['didCopy', 'didDeposit', 'didSubscribe'].forEach(outcome => {
-            tippingPoints[outcome] = {};
-
-            const variables = Object.keys(correlationResults[outcome]);
-            variables.forEach(variable => {
-                if (variable !== outcome) {
-                    // Use pre-grouped data instead of iterating through dataset again
-                    const groupKey = `${variable}_${outcome}`;
-                    tippingPoints[outcome][variable] = calculateTippingPointFromGroups(preGroupedData[groupKey]);
-                }
-            });
-        });
-
-        return tippingPoints;
-    }
 
 
     /**
@@ -1147,82 +1113,6 @@ const ALL_VARIABLES = [
     'totalProfileViews', 'totalPDPViews'
 ];
 
-const SECTION_EXCLUSIONS = {
-    'totalDeposits': [
-        // Profile fields (N/A in mapping - not used in analysis)
-        'income',
-        'net_worth',
-        'investing_activity',
-        'investing_experience_years',
-        'investing_objective',
-        'investment_type',
-        'acquisition_survey',
-        // Deposit-related (circular dependency)
-        'total_deposits',
-        'total_ach_deposits',
-        'total_bank_links',
-        'buying_power',
-        'available_copy_credits',
-        // Portfolio creation (not behavioral drivers for deposits)
-        'active_created_portfolios',
-        'lifetime_created_portfolios',
-        // Copy metrics (outcome variables)
-        'active_copied_portfolios',
-        'lifetime_copied_portfolios',
-        'total_copies',
-        'total_regular_copies',
-        'total_premium_copies',
-        'did_copy',
-        // Subscription metrics (outcome variables)
-        'total_subscriptions',
-        'did_subscribe'
-    ],
-    'totalCopies': [
-        // Profile fields (N/A in mapping - not used in analysis)
-        'income',
-        'net_worth',
-        'investing_activity',
-        'investing_experience_years',
-        'investing_objective',
-        'investment_type',
-        'acquisition_survey',
-        // Financial metrics (not behavioral drivers for copies)
-        'available_copy_credits',
-        'buying_power',
-        // Portfolio creation (correlated but not drivers)
-        'active_created_portfolios',
-        'lifetime_created_portfolios',
-        // Copy metrics (circular dependency)
-        'active_copied_portfolios',
-        'lifetime_copied_portfolios',
-        'total_copies',
-        'total_regular_copies',
-        'total_premium_copies',
-        'did_copy',
-        // Subscription metrics (outcome variables)
-        'total_subscriptions',
-        'did_subscribe'
-    ],
-    'totalSubscriptions': [
-        // Profile fields (N/A in mapping - not used in analysis)
-        'income',
-        'net_worth',
-        'investing_activity',
-        'investing_experience_years',
-        'investing_objective',
-        'investment_type',
-        'acquisition_survey',
-        // Subscription metrics (circular dependency)
-        'total_subscriptions',
-        'did_subscribe',
-        // Copy metrics (outcome variables)
-        'did_copy'
-    ]
-};
-
-// Expose to window for access by Supabase version
-window.SECTION_EXCLUSIONS = SECTION_EXCLUSIONS;
-
 /**
  * Helper: Convert column name to camelCase
  */
@@ -1334,225 +1224,6 @@ function calculateCorrelation(x, y) {
     return denominator === 0 ? 0 : numerator / denominator;
 }
 
-function calculateCorrelations(data) {
-    const variables = getAllVariables(data);  // Use dynamic variable detection
-    const correlations = {};
-
-    // Pre-extract all variable arrays once to avoid repeated map operations
-    const variableArrays = {};
-    ['didCopy', 'didDeposit', 'didSubscribe'].concat(variables).forEach(varName => {
-        variableArrays[varName] = data.map(d => d[varName]);
-    });
-
-    ['didCopy', 'didDeposit', 'didSubscribe'].forEach(outcome => {
-        correlations[outcome] = {};
-        variables.forEach(variable => {
-            if (variable !== outcome) {
-                correlations[outcome][variable] = calculateCorrelation(
-                    variableArrays[outcome],
-                    variableArrays[variable]
-                );
-            }
-        });
-    });
-
-    return correlations;
-}
-
-function performRegression(data, outcome, correlations) {
-    const predictors = getAllVariables(data);  // Use dynamic variable detection
-    const n = data.length;
-
-    const results = predictors.filter(predictor => predictor !== outcome).map(predictor => {
-        // Reuse pre-calculated correlation instead of recalculating
-        const correlation = correlations[outcome][predictor];
-
-        let tStat = 0;
-        if (Math.abs(correlation) > 0.001 && n > 2) {
-            const denominator = 1 - (correlation * correlation);
-            if (denominator > 0.001) {
-                tStat = correlation * Math.sqrt((n - 2) / denominator);
-            }
-        }
-
-        return {
-            variable: predictor,
-            correlation: correlation,
-            tStat: tStat,
-            significant: Math.abs(tStat) > 1.96
-        };
-    });
-
-    return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-}
-
-/**
- * Pre-group data for all variables and outcomes in a single pass
- * This avoids iterating through the dataset multiple times (once per variable/outcome pair)
- */
-function preGroupDataForTippingPoints(data) {
-    const allGroups = {};
-    const variables = getAllVariables(data);  // Use dynamic variable detection
-    const outcomes = ['didCopy', 'didDeposit', 'didSubscribe'];
-
-    // Single pass through the dataset, grouping all variable/outcome combinations
-    data.forEach(user => {
-        variables.forEach(variable => {
-            outcomes.forEach(outcome => {
-                const key = `${variable}_${outcome}`;
-                const value = Math.floor(user[variable]) || 0;
-                const converted = user[outcome] > 0 ? 1 : 0;
-
-                if (!allGroups[key]) {
-                    allGroups[key] = {};
-                }
-                if (!allGroups[key][value]) {
-                    allGroups[key][value] = { total: 0, converted: 0 };
-                }
-                allGroups[key][value].total++;
-                allGroups[key][value].converted += converted;
-            });
-        });
-    });
-
-    return allGroups;
-}
-
-/**
- * Calculate tipping point from pre-grouped data
- * This version doesn't iterate through the dataset, just processes pre-computed groups
- */
-function calculateTippingPointFromGroups(groups) {
-    if (!groups) return 'N/A';
-
-    const conversionRates = Object.keys(groups)
-        .map(value => ({
-            value: parseInt(value),
-            rate: groups[value].converted / groups[value].total,
-            total: groups[value].total
-        }))
-        .filter(item => item.total >= 10)
-        .sort((a, b) => a.value - b.value);
-
-    if (conversionRates.length < 2) return 'N/A';
-
-    let maxIncrease = 0;
-    let tippingPoint = 'N/A';
-
-    for (let i = 1; i < conversionRates.length; i++) {
-        const increase = conversionRates[i].rate - conversionRates[i-1].rate;
-        if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
-            maxIncrease = increase;
-            tippingPoint = conversionRates[i].value;
-        }
-    }
-
-    return tippingPoint;
-}
-
-function calculateTippingPoint(data, variable, outcome) {
-    const groups = {};
-    data.forEach(user => {
-        const value = Math.floor(user[variable]) || 0;
-        const converted = user[outcome] > 0 ? 1 : 0;
-
-        if (!groups[value]) {
-            groups[value] = { total: 0, converted: 0 };
-        }
-        groups[value].total++;
-        groups[value].converted += converted;
-    });
-
-    const conversionRates = Object.keys(groups)
-        .map(value => ({
-            value: parseInt(value),
-            rate: groups[value].converted / groups[value].total,
-            total: groups[value].total
-        }))
-        .filter(item => item.total >= 10)
-        .sort((a, b) => a.value - b.value);
-
-    if (conversionRates.length < 2) return 'N/A';
-
-    let maxIncrease = 0;
-    let tippingPoint = 'N/A';
-
-    for (let i = 1; i < conversionRates.length; i++) {
-        const increase = conversionRates[i].rate - conversionRates[i-1].rate;
-        if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
-            maxIncrease = increase;
-            tippingPoint = conversionRates[i].value;
-        }
-    }
-
-    return tippingPoint;
-}
-
-function classifyPersona(user) {
-    function isLowerOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k'];
-        if (!income) return true;
-        const incomeStr = String(income);
-        return incomeStr.trim() === '' || lowerIncomes.includes(incomeStr);
-    }
-
-    function isLowerOrUnknownNetWorth(netWorth) {
-        const lowerNetWorths = ['Less than $10,000', '<10k', '$10,000-$49,999', '10k–50k', '$50,000-$99,999', '50k–100k'];
-        if (!netWorth) return true;
-        const netWorthStr = String(netWorth);
-        return netWorthStr.trim() === '' || lowerNetWorths.includes(netWorthStr);
-    }
-
-    function isHigherOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k'];
-        if (!income) return true;
-        const incomeStr = String(income);
-        return incomeStr.trim() === '' || !lowerIncomes.includes(incomeStr);
-    }
-
-    const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
-    const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
-    const hasCopied = user.totalCopies >= 1;
-
-    // HIERARCHICAL PRIORITY ORDER
-    if (user.totalSubscriptions >= 1) {
-        return 'premium';
-    }
-
-    // Core: All non-premium users with deposits > 0 (merged Aspiring Premium, original Core, and Lower Income with deposits)
-    if (user.totalSubscriptions === 0 && user.totalDeposits > 0) {
-        return 'core';
-    }
-
-    if (user.totalDeposits === 0 &&
-        user.totalCopies === 0 &&
-        (totalPDPViews >= 1 || totalCreatorViews >= 1)) {
-        return 'activationTargets';
-    }
-
-    if (user.totalDeposits === 0 &&
-        totalPDPViews === 0 &&
-        totalCreatorViews === 0 &&
-        user.totalCopies === 0) {
-        return 'nonActivated';
-    }
-
-    // Former Lower Income users with deposits = 0 now fall into Non-Activated or Unclassified
-    return 'unclassified';
-}
-
-function calculateDemographicBreakdown(data, key) {
-    let totalResponses = 0;
-    const counts = data.reduce((acc, d) => {
-        const value = d[key];
-        if (value && typeof value === 'string' && value.trim() !== '') {
-            acc[value] = (acc[value] || 0) + 1;
-            totalResponses++;
-        }
-        return acc;
-    }, {});
-    return { counts, totalResponses };
-}
 
 function calculateSummaryStats(data) {
     const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
@@ -1689,12 +1360,7 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         investingActivity: row['Investing Activity'] || row['investingActivity'] || '',
         investingObjective: row['Investing Objective'] || row['investingObjective'] || '',
         investmentType: row['Investment Type'] || row['investmentType'] || '',
-        acquisitionSurvey: row['Acquisition Survey'] || row['acquisitionSurvey'] || '',
-
-        // Boolean conversion flags (for behavioral driver analysis)
-        didCopy: row['Did Copy'] || row['did_copy'] || 0,
-        didSubscribe: row['Did Subscribe'] || row['did_subscribe'] || 0,
-        didDeposit: row['Did Deposit'] || row['did_deposit'] || 0
+        acquisitionSurvey: row['Acquisition Survey'] || row['acquisitionSurvey'] || ''
     }));
 
     // Step 2: Dynamically add any new columns that weren't hardcoded above
@@ -1735,18 +1401,14 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
     }
 
     const summaryStats = calculateSummaryStats(cleanData);
-    const correlationResults = calculateCorrelations(cleanData);
-    const regressionResults = {
-        copies: performRegression(cleanData, 'didCopy', correlationResults),
-        deposits: performRegression(cleanData, 'didDeposit', correlationResults),
-        subscriptions: performRegression(cleanData, 'didSubscribe', correlationResults)
-    };
+
+    // NOTE: Behavioral driver analysis (correlations, regressions, tipping points) is now
+    // handled by the analyze-behavioral-drivers Edge Function and stored in database tables:
+    // - deposit_drivers, copy_drivers, subscription_drivers
+    // The frontend fetches from these tables instead of calculating client-side.
 
     return {
-        summaryStats,
-        correlationResults,
-        regressionResults,
-        cleanData
+        summaryStats
     };
 }
 
