@@ -1081,7 +1081,6 @@ function processComprehensiveData(contents) {
         clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank', 'total_bank_links') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
         clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits', 'total_deposits') || clean['Total Deposits'] || '';
         clean['Total ACH Deposits'] = getColumnValue(row, 'D. Total ACH Deposits', 'total_ach_deposits') || clean['Total ACH Deposits'] || '';
-        clean['Subscribed Within 7 Days'] = getColumnValue(row, 'D. Subscribed within 7 days', 'F. Subscribed within 7 days') || clean['Subscribed Within 7 Days'] || '';
         clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies', 'total_copies') || clean['Total Copies'] || '';
         clean['Total Regular Copies'] = getColumnValue(row, 'F. Total Regular Copies', 'H. Total Regular Copies', 'total_regular_copies') || clean['Total Regular Copies'] || '';
         clean['Total Premium Copies'] = getColumnValue(row, 'G. Total Premium Copies', 'total_premium_copies') || clean['Total Premium Copies'] || '';
@@ -1137,12 +1136,10 @@ function processComprehensiveData(contents) {
 // Constants
 const ALL_VARIABLES = [
     'hasLinkedBank', 'totalStripeViews', 'paywallViews',
-    'regularPDPViews', 'premiumPDPViews', 'uniqueCreatorsInteracted',
-    'uniquePortfoliosInteracted', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
+    'regularPDPViews', 'premiumPDPViews', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
     'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
-    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalBuys', 'totalSells',
-    'totalTrades', 'totalWithdrawalCount', 'totalWithdrawals', 'totalOfUserProfiles',
-    'subscribedWithin7Days', 'totalRegularCopies',
+    'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalOfUserProfiles',
+    'totalRegularCopies',
     'regularCreatorProfileViews', 'premiumCreatorProfileViews', 'appSessions',
     'discoverTabViews', 'leaderboardViews', 'premiumTabViews', 'creatorCardTaps', 'portfolioCardTaps',
     'totalProfileViews', 'totalPDPViews'
@@ -1473,7 +1470,7 @@ function classifyPersona(user) {
     const hasCopied = user.totalCopies >= 1;
 
     // HIERARCHICAL PRIORITY ORDER
-    if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
+    if (user.totalSubscriptions >= 1) {
         return 'premium';
     }
 
@@ -1605,23 +1602,16 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         availableCopyCredits: cleanNumeric(row['Available Copy Credits'] || row['availableCopyCredits']),
         buyingPower: cleanNumeric(row['Buying Power'] || row['buyingPower']),
         totalAchDeposits: cleanNumeric(row['Total ACH Deposits'] || row['total_ach_deposits']),
-        totalWithdrawals: cleanNumeric(row['Total Withdrawals'] || row['totalWithdrawals']),
-        totalWithdrawalCount: cleanNumeric(row['Total Withdrawal Count'] || row['totalWithdrawalCount']),
 
         // Portfolio Trading Metrics
         activeCreatedPortfolios: cleanNumeric(row['Active Created Portfolios'] || row['activeCreatedPortfolios']),
         lifetimeCreatedPortfolios: cleanNumeric(row['Lifetime Created Portfolios'] || row['lifetimeCreatedPortfolios']),
         activeCopiedPortfolios: cleanNumeric(row['Active Copied Portfolios'] || row['activeCopiedPortfolios']),
         lifetimeCopiedPortfolios: cleanNumeric(row['Lifetime Copied Portfolios'] || row['lifetimeCopiedPortfolios']),
-        totalBuys: cleanNumeric(row['Total Buys'] || row['totalBuys']),
-        totalSells: cleanNumeric(row['Total Sells'] || row['totalSells']),
-        totalTrades: cleanNumeric(row['Total Trades'] || row['totalTrades']),
 
         // Behavioral / Engagement Metrics
         totalRegularCopies: cleanNumeric(row['Total Regular Copies'] || row['F. Total Regular Copies']),
         totalPremiumCopies: cleanNumeric(row['Total Premium Copies'] || row['G. Total Premium Copies']),
-        uniqueCreatorsInteracted: cleanNumeric(row['Unique Creators Interacted']),
-        uniquePortfoliosInteracted: cleanNumeric(row['Unique Portfolios Interacted']),
 
         regularPDPViews: cleanNumeric(row['Regular PDP Views'] || row['H. Regular PDP Views']),
         premiumPDPViews: cleanNumeric(row['Premium PDP Views'] || row['I. Premium PDP Views']),
@@ -1637,8 +1627,6 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         leaderboardViews: cleanNumeric(row['Leaderboard Views'] || row['P. Leaderboard Tab Views']),
         premiumTabViews: cleanNumeric(row['Premium Tab Views'] || row['Q. Premium Tab Views']),
         totalOfUserProfiles: cleanNumeric(row['Total Of User Profiles']),
-
-        subscribedWithin7Days: cleanNumeric(row['Subscribed Within 7 Days'] || row['D. Subscribed within 7 days']),
 
         timeToFirstCopy: cleanNumeric(row['Time To First Copy']),
         timeToDeposit: cleanNumeric(row['Time To Deposit']),
@@ -1758,19 +1746,12 @@ function getVariableLabel(variable) {
         'availableCopyCredits': 'Available Copy Credits',
         'buyingPower': 'Buying Power',
         'totalAchDeposits': 'Total ACH Deposits',
-        'totalWithdrawals': 'Total Withdrawals',
-        'totalWithdrawalCount': 'Total Withdrawal Count',
         'activeCreatedPortfolios': 'Active Created Portfolios',
         'lifetimeCreatedPortfolios': 'Lifetime Created Portfolios',
         'activeCopiedPortfolios': 'Active Copied Portfolios',
         'lifetimeCopiedPortfolios': 'Lifetime Copied Portfolios',
-        'totalBuys': 'Total Buys',
-        'totalSells': 'Total Sells',
-        'totalTrades': 'Total Trades',
         'totalCopyStarts': 'Total Copy Starts',
         'totalRegularCopies': 'Total Regular Copies',
-        'uniqueCreatorsInteracted': 'Unique Creators Interacted',
-        'uniquePortfoliosInteracted': 'Unique Portfolios Interacted',
         'regularPDPViews': 'Regular PDP Views',
         'premiumPDPViews': 'Premium PDP Views',
         'totalPDPViews': 'Total PDP Views',
@@ -1784,7 +1765,6 @@ function getVariableLabel(variable) {
         'leaderboardViews': 'Leaderboard Views',
         'premiumTabViews': 'Premium Tab Views',
         'totalOfUserProfiles': 'Total User Profiles',
-        'subscribedWithin7Days': 'Subscribed Within 7 Days',
         'timeToFirstCopy': 'Time To First Copy',
         'timeToDeposit': 'Time To Deposit',
         'timeToLinkedBank': 'Time To Linked Bank',
