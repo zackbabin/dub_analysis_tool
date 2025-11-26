@@ -841,8 +841,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Add timestamp (top right) and data scope (top left) to each container
         const tabConfigs = [
-            { container: summaryContainer, scopeText: 'Freemium users who have been KYC approved' },
-            { container: portfolioContainer, scopeText: 'All users in last 60 days who have been KYC approved' }
+            { container: summaryContainer, scopeText: 'All Freemium users who have been KYC approved since 8/27' },
+            { container: portfolioContainer, scopeText: 'All users who have been KYC approved since 8/27' }
         ];
 
         tabConfigs.forEach(({ container, scopeText }) => {
