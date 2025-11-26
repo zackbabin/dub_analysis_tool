@@ -1185,7 +1185,10 @@ const SECTION_EXCLUSIONS = {
     'totalSubscriptions': [
         'totalSubscriptions',
         'didCopy',
-        'didSubscribe'
+        'didSubscribe',
+        'totalDepositCount',
+        'totalWithdrawals',
+        'totalWithdrawalCount'
     ]
 };
 
