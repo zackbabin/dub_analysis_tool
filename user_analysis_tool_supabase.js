@@ -500,7 +500,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async displayResults(results) {
         // Cache version for button layout changes
-        const CACHE_VERSION = 8; // Fixed main_analysis refresh timing
+        const CACHE_VERSION = 9; // Updated data scope text
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -547,7 +547,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 8; // Fixed main_analysis refresh timing
+            const CACHE_VERSION = 9; // Updated data scope text
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
@@ -837,8 +837,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Add timestamp (top right) and data scope (top left) to each container
         const tabConfigs = [
-            { container: summaryContainer, scopeText: 'All Freemium users who have been KYC approved since 8/27' },
-            { container: portfolioContainer, scopeText: 'All users who have been KYC approved since 8/27' }
+            { container: summaryContainer, scopeText: 'All KYC approved users since 8/27' },
+            { container: portfolioContainer, scopeText: 'All KYC approved users since 8/27' }
         ];
 
         tabConfigs.forEach(({ container, scopeText }) => {
