@@ -31,7 +31,6 @@ SELECT
   esr.event_time,
   esr.portfolio_ticker,
   esr.synced_at,
-  esr.processed_at,
   esr.created_at
 FROM event_sequences_raw esr
 LEFT JOIN user_first_copies ufc ON esr.distinct_id = ufc.distinct_id;
