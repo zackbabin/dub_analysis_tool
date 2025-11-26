@@ -25,7 +25,7 @@ SELECT
   si.investing_objective,
   si.investment_type,
   si.acquisition_survey,
-  si.linked_bank_account,
+  si.total_bank_links,
   si.available_copy_credits,
   si.buying_power,
   si.total_deposits,
