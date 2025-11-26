@@ -1060,7 +1060,7 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.0'; // Updated structure with new H1 placement
+            const CACHE_VERSION = '2.1'; // Fixed progress bar in Sync Live Data workflow
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
             if (cachedVersion !== CACHE_VERSION) {
