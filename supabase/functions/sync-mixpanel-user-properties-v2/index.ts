@@ -293,19 +293,17 @@ async function updateUserPropertiesBatch(
 
       // Only update if there are changes
       if (usersToUpsert.length > 0) {
-        // Update records one by one using distinct_id lookup
-        let successCount = 0
-        for (const user of usersToUpsert) {
-          const existing = existingMap.get(user.distinct_id)
-          if (!existing || !existing.user_id) {
-            console.warn(`Skipping user ${user.distinct_id} - no user_id found`)
-            continue
-          }
+        // Transform users to include user_id from existing records for bulk upsert
+        const recordsToUpdate = usersToUpsert
+          .map(user => {
+            const existing = existingMap.get(user.distinct_id)
+            if (!existing || !existing.user_id) {
+              return null
+            }
 
-          // Update by user_id (primary key) with property values
-          const { error } = await supabase
-            .from('subscribers_insights')
-            .update({
+            return {
+              user_id: existing.user_id,
+              distinct_id: user.distinct_id,
               income: user.income,
               net_worth: user.net_worth,
               investing_activity: user.investing_activity,
@@ -321,18 +319,28 @@ async function updateUserPropertiesBatch(
               lifetime_copied_portfolios: user.lifetime_copied_portfolios,
               total_deposits: user.total_deposits,
               total_deposit_count: user.total_deposit_count,
+            }
+          })
+          .filter(record => record !== null)
+
+        if (recordsToUpdate.length > 0) {
+          // Bulk upsert using user_id as conflict key (much faster than individual updates)
+          const { error, count } = await supabase
+            .from('subscribers_insights')
+            .upsert(recordsToUpdate, {
+              onConflict: 'user_id',
+              count: 'exact'
             })
-            .eq('user_id', existing.user_id)
 
           if (error) {
-            console.error(`Error updating user ${user.distinct_id}:`, error.message)
-          } else {
-            successCount++
+            console.error(`Error upserting batch:`, error.message)
+            throw error
           }
-        }
 
-        totalUpserted += successCount
-        console.log(`  Successfully updated ${successCount}/${usersToUpsert.length} records`)
+          const successCount = count || recordsToUpdate.length
+          totalUpserted += successCount
+          console.log(`  Successfully upserted ${successCount} records (bulk operation)`)
+        }
       }
     } catch (batchError) {
       console.error(`Exception in batch processing:`, batchError.message)

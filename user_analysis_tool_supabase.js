@@ -579,7 +579,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const hiddenGemsSummary = hiddenGems && hiddenGems.length > 0 ? {
             total_hidden_gems: hiddenGems.length,
             avg_pdp_views: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.total_pdp_views || 0), 0) / hiddenGems.length * 10) / 10,
-            avg_conversion_rate: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.conversion_rate_pct || 0), 0) / hiddenGems.length * 100) / 100
+            avg_conversion_rate: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.copy_conversion_rate || 0), 0) / hiddenGems.length * 100) / 100
         } : null;
         const subscriptionSequenceAnalysis = null; // Set to null since we're not loading it
         const topSequences = []; // Empty array for now
@@ -1020,7 +1020,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <td style="text-align: right;">${parseInt(gem.total_pdp_views || 0).toLocaleString()}</td>
                         <td style="text-align: right;">${parseInt(gem.unique_viewers || 0).toLocaleString()}</td>
                         <td style="text-align: right;">${parseInt(gem.total_copies || 0).toLocaleString()}</td>
-                        <td style="text-align: right;">${parseFloat(gem.conversion_rate_pct || 0).toFixed(1)}%</td>
+                        <td style="text-align: right;">${parseFloat(gem.copy_conversion_rate || 0).toFixed(1)}%</td>
                     </tr>`
                 );
             });

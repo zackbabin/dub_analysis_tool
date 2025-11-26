@@ -271,8 +271,10 @@ serve(async (req) => {
       console.log('📦 Date range: last 7 days')
       const backfillDays = 7
       const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
+      // Use yesterday as toDate to avoid timezone issues with Mixpanel API
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
       fromDate = startDate.toISOString().split('T')[0]
-      toDate = now.toISOString().split('T')[0]
+      toDate = yesterday.toISOString().split('T')[0]
       syncMode = 'backfill'
       console.log(`Date range: ${fromDate} to ${toDate}`)
 
