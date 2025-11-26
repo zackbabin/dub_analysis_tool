@@ -258,6 +258,9 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Note: main_analysis is refreshed in supabase_integration.js after portfolio engagement processing
+    // This ensures all source data (subscribers_insights + user_portfolio_creator_engagement) is fresh
+
     // Fetch all data from main_analysis materialized view
     console.log('📊 Fetching data from main_analysis...')
     const { data: mainAnalysisData, error: fetchError } = await supabase
@@ -308,7 +311,7 @@ Deno.serve(async (req) => {
     const { error: deleteDepositError } = await supabase
       .from('deposit_drivers')
       .delete()
-      .neq('id', 0) // Delete all rows
+      .gte('id', 0) // Delete all rows (id >= 0)
 
     if (deleteDepositError) {
       console.warn('Warning: Failed to clear deposit_drivers:', deleteDepositError.message)
@@ -328,7 +331,7 @@ Deno.serve(async (req) => {
     const { error: deleteCopyError } = await supabase
       .from('copy_drivers')
       .delete()
-      .neq('id', 0) // Delete all rows
+      .gte('id', 0) // Delete all rows (id >= 0)
 
     if (deleteCopyError) {
       console.warn('Warning: Failed to clear copy_drivers:', deleteCopyError.message)
@@ -348,7 +351,7 @@ Deno.serve(async (req) => {
     const { error: deleteSubscriptionError } = await supabase
       .from('subscription_drivers')
       .delete()
-      .neq('id', 0) // Delete all rows
+      .gte('id', 0) // Delete all rows (id >= 0)
 
     if (deleteSubscriptionError) {
       console.warn('Warning: Failed to clear subscription_drivers:', deleteSubscriptionError.message)
