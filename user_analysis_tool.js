@@ -1149,46 +1149,74 @@ const ALL_VARIABLES = [
 
 const SECTION_EXCLUSIONS = {
     'totalDeposits': [
-        'availableCopyCredits',
-        'buyingPower',
-        'activeCreatedPortfolios',
-        'lifetimeCreatedPortfolios',
-        'activeCopiedPortfolios',
-        'lifetimeCopiedPortfolios',
-        'totalDeposits',
-        'totalAchDeposits',
-        'totalDepositCount',
-        'totalWithdrawals',
-        'totalWithdrawalCount',
-        'hasLinkedBank',
-        'totalCopies',
-        'totalRegularCopies',
-        'totalPremiumCopies',
-        'didCopy',
-        'didSubscribe'
+        // Profile fields (N/A in mapping - not used in analysis)
+        'income',
+        'net_worth',
+        'investing_activity',
+        'investing_experience_years',
+        'investing_objective',
+        'investment_type',
+        'acquisition_survey',
+        // Deposit-related (circular dependency)
+        'total_deposits',
+        'total_ach_deposits',
+        'total_bank_links',
+        'buying_power',
+        'available_copy_credits',
+        // Portfolio creation (not behavioral drivers for deposits)
+        'active_created_portfolios',
+        'lifetime_created_portfolios',
+        // Copy metrics (outcome variables)
+        'active_copied_portfolios',
+        'lifetime_copied_portfolios',
+        'total_copies',
+        'total_regular_copies',
+        'total_premium_copies',
+        'did_copy',
+        // Subscription metrics (outcome variables)
+        'total_subscriptions',
+        'did_subscribe'
     ],
     'totalCopies': [
-        'availableCopyCredits',
-        'activeCreatedPortfolios',
-        'lifetimeCreatedPortfolios',
-        'activeCopiedPortfolios',
-        'lifetimeCopiedPortfolios',
-        'totalCopies',
-        'totalRegularCopies',
-        'totalPremiumCopies',
-        'didCopy',
-        'didSubscribe',
-        'totalDepositCount',
-        'totalWithdrawals',
-        'totalWithdrawalCount'
+        // Profile fields (N/A in mapping - not used in analysis)
+        'income',
+        'net_worth',
+        'investing_activity',
+        'investing_experience_years',
+        'investing_objective',
+        'investment_type',
+        'acquisition_survey',
+        // Financial metrics (not behavioral drivers for copies)
+        'available_copy_credits',
+        'buying_power',
+        // Portfolio creation (correlated but not drivers)
+        'active_created_portfolios',
+        'lifetime_created_portfolios',
+        // Copy metrics (circular dependency)
+        'active_copied_portfolios',
+        'lifetime_copied_portfolios',
+        'total_copies',
+        'total_regular_copies',
+        'total_premium_copies',
+        'did_copy',
+        // Subscription metrics (outcome variables)
+        'total_subscriptions',
+        'did_subscribe'
     ],
     'totalSubscriptions': [
-        'totalSubscriptions',
-        'didCopy',
-        'didSubscribe',
-        'totalDepositCount',
-        'totalWithdrawals',
-        'totalWithdrawalCount'
+        // Profile fields (N/A in mapping - not used in analysis)
+        'income',
+        'net_worth',
+        'investing_activity',
+        'investing_experience_years',
+        'investing_objective',
+        'investment_type',
+        'acquisition_survey',
+        // Subscription metrics (circular dependency)
+        'total_subscriptions',
+        'did_subscribe',
+        // Copy metrics (outcome variables)
+        'did_copy'
     ]
 };
 
