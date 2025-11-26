@@ -28,49 +28,76 @@ interface DriverResult {
   predictive_strength: string
 }
 
-// Variable exclusions per outcome (from analysis_utils.js SECTION_EXCLUSIONS)
-const EXCLUSIONS = {
+// Variable inclusions per outcome - ONLY these variables should be analyzed
+// Based on CSV mappings provided by user
+const INCLUSIONS = {
   total_deposits: [
-    // Profile fields (N/A in mapping)
-    'income', 'net_worth', 'investing_activity', 'investing_experience_years',
-    'investing_objective', 'investment_type', 'acquisition_survey',
-    // Deposit-related (circular dependency)
-    'total_deposits', 'total_ach_deposits', 'total_bank_links',
-    'buying_power', 'available_copy_credits',
-    // Portfolio creation
-    'active_created_portfolios', 'lifetime_created_portfolios',
-    // Copy metrics (outcome variables)
-    'active_copied_portfolios', 'lifetime_copied_portfolios',
-    'total_copies', 'total_regular_copies', 'total_premium_copies', 'did_copy',
-    // Subscription metrics
-    'total_subscriptions', 'did_subscribe',
-    // Metadata
-    'user_id', 'distinct_id', 'updated_at'
+    // Deposit Funds: 14 specific variables from CSV
+    'regular_pdp_views',           // E. Regular PDP Views
+    'premium_pdp_views',           // F. Premium PDP Views
+    'paywall_views',               // G. Paywall Views
+    'regular_creator_views',       // H. Regular Creator Profile Views
+    'premium_creator_views',       // I. Premium Creator Profile Views
+    'app_sessions',                // K. App Sessions
+    'discover_tab_views',          // L. Discover Tab Views
+    'leaderboard_tab_views',       // M. Leaderboard Tab Views
+    'premium_tab_views',           // N. Premium Tab Views
+    'stripe_modal_views',          // O. Stripe Modal Views
+    'creator_card_taps',           // P. Creator Card Taps
+    'portfolio_card_taps',         // Q. Portfolio Card Taps
+    'unique_creators_viewed',      // Joined from other table
+    'unique_portfolios_viewed',    // Joined from other table
   ],
   total_copies: [
-    // Profile fields (N/A in mapping)
-    'income', 'net_worth', 'investing_activity', 'investing_experience_years',
-    'investing_objective', 'investment_type', 'acquisition_survey',
-    // Financial metrics
-    'available_copy_credits', 'buying_power',
-    // Portfolio creation
-    'active_created_portfolios', 'lifetime_created_portfolios',
-    // Copy metrics (circular dependency)
-    'active_copied_portfolios', 'lifetime_copied_portfolios',
-    'total_copies', 'total_regular_copies', 'total_premium_copies', 'did_copy',
-    // Subscription metrics
-    'total_subscriptions', 'did_subscribe',
-    // Metadata
-    'user_id', 'distinct_id', 'updated_at'
+    // Copy Portfolios: 19 specific variables from CSV
+    'total_bank_links',            // A. Total Bank Links
+    'regular_pdp_views',           // E. Regular PDP Views
+    'premium_pdp_views',           // F. Premium PDP Views
+    'paywall_views',               // G. Paywall Views
+    'regular_creator_views',       // H. Regular Creator Profile Views
+    'premium_creator_views',       // I. Premium Creator Profile Views
+    'total_subscriptions',         // J. Total Subscriptions
+    'app_sessions',                // K. App Sessions
+    'discover_tab_views',          // L. Discover Tab Views
+    'leaderboard_tab_views',       // M. Leaderboard Tab Views
+    'premium_tab_views',           // N. Premium Tab Views
+    'stripe_modal_views',          // O. Stripe Modal Views
+    'creator_card_taps',           // P. Creator Card Taps
+    'portfolio_card_taps',         // Q. Portfolio Card Taps
+    'total_ach_deposits',          // R. Total ACH Deposits
+    'unique_creators_viewed',      // Joined from other table
+    'unique_portfolios_viewed',    // Joined from other table
+    'buying_power',                // buyingPower
+    'total_deposits',              // totalDeposits
   ],
   did_subscribe: [
-    // Profile fields (N/A in mapping)
-    'income', 'net_worth', 'investing_activity', 'investing_experience_years',
-    'investing_objective', 'investment_type', 'acquisition_survey',
-    // Subscription metrics (circular dependency)
-    'total_subscriptions', 'did_subscribe',
-    // Metadata
-    'user_id', 'distinct_id', 'updated_at'
+    // Subscriptions: 26 specific variables from CSV
+    'total_bank_links',            // A. Total Bank Links
+    'total_copies',                // B. Total Copies
+    'total_regular_copies',        // C. Total Regular Copies
+    'total_premium_copies',        // D. Total Premium Copies
+    'regular_pdp_views',           // E. Regular PDP Views
+    'premium_pdp_views',           // F. Premium PDP Views
+    'paywall_views',               // G. Paywall Views
+    'regular_creator_views',       // H. Regular Creator Profile Views
+    'premium_creator_views',       // I. Premium Creator Profile Views
+    'app_sessions',                // K. App Sessions
+    'discover_tab_views',          // L. Discover Tab Views
+    'leaderboard_tab_views',       // M. Leaderboard Tab Views
+    'premium_tab_views',           // N. Premium Tab Views
+    'stripe_modal_views',          // O. Stripe Modal Views
+    'creator_card_taps',           // P. Creator Card Taps
+    'portfolio_card_taps',         // Q. Portfolio Card Taps
+    'total_ach_deposits',          // R. Total ACH Deposits
+    'unique_creators_viewed',      // Joined from other table
+    'unique_portfolios_viewed',    // Joined from other table
+    'available_copy_credits',      // availableCopyCredits
+    'buying_power',                // buyingPower
+    'active_created_portfolios',   // activeCreatedPortfolios
+    'lifetime_created_portfolios', // lifetimeCreatedPortfolios
+    'active_copied_portfolios',    // activeCopiedPortfolios
+    'lifetime_copied_portfolios',  // lifetimeCopiedPortfolios
+    'total_deposits',              // totalDeposits
   ]
 }
 
@@ -199,21 +226,24 @@ function calculateTippingPoint(
 function analyzeBehavioralDrivers(
   data: MainAnalysisRow[],
   outcomeField: string,
-  exclusions: string[]
+  inclusions: string[]
 ): DriverResult[] {
   const n = data.length
   if (n === 0) return []
 
-  // Get all numeric columns except exclusions
+  // Use ONLY the specified inclusion variables
   const sampleRow = data[0]
-  const allColumns = Object.keys(sampleRow)
-  const numericColumns = allColumns.filter(col => {
-    if (exclusions.includes(col)) return false
+  const numericColumns = inclusions.filter(col => {
+    // Verify column exists and is numeric
+    if (!(col in sampleRow)) {
+      console.warn(`Warning: Column '${col}' not found in main_analysis`)
+      return false
+    }
     const value = sampleRow[col]
     return typeof value === 'number' && !isNaN(value)
   })
 
-  console.log(`Analyzing ${numericColumns.length} variables for ${outcomeField}`)
+  console.log(`Analyzing ${numericColumns.length} variables for ${outcomeField} (from ${inclusions.length} specified)`)
 
   // Extract outcome array once
   const outcomeArray = data.map(row => Number(row[outcomeField]) || 0)
@@ -282,7 +312,7 @@ Deno.serve(async (req) => {
     const depositDrivers = analyzeBehavioralDrivers(
       mainAnalysisData,
       'total_deposits',
-      EXCLUSIONS.total_deposits
+      INCLUSIONS.total_deposits
     )
     console.log(`✓ Calculated ${depositDrivers.length} deposit drivers`)
 
@@ -291,7 +321,7 @@ Deno.serve(async (req) => {
     const copyDrivers = analyzeBehavioralDrivers(
       mainAnalysisData,
       'total_copies',
-      EXCLUSIONS.total_copies
+      INCLUSIONS.total_copies
     )
     console.log(`✓ Calculated ${copyDrivers.length} copy drivers`)
 
@@ -300,7 +330,7 @@ Deno.serve(async (req) => {
     const subscriptionDrivers = analyzeBehavioralDrivers(
       mainAnalysisData,
       'did_subscribe',
-      EXCLUSIONS.did_subscribe
+      INCLUSIONS.did_subscribe
     )
     console.log(`✓ Calculated ${subscriptionDrivers.length} subscription drivers`)
 

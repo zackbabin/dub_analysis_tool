@@ -100,8 +100,8 @@ function getVariableLabel(columnName) {
         'total_ach_deposits': 'Total ACH Deposits',
 
         // Aggregated unique views
-        'unique_creator_viewed': 'Unique Creator Views',
-        'unique_portfolio_viewed': 'Unique Portfolio Views',
+        'unique_creators_viewed': 'Unique Creator Views',
+        'unique_portfolios_viewed': 'Unique Portfolio Views',
 
         // User properties (used in analysis)
         'available_copy_credits': 'Available Copy Credits',
