@@ -42,7 +42,6 @@ const OUTPUT_PROPERTIES = [
   'activeCopiedPortfolios',
   'lifetimeCopiedPortfolios',
   'totalDeposits',
-  'totalDepositCount',
 ]
 
 interface UserPropertyRow {
@@ -61,7 +60,6 @@ interface UserPropertyRow {
   active_copied_portfolios?: number
   lifetime_copied_portfolios?: number
   total_deposits?: number
-  total_deposit_count?: number
 }
 
 /**
@@ -82,7 +80,6 @@ const PROPERTY_MAP: Record<string, string> = {
   'activeCopiedPortfolios': 'active_copied_portfolios',
   'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'totalDeposits': 'total_deposits',
-  'totalDepositCount': 'total_deposit_count',
 }
 
 /**

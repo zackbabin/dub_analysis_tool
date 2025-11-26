@@ -60,9 +60,93 @@ function calculatePredictiveStrength(correlation, tStat) {
     }
 }
 
+/**
+ * Map database column names to display-friendly variable labels
+ * Based on comprehensive Mixpanel → DB → Variable mapping
+ * Excludes variables with N/A mapping (user profile fields not used in analysis)
+ *
+ * @param {string} columnName - Database column name from main_analysis view
+ * @returns {string} Display-friendly variable label
+ */
+function getVariableLabel(columnName) {
+    // Comprehensive mapping from DB column → Display Variable
+    const VARIABLE_LABELS = {
+        // Copy-related metrics
+        'total_bank_links': 'Linked Bank',
+        'total_copies': 'Total Copies',
+        'total_regular_copies': 'Total Regular Copies',
+        'total_premium_copies': 'Total Premium Copies',
+
+        // View metrics
+        'regular_pdp_views': 'Regular PDP Views',
+        'premium_pdp_views': 'Premium PDP Views',
+        'paywall_views': 'Paywall Views',
+        'regular_creator_views': 'Regular Creator Views',
+        'premium_creator_views': 'Premium Creator Views',
+
+        // Subscription metrics
+        'total_subscriptions': 'Total Subscriptions',
+
+        // Engagement metrics
+        'app_sessions': 'App Sessions',
+        'discover_tab_views': 'Discover Tab Views',
+        'leaderboard_tab_views': 'Leaderboard Tab Views',
+        'premium_tab_views': 'Premium Tab Views',
+        'stripe_modal_views': 'Stripe Modal Views',
+        'creator_card_taps': 'Creator Card Taps',
+        'portfolio_card_taps': 'Portfolio Card Taps',
+
+        // Deposit & financial metrics
+        'total_ach_deposits': 'Total ACH Deposits',
+
+        // Aggregated unique views
+        'unique_creator_viewed': 'Unique Creator Views',
+        'unique_portfolio_viewed': 'Unique Portfolio Views',
+
+        // User properties (used in analysis)
+        'available_copy_credits': 'Available Copy Credits',
+        'buying_power': 'Buying Power',
+        'active_created_portfolios': 'Active Created Portfolios',
+        'lifetime_created_portfolios': 'Lifetime Created Portfolios',
+        'active_copied_portfolios': 'Active Copied Portfolios',
+        'lifetime_copied_portfolios': 'Lifetime Copied Portfolios',
+        'total_deposits': 'Total Deposits',
+
+        // Note: The following fields are excluded (N/A in mapping):
+        // - income, net_worth, investing_activity, investing_experience_years
+        // - investing_objective, acquisition_survey
+        // These are not used in behavioral driver analysis
+    };
+
+    return VARIABLE_LABELS[columnName] || columnName;
+}
+
+/**
+ * Check if a variable should be excluded from analysis
+ * Variables with N/A mapping are profile fields not used in behavioral analysis
+ *
+ * @param {string} columnName - Database column name
+ * @returns {boolean} true if variable should be excluded from analysis
+ */
+function shouldExcludeVariable(columnName) {
+    const EXCLUDED_VARIABLES = [
+        'income',
+        'net_worth',
+        'investing_activity',
+        'investing_experience_years',
+        'investing_objective',
+        'acquisition_survey',
+        'investment_type'
+    ];
+
+    return EXCLUDED_VARIABLES.includes(columnName);
+}
+
 // Export to window for global access
 if (typeof window !== 'undefined') {
     window.calculatePredictiveStrength = calculatePredictiveStrength;
+    window.getVariableLabel = getVariableLabel;
+    window.shouldExcludeVariable = shouldExcludeVariable;
 }
 
 console.log('✅ Analysis utilities loaded successfully!');
