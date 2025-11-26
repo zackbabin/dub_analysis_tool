@@ -291,7 +291,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.updateProgress(80, 'Step 4/4: Running analysis...');
             console.log('\n═══ Step 4: Analysis Workflows (Parallel) ═══');
 
-            const [step4Result, step5Result, step6Result] = await Promise.allSettled([
+            const [step4Result, step5Result, step6Result, step7Result] = await Promise.allSettled([
                 // Step 4: Event sequence workflow (SIMPLIFIED - 2 steps only)
                 // Sync → Analyze (no aggregation step needed)
                 (async () => {
@@ -351,6 +351,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         return copyResult;
                     } catch (error) {
                         console.warn('⚠ Step 6: Copy Pattern Analysis - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })(),
+
+                // Step 7: Behavioral drivers analysis (deposits & copies)
+                (async () => {
+                    console.log('→ Step 7: Behavioral Drivers Analysis (starting in parallel)');
+                    try {
+                        const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-behavioral-drivers', { body: {} });
+                        if (error) {
+                            console.warn('⚠ Step 7: Behavioral Drivers - Failed:', error.message);
+                            return { success: false, error: error.message };
+                        }
+                        if (data?.success) {
+                            console.log('✅ Step 7: Behavioral Drivers - Complete');
+                            console.log(`   - ${data.stats?.deposit_drivers_count || 0} deposit drivers`);
+                            console.log(`   - ${data.stats?.copy_drivers_count || 0} copy drivers`);
+                        } else {
+                            console.warn('⚠ Step 7: Behavioral Drivers - Failed');
+                        }
+                        return data;
+                    } catch (error) {
+                        console.warn('⚠ Step 7: Behavioral Drivers - Failed, continuing');
                         return { success: false, error: error.message };
                     }
                 })()
@@ -752,33 +775,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const depositsTabPane = document.getElementById('deposits-behavioral-tab');
             const copiesTabPane = document.getElementById('copies-behavioral-tab');
 
-            // Add Deposit Funds Table
-            if (results.correlationResults?.totalDeposits && results.regressionResults?.deposits) {
-                try {
-                    const depositsTable = this.buildCorrelationTable(results.correlationResults.totalDeposits, results.regressionResults.deposits, 'deposits', tippingPoints);
-                    depositsTabPane.appendChild(depositsTable);
-                } catch (e) {
-                    console.error('Error building deposits table:', e);
-                    depositsTabPane.innerHTML = `
-                        <p style="color: #dc3545;">Error displaying deposit analysis. Please try syncing again.</p>
-                    `;
-                }
-            } else {
-                depositsTabPane.innerHTML = `
-                    <p style="color: #6c757d; font-style: italic;">Deposit analysis data not available.</p>
-                `;
-            }
+            // Add Deposit Funds Table (load from database)
+            await this.displayTopDepositDrivers();
 
-            // Add Top Portfolio Copy Drivers Table
-            try {
-                const copiesTable = this.buildCorrelationTable(results.correlationResults.totalCopies, results.regressionResults.copies, 'copies', tippingPoints);
-                copiesTabPane.appendChild(copiesTable);
-            } catch (e) {
-                console.error('Error building portfolio copies table:', e);
-                copiesTabPane.innerHTML = `
-                    <p style="color: #dc3545;">Error displaying portfolio copy analysis. Please try syncing again.</p>
-                `;
-            }
+            // Add Top Portfolio Copy Drivers Table (load from database)
+            await this.displayTopCopyDrivers();
 
             // Populate the combinations tabs (already in HTML)
             const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
@@ -2597,6 +2598,254 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
 
     } catch (error) {
         console.error('Error in displayTopSubscriptionDrivers:', error);
+    }
+};
+
+/**
+ * Display Top Deposit Drivers
+ * Loads data from deposit_drivers table (populated during sync)
+ */
+UserAnalysisToolSupabase.prototype.displayTopDepositDrivers = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.error('Supabase not configured');
+            return;
+        }
+
+        const contentDiv = document.getElementById('deposits-behavioral-tab');
+        if (!contentDiv) {
+            console.warn('Deposits behavioral tab not found');
+            return;
+        }
+
+        // Fetch deposit drivers from database table
+        const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
+            .from('deposit_drivers')
+            .select('*');
+
+        if (driversError) {
+            console.error('Error fetching deposit drivers:', driversError);
+            contentDiv.innerHTML = `
+                <p style="color: #dc3545;">Error loading deposit drivers. Please check console for details.</p>
+            `;
+            return;
+        }
+
+        console.log(`📊 Fetched ${driversData?.length || 0} deposit drivers from database`);
+
+        if (!driversData || driversData.length === 0) {
+            console.warn('No deposit drivers data available.');
+            contentDiv.innerHTML = '';
+            return;
+        }
+
+        // Sort by absolute correlation coefficient (descending)
+        driversData.sort((a, b) => {
+            const absA = Math.abs(parseFloat(a.correlation_coefficient) || 0);
+            const absB = Math.abs(parseFloat(b.correlation_coefficient) || 0);
+            return absB - absA;
+        });
+
+        // Clear existing content
+        contentDiv.innerHTML = '';
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Variable</th>
+                <th style="text-align: right;">Correlation</th>
+                <th style="text-align: right;">T-Statistic</th>
+                <th style="text-align: right;">Predictive Strength</th>
+                <th style="text-align: right;">Tipping Point</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        driversData.slice(0, 10).forEach(row => {
+            const tr = document.createElement('tr');
+
+            // Variable cell
+            const varCell = document.createElement('td');
+            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
+            varCell.textContent = displayName;
+            varCell.style.width = '200px';
+            tr.appendChild(varCell);
+
+            // Correlation cell
+            const corrCell = document.createElement('td');
+            corrCell.style.textAlign = 'right';
+            corrCell.textContent = parseFloat(row.correlation_coefficient).toFixed(2);
+            tr.appendChild(corrCell);
+
+            // T-Statistic cell
+            const tStatCell = document.createElement('td');
+            tStatCell.style.textAlign = 'right';
+            tStatCell.textContent = parseFloat(row.t_stat).toFixed(2);
+            tr.appendChild(tStatCell);
+
+            // Predictive Strength cell
+            const strengthCell = document.createElement('td');
+            strengthCell.style.textAlign = 'right';
+            const strengthValue = row.predictive_strength || 'N/A';
+
+            const result = window.calculatePredictiveStrength?.(
+                parseFloat(row.correlation_coefficient),
+                parseFloat(row.t_stat)
+            ) || { strength: strengthValue, className: '' };
+
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = result.className;
+            strengthSpan.textContent = result.strength;
+            strengthCell.appendChild(strengthSpan);
+            tr.appendChild(strengthCell);
+
+            // Tipping Point cell
+            const tpCell = document.createElement('td');
+            tpCell.style.textAlign = 'right';
+            tpCell.textContent = row.tipping_point || 'N/A';
+            tr.appendChild(tpCell);
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        contentDiv.appendChild(tableWrapper);
+
+    } catch (error) {
+        console.error('Error in displayTopDepositDrivers:', error);
+    }
+};
+
+/**
+ * Display Top Copy Drivers
+ * Loads data from copy_drivers table (populated during sync)
+ */
+UserAnalysisToolSupabase.prototype.displayTopCopyDrivers = async function() {
+    try {
+        if (!this.supabaseIntegration) {
+            console.error('Supabase not configured');
+            return;
+        }
+
+        const contentDiv = document.getElementById('copies-behavioral-tab');
+        if (!contentDiv) {
+            console.warn('Copies behavioral tab not found');
+            return;
+        }
+
+        // Fetch copy drivers from database table
+        const { data: driversData, error: driversError } = await this.supabaseIntegration.supabase
+            .from('copy_drivers')
+            .select('*');
+
+        if (driversError) {
+            console.error('Error fetching copy drivers:', driversError);
+            contentDiv.innerHTML = `
+                <p style="color: #dc3545;">Error loading copy drivers. Please check console for details.</p>
+            `;
+            return;
+        }
+
+        console.log(`📊 Fetched ${driversData?.length || 0} copy drivers from database`);
+
+        if (!driversData || driversData.length === 0) {
+            console.warn('No copy drivers data available.');
+            contentDiv.innerHTML = '';
+            return;
+        }
+
+        // Sort by absolute correlation coefficient (descending)
+        driversData.sort((a, b) => {
+            const absA = Math.abs(parseFloat(a.correlation_coefficient) || 0);
+            const absB = Math.abs(parseFloat(b.correlation_coefficient) || 0);
+            return absB - absA;
+        });
+
+        // Clear existing content
+        contentDiv.innerHTML = '';
+
+        // Create table
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-wrapper';
+
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left;">Variable</th>
+                <th style="text-align: right;">Correlation</th>
+                <th style="text-align: right;">T-Statistic</th>
+                <th style="text-align: right;">Predictive Strength</th>
+                <th style="text-align: right;">Tipping Point</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        driversData.slice(0, 10).forEach(row => {
+            const tr = document.createElement('tr');
+
+            // Variable cell
+            const varCell = document.createElement('td');
+            const displayName = window.getVariableLabel?.(row.variable_name) || row.variable_name;
+            varCell.textContent = displayName;
+            varCell.style.width = '200px';
+            tr.appendChild(varCell);
+
+            // Correlation cell
+            const corrCell = document.createElement('td');
+            corrCell.style.textAlign = 'right';
+            corrCell.textContent = parseFloat(row.correlation_coefficient).toFixed(2);
+            tr.appendChild(corrCell);
+
+            // T-Statistic cell
+            const tStatCell = document.createElement('td');
+            tStatCell.style.textAlign = 'right';
+            tStatCell.textContent = parseFloat(row.t_stat).toFixed(2);
+            tr.appendChild(tStatCell);
+
+            // Predictive Strength cell
+            const strengthCell = document.createElement('td');
+            strengthCell.style.textAlign = 'right';
+            const strengthValue = row.predictive_strength || 'N/A';
+
+            const result = window.calculatePredictiveStrength?.(
+                parseFloat(row.correlation_coefficient),
+                parseFloat(row.t_stat)
+            ) || { strength: strengthValue, className: '' };
+
+            const strengthSpan = document.createElement('span');
+            strengthSpan.className = result.className;
+            strengthSpan.textContent = result.strength;
+            strengthCell.appendChild(strengthSpan);
+            tr.appendChild(strengthCell);
+
+            // Tipping Point cell
+            const tpCell = document.createElement('td');
+            tpCell.style.textAlign = 'right';
+            tpCell.textContent = row.tipping_point || 'N/A';
+            tr.appendChild(tpCell);
+
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        tableWrapper.appendChild(table);
+        contentDiv.appendChild(tableWrapper);
+
+    } catch (error) {
+        console.error('Error in displayTopCopyDrivers:', error);
     }
 };
 
