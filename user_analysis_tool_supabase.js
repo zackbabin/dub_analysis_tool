@@ -586,7 +586,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async displayResults(results) {
         // Cache version for button layout changes
-        const CACHE_VERSION = 13; // Fixed missing classifyPersona and calculateDemographicBreakdown functions
+        const CACHE_VERSION = 14; // Moved to Edge Function-based analysis
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -633,7 +633,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 13; // Fixed missing classifyPersona and calculateDemographicBreakdown functions
+            const CACHE_VERSION = 14; // Moved to Edge Function-based analysis
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
