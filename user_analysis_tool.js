@@ -274,41 +274,11 @@ class UserAnalysisTool {
     }
 
     /**
-     * Runs the GitHub Actions workflow
+     * Runs the GitHub Actions workflow (Supabase version overrides this)
+     * This base implementation is never called in production
      */
     async runGitHubWorkflow() {
-        // Step 1: Trigger GitHub Actions
-        this.addStatusMessage('🚀 Triggering GitHub Actions workflow...', 'info');
-        this.updateProgress(10, 'Triggering workflow...');
-
-        const triggered = await this.triggerGitHubWorkflow();
-        if (!triggered) {
-            throw new Error('Failed to trigger GitHub workflow');
-        }
-
-        this.addStatusMessage('✅ Workflow triggered successfully', 'success');
-        this.updateProgress(20, 'Ingesting live data...');
-
-        // Step 2: Wait for workflow completion (data ingestion from Mixpanel)
-        this.addStatusMessage('📊 Ingesting live data from Mixpanel...', 'info');
-        const workflowSuccess = await this.waitForWorkflowCompletion();
-
-        if (!workflowSuccess) {
-            throw new Error('Workflow failed or timed out');
-        }
-
-        this.addStatusMessage('✅ Data ingestion completed', 'success');
-        this.updateProgress(40, 'Analyzing the data...');
-
-        // Step 3: Load data from GitHub
-        this.addStatusMessage('📥 Loading data files from GitHub...', 'info');
-
-        const contents = await this.loadGitHubData();
-        this.addStatusMessage('✅ Data files loaded', 'success');
-        this.updateProgress(60, 'Analyzing the data...');
-
-        // Step 4: Process and analyze data
-        await this.processAndAnalyze(contents);
+        throw new Error('runGitHubWorkflow must be implemented by Supabase subclass');
     }
 
     /**
@@ -588,124 +558,7 @@ class UserAnalysisTool {
         return this.mixpanelSync;
     }
 
-    /**
-     * Helper: Trigger GitHub workflow
-     */
-    async triggerGitHubWorkflow() {
-        const githubToken = localStorage.getItem('github_pat');
-
-        if (!githubToken) {
-            throw new Error('GitHub token not configured. Please enter and save your token in the configuration section above.');
-        }
-
-        const owner = 'zackbabin';
-        const repo = 'dub_analysis_tool';
-        const workflow_id = 'mixpanel-sync.yml';
-
-        const response = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow_id}/dispatches`,
-            {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/vnd.github+json',
-                    'Authorization': 'Bearer ' + githubToken,
-                    'X-GitHub-Api-Version': '2022-11-28'
-                },
-                body: JSON.stringify({ ref: 'main' })
-            }
-        );
-
-        if (response.status === 204) {
-            return true;
-        } else if (response.status === 401) {
-            localStorage.removeItem('github_pat');
-            throw new Error('Invalid GitHub token');
-        } else {
-            const error = await response.text();
-            throw new Error(`Failed to trigger workflow: ${error}`);
-        }
-    }
-
-    /**
-     * Helper: Wait for workflow completion with simple polling
-     */
-    async waitForWorkflowCompletion() {
-        const githubToken = localStorage.getItem('github_pat');
-        if (!githubToken) return false;
-
-        const owner = 'zackbabin';
-        const repo = 'dub_analysis_tool';
-
-        let attempts = 0;
-        const maxAttempts = 300; // 300 attempts * 3s = 15 minutes
-        const pollInterval = 3000; // Check every 3 seconds
-
-        while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
-            attempts++;
-
-            const response = await fetch(
-                `https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=1`,
-                {
-                    headers: {
-                        'Accept': 'application/vnd.github+json',
-                        'Authorization': 'Bearer ' + githubToken,
-                        'X-GitHub-Api-Version': '2022-11-28'
-                    }
-                }
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.workflow_runs && data.workflow_runs.length > 0) {
-                    const latestRun = data.workflow_runs[0];
-
-                    // Update status message to show workflow progress
-                    const statusText = latestRun.status === 'in_progress' || latestRun.status === 'queued'
-                        ? 'Ingesting live data...'
-                        : `Workflow ${latestRun.status}...`;
-                    this.updateProgress(20 + (attempts * 0.5), statusText);
-
-                    if (latestRun.status === 'completed') {
-                        if (latestRun.conclusion === 'success') {
-                            return true;
-                        } else {
-                            throw new Error(`Workflow failed: ${latestRun.html_url}`);
-                        }
-                    }
-                }
-            }
-        }
-
-        throw new Error('Workflow timeout - exceeded 15 minutes');
-    }
-
-    /**
-     * Helper: Load data from GitHub
-     */
-    async loadGitHubData() {
-        const baseUrl = 'https://raw.githubusercontent.com/zackbabin/dub_analysis_tool/main/data/';
-
-        // Only load the 4 required files for analysis
-        const fileUrls = [
-            baseUrl + '1_subscribers_insights.csv',
-            baseUrl + '2_time_to_first_copy.csv',
-            baseUrl + '3_time_to_funded_account.csv',
-            baseUrl + '4_time_to_linked_bank.csv'
-        ];
-
-        const contents = await Promise.all(
-            fileUrls.map(async (url) => {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch ${url}`);
-                }
-                return await response.text();
-            })
-        );
-
-        return contents;
-    }
+    // GitHub Actions integration methods removed - Supabase version overrides these
 
     /**
      * Helper: Match files by content

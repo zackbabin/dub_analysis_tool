@@ -512,7 +512,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Fetches pre-calculated summary stats from Edge Function
      */
     async displayResultsFromDatabase() {
-        const CACHE_VERSION = 14; // Changed to Edge Function-based analysis
+        const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -580,7 +580,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async displayResults(results) {
         // Cache version for button layout changes
-        const CACHE_VERSION = 14; // Moved to Edge Function-based analysis
+        const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
