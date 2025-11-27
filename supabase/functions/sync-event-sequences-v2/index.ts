@@ -59,7 +59,7 @@ async function fetchAndProcessEventsStreaming(
   fromDate: string,
   toDate: string,
   eventNames: string[],
-  distinctIds: string[] | undefined,
+  userIds: string[] | undefined,
   onBatch: (events: MixpanelExportEvent[]) => Promise<void>,
   batchSize = 5000
 ): Promise<{ totalEvents: number }> {
@@ -74,14 +74,14 @@ async function fetchAndProcessEventsStreaming(
   const eventArray = JSON.stringify(eventNames)
   const eventParam = `event=${encodeURIComponent(eventArray)}`
 
-  // Build where clause for distinct_id filtering if provided
-  // API expects: where=properties["$distinct_id"] in ["id1","id2","id3"]
-  // Note: Must use $distinct_id (with $ prefix) in where clause
+  // Build where clause for user_id filtering if provided
+  // API expects: where=properties["$user_id"] in ["id1","id2","id3"]
+  // Note: Must use $user_id (with $ prefix) in where clause - this is the merged identity
   let whereParam = ''
-  if (distinctIds && distinctIds.length > 0) {
-    // Format: properties["$distinct_id"] in ["id1","id2","id3"]
-    const idsArray = JSON.stringify(distinctIds)
-    const whereClause = `properties["$distinct_id"] in ${idsArray}`
+  if (userIds && userIds.length > 0) {
+    // Format: properties["$user_id"] in ["id1","id2","id3"]
+    const idsArray = JSON.stringify(userIds)
+    const whereClause = `properties["$user_id"] in ${idsArray}`
     whereParam = `&where=${encodeURIComponent(whereClause)}`
   }
 
@@ -89,8 +89,8 @@ async function fetchAndProcessEventsStreaming(
 
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
   console.log(`Events: ${eventNames.length} event types (${eventNames.join(', ')})`)
-  if (distinctIds && distinctIds.length > 0) {
-    console.log(`User filter: ${distinctIds.length} targeted distinct_ids`)
+  if (userIds && userIds.length > 0) {
+    console.log(`User filter: ${userIds.length} targeted user_ids`)
   }
   console.log(`Full URL: ${url.substring(0, 200)}...`) // Truncate for logging
 
@@ -491,8 +491,8 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('event_sequences_raw')
             .upsert(eventsToInsert, {
-              onConflict: 'distinct_id,event_time,portfolio_ticker',  // Keep using distinct_id for conflict detection
-              ignoreDuplicates: true  // Keep as safety net in case change detection missed something
+              onConflict: 'user_id,event_time,portfolio_ticker',
+              ignoreDuplicates: true
             })
 
           if (insertError) {
