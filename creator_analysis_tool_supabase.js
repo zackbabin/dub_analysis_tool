@@ -1949,9 +1949,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             this.updateProgress(90, 'Generating insights...');
 
-            // Calculate tipping points
-            const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
-
             // Clear cleanData reference to free memory
             results.cleanData = null;
 
@@ -1970,9 +1967,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             localStorage.setItem('creatorAnalysisResults', JSON.stringify({
                 summaryStats: results.summaryStats,
-                correlationResults: results.correlationResults,
-                regressionResults: results.regressionResults,
-                tippingPoints: tippingPoints,
                 lastUpdated: timestamp
             }));
 
@@ -2075,9 +2069,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             this.updateProgress(90, 'Generating insights...');
 
-            // Calculate tipping points
-            const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
-
             // Clear cleanData reference to free memory
             results.cleanData = null;
 
@@ -2096,9 +2087,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             localStorage.setItem('creatorAnalysisResults', JSON.stringify({
                 summaryStats: results.summaryStats,
-                correlationResults: results.correlationResults,
-                regressionResults: results.regressionResults,
-                tippingPoints: tippingPoints,
                 lastUpdated: timestamp
             }));
 

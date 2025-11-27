@@ -244,9 +244,6 @@ class CreatorAnalysisTool {
 
         this.updateProgress(90, 'Generating insights...');
 
-        // Calculate tipping points
-        const tippingPoints = this.calculateAllTippingPoints(results.cleanData, results.correlationResults);
-
         // Clear cleanData reference to free memory
         results.cleanData = null;
 
@@ -263,9 +260,6 @@ class CreatorAnalysisTool {
 
         localStorage.setItem('creatorAnalysisResults', JSON.stringify({
             summaryStats: results.summaryStats,
-            correlationResults: results.correlationResults,
-            regressionResults: results.regressionResults,
-            tippingPoints: tippingPoints,
             lastUpdated: timestamp
         }));
 
@@ -367,16 +361,9 @@ class CreatorAnalysisTool {
      */
     performCreatorAnalysis(cleanData) {
         const summaryStats = this.calculateCreatorSummaryStats(cleanData);
-        const correlationResults = this.calculateCorrelations(cleanData);
-        const regressionResults = {
-            copies: this.performRegression(cleanData, 'totalCopies', correlationResults),
-            subscriptions: this.performRegression(cleanData, 'totalSubscriptions', correlationResults)
-        };
 
         return {
             summaryStats,
-            correlationResults,
-            regressionResults,
             cleanData
         };
     }
@@ -445,184 +432,6 @@ class CreatorAnalysisTool {
     }
 
     /**
-     * Calculate correlations for creator variables (dynamic from raw_data)
-     */
-    calculateCorrelations(data) {
-        console.log('=== Correlation Calculation ===');
-        console.log(`Input data length: ${data ? data.length : 0}`);
-
-        if (!data || data.length === 0) {
-            console.log('No data for correlation analysis');
-            return {
-                totalCopies: {},
-                totalSubscriptions: {}
-            };
-        }
-
-        // Dynamically detect all numeric variables from the first row
-        const firstRow = data[0];
-        const allKeys = Object.keys(firstRow);
-
-        console.log(`All keys in first row (${allKeys.length}):`, allKeys);
-
-        // Exclude non-numeric and identifier fields
-        const excludedKeys = ['email', 'creatorUsername', 'type', 'totalCopies', 'totalSubscriptions'];
-
-        // Get all numeric variables that have at least some variation
-        const variables = allKeys.filter(key => {
-            if (excludedKeys.includes(key)) return false;
-
-            // Check if this field has numeric values with variation
-            const values = data.map(d => d[key] || 0);
-            const hasVariation = new Set(values).size > 1;
-            const isNumeric = values.every(v => typeof v === 'number' || !isNaN(v));
-
-            return isNumeric && hasVariation;
-        });
-
-        console.log(`Found ${variables.length} numeric variables for correlation analysis:`, variables.slice(0, 10));
-        if (variables.length === 0) {
-            console.warn('⚠️ No numeric variables found for correlation analysis!');
-        }
-
-        const correlations = {};
-
-        // Pre-extract all variable arrays
-        const variableArrays = {};
-        ['totalCopies', 'totalSubscriptions'].concat(variables).forEach(varName => {
-            variableArrays[varName] = data.map(d => d[varName] || 0);
-        });
-
-        // Calculate correlations for both outcome variables
-        ['totalCopies', 'totalSubscriptions'].forEach(outcome => {
-            correlations[outcome] = {};
-            variables.forEach(variable => {
-                if (variable !== outcome) {
-                    correlations[outcome][variable] = this.calculateCorrelation(
-                        variableArrays[outcome],
-                        variableArrays[variable]
-                    );
-                }
-            });
-        });
-
-        return correlations;
-    }
-
-    /**
-     * Calculate correlation between two arrays
-     */
-    calculateCorrelation(x, y) {
-        const n = x.length;
-        const sumX = x.reduce((a, b) => a + b, 0);
-        const sumY = y.reduce((a, b) => a + b, 0);
-        const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
-        const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
-        const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
-
-        const numerator = n * sumXY - sumX * sumY;
-        const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
-
-        return denominator === 0 ? 0 : numerator / denominator;
-    }
-
-    /**
-     * Perform regression analysis
-     */
-    performRegression(data, outcome, correlations) {
-        // Safety check: ensure correlations and correlations[outcome] exist
-        if (!correlations || !correlations[outcome]) {
-            console.warn(`No correlation data found for outcome: ${outcome}`);
-            return [];
-        }
-
-        const variables = Object.keys(correlations[outcome]);
-        const n = data.length;
-
-        const results = variables.map(variable => {
-            const correlation = correlations[outcome][variable];
-
-            let tStat = 0;
-            if (Math.abs(correlation) > 0.001 && n > 2) {
-                const denominator = 1 - (correlation * correlation);
-                if (denominator > 0.001) {
-                    tStat = correlation * Math.sqrt((n - 2) / denominator);
-                }
-            }
-
-            return {
-                variable: variable,
-                correlation: correlation,
-                tStat: tStat,
-                significant: Math.abs(tStat) > 1.96
-            };
-        });
-
-        return results.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-    }
-
-    /**
-     * Calculate tipping points for all variables
-     */
-    calculateAllTippingPoints(cleanData, correlationResults) {
-        const tippingPoints = {};
-
-        ['totalCopies', 'totalSubscriptions'].forEach(outcome => {
-            tippingPoints[outcome] = {};
-
-            const variables = Object.keys(correlationResults[outcome]);
-            variables.forEach(variable => {
-                if (variable !== outcome) {
-                    tippingPoints[outcome][variable] = this.calculateTippingPoint(cleanData, variable, outcome);
-                }
-            });
-        });
-
-        return tippingPoints;
-    }
-
-    /**
-     * Calculate tipping point for a variable
-     */
-    calculateTippingPoint(data, variable, outcome) {
-        const groups = {};
-        data.forEach(creator => {
-            const value = Math.floor(creator[variable]) || 0;
-            const converted = creator[outcome] > 0 ? 1 : 0;
-
-            if (!groups[value]) {
-                groups[value] = { total: 0, converted: 0 };
-            }
-            groups[value].total++;
-            groups[value].converted += converted;
-        });
-
-        const conversionRates = Object.keys(groups)
-            .map(value => ({
-                value: parseInt(value),
-                rate: groups[value].converted / groups[value].total,
-                total: groups[value].total
-            }))
-            .filter(item => item.total >= 5)
-            .sort((a, b) => a.value - b.value);
-
-        if (conversionRates.length < 2) return 'N/A';
-
-        let maxIncrease = 0;
-        let tippingPoint = 'N/A';
-
-        for (let i = 1; i < conversionRates.length; i++) {
-            const increase = conversionRates[i].rate - conversionRates[i-1].rate;
-            if (increase > maxIncrease && conversionRates[i].rate > 0.1) {
-                maxIncrease = increase;
-                tippingPoint = conversionRates[i].value;
-            }
-        }
-
-        return tippingPoint;
-    }
-
-    /**
      * Display analysis results
      */
     displayResults(results) {
@@ -650,15 +459,11 @@ class CreatorAnalysisTool {
         resultsDiv.innerHTML += `
             <div id="creatorSummaryStatsInline"></div>
             <div id="creatorBreakdownInline"></div>
-            <div id="creatorBehavioralAnalysisInline"></div>
         `;
 
         // Display results
         this.displayCreatorSummaryStats(results.summaryStats);
         this.displayCreatorBreakdown(results.summaryStats);
-
-        const tippingPoints = analysisData.tippingPoints;
-        this.displayCreatorBehavioralAnalysis(results.correlationResults, results.regressionResults, tippingPoints);
 
         resultsDiv.style.display = 'block';
 
@@ -774,248 +579,6 @@ class CreatorAnalysisTool {
     }
 
     /**
-     * Display creator behavioral analysis
-     */
-    displayCreatorBehavioralAnalysis(correlationResults, regressionResults, tippingPoints) {
-        console.log('=== Displaying Behavioral Analysis ===');
-        console.log('Correlation results:', correlationResults);
-        console.log('Regression results:', regressionResults);
-        console.log('Tipping points:', tippingPoints);
-
-        const container = document.getElementById('creatorBehavioralAnalysisInline');
-        if (!container) {
-            console.error('❌ Container creatorBehavioralAnalysisInline not found!');
-            return;
-        }
-        container.innerHTML = '';
-
-        const outcomes = [
-            { outcome: 'totalCopies', label: 'Top Portfolio Copy Drivers', key: 'copies' }
-            // { outcome: 'totalSubscriptions', label: 'Top Subscription Drivers', key: 'subscriptions' }
-        ];
-
-        outcomes.forEach((config, index) => {
-            console.log(`Processing outcome: ${config.outcome}`);
-
-            if (!correlationResults[config.outcome]) {
-                console.warn(`⚠️ No correlation results for ${config.outcome}`);
-                return;
-            }
-
-            const correlationKeys = Object.keys(correlationResults[config.outcome]);
-            console.log(`  - Found ${correlationKeys.length} variables with correlations`);
-            // Create a separate section for each outcome
-            const outcomeSection = document.createElement('div');
-            outcomeSection.className = 'qda-result-section';
-            outcomeSection.style.cssText = index === 0 ? 'margin-top: 3rem;' : 'margin-top: 3rem;';
-
-            // Add H2 section header with tooltip
-            const sectionTitle = document.createElement('h2');
-            sectionTitle.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; display: inline;';
-            sectionTitle.textContent = config.label;
-            outcomeSection.appendChild(sectionTitle);
-
-            // Add tooltip next to H2
-            const tooltipHTML = `<span class="info-tooltip" style="vertical-align: middle; margin-left: 8px;">
-                <span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>Creator Behavioral Analysis</strong>
-                    Statistical correlation and regression analysis to identify key creator metrics:
-                    <ul>
-                        <li><strong>Method:</strong> Pearson correlation coefficient with t-statistic significance testing</li>
-                        <li><strong>Variables:</strong> Profile views, PDP views, paywall views, stripe views, subscription revenue, cancellations, expirations, investment count, investment amount</li>
-                        <li><strong>Significance:</strong> t-statistic > 1.96 indicates 95% confidence level</li>
-                        <li><strong>Predictive Strength:</strong> Two-stage scoring: (1) Statistical significance, (2) Weighted score = Correlation (90%) + T-stat (10%)</li>
-                        <li><strong>Tipping Points:</strong> Identifies threshold values where conversion rates significantly increase</li>
-                    </ul>
-                    Results sorted by absolute correlation strength.
-                </span>
-            </span>`;
-
-            const tooltipSpan = document.createElement('span');
-            tooltipSpan.innerHTML = tooltipHTML;
-            outcomeSection.appendChild(tooltipSpan);
-
-            const allVariables = Object.keys(correlationResults[config.outcome]);
-            const regressionData = regressionResults[config.key];
-
-            const combinedData = allVariables.map(variable => {
-                const correlation = correlationResults[config.outcome][variable];
-                const regressionItem = regressionData.find(item => item.variable === variable);
-
-                let tippingPoint = 'N/A';
-                if (tippingPoints && tippingPoints[config.outcome] && tippingPoints[config.outcome][variable]) {
-                    tippingPoint = tippingPoints[config.outcome][variable];
-                }
-
-                return {
-                    variable: variable,
-                    correlation: correlation,
-                    tStat: regressionItem ? regressionItem.tStat : 0,
-                    tippingPoint: tippingPoint
-                };
-            }).sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
-
-            // Calculate predictive strength
-            combinedData.forEach(item => {
-                const result = this.calculatePredictiveStrength(item.correlation, item.tStat);
-                item.predictiveStrength = result.strength;
-                item.predictiveClass = result.className;
-            });
-
-            const table = this.createBehavioralTable(combinedData);
-
-            // Wrap table in scrollable container for mobile
-            const tableWrapper = document.createElement('div');
-            tableWrapper.className = 'table-wrapper';
-            tableWrapper.appendChild(table);
-
-            outcomeSection.appendChild(tableWrapper);
-
-            container.appendChild(outcomeSection);
-        });
-    }
-
-    /**
-     * Create subscription price table
-     */
-    createSubscriptionPriceTable(priceData) {
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        ['Price Point', 'Count'].forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        Object.entries(priceData)
-            .sort((a, b) => parseFloat(a[0]) - parseFloat(b[0]))
-            .forEach(([price, count]) => {
-                const row = document.createElement('tr');
-                const priceCell = document.createElement('td');
-                priceCell.textContent = `$${parseFloat(price).toFixed(2)}`;
-                row.appendChild(priceCell);
-
-                const countCell = document.createElement('td');
-                countCell.textContent = count;
-                row.appendChild(countCell);
-
-                tbody.appendChild(row);
-            });
-
-        table.appendChild(tbody);
-        return table;
-    }
-
-    /**
-     * Create behavioral analysis table
-     */
-    createBehavioralTable(data) {
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const headers = [
-            { text: 'Variable', tooltip: null },
-            { text: 'Correlation', tooltip: null },
-            { text: 'T-Statistic', tooltip: null },
-            {
-                text: 'Predictive Strength',
-                tooltip: `<strong>Predictive Strength</strong>
-                    Combines statistical significance and effect size using a two-stage approach:
-                    <ul>
-                        <li><strong>Stage 1:</strong> T-statistic ≥1.96 (95% confidence)</li>
-                        <li><strong>Stage 2:</strong> Weighted score = Correlation (90%) + T-stat (10%)</li>
-                        <li><strong>Ranges:</strong> Very Strong (≥5.5), Strong (≥4.5), Moderate-Strong (≥3.5), Moderate (≥2.5), Weak-Moderate (≥1.5), Weak (≥0.5)</li>
-                    </ul>
-                    Higher scores indicate stronger and more reliable predictive relationships.`
-            },
-            {
-                text: 'Tipping Point',
-                tooltip: `<strong>Tipping Point</strong>
-                    The "magic number" threshold where creator behavior changes significantly:
-                    <ul>
-                        <li>Identifies the value where the largest jump in conversion rate occurs</li>
-                        <li>Only considers groups with 10+ creators and >10% conversion rate</li>
-                        <li>Represents the minimum exposure needed for behavioral change</li>
-                    </ul>
-                    Example: If tipping point is 5, creators with 5+ exposures convert at much higher rates.`
-            }
-        ];
-
-        headers.forEach(headerData => {
-            const th = document.createElement('th');
-            if (headerData.tooltip) {
-                th.innerHTML = `${headerData.text}<span class="info-tooltip"><span class="info-icon">i</span><span class="tooltip-text">${headerData.tooltip}</span></span>`;
-            } else {
-                th.textContent = headerData.text;
-            }
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        data.slice(0, 15).forEach(item => {
-            const row = document.createElement('tr');
-
-            const varCell = document.createElement('td');
-            varCell.textContent = this.getVariableLabel(item.variable);
-            row.appendChild(varCell);
-
-            const corrCell = document.createElement('td');
-            corrCell.textContent = item.correlation.toFixed(2);
-            row.appendChild(corrCell);
-
-            const tStatCell = document.createElement('td');
-            tStatCell.textContent = item.tStat.toFixed(2);
-            row.appendChild(tStatCell);
-
-            const strengthCell = document.createElement('td');
-            const strengthSpan = document.createElement('span');
-            strengthSpan.className = item.predictiveClass;
-            strengthSpan.textContent = item.predictiveStrength;
-            strengthCell.appendChild(strengthSpan);
-            row.appendChild(strengthCell);
-
-            const tippingCell = document.createElement('td');
-            tippingCell.textContent = item.tippingPoint !== 'N/A' ?
-                (typeof item.tippingPoint === 'number' ? item.tippingPoint.toFixed(1) : item.tippingPoint) :
-                'N/A';
-            row.appendChild(tippingCell);
-
-            tbody.appendChild(row);
-        });
-
-        table.appendChild(tbody);
-        return table;
-    }
-
-    /**
-     * Get variable label for display
-     */
-    getVariableLabel(variable) {
-        // Convert camelCase to Title Case (e.g., totalProfileViews -> Total Profile Views)
-        return variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-    }
-
-    /**
-     * Calculate predictive strength
-     * Note: Implementation moved to analysis_utils.js for shared use across tools
-     */
-    calculatePredictiveStrength(correlation, tStat) {
-        return window.calculatePredictiveStrength(correlation, tStat);
-    }
-
-
-    /**
      * Create metric card
      */
     createMetricCard(title, content, size = null) {
@@ -1060,7 +623,7 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.12'; // Fixed missing user analysis functions
+            const CACHE_VERSION = '2.13'; // Removed unused behavioral analysis functions
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
             if (cachedVersion !== CACHE_VERSION) {
