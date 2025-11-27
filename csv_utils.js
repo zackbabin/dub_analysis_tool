@@ -167,45 +167,11 @@ function parseCSVHeaders(text, options = {}) {
     return parseCSVLine(lines[0], delimiter);
 }
 
-/**
- * Peek at CSV structure without full parsing
- * Returns headers and preview of first few rows
- * @param {string} text - Raw CSV text content
- * @param {Object} options - Parsing options
- * @param {number} options.previewRows - Number of data rows to preview (default: 3)
- * @param {string} options.delimiter - Column delimiter (default: ',')
- * @returns {Object} - { headers: string[], preview: string[][], totalLines: number }
- */
-function peekCSV(text, options = {}) {
-    const { previewRows = 3, delimiter = ',' } = options;
-
-    const lines = text.split('\n').filter(l => l.trim());
-
-    if (lines.length === 0) {
-        return { headers: [], preview: [], totalLines: 0 };
-    }
-
-    const headers = lines[0]
-        .split(delimiter)
-        .map(h => h.trim().replace(/"/g, ''));
-
-    const preview = lines.slice(1, previewRows + 1).map(line =>
-        line.split(delimiter).map(v => v.trim().replace(/"/g, ''))
-    );
-
-    return {
-        headers,
-        preview,
-        totalLines: lines.length - 1 // Exclude header
-    };
-}
-
 // Export for use in other modules
 if (typeof window !== 'undefined') {
     window.CSVUtils = {
         parseCSV,
-        parseCSVHeaders,
-        peekCSV
+        parseCSVHeaders
     };
 }
 
