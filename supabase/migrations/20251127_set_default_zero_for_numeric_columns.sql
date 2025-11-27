@@ -8,36 +8,34 @@
 -- - Applies to all event count and metric columns
 
 -- Set defaults for numeric columns
-ALTER TABLE subscribers_insights
-  ALTER COLUMN available_copy_credits SET DEFAULT 0,
-  ALTER COLUMN buying_power SET DEFAULT 0,
-  ALTER COLUMN total_deposits SET DEFAULT 0,
-  ALTER COLUMN total_withdrawals SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN available_copy_credits SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN buying_power SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_deposits SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_withdrawals SET DEFAULT 0;
 
 -- Set defaults for integer columns
-ALTER TABLE subscribers_insights
-  ALTER COLUMN active_created_portfolios SET DEFAULT 0,
-  ALTER COLUMN lifetime_created_portfolios SET DEFAULT 0,
-  ALTER COLUMN total_copies SET DEFAULT 0,
-  ALTER COLUMN total_regular_copies SET DEFAULT 0,
-  ALTER COLUMN total_premium_copies SET DEFAULT 0,
-  ALTER COLUMN regular_pdp_views SET DEFAULT 0,
-  ALTER COLUMN premium_pdp_views SET DEFAULT 0,
-  ALTER COLUMN paywall_views SET DEFAULT 0,
-  ALTER COLUMN regular_creator_views SET DEFAULT 0,
-  ALTER COLUMN premium_creator_views SET DEFAULT 0,
-  ALTER COLUMN stripe_modal_views SET DEFAULT 0,
-  ALTER COLUMN app_sessions SET DEFAULT 0,
-  ALTER COLUMN discover_tab_views SET DEFAULT 0,
-  ALTER COLUMN leaderboard_tab_views SET DEFAULT 0,
-  ALTER COLUMN premium_tab_views SET DEFAULT 0,
-  ALTER COLUMN creator_card_taps SET DEFAULT 0,
-  ALTER COLUMN portfolio_card_taps SET DEFAULT 0,
-  ALTER COLUMN total_subscriptions SET DEFAULT 0,
-  ALTER COLUMN total_bank_links SET DEFAULT 0,
-  ALTER COLUMN total_ach_deposits SET DEFAULT 0,
-  ALTER COLUMN lifetime_copied_portfolios SET DEFAULT 0,
-  ALTER COLUMN active_copied_portfolios SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN active_created_portfolios SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN lifetime_created_portfolios SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_copies SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_regular_copies SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_premium_copies SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN regular_pdp_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN premium_pdp_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN paywall_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN regular_creator_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN premium_creator_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN stripe_modal_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN app_sessions SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN discover_tab_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN leaderboard_tab_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN premium_tab_views SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN creator_card_taps SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN portfolio_card_taps SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_subscriptions SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_bank_links SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN total_ach_deposits SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN lifetime_copied_portfolios SET DEFAULT 0;
+ALTER TABLE subscribers_insights ALTER COLUMN active_copied_portfolios SET DEFAULT 0;
 
 -- Update existing NULL values to 0 for numeric columns
 UPDATE subscribers_insights
