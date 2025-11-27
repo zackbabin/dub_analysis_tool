@@ -177,20 +177,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         );
         buttonContainer.appendChild(githubBtn);
 
-        // "Manually Upload Data" button (disabled)
+        // "Manually Upload Data" button
         const uploadBtn = this.createModeButton(
             'Manually Upload Data',
-            'Not available for this analysis',
-            '#e9ecef',
-            '#adb5bd',
-            null
+            'Upload CSV files for analysis',
+            '#dee2e6',
+            '#6c757d',
+            () => this.runWorkflow('upload')
         );
-        uploadBtn.disabled = true;
-        uploadBtn.style.background = '#f8f9fa';
-        uploadBtn.style.cursor = 'not-allowed';
-        uploadBtn.style.pointerEvents = 'none';
-        uploadBtn.onmouseover = null;
-        uploadBtn.onmouseout = null;
         buttonContainer.appendChild(uploadBtn);
 
         section.appendChild(buttonContainer);
@@ -1327,8 +1321,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true },
             { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true },
-            { label: 'Avg Unique Creators', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0, showComparison: true },
-            { label: 'Unique Portfolios', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
+            { label: 'Avg Profile Views Before Copy', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0, showComparison: true },
+            { label: 'Avg PDP Views Before Copy', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
         ];
 
         const parts = [
