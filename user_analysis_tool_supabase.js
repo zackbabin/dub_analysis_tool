@@ -514,7 +514,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Fetches pre-calculated summary stats from Edge Function
      */
     async displayResultsFromDatabase() {
-        const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
+        const CACHE_VERSION = 16; // Removed dead CSV upload and time field code
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -582,7 +582,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async displayResults(results) {
         // Cache version for button layout changes
-        const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
+        const CACHE_VERSION = 16; // Removed dead CSV upload and time field code
 
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
@@ -629,7 +629,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
+            const CACHE_VERSION = 16; // Removed dead CSV upload and time field code
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};

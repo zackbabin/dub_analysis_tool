@@ -560,7 +560,7 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.14'; // User analysis moved to Edge Function
+            const CACHE_VERSION = '2.15'; // Removed dead calculateCreatorSummaryStats function
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
             if (cachedVersion !== CACHE_VERSION) {
