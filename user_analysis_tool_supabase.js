@@ -1077,7 +1077,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         this.initializePortfolioNestedTabs();
 
         // Load behavioral drivers from database for each outcome
-        await this.displayTopBehavioralDrivers();
+        await this.displayTopDepositDrivers();
+        await this.displayTopCopyDrivers();
+        await this.displayTopSubscriptionDrivers();
 
         // Add timestamps
         const cachedTime = localStorage.getItem('qdaMixpanelSyncTime');
