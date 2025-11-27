@@ -225,7 +225,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
             this.updateProgress(35, 'Step 1/5: Complete');
 
-            // Step 2: Analyze behavioral drivers (requires user data from Step 1) - starts at 35%, completes at 45%
+            // Step 2: Analyze behavioral drivers (requires user data from Step 1) - starts at 35%, completes at 42%
             this.updateProgress(35, 'Step 2/5: Analyzing behavioral drivers...');
             console.log('\n═══ Step 2: Behavioral Drivers Analysis ═══');
             try {
@@ -240,10 +240,33 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 } else {
                     console.warn('⚠ Step 2: Behavioral Drivers - Failed');
                 }
-                this.updateProgress(45, 'Step 2/5: Complete');
+                this.updateProgress(42, 'Step 2/5: Complete');
             } catch (error) {
                 console.warn('⚠ Step 2: Behavioral Drivers - Failed, continuing');
-                this.updateProgress(45, 'Step 2/5: Complete (with errors)');
+                this.updateProgress(42, 'Step 2/5: Complete (with errors)');
+            }
+
+            // Step 2a: Analyze summary stats (requires user data from Step 1) - starts at 42%, completes at 45%
+            this.updateProgress(42, 'Step 2a/5: Analyzing summary stats...');
+            console.log('\n═══ Step 2a: Summary Stats Analysis ═══');
+            try {
+                const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-summary-stats', { body: {} });
+                if (error) {
+                    console.warn('⚠ Step 2a: Summary Stats - Failed:', error.message);
+                } else if (data?.success) {
+                    console.log('✅ Step 2a: Summary Stats - Complete');
+                    console.log(`   - ${data.stats?.total_users || 0} total users analyzed`);
+                    console.log(`   - ${data.stats?.premium_users || 0} premium users`);
+                    console.log(`   - ${data.stats?.core_users || 0} core users`);
+                    console.log(`   - Link bank conversion: ${data.stats?.link_bank_conversion?.toFixed(2) || 0}%`);
+                    console.log(`   - First copy conversion: ${data.stats?.first_copy_conversion?.toFixed(2) || 0}%`);
+                } else {
+                    console.warn('⚠ Step 2a: Summary Stats - Failed');
+                }
+                this.updateProgress(45, 'Step 2a/5: Complete');
+            } catch (error) {
+                console.warn('⚠ Step 2a: Summary Stats - Failed, continuing');
+                this.updateProgress(45, 'Step 2a/5: Complete (with errors)');
             }
 
             // Step 3: Sync creator data - starts at 45%, completes at 60%
@@ -457,15 +480,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             this.updateProgress(20, 'Loading data from database...');
 
-            // Step 1: Load data from Supabase database
-            const contents = await this.loadGitHubData();
-            this.updateProgress(50, 'Processing data...');
-
-            // Step 2: Fetch and update Marketing Metrics
+            // Fetch and update Marketing Metrics
             await this.displayMarketingMetrics(true);
+            this.updateProgress(50, 'Fetching analysis results...');
 
-            // Step 3: Process and analyze data
-            await this.processAndAnalyze(contents);
+            // Display results from database (no client-side processing needed)
+            await this.displayResultsFromDatabase();
 
             console.log('✅ Database refresh completed');
         } catch (error) {
@@ -480,19 +500,85 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     async runGitHubWorkflow() {
         // Trigger the sync workflow (progress updates happen inside triggerGitHubWorkflow)
+        // This now includes analyze-summary-stats Edge Function call
         const triggered = await this.triggerGitHubWorkflow();
         if (!triggered) {
             throw new Error('Failed to trigger Supabase sync');
         }
 
-        // Load data from Supabase (no progress update - already at 100% from sync)
-        const contents = await this.loadGitHubData();
-
         // Fetch and update Marketing Metrics from Mixpanel
         await this.displayMarketingMetrics(true);
 
-        // Process and analyze data
-        await this.processAndAnalyze(contents);
+        // Display results from database (no client-side processing needed)
+        await this.displayResultsFromDatabase();
+    }
+
+    /**
+     * Display results from database (no client-side processing)
+     * Fetches pre-calculated summary stats from Edge Function
+     */
+    async displayResultsFromDatabase() {
+        const CACHE_VERSION = 14; // Changed to Edge Function-based analysis
+
+        // Step 1: Try to restore from cache FIRST (instant display)
+        const cached = localStorage.getItem('dubAnalysisResults');
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                // Check cache version - invalidate if old version
+                if (data.cacheVersion !== CACHE_VERSION) {
+                    console.log('⚠️ Cache version mismatch, clearing old cache');
+                    localStorage.removeItem('dubAnalysisResults');
+                } else if (data.timestamp) {
+                    // Restore cached HTML to each tab (if available)
+                    if (data.summary) {
+                        this.outputContainers.summary.innerHTML = data.summary;
+                        this.removeAnchorLinks(this.outputContainers.summary);
+                    }
+                    if (data.portfolio) {
+                        this.outputContainers.portfolio.innerHTML = data.portfolio;
+                        this.removeAnchorLinks(this.outputContainers.portfolio);
+                    }
+                    if (data.subscription) {
+                        this.outputContainers.subscription.innerHTML = data.subscription;
+                        this.removeAnchorLinks(this.outputContainers.subscription);
+                    }
+
+                    const cacheAge = Math.floor((Date.now() - new Date(data.timestamp).getTime()) / 60000);
+                    console.log(`✅ Restored complete analysis from cache (${cacheAge} min ago)`);
+                    // Fall through to rebuild with fresh data
+                }
+            } catch (e) {
+                console.warn('Failed to restore from cache, rebuilding:', e);
+            }
+        }
+
+        // Step 2: Build complete HTML with data from database (modifies DOM directly)
+        await this.buildCompleteHTMLFromDatabase();
+
+        // Step 2.5: Refresh subscription drivers display from database
+        await this.displayTopSubscriptionDrivers();
+
+        // Step 3: Cache complete rendered HTML for all tabs
+        try {
+            // Get existing cache to preserve timestamp
+            const existingCache = localStorage.getItem('dubAnalysisResults');
+            const existingData = existingCache ? JSON.parse(existingCache) : {};
+
+            const cacheData = {
+                summary: this.outputContainers.summary?.innerHTML || '',
+                portfolio: this.outputContainers.portfolio?.innerHTML || '',
+                subscription: this.outputContainers.subscription?.innerHTML || '',
+                // Preserve existing timestamp - it should only be updated during actual sync operations
+                timestamp: existingData.timestamp || new Date().toISOString(),
+                cacheVersion: CACHE_VERSION
+            };
+            console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
+            localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
+            console.log('✅ Cached complete analysis for all tabs');
+        } catch (error) {
+            console.error('❌ Failed to cache:', error);
+        }
     }
 
     /**
@@ -849,6 +935,191 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         // Anchor links removed - using only tab anchors for simplicity
+    }
+
+    /**
+     * Build complete HTML from database (no client-side processing)
+     * Fetches pre-calculated summary stats from database table
+     */
+    async buildCompleteHTMLFromDatabase() {
+        // Clear combination cache to ensure fresh data
+        this.supabaseIntegration.clearCombinationCache();
+
+        // Step 1: Fetch summary stats from database
+        const { data: summaryStatsRows, error: statsError } = await this.supabaseIntegration.supabase
+            .from('summary_stats')
+            .select('stats_data, calculated_at')
+            .order('calculated_at', { ascending: false })
+            .limit(1);
+
+        if (statsError) {
+            console.error('Failed to load summary stats:', statsError);
+            throw statsError;
+        }
+
+        if (!summaryStatsRows || summaryStatsRows.length === 0) {
+            console.error('No summary stats found in database');
+            throw new Error('Summary stats not calculated yet. Please run Sync Live Data first.');
+        }
+
+        const summaryStats = summaryStatsRows[0].stats_data;
+        console.log('✅ Loaded summary stats from database');
+
+        // Step 2: Load all other engagement data in parallel
+        const [
+            hiddenGems,
+            copyEngagementSummary,
+            topCopyCombos,
+            topCreatorCopyCombos,
+            subscriptionDistribution
+        ] = await Promise.all([
+            this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
+            this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
+            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
+            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
+            this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
+        ]);
+
+        // Calculate hidden gems summary
+        const hiddenGemsSummary = hiddenGems && hiddenGems.length > 0 ? {
+            total_hidden_gems: hiddenGems.length,
+            avg_pdp_views: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.total_pdp_views || 0), 0) / hiddenGems.length * 10) / 10,
+            avg_conversion_rate: Math.round(hiddenGems.reduce((sum, gem) => sum + (gem.copy_conversion_rate || 0), 0) / hiddenGems.length * 100) / 100
+        } : null;
+
+        // Store subscription distribution for caching
+        this.cachedSubscriptionDistribution = subscriptionDistribution;
+
+        // === SUMMARY TAB ===
+        const summaryContainer = this.outputContainers.summary;
+        summaryContainer.innerHTML = `
+            <div class="qda-analysis-results">
+                <div id="qdaSummaryStatsInline"></div>
+                <div id="qdaMarketingMetricsInline"></div>
+                <div id="qdaDemographicBreakdownInline"></div>
+                <div id="qdaPersonaBreakdownInline"></div>
+            </div>
+        `;
+
+        displaySummaryStatsInline(summaryStats);
+        await this.displayMarketingMetrics();
+        displayDemographicBreakdownInline(summaryStats);
+        displayPersonaBreakdownInline(summaryStats);
+
+        // === PORTFOLIO TAB ===
+        const portfolioContainer = this.outputContainers.portfolio;
+        portfolioContainer.innerHTML = `
+            <div class="qda-analysis-results">
+                <div id="portfolioContentSection"></div>
+            </div>
+        `;
+
+        // Build Portfolio Content Section
+        const portfolioContentSection = document.getElementById('portfolioContentSection');
+
+        // Build all HTML sections
+        const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+        const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
+        const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
+        const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
+
+        // Build complete HTML structure
+        let portfolioHTML = `
+            <div class="qda-result-section">
+                <div style="margin-bottom: 0.25rem;">
+                    <h1 style="margin: 0;"><span class="info-tooltip">Behavior Analysis<span class="info-icon">i</span>
+                        <span class="tooltip-text">
+                            <strong>Behavior Analysis</strong>
+                            User behavior patterns, engagement metrics, and conversion analysis across the platform.
+                        </span>
+                    </span></h1>
+                </div>
+                ${metricsHTML}
+                ${hiddenGemsHTML}
+                ${combinationsHTML}
+                ${creatorCombinationsHTML}
+            </div>
+        `;
+
+        // Add Top Behavioral Drivers Section with nested tabs
+        portfolioHTML += `
+            <div class="qda-result-section" style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Top Behavioral Drivers</strong>
+                Statistical analysis showing which user behaviors best predict deposits, copies, and subscriptions.
+            </span>
+        </span></h2>
+                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">Top events that are the strong predictors of deposits, copies, and subscriptions</p>
+
+                <div class="behavioral-tabs-container">
+                    <div class="behavioral-tab-navigation">
+                        <button class="behavioral-tab-btn active" data-behavioral-tab="deposits">Deposit Funds</button>
+                        <button class="behavioral-tab-btn" data-behavioral-tab="copies">Copy Portfolios</button>
+                        <button class="behavioral-tab-btn" data-behavioral-tab="subscriptions">Subscriptions</button>
+                    </div>
+
+                    <div class="behavioral-tab-content">
+                        <div id="deposits-behavioral-tab" class="behavioral-tab-pane active">
+                            <!-- Deposit Funds content will be inserted here -->
+                        </div>
+                        <div id="copies-behavioral-tab" class="behavioral-tab-pane">
+                            <!-- Copy Portfolios content will be inserted here -->
+                        </div>
+                        <div id="subscriptions-behavioral-tab" class="behavioral-tab-pane">
+                            <!-- Subscriptions content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Set portfolio content
+        portfolioContentSection.innerHTML = portfolioHTML;
+
+        // Initialize behavioral tab switching
+        this.initializePortfolioNestedTabs();
+
+        // Load behavioral drivers from database for each outcome
+        await this.displayTopBehavioralDrivers();
+
+        // Add timestamps
+        const cachedTime = localStorage.getItem('qdaMixpanelSyncTime');
+        const displayTime = cachedTime ? new Date(cachedTime) : new Date();
+
+        const timestampStr = displayTime.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+
+        localStorage.setItem('qdaLastUpdated', timestampStr);
+
+        // Add timestamp and data scope to each container
+        const tabConfigs = [
+            { container: summaryContainer, scopeText: 'All KYC approved users since 8/27' },
+            { container: portfolioContainer, scopeText: 'All KYC approved users since 8/27' }
+        ];
+
+        tabConfigs.forEach(({ container, scopeText }) => {
+            const resultsDiv = container.querySelector('.qda-analysis-results');
+            if (resultsDiv) {
+                // Add timestamp (top right)
+                const timestamp = document.createElement('div');
+                timestamp.className = 'qda-timestamp';
+                timestamp.textContent = `Data as of: ${timestampStr}`;
+                resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+
+                // Add data scope text (top left)
+                const dataScope = document.createElement('div');
+                dataScope.className = 'qda-data-scope';
+                dataScope.textContent = scopeText;
+                resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
+            }
+        });
     }
 
 
