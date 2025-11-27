@@ -117,9 +117,6 @@ interface CleanedUser {
   leaderboardViews: number
   premiumTabViews: number
   totalOfUserProfiles: number
-  timeToFirstCopy: number
-  timeToDeposit: number
-  timeToLinkedBank: number
   creatorCardTaps: number
   portfolioCardTaps: number
   income: string
@@ -373,10 +370,6 @@ function processComprehensiveData(data: MainAnalysisRow[]): CleanedUser[] {
     leaderboardViews: cleanNumeric(row.leaderboard_tab_views),
     premiumTabViews: cleanNumeric(row.premium_tab_views),
     totalOfUserProfiles: cleanNumeric(row.total_profile_views), // fallback
-
-    timeToFirstCopy: 0, // Not available in current data
-    timeToDeposit: 0,    // Not available in current data
-    timeToLinkedBank: 0, // Not available in current data
 
     creatorCardTaps: cleanNumeric(row.creator_card_taps),
     portfolioCardTaps: cleanNumeric(row.portfolio_card_taps),

@@ -178,12 +178,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         buttonContainer.appendChild(githubBtn);
 
         // "Manually Upload Data" button
+        // Note: The actual click handler is overridden in index.html to call showMarketingUploadModal()
+        // which handles Public Portfolios Data and Total Investments Data uploads
         const uploadBtn = this.createModeButton(
             'Manually Upload Data',
             'Upload CSV files for analysis',
             '#dee2e6',
             '#6c757d',
-            () => this.runWorkflow('upload')
+            () => console.log('Upload button clicked - should be overridden by index.html')
         );
         buttonContainer.appendChild(uploadBtn);
 

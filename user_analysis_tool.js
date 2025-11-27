@@ -282,177 +282,6 @@ class UserAnalysisTool {
     }
 
     /**
-     * Runs the upload workflow
-     */
-    async runUploadWorkflow() {
-        // Show file upload section
-        const uploadSection = document.getElementById('unifiedUploadSection');
-        uploadSection.style.display = 'block';
-
-        this.addStatusMessage('📁 Please select your 4 required CSV files and click "Process Files"', 'info');
-
-        // Wait for user to select files
-        const fileInput = document.getElementById('unifiedFileInput');
-        const processButton = document.getElementById('unifiedProcessButton');
-
-        // Show button when 4 files are selected
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files && fileInput.files.length === 4) {
-                processButton.style.display = 'inline-block';
-                this.addStatusMessage('✅ 4 files selected - click "Process Files" to continue', 'success');
-            } else {
-                processButton.style.display = 'none';
-            }
-        });
-
-        // Create a promise that resolves when button is clicked
-        await new Promise((resolve, reject) => {
-            processButton.onclick = () => {
-                if (fileInput.files && fileInput.files.length === 4) {
-                    resolve();
-                } else {
-                    this.addStatusMessage('❌ Please select exactly 4 CSV files', 'error');
-                }
-            };
-
-            // Add timeout
-            setTimeout(() => {
-                reject(new Error('File selection timeout'));
-            }, 300000); // 5 minutes
-        });
-
-        this.updateProgress(20, 'Files selected...');
-        this.addStatusMessage('✅ Files selected', 'success');
-
-        // Read files
-        this.addStatusMessage('📖 Reading CSV files...', 'info');
-        const files = Array.from(fileInput.files);
-
-        // Match files by content
-        const matchedFiles = await this.matchFilesByName(files);
-        if (!matchedFiles.success) {
-            throw new Error(`Could not identify all file types. Found ${matchedFiles.foundCount}/4 required files.`);
-        }
-
-        this.updateProgress(40, 'Reading files...');
-
-        // Read file contents
-        const contents = await Promise.all(matchedFiles.files.map(file => this.readFile(file)));
-
-        this.updateProgress(60, 'Merging data...');
-        this.addStatusMessage('✅ Files read successfully', 'success');
-
-        // Process and analyze
-        await this.processAndAnalyze(contents);
-    }
-
-    /**
-     * Generate hash of data for incremental analysis cache validation
-     * Uses simple but fast hash function for large datasets
-     */
-    hashData(data) {
-        const str = JSON.stringify(data);
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            const char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32-bit integer
-        }
-        // Include data structure version to force refresh on schema changes
-        return `v1_${hash}`;
-    }
-
-    /**
-     * Processes data and runs analysis
-     * Implements incremental analysis: skips re-processing if data unchanged
-     */
-    async processAndAnalyze(contents) {
-        // Reset cached new variables at the start of each analysis
-        cachedNewVariables = null;
-
-        // Step 1: Merge data
-        const mergedData = processComprehensiveData(contents);
-
-        // Step 2: Check if data has changed (incremental analysis optimization)
-        const dataHash = this.hashData(mergedData.mainFile);
-        const cachedHash = localStorage.getItem('qdaDataHash');
-        const cachedResults = localStorage.getItem('qdaAnalysisResults');
-
-        if (dataHash === cachedHash && cachedResults) {
-            console.log('📦 Data unchanged - using cached analysis results (90% faster!)');
-            this.updateProgress(75, 'Loading cached results...');
-
-            try {
-                const analysisData = JSON.parse(cachedResults);
-
-                // Reconstruct results object in expected format
-                const results = {
-                    summaryStats: analysisData.summaryStats,
-                    correlationResults: analysisData.correlationResults,
-                    regressionResults: analysisData.regressionResults,
-                    cleanData: null // Not cached to save space
-                };
-
-                this.updateProgress(90, 'Displaying results...');
-
-                // Display cached results
-                await this.displayResults(results);
-
-                this.updateProgress(100, 'Complete!');
-
-                setTimeout(() => {
-                    document.getElementById('unifiedProgressSection').style.display = 'none';
-                }, 1500);
-
-                return;
-            } catch (error) {
-                console.warn('Failed to use cached results, running full analysis:', error);
-                // Fall through to full analysis
-            }
-        }
-
-        console.log('🔄 Data changed or no cache - running full analysis');
-
-        // Step 3: Run analysis on main file
-        this.updateProgress(75, 'Analyzing data...');
-
-        // Pass JSON directly instead of converting to CSV and parsing back
-        const results = performQuantitativeAnalysis(mergedData.mainFile, null, null);
-
-        this.updateProgress(90, 'Generating insights...');
-
-        // Step 4: Save results and hash to localStorage
-        const now = new Date();
-        const timestamp = now.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-
-        // Save only summary stats (behavioral drivers are in database)
-        localStorage.setItem('qdaAnalysisResults', JSON.stringify({
-            summaryStats: results.summaryStats,
-            lastUpdated: timestamp
-        }));
-
-        // Store data hash for incremental analysis
-        localStorage.setItem('qdaDataHash', dataHash);
-
-        // Step 6: Display results
-        this.displayResults(results);
-
-        this.updateProgress(100, 'Complete!');
-
-        // Hide progress bar after completion
-        setTimeout(() => {
-            document.getElementById('unifiedProgressSection').style.display = 'none';
-        }, 2000);
-    }
-
-    /**
      * Saves analysis results to localStorage
      */
     saveAnalysisResults(resultsHTML) {
@@ -559,13 +388,6 @@ class UserAnalysisTool {
     }
 
     // GitHub Actions integration methods removed - Supabase version overrides these
-
-    /**
-     * Helper: Match files by content
-     */
-    async matchFilesByName(files) {
-        return await matchFilesByName(files);
-    }
 
     /**
      * Helper: Read file
@@ -757,197 +579,6 @@ async function matchFilesByName(files) {
     };
 }
 
-/**
- * Processes and merges comprehensive data from 7 CSV files
- */
-function processComprehensiveData(contents) {
-    // Helper function to find column value with flexible matching
-    function getColumnValue(row, ...possibleNames) {
-        for (const name of possibleNames) {
-            if (row[name] !== undefined && row[name] !== null) {
-                return row[name];
-            }
-        }
-        return '';
-    }
-
-    // Helper function to clean column names
-    function cleanColumnName(name) {
-        return name
-            .replace(/^[A-Z]\.\s*/, '')
-            .replace(/\s*\(\$?\)\s*/, '')
-            .replace(/([a-z])([A-Z])/g, '$1 $2')
-            .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
-            .replace(/\b\w/g, l => l.toUpperCase())
-            .replace(/\bI D\b/g, 'ID');
-    }
-
-    // Helper function to clean data values
-    function cleanValue(value) {
-        if (value === 'undefined' || value === '$non_numeric_values' || value === null || value === undefined) {
-            return '';
-        }
-        return value;
-    }
-
-    // Handle JSON input directly from Supabase (array of objects)
-    // If contents is an array of objects (JSON from Supabase), use it directly
-    // If contents is an array of CSV strings (legacy upload), parse them
-    let demoData, firstCopyData, fundedAccountData, linkedBankData;
-
-    if (Array.isArray(contents) && contents.length > 0 && typeof contents[0] === 'object' && !contents[0].hasOwnProperty('length')) {
-        // JSON input from Supabase - contents is the data array directly
-        console.log('Processing JSON data from Supabase...');
-        demoData = { data: contents, headers: Object.keys(contents[0] || {}) };
-        // Empty data for time-based fields (not used in Supabase flow)
-        firstCopyData = { data: [], headers: [] };
-        fundedAccountData = { data: [], headers: [] };
-        linkedBankData = { data: [], headers: [] };
-    } else {
-        // Legacy CSV input from file upload
-        console.log('Parsing CSV files...');
-        [demoData, firstCopyData, fundedAccountData, linkedBankData] = contents.map(parseCSV);
-    }
-
-    // Normalize distinct_id keys
-    function normalizeId(row) {
-        return row['Distinct ID'] || row['$distinct_id'] || row['user_id'];
-    }
-
-    // Create time mappings
-    const timeToFirstCopyMap = {};
-    const timeToDepositMap = {};
-    const timeToLinkedBankMap = {};
-
-    firstCopyData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (id) timeToFirstCopyMap[id] = row[firstCopyData.headers[2]];
-    });
-
-    fundedAccountData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (id) timeToDepositMap[id] = row[fundedAccountData.headers[2]];
-    });
-
-    linkedBankData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (id) timeToLinkedBankMap[id] = row[linkedBankData.headers[2]];
-    });
-
-    // Create aggregated conversion metrics (stubbed - premium/creator/portfolio data not used)
-    const conversionAggregates = {};
-
-    // Note: Premium subscription, creator copy, and portfolio copy data removed
-    // These files are not required for main analysis
-
-    // Initialize empty aggregates (no premium/creator/portfolio data processed)
-    demoData.data.forEach(row => {
-        const id = normalizeId(row);
-        if (!id) return;
-
-        if (!conversionAggregates[id]) {
-            conversionAggregates[id] = {
-                total_paywall_views: 0,
-                total_stripe_views: 0,
-                total_subscriptions: 0,
-                total_creator_portfolio_views: 0,
-                total_creator_copy_starts: 0,
-                total_creator_copies: 0,
-                unique_creators_interacted: new Set()
-            };
-        }
-    });
-
-    // Portfolio aggregates (empty - no data file provided)
-    const portfolioAggregates = {};
-
-    // Helper function for time conversion
-    function secondsToDays(seconds) {
-        if (!seconds || isNaN(seconds)) return '';
-        return Math.round((seconds / 86400) * 100) / 100;
-    }
-
-    // Create main analysis file
-    const mainAnalysisData = demoData.data.map(row => {
-        const id = normalizeId(row);
-        const clean = {};
-
-        // Clean original columns with normalized names
-        Object.keys(row).forEach(k => {
-            const cleanedName = cleanColumnName(k);
-            clean[cleanedName] = cleanValue(row[k]);
-        });
-
-        // Map key columns with flexible matching (includes Supabase snake_case fields)
-        // Demographic/property fields
-        clean['Income'] = getColumnValue(row, 'Income', 'income') || clean['Income'] || '';
-        clean['Net Worth'] = getColumnValue(row, 'Net Worth', 'netWorth', 'net_worth') || clean['Net Worth'] || '';
-        clean['Investing Activity'] = getColumnValue(row, 'Investing Activity', 'investingActivity', 'investing_activity') || clean['Investing Activity'] || '';
-        clean['Investing Experience Years'] = getColumnValue(row, 'Investing Experience Years', 'investingExperienceYears', 'investing_experience_years') || clean['Investing Experience Years'] || '';
-        clean['Investing Objective'] = getColumnValue(row, 'Investing Objective', 'investingObjective', 'investing_objective') || clean['Investing Objective'] || '';
-        clean['Investment Type'] = getColumnValue(row, 'Investment Type', 'investmentType', 'investment_type') || clean['Investment Type'] || '';
-        clean['Acquisition Survey'] = getColumnValue(row, 'Acquisition Survey', 'acquisitionSurvey', 'acquisition_survey') || clean['Acquisition Survey'] || '';
-        clean['Available Copy Credits'] = getColumnValue(row, 'Available Copy Credits', 'availableCopyCredits', 'available_copy_credits') || clean['Available Copy Credits'] || '';
-        clean['Buying Power'] = getColumnValue(row, 'Buying Power', 'buyingPower', 'buying_power') || clean['Buying Power'] || '';
-
-        // Portfolio fields
-        clean['Active Created Portfolios'] = getColumnValue(row, 'Active Created Portfolios', 'activeCreatedPortfolios', 'active_created_portfolios') || clean['Active Created Portfolios'] || '';
-        clean['Lifetime Created Portfolios'] = getColumnValue(row, 'Lifetime Created Portfolios', 'lifetimeCreatedPortfolios', 'lifetime_created_portfolios') || clean['Lifetime Created Portfolios'] || '';
-        clean['Active Copied Portfolios'] = getColumnValue(row, 'Active Copied Portfolios', 'activeCopiedPortfolios', 'active_copied_portfolios') || clean['Active Copied Portfolios'] || '';
-        clean['Lifetime Copied Portfolios'] = getColumnValue(row, 'Lifetime Copied Portfolios', 'lifetimeCopiedPortfolios', 'lifetime_copied_portfolios') || clean['Lifetime Copied Portfolios'] || '';
-
-        // Financial/account fields
-        clean['Linked Bank Account'] = getColumnValue(row, 'A. Linked Bank Account', 'B. Linked Bank Account', 'hasLinkedBank', 'total_bank_links') || clean['Linked Bank Account'] || clean['Has Linked Bank'] || '';
-        clean['Total Deposits'] = getColumnValue(row, 'B. Total Deposits ($)', 'C. Total Deposits ($)', 'C. Total Deposits', 'total_deposits') || clean['Total Deposits'] || '';
-        clean['Total ACH Deposits'] = getColumnValue(row, 'D. Total ACH Deposits', 'total_ach_deposits') || clean['Total ACH Deposits'] || '';
-        clean['Total Copies'] = getColumnValue(row, 'E. Total Copies', 'G. Total Copies', 'total_copies') || clean['Total Copies'] || '';
-        clean['Total Regular Copies'] = getColumnValue(row, 'F. Total Regular Copies', 'H. Total Regular Copies', 'total_regular_copies') || clean['Total Regular Copies'] || '';
-        clean['Total Premium Copies'] = getColumnValue(row, 'G. Total Premium Copies', 'total_premium_copies') || clean['Total Premium Copies'] || '';
-        clean['Regular PDP Views'] = getColumnValue(row, 'H. Regular PDP Views', 'I. Regular PDP Views', 'regular_pdp_views') || clean['Regular PDP Views'] || '';
-        clean['Premium PDP Views'] = getColumnValue(row, 'I. Premium PDP Views', 'J. Premium PDP Views', 'premium_pdp_views') || clean['Premium PDP Views'] || '';
-        clean['Paywall Views'] = getColumnValue(row, 'J. Paywall Views', 'K. Paywall Views', 'paywall_views') || clean['Paywall Views'] || '';
-        clean['Regular Creator Profile Views'] = getColumnValue(row, 'K. Regular Creator Profile Views', 'L. Regular Creator Profile Views', 'regular_creator_views') || clean['Regular Creator Profile Views'] || '';
-        clean['Premium Creator Profile Views'] = getColumnValue(row, 'L. Premium Creator Profile Views', 'M. Premium Creator Profile Views', 'premium_creator_views') || clean['Premium Creator Profile Views'] || '';
-        clean['Total Subscriptions'] = getColumnValue(row, 'M. Total Subscriptions', 'E. Total Subscriptions', 'total_subscriptions') || clean['Total Subscriptions'] || '';
-        clean['App Sessions'] = getColumnValue(row, 'N. App Sessions', 'app_sessions') || clean['App Sessions'] || '';
-        clean['Discover Tab Views'] = getColumnValue(row, 'O. Discover Tab Views', 'discover_tab_views') || clean['Discover Tab Views'] || '';
-        clean['Leaderboard Tab Views'] = getColumnValue(row, 'P. Leaderboard Tab Views', 'P. Leaderboard Views', 'leaderboard_tab_views') || clean['Leaderboard Tab Views'] || clean['Leaderboard Views'] || '';
-        clean['Premium Tab Views'] = getColumnValue(row, 'Q. Premium Tab Views', 'premium_tab_views') || clean['Premium Tab Views'] || '';
-        clean['Stripe Modal Views'] = getColumnValue(row, 'R. Stripe Modal Views', 'stripe_modal_views') || clean['Stripe Modal Views'] || '';
-        clean['Creator Card Taps'] = getColumnValue(row, 'S. Creator Card Taps', 'creator_card_taps') || clean['Creator Card Taps'] || '';
-        clean['Portfolio Card Taps'] = getColumnValue(row, 'T. Portfolio Card Taps', 'portfolio_card_taps') || clean['Portfolio Card Taps'] || '';
-
-        // Add time columns
-        clean['Time To First Copy'] = secondsToDays(timeToFirstCopyMap[id]);
-        clean['Time To Deposit'] = secondsToDays(timeToDepositMap[id]);
-        clean['Time To Linked Bank'] = secondsToDays(timeToLinkedBankMap[id]);
-
-        // Add aggregated conversion metrics
-        const conv = conversionAggregates[id] || {};
-        const port = portfolioAggregates[id] || {};
-
-        const totalCopyStarts = (conv.total_creator_copy_starts || 0) + (port.total_portfolio_copy_starts || 0);
-
-        // Use Supabase fields if available, otherwise fall back to aggregates
-        clean['Total Stripe Views'] = getColumnValue(row, 'stripe_modal_views', 'Total Stripe Views') || conv.total_stripe_views || 0;
-        clean['Total Copy Starts'] = totalCopyStarts;
-        clean['Unique Creators Interacted'] = getColumnValue(row, 'unique_creators_viewed', 'Unique Creators Interacted') || (conv.unique_creators_interacted ? conv.unique_creators_interacted.size : 0);
-        clean['Unique Portfolios Interacted'] = getColumnValue(row, 'unique_portfolios_viewed', 'Unique Portfolios Interacted') || (port.unique_portfolios_interacted ? port.unique_portfolios_interacted.size : 0);
-        clean['Total Profile Views'] = getColumnValue(row, 'total_profile_views', 'Total Profile Views') || clean['Total Profile Views'] || 0;
-        clean['Total PDP Views'] = getColumnValue(row, 'total_pdp_views', 'Total PDP Views') || clean['Total PDP Views'] || 0;
-
-        return clean;
-    });
-
-    // Note: Creator and portfolio detail file generation removed as they're not currently used
-    // Previously generated creatorFile and portfolioFile from premiumSubData, creatorCopyData, and portfolioCopyData
-    // Can be re-enabled if needed for future analysis
-
-    return {
-        mainFile: mainAnalysisData
-    };
-}
-
 // ============================================================================
 // ANALYSIS FUNCTIONS (from analysis_tool.js)
 // ============================================================================
@@ -955,7 +586,7 @@ function processComprehensiveData(contents) {
 // Constants
 const ALL_VARIABLES = [
     'hasLinkedBank', 'totalStripeViews', 'paywallViews',
-    'regularPDPViews', 'premiumPDPViews', 'timeToFirstCopy', 'timeToDeposit', 'timeToLinkedBank',
+    'regularPDPViews', 'premiumPDPViews',
     'incomeEnum', 'netWorthEnum', 'availableCopyCredits', 'buyingPower',
     'activeCreatedPortfolios', 'lifetimeCreatedPortfolios', 'totalOfUserProfiles',
     'totalDepositCount', 'totalWithdrawals', 'totalWithdrawalCount',
@@ -1285,10 +916,6 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
         premiumTabViews: cleanNumeric(row['Premium Tab Views'] || row['Q. Premium Tab Views']),
         totalOfUserProfiles: cleanNumeric(row['Total Of User Profiles']),
 
-        timeToFirstCopy: cleanNumeric(row['Time To First Copy']),
-        timeToDeposit: cleanNumeric(row['Time To Deposit']),
-        timeToLinkedBank: cleanNumeric(row['Time To Linked Bank']),
-
         creatorCardTaps: cleanNumeric(row['Creator Card Taps'] || row['S. Creator Card Taps']),
         portfolioCardTaps: cleanNumeric(row['Portfolio Card Taps'] || row['T. Portfolio Card Taps']),
 
@@ -1425,9 +1052,6 @@ function getVariableLabel(variable) {
         'leaderboardViews': 'Leaderboard Views',
         'premiumTabViews': 'Premium Tab Views',
         'totalOfUserProfiles': 'Total User Profiles',
-        'timeToFirstCopy': 'Time To First Copy',
-        'timeToDeposit': 'Time To Deposit',
-        'timeToLinkedBank': 'Time To Linked Bank',
         'creatorCardTaps': 'Creator Card Taps',
         'portfolioCardTaps': 'Portfolio Card Taps',
         'incomeEnum': 'Income Level',
