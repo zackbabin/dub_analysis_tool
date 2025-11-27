@@ -358,76 +358,13 @@ class CreatorAnalysisTool {
 
     /**
      * Perform creator analysis
+     * Note: Summary stats are now calculated server-side via premium_creator_summary_stats view
+     * Manual CSV uploads store data in database and displayResults is overridden to fetch from view
      */
     performCreatorAnalysis(cleanData) {
-        const summaryStats = this.calculateCreatorSummaryStats(cleanData);
-
         return {
-            summaryStats,
+            summaryStats: null, // Calculated server-side, not client-side
             cleanData
-        };
-    }
-
-    /**
-     * Calculate summary statistics for creators
-     */
-    calculateCreatorSummaryStats(data) {
-        const totalCreators = data.length;
-
-        console.log('=== Creator Summary Stats Calculation ===');
-        console.log(`Total creators (after cleaning): ${totalCreators}`);
-
-        // Sample first 5 creators to verify data structure
-        if (data.length > 0) {
-            console.log('Sample creator data (first 5):');
-            data.slice(0, 5).forEach((creator, idx) => {
-                console.log(`Creator ${idx + 1}:`, {
-                    email: creator.email,
-                    username: creator.creatorUsername,
-                    type: creator.type,
-                    totalCopies: creator.totalCopies,
-                    totalSubscriptions: creator.totalSubscriptions
-                });
-            });
-        }
-
-        // Creator type breakdown
-        const creatorTypes = {};
-        data.forEach(creator => {
-            // Check both 'type' (from raw_data) and 'creatorType' (legacy) fields
-            const type = creator.type || creator.creatorType || 'Regular';
-            creatorTypes[type] = (creatorTypes[type] || 0) + 1;
-        });
-
-        console.log('Creator type breakdown:', creatorTypes);
-        console.log(`  - Regular: ${creatorTypes['Regular'] || 0}`);
-        console.log(`  - Premium: ${creatorTypes['Premium'] || 0}`);
-        console.log(`  - Other types:`, Object.keys(creatorTypes).filter(k => k !== 'Regular' && k !== 'Premium'));
-
-        // Subscription price distribution
-        const subscriptionPrices = {};
-        data.forEach(creator => {
-            if (creator.totalSubscriptions > 0 && creator.subscriptionPrice > 0) {
-                const price = creator.subscriptionPrice;
-                subscriptionPrices[price] = (subscriptionPrices[price] || 0) + 1;
-            }
-        });
-
-        // Copy distribution
-        const creatorsWithCopies = data.filter(c => c.totalCopies > 0).length;
-        const creatorsWithSubscriptions = data.filter(c => c.totalSubscriptions > 0).length;
-
-        console.log(`Creators with copies: ${creatorsWithCopies}`);
-        console.log(`Creators with subscriptions: ${creatorsWithSubscriptions}`);
-
-        return {
-            totalCreators,
-            creatorTypes,
-            subscriptionPrices,
-            creatorsWithCopies,
-            creatorsWithSubscriptions,
-            copyConversion: (creatorsWithCopies / totalCreators) * 100,
-            subscriptionConversion: (creatorsWithSubscriptions / totalCreators) * 100
         };
     }
 
