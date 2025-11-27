@@ -627,7 +627,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 14; // Moved to Edge Function-based analysis
+            const CACHE_VERSION = 15; // Updated metric card labels in Behavior Analysis
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
