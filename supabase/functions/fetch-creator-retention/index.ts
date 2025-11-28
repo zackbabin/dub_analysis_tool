@@ -265,6 +265,14 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
           continue
         }
 
+        // Parse and validate cohort date (exclude data before Aug 2025)
+        const cohortDate = parseCohortMonth(cohortMonth)
+        const minDate = '2025-08-01'
+        if (cohortDate < minDate) {
+          console.log(`  Skipping ${cohortMonth} (before ${minDate})`)
+          continue
+        }
+
         // Create unique key
         const key = `${userId}|${creatorUsername}|${cohortMonth}`
 
@@ -273,7 +281,7 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
             user_id: userId,  // Mixpanel $user_id
             creator_username: creatorUsername,
             cohort_month: cohortMonth,
-            cohort_date: parseCohortMonth(cohortMonth),
+            cohort_date: cohortDate,  // Already parsed and validated
             subscribed_count: 0,
             renewed_count: 0
           })
@@ -322,6 +330,7 @@ async function queryRetentionData(supabase: any): Promise<any> {
   const { data, error } = await supabase
     .from('premium_creator_retention_analysis')
     .select('*')
+    .gte('cohort_date', '2025-08-01')  // Only include data from Aug 2025 onwards
     .order('creator_username', { ascending: true })
     .order('cohort_date', { ascending: true })
 

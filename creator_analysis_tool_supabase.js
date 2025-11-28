@@ -1759,19 +1759,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 let totalRetained = 0;
 
                 creator.cohorts.forEach(cohort => {
-                    if (month === 0) {
-                        // < 1 Month
-                        if (cohort.counts.length > 0) {
-                            totalFirst += cohort.first;
-                            totalRetained += cohort.counts[0];
-                        }
-                    } else {
-                        // Month 1-6
-                        const countIndex = month - 1;
-                        if (cohort.counts.length > countIndex) {
-                            totalFirst += cohort.first;
-                            totalRetained += cohort.counts[countIndex];
-                        }
+                    // counts array: [month_0, month_1, month_2, month_3, month_4, month_5, month_6]
+                    // month loop: 0 = "< 1 Month", 1 = "Month 1", 2 = "Month 2", etc.
+                    // Index should match directly: month 0 → counts[0], month 1 → counts[1], etc.
+                    if (cohort.counts.length > month) {
+                        totalFirst += cohort.first;
+                        totalRetained += cohort.counts[month];
                     }
                 });
 
