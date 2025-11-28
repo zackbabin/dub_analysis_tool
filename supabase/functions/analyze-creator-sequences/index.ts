@@ -4,7 +4,7 @@
 //
 // Data sources:
 //   - event_sequences: View joining event_sequences_raw + user_first_copies (complete event history)
-//   - user_first_copies: 200 most recent users who copied at least once
+//   - user_first_copies: 250 most recent users who copied at least once
 //
 // No pre-aggregation - Claude analyzes raw events directly
 
@@ -81,10 +81,10 @@ serve(async (req) => {
       }
     }
 
-    // Convert map to array and take top 200 most recent converters
+    // Convert map to array and take top 250 most recent converters
     const convertersWithViews = Array.from(userViewsMap.values())
       .sort((a, b) => new Date(b.first_copy_time).getTime() - new Date(a.first_copy_time).getTime())
-      .slice(0, 200)
+      .slice(0, 250)
 
     console.log(`Prepared data: ${convertersWithViews.length} converters with ${totalPreCopyEvents} pre-copy creator profile view events`)
 

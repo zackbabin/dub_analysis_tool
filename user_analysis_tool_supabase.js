@@ -1472,8 +1472,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const metrics = [
             { label: 'Avg Total Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
             { label: 'Avg Total PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
-            { label: 'Avg Profile Views Before Copy', primaryValue: uniqueCreatorsMean, secondaryValue: uniqueCreatorsMedian, showComparison: false, showMedian: true },
-            { label: 'Avg PDP Views Before Copy', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
+            {
+                label: 'Avg Profile Views Before Copy',
+                primaryValue: uniqueCreatorsMean,
+                secondaryValue: uniqueCreatorsMedian,
+                showComparison: false,
+                showMedian: true,
+                tooltip: 'Average number of unique creator profiles viewed before first copy. Calculated by analyzing "Viewed Creator Profile" events for the 250 most recent converters, counting distinct creator profiles viewed before their first copy, then calculating mean and median across all converters.'
+            },
+            {
+                label: 'Avg PDP Views Before Copy',
+                primaryValue: uniquePortfoliosMean,
+                secondaryValue: uniquePortfoliosMedian,
+                showComparison: false,
+                showMedian: true,
+                tooltip: 'Average number of unique portfolio detail pages viewed before first copy. Calculated by analyzing "Viewed Portfolio Details" events for the 250 most recent converters, counting distinct portfolios viewed before their first copy, then calculating mean and median across all converters.'
+            }
         ];
 
         // Use DocumentFragment for performance - build DOM elements instead of HTML strings
@@ -1526,6 +1540,35 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 valueDiv.textContent = `${Math.round(metric.primaryValue).toLocaleString()}`;
             }
 
+            // Create label element (with tooltip if present)
+            let labelElement;
+            if (metric.tooltip) {
+                // Create label with tooltip
+                const tooltipSpan = createElement('span', { className: 'info-tooltip' }, [
+                    document.createTextNode(metric.label),
+                    createElement('span', { className: 'info-icon' }, 'i'),
+                    createElement('span', { className: 'tooltip-text' }, metric.tooltip)
+                ]);
+                labelElement = createElement('div', {
+                    style: {
+                        fontSize: '0.875rem',
+                        color: '#2563eb',
+                        fontWeight: '600',
+                        marginBottom: '0.5rem'
+                    }
+                }, [tooltipSpan]);
+            } else {
+                // Create label without tooltip
+                labelElement = createElement('div', {
+                    style: {
+                        fontSize: '0.875rem',
+                        color: '#2563eb',
+                        fontWeight: '600',
+                        marginBottom: '0.5rem'
+                    }
+                }, metric.label);
+            }
+
             // Create card
             const card = createElement('div', {
                 style: {
@@ -1534,14 +1577,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     borderRadius: '8px'
                 }
             }, [
-                createElement('div', {
-                    style: {
-                        fontSize: '0.875rem',
-                        color: '#2563eb',
-                        fontWeight: '600',
-                        marginBottom: '0.5rem'
-                    }
-                }, metric.label),
+                labelElement,
                 valueDiv
             ]);
 
