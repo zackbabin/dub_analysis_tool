@@ -559,6 +559,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
+            // Debug: Log the first row to see what columns are being returned
+            if (breakdownData && breakdownData.length > 0) {
+                console.log('Premium creator breakdown sample row:', breakdownData[0]);
+            }
+
             // Premium creators loaded
             this.displayPremiumCreatorBreakdown(breakdownData);
         } catch (error) {
