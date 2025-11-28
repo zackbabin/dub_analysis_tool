@@ -69,25 +69,19 @@ function calculatePredictiveStrength(correlation, tStat) {
  * @returns {string} Display-friendly variable label
  */
 function getVariableLabel(columnName) {
-    // Comprehensive mapping from DB column → Display Variable
+    // Mapping from DB column → Display Variable
+    // Based on CSV mapping: "Untitled spreadsheet - Copy of Sheet2 1 (1).csv"
     const VARIABLE_LABELS = {
-        // Copy-related metrics
         'total_bank_links': 'Linked Bank',
         'total_copies': 'Total Copies',
         'total_regular_copies': 'Total Regular Copies',
         'total_premium_copies': 'Total Premium Copies',
-
-        // View metrics
         'regular_pdp_views': 'Regular PDP Views',
         'premium_pdp_views': 'Premium PDP Views',
         'paywall_views': 'Paywall Views',
         'regular_creator_views': 'Regular Creator Views',
         'premium_creator_views': 'Premium Creator Views',
-
-        // Subscription metrics
         'total_subscriptions': 'Total Subscriptions',
-
-        // Engagement metrics
         'app_sessions': 'App Sessions',
         'discover_tab_views': 'Discover Tab Views',
         'leaderboard_tab_views': 'Leaderboard Tab Views',
@@ -95,27 +89,16 @@ function getVariableLabel(columnName) {
         'stripe_modal_views': 'Stripe Modal Views',
         'creator_card_taps': 'Creator Card Taps',
         'portfolio_card_taps': 'Portfolio Card Taps',
-
-        // Deposit & financial metrics
         'total_ach_deposits': 'Total ACH Deposits',
-
-        // Aggregated unique views
         'unique_creators_viewed': 'Unique Creator Views',
         'unique_portfolios_viewed': 'Unique Portfolio Views',
-
-        // User properties (used in analysis)
         'available_copy_credits': 'Available Copy Credits',
         'buying_power': 'Buying Power',
         'active_created_portfolios': 'Active Created Portfolios',
         'lifetime_created_portfolios': 'Lifetime Created Portfolios',
         'active_copied_portfolios': 'Active Copied Portfolios',
         'lifetime_copied_portfolios': 'Lifetime Copied Portfolios',
-        'total_deposits': 'Total Deposits',
-
-        // Note: The following fields are excluded (N/A in mapping):
-        // - income, net_worth, investing_activity, investing_experience_years
-        // - investing_objective, acquisition_survey
-        // These are not used in behavioral driver analysis
+        'total_deposits': 'Total Deposits'
     };
 
     return VARIABLE_LABELS[columnName] || columnName;
