@@ -795,6 +795,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             topStocks.forEach(stock => {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
+                const creatorCountText = stock.creator_count ? `${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''}` : '';
+                const portfolioCountText = stock.portfolio_count ? `${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}` : '';
+                const metadataText = [creatorCountText, portfolioCountText].filter(t => t).join(' · ');
+
                 card.innerHTML = `
                     <div style="font-size: 1rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
                         #${stock.rank} ${stock.stock_ticker}
@@ -802,9 +806,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
                         ${stock.total_quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
-                        ${stock.creator_count} creator${stock.creator_count !== 1 ? 's' : ''} · ${stock.portfolio_count} portfolio${stock.portfolio_count !== 1 ? 's' : ''}
-                    </div>
+                    ${metadataText ? `<div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;">
+                        ${metadataText}
+                    </div>` : ''}
                 `;
                 metricSummary.appendChild(card);
             });
