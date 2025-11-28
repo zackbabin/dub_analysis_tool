@@ -2762,20 +2762,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 this.addStatusMessage(`✅ Uploaded ${file.name} (${result.stats.recordsUploaded} stock holdings)`, 'success');
             }
 
-            // Add delay before final step
-            await new Promise(resolve => setTimeout(resolve, 300));
-            this.updateProgress(60, 'Refreshing materialized views...');
-
-            // Refresh the portfolio engagement views (includes stock holdings views)
-            console.log('Refreshing portfolio engagement views...');
-            const { error: refreshError } = await this.supabaseIntegration.supabase.rpc('refresh_portfolio_engagement_views');
-
-            if (refreshError) {
-                console.error('Error refreshing portfolio engagement views:', refreshError);
-                this.addStatusMessage('⚠️ Warning: Could not refresh views, data may be stale', 'warning');
-            } else {
-                console.log('✅ Portfolio engagement views refreshed');
-            }
+            // Note: Stock holdings views are regular views (not materialized) and auto-update
+            // when portfolio_stock_holdings table changes. No refresh needed.
+            console.log('✅ Stock holdings views auto-updated (regular views)');
 
             await new Promise(resolve => setTimeout(resolve, 300));
             this.updateProgress(80, 'Loading updated data...');

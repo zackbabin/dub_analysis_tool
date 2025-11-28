@@ -243,24 +243,10 @@ async function handleHoldingsUpload(supabase: any, csvContent: string) {
     console.warn(`⚠️ ${errors.length} batch(es) had errors:`, errors)
   }
 
-  // Refresh materialized views for stock holdings in correct order (dependencies first)
-  console.log('Refreshing stock holdings materialized views...')
-  const viewsToRefresh = [
-    'premium_creator_stock_holdings',      // Base view - refresh first
-    'top_stocks_all_premium_creators',     // Depends on base view
-    'premium_creator_top_5_stocks'         // Depends on base view
-  ]
-
-  for (const viewName of viewsToRefresh) {
-    try {
-      console.log(`Refreshing ${viewName}...`)
-      await supabase.rpc(`refresh_${viewName}_view`)
-      console.log(`✅ Refreshed ${viewName}`)
-    } catch (error) {
-      console.error(`❌ Failed to refresh ${viewName}:`, error)
-      // Don't fail the whole upload if view refresh fails, but log the error
-    }
-  }
+  // Note: premium_creator_stock_holdings, top_stocks_all_premium_creators, and
+  // premium_creator_top_5_stocks are all regular views (not materialized).
+  // They auto-update when portfolio_stock_holdings changes - no refresh needed.
+  console.log('✅ Stock holdings views will auto-update (regular views)')
 
   return new Response(
     JSON.stringify({
