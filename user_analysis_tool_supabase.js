@@ -2,7 +2,7 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-11-28-v2
+// Version: 2025-11-28-v3
 // - Added creator sequence analysis workflow (sync-creator-sequences + analyze-creator-sequences)
 // - Renamed event sequences functions for consistency: sync-portfolio-sequences + analyze-portfolio-sequences
 // - Now runs 4 functions: sync-portfolio-sequences + sync-creator-sequences (parallel) → analyze-portfolio-sequences + analyze-creator-sequences (parallel)
@@ -1382,14 +1382,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const copiersData = summaryData.find(d => d.did_copy === 1 || d.did_copy === true) || {};
         const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
-        // Extract unique portfolios mean and median from copiers data (populated by Claude AI via event_sequence_metrics table)
+        // Extract unique creators and portfolios mean/median from copiers data (populated by Claude AI via event_sequence_metrics table)
+        const uniqueCreatorsMean = copiersData.mean_unique_creators || 0;
+        const uniqueCreatorsMedian = copiersData.median_unique_creators || 0;
         const uniquePortfoliosMean = copiersData.mean_unique_portfolios || 0;
         const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
 
         const metrics = [
             { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true },
             { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true },
-            { label: 'Avg Profile Views Before Copy', primaryValue: copiersData.avg_unique_creators || 0, secondaryValue: nonCopiersData.avg_unique_creators || 0, showComparison: true },
+            { label: 'Avg Profile Views Before Copy', primaryValue: uniqueCreatorsMean, secondaryValue: uniqueCreatorsMedian, showComparison: false, showMedian: true },
             { label: 'Avg PDP Views Before Copy', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
         ];
 
