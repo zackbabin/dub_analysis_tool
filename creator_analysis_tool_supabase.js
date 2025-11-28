@@ -922,9 +922,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 inception_date: p.inception_date || null,
                 total_copies: p.total_copies || 0,
                 total_liquidations: p.total_liquidations || 0,
-                liquidation_rate: p.liquidation_rate || 0,
-                all_time_returns: p.total_returns_percentage || null,
-                total_copy_capital: p.total_position || null
+                liquidation_rate: p.total_copies > 0 ? (p.total_liquidations / p.total_copies) : 0,
+                all_time_returns: p.avg_all_time_returns || null,
+                total_copy_capital: p.total_copy_capital || null
             })) || [];
 
             // Portfolio records loaded
