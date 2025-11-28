@@ -99,7 +99,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 20; // Updated Behavior Analysis metric card labels and comparison format
+    static CACHE_VERSION = 21; // Updated tooltip positioning and added dynamic time range for sequence metrics
 
     constructor() {
         super();
@@ -1469,6 +1469,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const uniquePortfoliosMean = copiersData.mean_unique_portfolios || 0;
         const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
 
+        // Calculate dynamic time range (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const timeRangeText = `${thirtyDaysAgo.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
         const metrics = [
             { label: 'Avg Total Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
             { label: 'Avg Total PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
@@ -1478,7 +1483,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 secondaryValue: uniqueCreatorsMedian,
                 showComparison: false,
                 showMedian: true,
-                tooltip: 'Average number of unique creator profiles viewed before first copy. Calculated by analyzing "Viewed Creator Profile" events for the 250 most recent converters, counting distinct creator profiles viewed before their first copy, then calculating mean and median across all converters.'
+                tooltip: `Average number of unique creator profiles viewed before first copy. Calculated by analyzing "Viewed Creator Profile" events from the last 30 days (${timeRangeText}) for the 250 most recent converters, counting distinct creator profiles viewed before their first copy, then calculating mean and median across all converters.`,
+                tooltipPosition: 'top'
             },
             {
                 label: 'Avg PDP Views Before Copy',
@@ -1486,7 +1492,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 secondaryValue: uniquePortfoliosMedian,
                 showComparison: false,
                 showMedian: true,
-                tooltip: 'Average number of unique portfolio detail pages viewed before first copy. Calculated by analyzing "Viewed Portfolio Details" events for the 250 most recent converters, counting distinct portfolios viewed before their first copy, then calculating mean and median across all converters.'
+                tooltip: `Average number of unique portfolio detail pages viewed before first copy. Calculated by analyzing "Viewed Portfolio Details" events from the last 30 days (${timeRangeText}) for the 250 most recent converters, counting distinct portfolios viewed before their first copy, then calculating mean and median across all converters.`,
+                tooltipPosition: 'top'
             }
         ];
 
@@ -1544,7 +1551,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             let labelElement;
             if (metric.tooltip) {
                 // Create label with tooltip
-                const tooltipSpan = createElement('span', { className: 'info-tooltip' }, [
+                const tooltipClass = metric.tooltipPosition === 'top' ? 'info-tooltip info-tooltip-top' : 'info-tooltip';
+                const tooltipSpan = createElement('span', { className: tooltipClass }, [
                     document.createTextNode(metric.label),
                     createElement('span', { className: 'info-icon' }, 'i'),
                     createElement('span', { className: 'tooltip-text' }, metric.tooltip)
