@@ -201,6 +201,16 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
       console.error('Error updating event_sequence_metrics:', updateError)
     } else {
       console.log('✅ Updated event_sequence_metrics with mean and median values')
+
+      // Refresh copy_engagement_summary materialized view to pick up new values
+      console.log('Refreshing copy_engagement_summary materialized view...')
+      const { error: refreshError } = await supabase.rpc('refresh_copy_engagement_summary')
+
+      if (refreshError) {
+        console.error('Error refreshing copy_engagement_summary:', refreshError)
+      } else {
+        console.log('✅ Refreshed copy_engagement_summary - mean/median now visible')
+      }
     }
 
     return new Response(
