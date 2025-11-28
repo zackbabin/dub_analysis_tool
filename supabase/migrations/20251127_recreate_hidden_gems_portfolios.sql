@@ -13,7 +13,6 @@ SELECT
     unique_viewers,
     total_pdp_views,
     total_copies,
-    total_liquidations,
     conversion_rate_pct,
     conversion_rate_pct AS copy_conversion_rate,  -- Alias for frontend compatibility
     CASE
@@ -43,8 +42,8 @@ BEGIN
         RAISE NOTICE '';
         RAISE NOTICE '✅ hidden_gems_portfolios materialized view created successfully';
         RAISE NOTICE '   Columns: portfolio_ticker, creator_id, creator_username, unique_viewers,';
-        RAISE NOTICE '            total_pdp_views, total_copies, total_liquidations,';
-        RAISE NOTICE '            conversion_rate_pct, copy_conversion_rate, viewer_copier_ratio';
+        RAISE NOTICE '            total_pdp_views, total_copies, conversion_rate_pct,';
+        RAISE NOTICE '            copy_conversion_rate, viewer_copier_ratio';
         RAISE NOTICE '';
         RAISE NOTICE '⚠️  View is empty (WITH NO DATA) - populate by calling:';
         RAISE NOTICE '    SELECT refresh_portfolio_engagement_views();';
