@@ -1,8 +1,8 @@
 // Supabase Edge Function: sync-event-sequences-v2
-// OPTIMIZED: Two-step process to minimize data volume
+// OPTIMIZED: Two-step data sync process (analysis is a separate function)
 //
 // Step 1: Fetch ~200 users who copied at least once (Mixpanel Insights API chart 86612901)
-// Step 2: Stream "Viewed Portfolio Details" for those users (last 30 days), processing in 5000-event chunks
+// Step 2: Stream "Viewed Portfolio Details" for those users (last 30 days), processing in 2500-event chunks
 //
 // Streaming approach avoids CPU timeout by processing batches incrementally.
 //
@@ -11,7 +11,7 @@
 //   - First copy times in user_first_copies (Insights API with user_id from $user_id)
 //   - event_sequences view (pass-through of event_sequences_raw)
 //
-// No pre-aggregation - analyze-event-sequences queries raw data directly
+// After this completes, call analyze-event-sequences separately to analyze patterns
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -661,59 +661,13 @@ serve(async (req) => {
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
-      console.log('Next: Call analyze-event-sequences to analyze conversion patterns with Claude AI')
+      console.log('')
+      console.log('📊 Next step: Call analyze-event-sequences separately to analyze conversion patterns')
+      console.log(`   Synced ${stats.copyEventsSynced} converters - ${stats.copyEventsSynced >= 50 ? 'ready for analysis' : 'need 50+ for meaningful analysis'}`)
 
-      // Call analyze-event-sequences if we have meaningful data for analysis
-      // Requires at least 50 converters (users who copied) to get statistically meaningful results
-      // This ensures avg_unique_portfolios and median_unique_portfolios get populated in copy_engagement_summary
-      let analysisResult = null
-      const elapsedSeconds = timeoutGuard.getElapsedSeconds()
-      const timeRemaining = 140 - elapsedSeconds
-
-      console.log(`⏱️ Time check: ${elapsedSeconds}s elapsed, ${timeRemaining}s remaining`)
-
-      const MIN_CONVERTERS_FOR_ANALYSIS = 50 // Minimum sample size for meaningful analysis
-
-      // Check if we have enough data for meaningful analysis
-      if (copyEventsSynced >= MIN_CONVERTERS_FOR_ANALYSIS) {
-        try {
-          if (timeRemaining < 30) {
-            console.warn(`⚠️ Low on time (${timeRemaining}s remaining) but attempting analyze-event-sequences anyway`)
-            console.warn('   Data sync is complete, analysis can timeout safely')
-          }
-
-          console.log(`\n📊 Calling analyze-event-sequences (${copyEventsSynced} converters) to update copy_engagement_summary...`)
-          const analysisStartTime = Date.now()
-
-          const analysisResponse = await supabase.functions.invoke('analyze-event-sequences', {
-            body: { outcome_type: 'copies' }
-          })
-
-          const analysisDuration = Math.round((Date.now() - analysisStartTime) / 1000)
-          console.log(`⏱️ analyze-event-sequences took ${analysisDuration}s`)
-
-          if (analysisResponse.error) {
-            console.warn('⚠️ analyze-event-sequences failed:', analysisResponse.error.message)
-          } else if (analysisResponse.data?.success) {
-            console.log('✅ analyze-event-sequences completed - copy_engagement_summary updated')
-            analysisResult = {
-              convertersAnalyzed: analysisResponse.data.converters_analyzed,
-              meanUniquePortfolios: analysisResponse.data.analysis?.mean_unique_views_converters,
-              medianUniquePortfolios: analysisResponse.data.analysis?.median_unique_views_converters,
-            }
-          } else {
-            console.warn('⚠️ analyze-event-sequences returned unsuccessful:', analysisResponse.data)
-          }
-        } catch (analysisError: any) {
-          console.warn('⚠️ analyze-event-sequences error (non-fatal):', analysisError.message)
-          console.warn('   Data sync succeeded - you can retry analysis manually if needed')
-        }
-      } else if (copyEventsSynced > 0) {
-        console.log(`ℹ️ Only ${copyEventsSynced} converters synced (< ${MIN_CONVERTERS_FOR_ANALYSIS} minimum), skipping analysis`)
-        console.log('   Will analyze when more converters accumulate')
-      } else {
-        console.log('ℹ️ No converters synced, skipping analyze-event-sequences')
-      }
+      // Note: analyze-event-sequences is now a separate workflow step
+      // This prevents CPU timeout by keeping sync and analysis functions independent
+      const analysisResult = null
 
       return createSuccessResponse(
         message,
