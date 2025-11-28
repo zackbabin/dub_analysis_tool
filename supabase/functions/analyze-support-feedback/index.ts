@@ -106,13 +106,19 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
 **RANKING METHODOLOGY:**
 Calculate a composite priority score (0-100) for each issue using this formula:
 
-Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.2) + (min(Volume, 50) / 50 × 100 × 0.4)
+Priority Score = (Category Weight × 0.4) + (Percentage × 0.2) + (Volume Normalized × 0.4)
 
 Where:
-- Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40
-- Percentage: The percentage of total conversations (e.g., 15.5)
-- Volume: Number of occurrences this week (normalized by dividing by 50, capped at 50 for calculation)
-- Component weights: 40% + 20% + 40% = 100%
+- Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40 (already on 0-100 scale)
+- Percentage: The percentage of total conversations (e.g., 15.5 means 15.5 out of 100, already on 0-100 scale)
+- Volume Normalized: (min(Volume, 50) / 50) × 100 to normalize weekly ticket count to 0-100 scale
+- Component weights: 40% category + 20% percentage + 40% volume = 100%
+
+Example: If an issue has Category=100, Percentage=15, Volume=25:
+- Category contribution: 100 × 0.4 = 40 points
+- Percentage contribution: 15 × 0.2 = 3 points
+- Volume contribution: (25/50) × 100 × 0.4 = 20 points
+- Total Priority Score: 40 + 3 + 20 = 63 points
 
 Then rank all issues by priority score (highest to lowest) and return the top 10.
 
@@ -155,7 +161,7 @@ Return ONLY valid JSON matching this exact structure:
     {
       "rank": 1,
       "category": "Money Movement | Trading | App Functionality | Feedback",
-      "issue_summary": "string",
+      "issue_summary": "string (max 140 characters)",
       "percentage_of_total": number,
       "weekly_volume": number,
       "priority_score": number,

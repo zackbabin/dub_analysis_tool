@@ -144,11 +144,12 @@ class CXAnalysis {
                                     <li>Feedback - user frustration or feedback about app experience/features</li>
                                 </ul>
                             </li>
-                            <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.2) + (Volume/50 × 100 × 0.4)
+                            <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 0.2) + (Volume Normalized × 0.4)
                                 <ul style="margin-top: 4px;">
-                                    <li>Category weights: Money Movement=100, Trading=80, App=60, Feedback=40</li>
-                                    <li>Percentage = % of total conversations affected</li>
-                                    <li>Volume = weekly ticket count (normalized: divided by 50, then scaled to 0-100)</li>
+                                    <li>Category Weight: Money Movement=100, Trading=80, App=60, Feedback=40 (0-100 scale)</li>
+                                    <li>Percentage: % of total conversations affected (0-100 scale)</li>
+                                    <li>Volume Normalized: (min(Volume, 50) / 50) × 100 to normalize to 0-100 scale</li>
+                                    <li>Example: Category=100, Percentage=15, Volume=25 → (100×0.4) + (15×0.2) + ((25/50)×100×0.4) = 40 + 3 + 20 = 63 points</li>
                                 </ul>
                             </li>
                             <li><strong>Privacy:</strong> PII automatically redacted at ingestion
