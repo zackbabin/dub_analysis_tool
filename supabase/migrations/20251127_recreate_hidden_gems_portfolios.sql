@@ -20,7 +20,7 @@ SELECT
     END AS viewer_copier_ratio
 FROM portfolio_creator_engagement_metrics
 WHERE unique_viewers >= 5
-    AND total_copies < 5
+    AND total_copies < 100
     AND unique_viewers >= (total_copies * 5)
 ORDER BY total_pdp_views DESC
 WITH NO DATA;
@@ -28,7 +28,7 @@ WITH NO DATA;
 GRANT SELECT ON hidden_gems_portfolios TO anon, authenticated, service_role;
 
 COMMENT ON MATERIALIZED VIEW hidden_gems_portfolios IS
-'Hidden gem portfolios: many unique viewers but few unique copiers (ratio >= 5). Indicates high interest but low conversion. Refreshed via refresh_portfolio_engagement_views().';
+'Hidden gem portfolios: many unique viewers but relatively few copies (< 100 copies, viewer:copy ratio >= 5:1). Indicates high interest but low conversion. Refreshed via refresh_portfolio_engagement_views().';
 
 -- Verify the view was created
 DO $$
