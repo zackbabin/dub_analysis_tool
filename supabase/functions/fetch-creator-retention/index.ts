@@ -265,16 +265,9 @@ function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 
           continue
         }
 
-        // Parse and validate cohort date (exclude data before Aug 2025)
-        const cohortDate = parseCohortMonth(cohortMonth)
-        const minDate = '2025-08-01'
-        if (cohortDate < minDate) {
-          console.log(`  Skipping ${cohortMonth} (before ${minDate})`)
-          continue
-        }
-
         // Create unique key
         const key = `${userId}|${creatorUsername}|${cohortMonth}`
+        const cohortDate = parseCohortMonth(cohortMonth)
 
         if (!eventMap.has(key)) {
           eventMap.set(key, {
@@ -330,7 +323,6 @@ async function queryRetentionData(supabase: any): Promise<any> {
   const { data, error } = await supabase
     .from('premium_creator_retention_analysis')
     .select('*')
-    .gte('cohort_date', '2025-08-01')  // Only include data from Aug 2025 onwards
     .order('creator_username', { ascending: true })
     .order('cohort_date', { ascending: true })
 
