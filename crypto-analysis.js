@@ -347,14 +347,12 @@ class CryptoAnalysis {
         const yearlyProjections = this.calculateYearlyProjections(projections);
 
         this.container.innerHTML = `
-            <div style="width: 100%; max-width: 1200px; margin: 0 auto; padding: 24px; box-sizing: border-box;">
-                ${this.renderAssumptions()}
-                <div id="cryptoYearContainer">
-                    ${this.renderYearComparison(yearlyProjections)}
-                </div>
-                <div id="cryptoMonthlyContainer">
-                    ${this.renderMonthlyTable(projections)}
-                </div>
+            ${this.renderAssumptions()}
+            <div id="cryptoYearContainer">
+                ${this.renderYearComparison(yearlyProjections)}
+            </div>
+            <div id="cryptoMonthlyContainer">
+                ${this.renderMonthlyTable(projections)}
             </div>
         `;
 
