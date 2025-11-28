@@ -207,16 +207,7 @@ Calculate mean and median UNIQUE creator profiles viewed before first copy. Use 
       console.error('Error updating event_sequence_metrics:', updateError)
     } else {
       console.log('✅ Updated event_sequence_metrics with mean_unique_creators and median_unique_creators')
-
-      // Refresh copy_engagement_summary materialized view to pick up new values
-      console.log('Refreshing copy_engagement_summary materialized view...')
-      const { error: refreshError } = await supabase.rpc('refresh_copy_engagement_summary')
-
-      if (refreshError) {
-        console.error('Error refreshing copy_engagement_summary:', refreshError)
-      } else {
-        console.log('✅ Refreshed copy_engagement_summary - mean/median creators now visible')
-      }
+      console.log('✅ copy_engagement_summary auto-updated (regular view)')
     }
 
     return new Response(
