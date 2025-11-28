@@ -9,6 +9,90 @@
 
 'use strict';
 
+// ============================================================================
+// DOM Helper Functions - Performance Optimizations
+// ============================================================================
+// These functions use DocumentFragment and DOM APIs instead of innerHTML
+// to improve performance by reducing reflows and repaints
+
+/**
+ * Create a DOM element with properties and children
+ * @param {string} tag - HTML tag name
+ * @param {object} props - Element properties (className, id, style, etc.)
+ * @param {Array|string|Node} children - Child elements or text content
+ * @returns {HTMLElement}
+ */
+function createElement(tag, props = {}, children = []) {
+    const element = document.createElement(tag);
+
+    // Set properties
+    Object.entries(props).forEach(([key, value]) => {
+        if (key === 'className') {
+            element.className = value;
+        } else if (key === 'style' && typeof value === 'object') {
+            Object.assign(element.style, value);
+        } else if (key === 'dataset' && typeof value === 'object') {
+            Object.entries(value).forEach(([dataKey, dataValue]) => {
+                element.dataset[dataKey] = dataValue;
+            });
+        } else if (key.startsWith('on') && typeof value === 'function') {
+            element.addEventListener(key.substring(2).toLowerCase(), value);
+        } else {
+            element.setAttribute(key, value);
+        }
+    });
+
+    // Add children
+    if (typeof children === 'string') {
+        element.textContent = children;
+    } else if (children instanceof Node) {
+        element.appendChild(children);
+    } else if (Array.isArray(children)) {
+        children.forEach(child => {
+            if (typeof child === 'string') {
+                element.appendChild(document.createTextNode(child));
+            } else if (child instanceof Node) {
+                element.appendChild(child);
+            }
+        });
+    }
+
+    return element;
+}
+
+/**
+ * Create a DocumentFragment from multiple elements
+ * @param {Array<Node>} elements - Array of DOM nodes
+ * @returns {DocumentFragment}
+ */
+function createFragment(elements = []) {
+    const fragment = document.createDocumentFragment();
+    elements.forEach(element => {
+        if (element instanceof Node) {
+            fragment.appendChild(element);
+        }
+    });
+    return fragment;
+}
+
+/**
+ * Efficiently replace container contents with new elements
+ * @param {HTMLElement} container - Target container
+ * @param {Array<Node>|Node|DocumentFragment} content - New content
+ */
+function replaceContent(container, content) {
+    // Clear existing content
+    container.textContent = '';
+
+    // Add new content
+    if (content instanceof DocumentFragment || content instanceof Node) {
+        container.appendChild(content);
+    } else if (Array.isArray(content)) {
+        const fragment = createFragment(content);
+        container.appendChild(fragment);
+    }
+}
+
 /**
  * Supabase-powered version of UserAnalysisTool
  * Overrides specific methods to use Supabase Edge Functions and database
@@ -1392,36 +1476,97 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             { label: 'Avg PDP Views Before Copy', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
         ];
 
-        const parts = [
-            '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 0.5rem; margin-top: 1.5rem;">'
-        ];
+        // Use DocumentFragment for performance - build DOM elements instead of HTML strings
+        const fragment = document.createDocumentFragment();
 
-        metrics.forEach(metric => {
-            let valueDisplay;
-            if (metric.showComparison) {
-                valueDisplay = `${parseFloat(metric.primaryValue).toFixed(1)}
-                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">vs ${parseFloat(metric.secondaryValue).toFixed(1)}</span>`;
-            } else if (metric.showMedian) {
-                // Show mean as primary value, median as smaller secondary value
-                valueDisplay = `${parseFloat(metric.primaryValue).toFixed(1)}
-                   <span style="font-size: 0.9rem; color: #6c757d; font-weight: normal;">(median: ${parseFloat(metric.secondaryValue).toFixed(1)})</span>`;
-            } else {
-                valueDisplay = `${Math.round(metric.primaryValue).toLocaleString()}`;
+        // Create grid container
+        const gridContainer = createElement('div', {
+            style: {
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '0.5rem',
+                marginTop: '1.5rem'
             }
-
-            parts.push(
-                `<div style="background-color: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">${metric.label}</div>
-                    <div style="font-size: 1.5rem; font-weight: bold;">
-                        ${valueDisplay}
-                    </div>
-                </div>`
-            );
         });
 
-        parts.push('</div>');
-        parts.push('<p style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 2rem; font-style: italic;">Compares users who copied vs. haven\'t copied. Unique creators/portfolios shows mean/median prior to first copy.</p>');
-        return parts.join('');
+        // Create metric cards
+        metrics.forEach(metric => {
+            // Build value display
+            const valueDiv = createElement('div', {
+                style: {
+                    fontSize: '1.5rem',
+                    fontWeight: 'bold'
+                }
+            });
+
+            if (metric.showComparison) {
+                const mainValue = document.createTextNode(`${parseFloat(metric.primaryValue).toFixed(1)}\n                   `);
+                const compareSpan = createElement('span', {
+                    style: {
+                        fontSize: '0.9rem',
+                        color: '#6c757d',
+                        fontWeight: 'normal'
+                    }
+                }, `vs ${parseFloat(metric.secondaryValue).toFixed(1)}`);
+                valueDiv.appendChild(mainValue);
+                valueDiv.appendChild(compareSpan);
+            } else if (metric.showMedian) {
+                const mainValue = document.createTextNode(`${parseFloat(metric.primaryValue).toFixed(1)}\n                   `);
+                const medianSpan = createElement('span', {
+                    style: {
+                        fontSize: '0.9rem',
+                        color: '#6c757d',
+                        fontWeight: 'normal'
+                    }
+                }, `(median: ${parseFloat(metric.secondaryValue).toFixed(1)})`);
+                valueDiv.appendChild(mainValue);
+                valueDiv.appendChild(medianSpan);
+            } else {
+                valueDiv.textContent = `${Math.round(metric.primaryValue).toLocaleString()}`;
+            }
+
+            // Create card
+            const card = createElement('div', {
+                style: {
+                    backgroundColor: '#f8f9fa',
+                    padding: '1rem',
+                    borderRadius: '8px'
+                }
+            }, [
+                createElement('div', {
+                    style: {
+                        fontSize: '0.875rem',
+                        color: '#2563eb',
+                        fontWeight: '600',
+                        marginBottom: '0.5rem'
+                    }
+                }, metric.label),
+                valueDiv
+            ]);
+
+            gridContainer.appendChild(card);
+        });
+
+        fragment.appendChild(gridContainer);
+
+        // Add disclaimer paragraph
+        const disclaimer = createElement('p', {
+            style: {
+                fontSize: '0.75rem',
+                color: '#6c757d',
+                marginTop: '0.5rem',
+                marginBottom: '2rem',
+                fontStyle: 'italic'
+            }
+        }, "Compares users who copied vs. haven't copied. Unique creators/portfolios shows mean/median prior to first copy.");
+
+        fragment.appendChild(disclaimer);
+
+        // Convert DocumentFragment to HTML string to maintain compatibility with existing code
+        const tempContainer = document.createElement('div');
+        tempContainer.appendChild(fragment);
+        return tempContainer.innerHTML;
     }
 
     /**
