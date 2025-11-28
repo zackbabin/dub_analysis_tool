@@ -14,24 +14,20 @@ DROP INDEX IF EXISTS idx_event_sequences_raw_unique;
 DROP INDEX IF EXISTS idx_event_sequences_raw_portfolio_unique;
 DROP INDEX IF EXISTS idx_event_sequences_raw_creator_unique;
 
--- Create partial unique index for portfolio events
--- Only applies where portfolio_ticker is NOT NULL (i.e., "Viewed Portfolio Details" events)
+-- Create unique index for portfolio events (same as before, what sync-portfolio-sequences uses)
 CREATE UNIQUE INDEX idx_event_sequences_raw_portfolio_unique
-ON event_sequences_raw (user_id, event_time, portfolio_ticker)
-WHERE portfolio_ticker IS NOT NULL;
+ON event_sequences_raw (user_id, event_time, portfolio_ticker);
 
--- Create partial unique index for creator events
--- Only applies where creator_username is NOT NULL (i.e., "Viewed Creator Profile" events)
+-- Create unique index for creator events (mirrors portfolio approach)
 CREATE UNIQUE INDEX idx_event_sequences_raw_creator_unique
-ON event_sequences_raw (user_id, event_time, creator_username)
-WHERE creator_username IS NOT NULL;
+ON event_sequences_raw (user_id, event_time, creator_username);
 
 -- Update comments
 COMMENT ON INDEX idx_event_sequences_raw_portfolio_unique IS
-'Ensures uniqueness for portfolio events based on (user_id, event_time, portfolio_ticker). Only applies to rows where portfolio_ticker IS NOT NULL. Used by sync-portfolio-sequences for ON CONFLICT deduplication.';
+'Ensures uniqueness for portfolio events based on (user_id, event_time, portfolio_ticker). Used by sync-portfolio-sequences with onConflict.';
 
 COMMENT ON INDEX idx_event_sequences_raw_creator_unique IS
-'Ensures uniqueness for creator events based on (user_id, event_time, creator_username). Only applies to rows where creator_username IS NOT NULL. Used by sync-creator-sequences for ON CONFLICT deduplication.';
+'Ensures uniqueness for creator events based on (user_id, event_time, creator_username). Used by sync-creator-sequences with onConflict.';
 
 -- Log the changes
 DO $$
