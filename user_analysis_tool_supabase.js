@@ -1,6 +1,11 @@
 // User Analysis Tool - Supabase Version
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
+//
+// Version: 2025-11-28-v2
+// - Added creator sequence analysis workflow (sync-creator-sequences + analyze-creator-sequences)
+// - Renamed event sequences functions for consistency: sync-portfolio-sequences + analyze-portfolio-sequences
+// - Now runs 4 functions: sync-portfolio-sequences + sync-creator-sequences (parallel) → analyze-portfolio-sequences + analyze-creator-sequences (parallel)
 
 'use strict';
 
@@ -332,27 +337,49 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('\n═══ Step 5: Analysis Workflows (Parallel) ═══');
 
             const [eventSeqResult, pricingResult, copyPatternsResult] = await Promise.allSettled([
-                // Event sequence workflow (SIMPLIFIED - 2 steps only: Sync → Analyze)
+                // Event sequence workflow (Portfolio + Creator - 2 steps: Sync both → Analyze both)
                 (async () => {
-                    console.log('→ 5a: Event Sequences (starting in parallel)');
+                    console.log('→ 5a: Event Sequences (Portfolio + Creator)');
                     try {
-                        console.log('  → Syncing portfolio views + first copies');
-                        const seqSyncResult = await this.supabaseIntegration.triggerEventSequenceSyncV2();
-                        if (seqSyncResult?.success) {
-                            console.log(`    ✓ Synced ${seqSyncResult.portfolioViews || 0} views, ${seqSyncResult.firstCopies || 0} copies`);
+                        // Step 1: Sync both portfolio and creator events in parallel
+                        console.log('  → Step 1: Syncing portfolio views + creator profile views (parallel)');
+                        const [portfolioSyncResult, creatorSyncResult] = await Promise.all([
+                            this.supabaseIntegration.triggerPortfolioSequencesSync(),
+                            this.supabaseIntegration.triggerCreatorSequencesSync()
+                        ]);
+
+                        if (portfolioSyncResult?.success) {
+                            console.log(`    ✓ Portfolio: Synced ${portfolioSyncResult.stats?.eventsInserted || 0} views, ${portfolioSyncResult.stats?.copyEventsSynced || 0} first copies`);
                         } else {
-                            console.warn('    ⚠ Sync failed, using existing data');
+                            console.warn('    ⚠ Portfolio sync failed, using existing data');
                         }
 
-                        console.log('  → Analyzing with Claude AI');
-                        const copyAnalysisResult = await this.supabaseIntegration.triggerEventSequenceAnalysis('copies');
-                        if (copyAnalysisResult?.success) {
-                            console.log('    ✓ Analysis complete');
+                        if (creatorSyncResult?.success) {
+                            console.log(`    ✓ Creator: Synced ${creatorSyncResult.stats?.eventsInserted || 0} profile views`);
                         } else {
-                            console.warn('    ⚠ Analysis failed');
+                            console.warn('    ⚠ Creator sync failed, using existing data');
                         }
 
-                        console.log('✅ 5a: Event Sequences - Complete');
+                        // Step 2: Analyze both portfolio and creator patterns in parallel (only after syncs complete)
+                        console.log('  → Step 2: Analyzing both with Claude AI (parallel)');
+                        const [portfolioAnalysisResult, creatorAnalysisResult] = await Promise.all([
+                            this.supabaseIntegration.triggerPortfolioSequencesAnalysis('copies'),
+                            this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies')
+                        ]);
+
+                        if (portfolioAnalysisResult?.success) {
+                            console.log('    ✓ Portfolio analysis complete');
+                        } else {
+                            console.warn('    ⚠ Portfolio analysis failed');
+                        }
+
+                        if (creatorAnalysisResult?.success) {
+                            console.log('    ✓ Creator analysis complete');
+                        } else {
+                            console.warn('    ⚠ Creator analysis failed');
+                        }
+
+                        console.log('✅ 5a: Event Sequences (Portfolio + Creator) - Complete');
                         return { success: true };
                     } catch (error) {
                         console.warn('⚠ 5a: Event Sequences - Failed, continuing');

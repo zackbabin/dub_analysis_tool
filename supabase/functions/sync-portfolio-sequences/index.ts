@@ -1,4 +1,4 @@
-// Supabase Edge Function: sync-event-sequences-v2
+// Supabase Edge Function: sync-portfolio-sequences
 // OPTIMIZED: Two-step data sync process (analysis is a separate function)
 //
 // Step 1: Fetch ~200 users who copied at least once (Mixpanel Insights API chart 86612901)
@@ -11,7 +11,7 @@
 //   - First copy times in user_first_copies (Insights API with user_id from $user_id)
 //   - event_sequences view (pass-through of event_sequences_raw)
 //
-// After this completes, call analyze-event-sequences separately to analyze patterns
+// After this completes, call analyze-portfolio-sequences separately to analyze patterns
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -239,14 +239,14 @@ serve(async (req) => {
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
-    console.log('Starting event sequences sync v2 (Export API)...')
+    console.log('Starting portfolio sequences sync (Export API)...')
 
-    // Check if sync should be skipped (within 1-hour window for event sequences)
-    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_event_sequences_v2', 1)
+    // Check if sync should be skipped (within 1-hour window for portfolio sequences)
+    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_portfolio_sequences', 1)
     if (skipResponse) return skipResponse
 
     // Create sync log entry
-    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_event_sequences_v2')
+    const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_portfolio_sequences')
     const syncLogId = syncLog.id
 
     try {
@@ -701,6 +701,6 @@ serve(async (req) => {
       throw error
     }
   } catch (error) {
-    return createErrorResponse(error, 'sync-event-sequences-v2')
+    return createErrorResponse(error, 'sync-portfolio-sequences')
   }
 })

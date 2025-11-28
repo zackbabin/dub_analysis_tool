@@ -5,6 +5,12 @@
  * It does not modify existing files - it's a separate integration layer.
  *
  * Usage: Include this script in index.html and configure with your Supabase credentials.
+ *
+ * Version: 2025-11-28-v2
+ * - Added triggerCreatorSequencesSync() and triggerCreatorSequencesAnalysis()
+ * - Renamed: triggerEventSequenceSyncV2() → triggerPortfolioSequencesSync()
+ * - Renamed: triggerEventSequenceAnalysis() → triggerPortfolioSequencesAnalysis()
+ * - Event sequences now support both portfolio views and creator profile views
  */
 
 class SupabaseIntegration {
@@ -853,16 +859,16 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger event sequence sync v2 via Supabase Edge Function (Export API)
-     * Fetches raw events from Mixpanel Export API with all properties included
-     * No enrichment step needed - portfolioTicker and creatorUsername come from API
+     * Trigger portfolio sequence sync via Supabase Edge Function (Export API)
+     * Fetches "Viewed Portfolio Details" events from Mixpanel Export API
+     * Includes first copy times from Mixpanel Insights API
      * Skips sync if data was synced within the last hour
      */
-    async triggerEventSequenceSyncV2() {
-        console.log('Triggering event sequence sync v2 (Export API) via Supabase Edge Function...');
+    async triggerPortfolioSequencesSync() {
+        console.log('Triggering portfolio sequences sync (Export API) via Supabase Edge Function...');
 
         try {
-            const { data, error } = await this.supabase.functions.invoke('sync-event-sequences-v2', {
+            const { data, error } = await this.supabase.functions.invoke('sync-portfolio-sequences', {
                 body: {}
             });
 
@@ -875,18 +881,58 @@ class SupabaseIntegration {
             if (!data.success) {
                 console.error('Sync failed:', data.error);
                 // Don't throw - return error so analysis can still run
-                return { success: false, error: data.error || 'Unknown error during event sequence sync v2' };
+                return { success: false, error: data.error || 'Unknown error during portfolio sequences sync' };
             }
 
             if (data.skipped) {
-                console.log('⏭️ Event sequence sync v2 skipped (data refreshed within last hour)');
+                console.log('⏭️ Portfolio sequences sync skipped (data refreshed within last hour)');
             } else {
-                console.log('✅ Event sequence sync v2 completed successfully:', data.stats);
+                console.log('✅ Portfolio sequences sync completed successfully:', data.stats);
             }
 
             return data;
         } catch (error) {
-            console.error('Error calling event sequence sync v2 Edge Function:', error);
+            console.error('Error calling portfolio sequences sync Edge Function:', error);
+            // Don't throw - return error so analysis can still run
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Trigger creator sequence sync via Supabase Edge Function (Export API)
+     * Fetches "Viewed Creator Profile" events from Mixpanel Export API
+     * Uses existing user_first_copies table (no duplicate Insights API call)
+     * Skips sync if data was synced within the last hour
+     */
+    async triggerCreatorSequencesSync() {
+        console.log('Triggering creator sequences sync (Export API) via Supabase Edge Function...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('sync-creator-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                // Don't throw - return error so analysis can still run
+                return { success: false, error: error.message };
+            }
+
+            if (!data.success) {
+                console.error('Sync failed:', data.error);
+                // Don't throw - return error so analysis can still run
+                return { success: false, error: data.error || 'Unknown error during creator sequences sync' };
+            }
+
+            if (data.skipped) {
+                console.log('⏭️ Creator sequences sync skipped (data refreshed within last hour)');
+            } else {
+                console.log('✅ Creator sequences sync completed successfully:', data.stats);
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Error calling creator sequences sync Edge Function:', error);
             // Don't throw - return error so analysis can still run
             return { success: false, error: error.message };
         }
@@ -894,11 +940,10 @@ class SupabaseIntegration {
 
     /**
      * DEPRECATED: Event sequence enrichment is no longer needed
-     * sync-event-sequences-v2 now includes portfolioTicker and creatorUsername directly
+     * sync-portfolio-sequences now includes portfolioTicker and creatorUsername directly
      * from Mixpanel Export API properties, eliminating the need for separate enrichment
      */
     async triggerEventSequenceEnrichment() {
-        console.warn('⚠️ triggerEventSequenceEnrichment is DEPRECATED - enrichment is now handled in sync-event-sequences-v2');
         return { success: true, message: 'Enrichment no longer needed - properties included in sync' };
     }
 
@@ -1009,30 +1054,61 @@ class SupabaseIntegration {
     }
 
     /**
-     * Trigger event sequence analysis via Supabase Edge Function with Claude AI
+     * Trigger portfolio sequence analysis via Supabase Edge Function with Claude AI
+     * Analyzes "Viewed Portfolio Details" events to find conversion patterns
      * @param {string} outcomeType - Either 'copies' or 'subscriptions'
      */
-    async triggerEventSequenceAnalysis(outcomeType) {
-        console.log(`Triggering event sequence analysis for ${outcomeType}...`);
+    async triggerPortfolioSequencesAnalysis(outcomeType) {
+        console.log(`Triggering portfolio sequences analysis for ${outcomeType}...`);
 
         try {
-            const { data, error } = await this.supabase.functions.invoke('analyze-event-sequences', {
+            const { data, error } = await this.supabase.functions.invoke('analyze-portfolio-sequences', {
                 body: { outcome_type: outcomeType }
             });
 
             if (error) {
                 console.error('Edge Function error:', error);
-                throw new Error(`Event sequence analysis failed: ${error.message}`);
+                throw new Error(`Portfolio sequences analysis failed: ${error.message}`);
             }
 
             if (!data.success) {
-                throw new Error(data.error || 'Unknown error during event sequence analysis');
+                throw new Error(data.error || 'Unknown error during portfolio sequences analysis');
             }
 
-            console.log(`✅ Event sequence analysis for ${outcomeType} completed:`, data.stats);
+            console.log(`✅ Portfolio sequences analysis for ${outcomeType} completed:`, data);
             return data;
         } catch (error) {
-            console.error('Error calling event sequence analysis Edge Function:', error);
+            console.error('Error calling portfolio sequences analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Trigger creator sequence analysis via Supabase Edge Function with Claude AI
+     * Analyzes "Viewed Creator Profile" events to find conversion patterns
+     * @param {string} outcomeType - Either 'copies' or 'subscriptions'
+     */
+    async triggerCreatorSequencesAnalysis(outcomeType) {
+        console.log(`Triggering creator sequence analysis for ${outcomeType}...`);
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('analyze-creator-sequences', {
+                body: { outcome_type: outcomeType }
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Creator sequence analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during creator sequence analysis');
+            }
+
+            console.log(`✅ Creator sequence analysis for ${outcomeType} completed:`, data);
+            return data;
+        } catch (error) {
+            console.error('Error calling creator sequence analysis Edge Function:', error);
             throw error;
         }
     }

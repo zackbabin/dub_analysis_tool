@@ -1,4 +1,4 @@
-// Supabase Edge Function: analyze-event-sequences
+// Supabase Edge Function: analyze-portfolio-sequences
 // SIMPLIFIED: Analyzes raw "Viewed Portfolio Details" events to find conversion patterns
 // Claude calculates average unique portfolio views before first copy
 //
@@ -44,18 +44,19 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Fetch event sequences for users who copied (first_copy_time NOT NULL)
+    // Fetch "Viewed Portfolio Details" events for users who copied (first_copy_time NOT NULL)
     // Filter to events BEFORE first copy using SQL
-    console.log('Fetching view events before first copy (SQL filtered)...')
+    console.log('Fetching portfolio view events before first copy (SQL filtered)...')
     const { data: viewsBeforeCopy, error: viewsError } = await supabase
       .from('event_sequences')
       .select('user_id, event_time, portfolio_ticker, first_copy_time')
       .not('first_copy_time', 'is', null)
+      .eq('event_name', 'Viewed Portfolio Details')  // Filter to only portfolio views
       .order('first_copy_time', { ascending: false })
 
     if (viewsError) throw viewsError
 
-    console.log(`✓ Fetched ${viewsBeforeCopy.length} total view events`)
+    console.log(`✓ Fetched ${viewsBeforeCopy.length} total portfolio view events`)
 
     // Group by user and filter to events before first copy
     const userViewsMap = new Map()
@@ -227,7 +228,7 @@ Calculate mean and median unique portfolio views (by ticker) before first copy.`
       }
     )
   } catch (error: any) {
-    console.error('Error in analyze-event-sequences:', error)
+    console.error('Error in analyze-portfolio-sequences:', error)
 
     return new Response(
       JSON.stringify({
