@@ -15,39 +15,29 @@ serve(async (req) => {
 
     console.log('Starting materialized view refresh...')
 
-    // Note: main_analysis is now refreshed during Mixpanel sync workflow
-    // (after all source data is populated in supabase_integration.js)
-
-    // Refresh portfolio engagement views
-    // This RPC refreshes 4 materialized views:
-    // - portfolio_creator_engagement_metrics
-    // - hidden_gems_portfolios
-    // - premium_creator_stock_holdings
-    // - top_stocks_all_premium_creators
-    console.log('Refreshing portfolio_engagement_views...')
-    const { error: portfolioRefreshError } = await supabase.rpc('refresh_portfolio_engagement_views')
-    if (portfolioRefreshError) {
-      console.error('❌ portfolio_engagement_views failed:', portfolioRefreshError)
-      throw portfolioRefreshError
+    // Use centralized refresh function that refreshes all 3 materialized views:
+    // 1. main_analysis
+    // 2. portfolio_creator_engagement_metrics
+    // 3. enriched_support_conversations
+    //
+    // Note: copy_engagement_summary, subscription_engagement_summary, and hidden_gems_portfolios
+    // are now regular views that auto-update when their underlying materialized views refresh
+    console.log('Calling refresh_all_materialized_views...')
+    const { data: refreshResult, error: refreshError } = await supabase.rpc('refresh_all_materialized_views')
+    if (refreshError) {
+      console.error('❌ refresh_all_materialized_views failed:', refreshError)
+      throw refreshError
     }
-    console.log('✓ portfolio_engagement_views refreshed')
+    console.log('✓ All materialized views refreshed:', refreshResult)
 
-    // Refresh premium_creator_retention_analysis
-    console.log('Refreshing premium_creator_retention_analysis...')
-    const { error: retentionError } = await supabase.rpc('refresh_premium_creator_retention_analysis')
-    if (retentionError) {
-      console.warn('⚠️ retention_analysis failed:', retentionError)
-    } else {
-      console.log('✓ retention_analysis refreshed')
-    }
-
-    console.log('✅ Materialized views refreshed')
+    console.log('✅ Materialized view refresh complete')
 
     return createSuccessResponse(
       'Materialized views refreshed successfully',
       {
-        portfolio_views_refreshed: !portfolioRefreshError,
-        retention_analysis_refreshed: !retentionError
+        result: refreshResult,
+        views_refreshed: 3,
+        views: ['main_analysis', 'portfolio_creator_engagement_metrics', 'enriched_support_conversations']
       }
     )
   } catch (error) {
