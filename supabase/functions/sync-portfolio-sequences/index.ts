@@ -179,8 +179,13 @@ async function fetchAndProcessEventsStreaming(
               await onBatch(eventBatch)
               eventBatch = [] // Clear batch after processing
             }
-          } catch (parseError) {
-            console.warn('Failed to parse JSONL line:', trimmedLine.substring(0, 100))
+          } catch (parseError: any) {
+            // Skip unparseable lines silently - these are typically incomplete JSON from stream boundaries
+            // Only log if line appears to be a complete JSON object (starts with { and ends with })
+            if (trimmedLine.startsWith('{') && trimmedLine.endsWith('}')) {
+              console.warn(`Failed to parse complete JSONL line (${trimmedLine.length} chars):`, parseError.message)
+              console.warn(`  Line preview: ${trimmedLine.substring(0, 150)}...`)
+            }
           }
         }
       }
@@ -191,8 +196,13 @@ async function fetchAndProcessEventsStreaming(
           const event = JSON.parse(buffer.trim())
           eventBatch.push(event)
           lineCount++
-        } catch (parseError) {
-          console.warn('Failed to parse final JSONL line:', buffer.substring(0, 100))
+        } catch (parseError: any) {
+          const trimmedBuffer = buffer.trim()
+          // Only log if buffer appears to be a complete JSON object
+          if (trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) {
+            console.warn(`Failed to parse final JSONL line (${trimmedBuffer.length} chars):`, parseError.message)
+            console.warn(`  Line preview: ${trimmedBuffer.substring(0, 150)}...`)
+          }
         }
       }
 
