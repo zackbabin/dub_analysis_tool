@@ -868,11 +868,14 @@ class SupabaseIntegration {
 
             if (error) {
                 console.error('Edge Function error:', error);
-                throw new Error(`Event sequence sync v2 failed: ${error.message}`);
+                // Don't throw - return error so analysis can still run
+                return { success: false, error: error.message };
             }
 
             if (!data.success) {
-                throw new Error(data.error || 'Unknown error during event sequence sync v2');
+                console.error('Sync failed:', data.error);
+                // Don't throw - return error so analysis can still run
+                return { success: false, error: data.error || 'Unknown error during event sequence sync v2' };
             }
 
             if (data.skipped) {
@@ -884,7 +887,8 @@ class SupabaseIntegration {
             return data;
         } catch (error) {
             console.error('Error calling event sequence sync v2 Edge Function:', error);
-            throw error;
+            // Don't throw - return error so analysis can still run
+            return { success: false, error: error.message };
         }
     }
 
