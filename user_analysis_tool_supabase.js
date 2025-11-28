@@ -99,7 +99,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 19; // Removed Subscription Rate card from Summary Statistics
+    static CACHE_VERSION = 20; // Updated Behavior Analysis metric card labels and comparison format
 
     constructor() {
         super();
@@ -1470,8 +1470,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
 
         const metrics = [
-            { label: 'Avg Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true },
-            { label: 'Avg PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true },
+            { label: 'Avg Total Profile Views', primaryValue: copiersData.avg_profile_views || 0, secondaryValue: nonCopiersData.avg_profile_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
+            { label: 'Avg Total PDP Views', primaryValue: copiersData.avg_pdp_views || 0, secondaryValue: nonCopiersData.avg_pdp_views || 0, showComparison: true, comparisonLabel: 'for non-copiers' },
             { label: 'Avg Profile Views Before Copy', primaryValue: uniqueCreatorsMean, secondaryValue: uniqueCreatorsMedian, showComparison: false, showMedian: true },
             { label: 'Avg PDP Views Before Copy', primaryValue: uniquePortfoliosMean, secondaryValue: uniquePortfoliosMedian, showComparison: false, showMedian: true }
         ];
@@ -1501,14 +1501,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
 
             if (metric.showComparison) {
-                const mainValue = document.createTextNode(`${parseFloat(metric.primaryValue).toFixed(1)}\n                   `);
+                const mainValue = document.createTextNode(`${parseFloat(metric.primaryValue).toFixed(1)} `);
                 const compareSpan = createElement('span', {
                     style: {
                         fontSize: '0.9rem',
                         color: '#6c757d',
                         fontWeight: 'normal'
                     }
-                }, `vs ${parseFloat(metric.secondaryValue).toFixed(1)}`);
+                }, `vs. ${parseFloat(metric.secondaryValue).toFixed(1)} ${metric.comparisonLabel || ''}`);
                 valueDiv.appendChild(mainValue);
                 valueDiv.appendChild(compareSpan);
             } else if (metric.showMedian) {
@@ -1549,19 +1549,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         });
 
         fragment.appendChild(gridContainer);
-
-        // Add disclaimer paragraph
-        const disclaimer = createElement('p', {
-            style: {
-                fontSize: '0.75rem',
-                color: '#6c757d',
-                marginTop: '0.5rem',
-                marginBottom: '2rem',
-                fontStyle: 'italic'
-            }
-        }, "Compares users who copied vs. haven't copied. Unique creators/portfolios shows mean/median prior to first copy.");
-
-        fragment.appendChild(disclaimer);
 
         // Convert DocumentFragment to HTML string to maintain compatibility with existing code
         const tempContainer = document.createElement('div');
