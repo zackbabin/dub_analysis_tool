@@ -106,17 +106,13 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
 **RANKING METHODOLOGY:**
 Calculate a composite priority score (0-100) for each issue using this formula:
 
-Priority Score = (Category Weight × 0.32) + (Percentage × 3 × 0.32) + (min(Volume, 50) / 50 × 100 × 0.31) + (min(avg_message_count, 10) / 10 × 100 × 0.05)
+Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.2) + (min(Volume, 50) / 50 × 100 × 0.4)
 
 Where:
 - Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40
 - Percentage: The percentage of total conversations (e.g., 15.5)
-- Volume: Number of occurrences this week (capped at 50 for calculation)
-- avg_message_count: The average message count across all conversations in this issue (capped at 10 for calculation)
-- Component weights: 32% + 32% + 31% + 5% = 100%
-
-**MESSAGE COUNT ANALYSIS:**
-The avg_message_count (average number of back-and-forth messages across conversations for this issue) is incorporated into the priority score with 5% weight. Higher message counts (5+ messages) often indicate complex issues or user frustration, giving those issues a slight priority boost.
+- Volume: Number of occurrences this week (normalized by dividing by 50, capped at 50 for calculation)
+- Component weights: 40% + 20% + 40% = 100%
 
 Then rank all issues by priority score (highest to lowest) and return the top 10.
 
@@ -130,7 +126,7 @@ For each of the top 10 issues, provide:
 
 4. **Weekly Volume**: Count of tickets/bugs related to this issue this week
 
-5. **Priority Score**: Calculated composite score (0-100) using the formula above. Show the calculation breakdown.
+5. **Priority Score**: Calculated composite score (0-100) using the formula above.
 
 6. **Example Tickets**: Provide exactly 3 representative examples with:
    - Conversation ID (from the data)
@@ -167,10 +163,8 @@ Return ONLY valid JSON matching this exact structure:
         "category_weight": number,
         "category_weight_contribution": number,
         "percentage_contribution": number,
-        "volume_contribution": number,
-        "message_count_contribution": number
+        "volume_contribution": number
       },
-      "avg_message_count": number (CRITICAL REQUIRED FIELD: Calculate the MEAN of message_count across ALL conversations you grouped into this issue. If you grouped 50 conversations into this issue, sum up all 50 message_count values and divide by 50. Round to 1 decimal place. This CANNOT be 0 unless all conversations have 0 messages),
       "examples": [
         {
           "conversation_id": "string",
@@ -191,8 +185,7 @@ Return ONLY valid JSON matching this exact structure:
 - Ensure all 10 issues have exactly 3 examples each
 - STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Trading > App Functionality > Feedback)
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
-- Calculate priority scores exactly as specified in the formula: 32% category weight, 32% percentage, 31% volume, 5% message count
-- Include message_count_contribution in priority_calculation breakdown
+- Calculate priority scores exactly as specified in the formula: 40% category weight, 20% percentage, 40% volume
 - Rank issues 1-10 by priority score (highest score = rank 1)
 
 **SPECIFICITY REQUIREMENTS:**

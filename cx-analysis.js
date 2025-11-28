@@ -135,7 +135,7 @@ class CXAnalysis {
                         AI-driven support ticket analysis identifying top product issues and customer feedback themes.
                         <ul>
                             <li><strong>Data Source:</strong> Zendesk support tickets (last 30 days)</li>
-                            <li><strong>AI Analysis:</strong> Claude Sonnet 4 categorizes tickets by issue type and priority</li>
+                            <li><strong>AI Analysis:</strong> Claude Opus 4.5 categorizes tickets by issue type and priority</li>
                             <li><strong>Categories (by priority):</strong>
                                 <ul style="margin-top: 4px;">
                                     <li>Money Movement - user cannot deposit or withdraw money</li>
@@ -144,14 +144,13 @@ class CXAnalysis {
                                     <li>Feedback - user frustration or feedback about app experience/features</li>
                                 </ul>
                             </li>
-                            <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.3) + (Volume/50 × 100 × 0.3)
+                            <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 3 × 0.2) + (Volume/50 × 100 × 0.4)
                                 <ul style="margin-top: 4px;">
                                     <li>Category weights: Money Movement=100, Trading=80, App=60, Feedback=40</li>
                                     <li>Percentage = % of total conversations affected</li>
-                                    <li>Volume = weekly ticket count (capped at 50)</li>
+                                    <li>Volume = weekly ticket count (normalized: divided by 50, then scaled to 0-100)</li>
                                 </ul>
                             </li>
-                            <li><strong>Automation:</strong> Runs weekly (Sundays at 3:30 AM UTC via cron)</li>
                             <li><strong>Privacy:</strong> PII automatically redacted at ingestion
                                 <ul style="margin-top: 4px;">
                                     <li>Types: SSN, credit cards, phone numbers, emails, bank accounts, addresses</li>
