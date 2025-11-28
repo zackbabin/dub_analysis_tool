@@ -1,6 +1,6 @@
 # Dub Analysis Tool
 
-**Version**: 2.3.0 (November 2024)
+**Version**: 2.4.0 (November 2024)
 
 Comprehensive analytics platform for analyzing user behavior, creator performance, and business metrics for an investment social network.
 
@@ -79,30 +79,35 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 - Ranks by expected value (lift × total conversions)
 - Auto-triggered after engagement sync completes
 
-#### 1.3 Event Sequences Analysis (AI)
-**Purpose**: Discover behavioral patterns that predict conversions using Claude AI
+#### 1.3 Event Sequences Analysis (SQL-based)
+**Purpose**: Analyze unique creator/portfolio views before first copy to identify engagement thresholds
 
 **Architecture** (optimized Nov 2024):
-- **sync-event-sequences-v2**: Fetches events from Mixpanel Export API and aggregates by user in real-time
-  - Tracks 2 events: "Viewed Creator Profile" (creatorUsername), "Viewed Portfolio Details" (portfolioTicker)
-  - Writes directly to `user_event_sequences` table (no intermediate storage)
-  - Incremental sync: Only fetches new events since last sync (1-day overlap)
-  - Initial backfill: 7 days of historical data
-- **analyze-event-sequences**: Claude AI analysis with JOIN to `subscribers_insights` for copy/subscription counts
-  - Processes in batches (125 converters + 125 non-converters per batch)
-  - Deduplicates consecutive events to reduce token usage (40-60% reduction)
-  - Stores results in `event_sequence_analysis` table
+- **sync-portfolio-sequences**: Fetches "Viewed Portfolio Details" events from Mixpanel Export API
+  - Stores raw events in `event_sequences_raw` table
+  - Uses unique constraint (user_id, event_time, portfolio_ticker) for deduplication
+  - Fetches last 30 days of data for users who copied
+- **sync-creator-sequences**: Fetches "Viewed Creator Profile" events from Mixpanel Export API
+  - Stores raw events in `event_sequences_raw` table
+  - Uses unique constraint (user_id, event_time, creator_username) for deduplication
+  - Fetches last 30 days of data for users who copied
+- **analyze-portfolio-sequences**: Calculates mean/median unique portfolios viewed before first copy
+  - Pure SQL aggregation (no AI) via `calculate_portfolio_sequence_metrics()` function
+  - Analyzes 1000 most recent converters
+  - Updates `event_sequence_metrics` table
+- **analyze-creator-sequences**: Calculates mean/median unique creator profiles viewed before first copy
+  - Pure SQL aggregation (no AI) via `calculate_creator_sequence_metrics()` function
+  - Analyzes 1000 most recent converters
+  - Updates `event_sequence_metrics` table
 
-**What it finds**:
-- Predictive sequences (e.g., Profile → PDP → Paywall)
-- Critical trigger events before conversion
-- Anti-patterns common in non-converters
-- Timing patterns between key events
-- Top portfolios/creators that drive conversions
+**What it shows**:
+- Average unique portfolio detail pages viewed before first copy (mean & median)
+- Average unique creator profiles viewed before first copy (mean & median)
+- Helps identify engagement threshold needed for conversion
 
-**Performance**: 95% reduction in DB operations vs. previous 3-step workflow
+**Performance**: 95% faster than Claude API approach (100-500ms vs 5-15s), $0 cost
 
-**Trigger**: Auto-synced daily, AI analysis manual only (~$1.71 per run, analyzes 600 users)
+**Trigger**: Manual sync via "Sync Live Data" button, auto-synced daily at 2:00 AM UTC
 
 #### 1.4 Time Funnels Analysis
 **Purpose**: Track time-to-conversion for key milestones
@@ -115,29 +120,52 @@ Analyzes user behavior patterns to identify what actions predict conversions (co
 ### Sync Workflow
 
 **Manual Sync** (via "Sync Live Data" button):
-1. `sync-mixpanel-user-events-v2` - Event metrics from Insights API (~2-5 min)
-2. `sync-mixpanel-user-properties-v2` - User properties from Engage API (~5-10 min)
-3. `sync-mixpanel-engagement` - Granular engagement data (~60-90s)
-   - Frontend orchestrates 3 steps: fetch → process-portfolio → process-creator
-4. `sync-event-sequences-v2` - Event sequences with real-time aggregation (~60-180s)
-   - Fetches from Mixpanel Export API
-   - Aggregates by user and writes directly to `user_event_sequences`
-5. `sync-creator-data` - Creator performance metrics (~30s)
-6. `sync-support-conversations` - Support workflow starter (~30s)
-   - Auto-triggers 3-step chain: sync-linear-issues → analyze-support-feedback → map-linear-to-feedback
-   - Background completion: ~2-3 min total
-7. `analyze-subscription-price` - Subscription pricing analysis (~30s)
-8. `analyze-copy-patterns` - Portfolio/creator combinations (~45s)
-9. `refresh-materialized-views` - Update all database views (runs in finally block)
 
-**Note**: `analyze-event-sequences` (Claude AI) is triggered manually from UI (~$1.71/run)
+**Step 1: User Data (Mixpanel)** (~2-5 min)
+- `sync-mixpanel-user-events-v2` - Event metrics from Insights API
+- `sync-mixpanel-user-properties-v2` - User properties from Engage API
+- `sync-mixpanel-engagement` - Granular engagement data (3 charts: profile views, PDP views/copies, subscriptions)
+
+**Step 2: Creator Data** (~30s)
+- `sync-creator-data` - Creator performance metrics
+
+**Step 3: Support Analysis (Zendesk + Linear)** (~60-90s)
+- `sync-support-conversations` - Zendesk + Instabug tickets (~30s)
+- `analyze-support-feedback` - Claude AI categorization (~30s)
+- `map-linear-to-feedback` - AI semantic matching (~30s)
+- Refreshes CX Analysis UI
+
+**Step 4: Refresh Materialized Views** (~10-15s)
+- `refresh-materialized-views` - Updates:
+  - `main_analysis` (demographics, conversions, personas)
+  - `portfolio_creator_engagement_metrics` (engagement aggregations)
+  - `enriched_support_conversations` (support data with user context)
+- Auto-updates regular views:
+  - `copy_engagement_summary` (portfolio copy metrics)
+  - `subscription_engagement_summary` (subscription metrics)
+  - `hidden_gems_portfolios` (high engagement, low conversion)
+
+**Step 5: Analysis Workflows (Parallel)** (~60-120s)
+- **5a: Behavioral Drivers** - Statistical pattern analysis
+- **5b: Summary Stats** - Platform-wide conversion metrics
+- **5c: Event Sequences (Portfolio + Creator)** - 2-step workflow:
+  - Step 1: `sync-portfolio-sequences` + `sync-creator-sequences` (parallel, ~60-120s each)
+    - Fetches last 30 days from Mixpanel Export API
+    - Stores raw events in `event_sequences_raw`
+  - Step 2: `analyze-portfolio-sequences` + `analyze-creator-sequences` (parallel, ~100-500ms each)
+    - Pure SQL aggregation (no AI)
+    - Analyzes 1000 most recent converters
+    - Updates `event_sequence_metrics` table
+- **5d: Subscription Pricing** - Price distribution analysis
+- **5e: Copy Pattern Analysis** - Portfolio/creator combinations
 
 **Automatic Daily Sync** (2:00-3:00 AM UTC via cron):
 1. `sync-mixpanel-user-events-v2` - Event metrics (~2-5 min)
 2. `sync-mixpanel-user-properties-v2` - User properties (~5-10 min)
 3. `sync-mixpanel-engagement` - Granular engagement (~60-90s)
    - Auto-triggers pattern analysis functions
-4. `sync-event-sequences-v2` - Event sequences aggregation (~60-180s)
+4. `sync-portfolio-sequences` + `sync-creator-sequences` - Event sequences (parallel, ~60-120s each)
+5. `analyze-portfolio-sequences` + `analyze-creator-sequences` - Calculate metrics (parallel, ~100-500ms each)
 
 ---
 
@@ -384,7 +412,8 @@ All syncs run automatically via pg_cron:
 2. `sync-mixpanel-user-properties-v2` - User properties from Engage API
 3. `sync-mixpanel-engagement` - Granular engagement data
    - Auto-triggers pattern analysis functions
-4. `sync-event-sequences-v2` - Event sequences aggregation
+4. `sync-portfolio-sequences` + `sync-creator-sequences` - Event sequences (parallel)
+5. `analyze-portfolio-sequences` + `analyze-creator-sequences` - Calculate metrics (parallel)
 
 **Creator Analysis** (3:15 AM UTC):
 - `sync-creator-data` - Creator performance metrics
@@ -407,10 +436,10 @@ All syncs run automatically via pg_cron:
 **Data Pipeline**:
 - Mixpanel Insights API (pre-aggregated metrics from saved charts)
 - Mixpanel Engage API (user properties, paginated)
-- Mixpanel Export API (deprecated - old event streaming approach)
+- Mixpanel Export API (raw event streaming for sequence analysis)
 
 **AI/ML**:
-- Claude Sonnet 4 for pattern analysis and categorization
+- Claude Sonnet 4 for support feedback categorization and Linear issue mapping
 - Logistic regression for statistical pattern combinations
 
 **Infrastructure**:

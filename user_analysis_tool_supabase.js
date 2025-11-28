@@ -474,7 +474,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         }
 
                         // Step 2: Analyze both portfolio and creator patterns in parallel (only after syncs complete)
-                        console.log('  → Step 2: Analyzing both with Claude AI (parallel)');
+                        console.log('  → Step 2: Analyzing both with SQL (parallel)');
                         const [portfolioAnalysisResult, creatorAnalysisResult] = await Promise.all([
                             this.supabaseIntegration.triggerPortfolioSequencesAnalysis('copies'),
                             this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies')
