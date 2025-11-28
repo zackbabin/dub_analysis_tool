@@ -99,7 +99,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 18; // Fixed High-Impact Combinations tab structure
+    static CACHE_VERSION = 19; // Removed Subscription Rate card from Summary Statistics
 
     constructor() {
         super();
