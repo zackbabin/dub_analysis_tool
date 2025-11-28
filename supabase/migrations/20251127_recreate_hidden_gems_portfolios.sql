@@ -22,11 +22,7 @@ FROM portfolio_creator_engagement_metrics
 WHERE unique_viewers >= 5
     AND total_copies < 5
     AND unique_viewers >= (total_copies * 5)
-ORDER BY unique_viewers DESC,
-    CASE
-        WHEN total_copies > 0 THEN ROUND((unique_viewers::NUMERIC / total_copies::NUMERIC), 2)
-        ELSE NULL::NUMERIC
-    END DESC
+ORDER BY total_pdp_views DESC
 WITH NO DATA;
 
 GRANT SELECT ON hidden_gems_portfolios TO anon, authenticated, service_role;
