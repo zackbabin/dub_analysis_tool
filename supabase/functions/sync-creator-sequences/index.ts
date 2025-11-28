@@ -342,13 +342,16 @@ serve(async (req) => {
             continue
           }
 
-          // Store raw event data with user_id from Export API
-          // Note: For creator profile views, we don't have portfolio_ticker, so we leave it NULL
+          // Extract creator_username from event properties
+          const creatorUsername = event.properties.creatorUsername
+
+          // Store raw event data with user_id and creatorUsername from Export API
           rawEventRows.push({
-            user_id: userId,          // Export API $user_id (merged identity)
+            user_id: userId,              // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
-            portfolio_ticker: null   // Creator profile views don't have portfolio_ticker
+            portfolio_ticker: null,       // Creator profile views don't have portfolio_ticker
+            creator_username: creatorUsername || null  // For determining uniqueness in analysis
           })
         }
 
@@ -359,9 +362,9 @@ serve(async (req) => {
 
         try {
           // Build composite keys for checking existence
-          // Format: "user_id|event_time|portfolio_ticker"
+          // Format: "user_id|event_time|portfolio_ticker|creator_username"
           const compositeKeys = rawEventRows.map(row =>
-            `${row.user_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}`
+            `${row.user_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}|${row.creator_username || 'NULL'}`
           )
 
           // Fetch existing records using the same conflict key as upsert
@@ -372,7 +375,7 @@ serve(async (req) => {
 
           const { data: existingRecords, error: fetchError } = await supabase
             .from('event_sequences_raw')
-            .select('user_id, event_time, portfolio_ticker')
+            .select('user_id, event_time, portfolio_ticker, creator_username')
             .in('user_id', userIds)
             .gte('event_time', minEventTime)
             .lte('event_time', maxEventTime)
@@ -384,7 +387,7 @@ serve(async (req) => {
             // Build set of existing composite keys for fast lookup
             const existingKeys = new Set(
               existingRecords.map(r =>
-                `${r.user_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}`
+                `${r.user_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}|${r.creator_username || 'NULL'}`
               )
             )
 

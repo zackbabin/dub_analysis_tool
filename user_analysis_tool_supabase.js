@@ -14,6 +14,9 @@
  * Overrides specific methods to use Supabase Edge Functions and database
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
+    // Cache version - increment when cached HTML structure changes
+    static CACHE_VERSION = 18; // Fixed High-Impact Combinations tab structure
+
     constructor() {
         super();
         this.supabaseIntegration = null;
@@ -541,15 +544,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Fetches pre-calculated summary stats from Edge Function
      */
     async displayResultsFromDatabase() {
-        const CACHE_VERSION = 18; // Fixed High-Impact Combinations tab structure
-
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 // Check cache version - invalidate if old version
-                if (data.cacheVersion !== CACHE_VERSION) {
+                if (data.cacheVersion !== UserAnalysisToolSupabase.CACHE_VERSION) {
                     console.log('⚠️ Cache version mismatch, clearing old cache');
                     localStorage.removeItem('dubAnalysisResults');
                 } else if (data.timestamp) {
@@ -594,7 +595,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 subscription: this.outputContainers.subscription?.innerHTML || '',
                 // Preserve existing timestamp - it should only be updated during actual sync operations
                 timestamp: existingData.timestamp || new Date().toISOString(),
-                cacheVersion: CACHE_VERSION
+                cacheVersion: UserAnalysisToolSupabase.CACHE_VERSION
             };
             console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
             localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
@@ -608,16 +609,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Override: Full control over results display with integrated caching
      */
     async displayResults(results) {
-        // Cache version for button layout changes
-        const CACHE_VERSION = 18; // Fixed High-Impact Combinations tab structure
-
         // Step 1: Try to restore from cache FIRST (instant display)
         const cached = localStorage.getItem('dubAnalysisResults');
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 // Check cache version - invalidate if old version
-                if (data.cacheVersion !== CACHE_VERSION) {
+                if (data.cacheVersion !== UserAnalysisToolSupabase.CACHE_VERSION) {
                     console.log('⚠️ Cache version mismatch, clearing old cache');
                     localStorage.removeItem('dubAnalysisResults');
                 } else if (data.timestamp) {
@@ -656,7 +654,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
-            const CACHE_VERSION = 18; // Fixed High-Impact Combinations tab structure
             // Get existing cache to preserve timestamp
             const existingCache = localStorage.getItem('dubAnalysisResults');
             const existingData = existingCache ? JSON.parse(existingCache) : {};
@@ -666,7 +663,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 portfolio: this.outputContainers.portfolio?.innerHTML || '',
                 // Preserve existing timestamp - it should only be updated during actual sync operations
                 timestamp: existingData.timestamp || new Date().toISOString(),
-                cacheVersion: CACHE_VERSION
+                cacheVersion: UserAnalysisToolSupabase.CACHE_VERSION
             };
             console.log('💾 Saving cache with timestamp:', cacheData.timestamp);
             localStorage.setItem('dubAnalysisResults', JSON.stringify(cacheData));
@@ -696,16 +693,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             topCopyCombos,
             topCreatorCopyCombos,
             subscriptionDistribution
-            // subscriptionSequenceAnalysis // COMMENTED OUT: Subscription event sequence analysis disabled
-            // topSequences // COMMENTED OUT: Portfolio sequence analysis temporarily disabled
         ] = await Promise.all([
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
             this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
             this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
-            // this.supabaseIntegration.loadEventSequenceAnalysis('subscriptions').catch(e => { console.warn('Failed to load subscription sequences:', e); return null; }) // COMMENTED OUT: Subscription event sequence analysis disabled
-            // this.supabaseIntegration.loadTopPortfolioSequenceCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load sequences:', e); return []; }) // COMMENTED OUT
         ]);
 
         // Data loaded successfully
@@ -1546,9 +1539,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         return parts.join('');
     }
-
-    // REMOVED: generateConversionPathHTML() - Conversion Path Analysis section no longer needed
-    // Event sequences workflow now uses simplified mean/median display in copy_engagement_summary
 
     /**
      * Generate Combinations Table HTML (DRY helper)

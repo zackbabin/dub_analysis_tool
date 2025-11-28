@@ -942,9 +942,13 @@ class SupabaseIntegration {
      * DEPRECATED: Event sequence enrichment is no longer needed
      * sync-portfolio-sequences now includes portfolioTicker and creatorUsername directly
      * from Mixpanel Export API properties, eliminating the need for separate enrichment
+     *
+     * @deprecated This function is no longer needed and will be removed in a future version
+     * @returns {Object} Returns success message indicating deprecation
      */
     async triggerEventSequenceEnrichment() {
-        return { success: true, message: 'Enrichment no longer needed - properties included in sync' };
+        console.warn('⚠️ triggerEventSequenceEnrichment() is deprecated and does nothing. Properties are now included in sync.');
+        return { success: true, message: 'DEPRECATED: Enrichment no longer needed - properties included in sync' };
     }
 
     /**
@@ -1113,13 +1117,6 @@ class SupabaseIntegration {
         }
     }
 
-    // REMOVED: loadEventSequenceAnalysis() - Replaced by simplified event_sequence_metrics table
-    // Event sequences workflow now uses Claude AI to calculate mean/median directly
-    // Results stored in event_sequence_metrics and joined into copy_engagement_summary view
-
-    // REMOVED: triggerSubscriptionAnalysis() - analyze-subscription-patterns merged into analyze-conversion-patterns
-    // Use triggerCopyAnalysis() with analysis_type='subscription' if needed
-
     /**
      * Generic function to load top combinations for any analysis type (DRY)
      * @param {string} analysisType - 'subscription', 'copy', or 'portfolio_sequence'
@@ -1253,10 +1250,6 @@ class SupabaseIntegration {
             }
         });
     }
-
-    // REMOVED: loadEventSequencesPreCopyMetrics() - RPC function no longer exists
-    // Replaced by simplified event_sequence_metrics table populated by Claude AI
-    // Metrics are now available directly in copy_engagement_summary view
 
     /**
      * Trigger copy pattern analysis via Edge Function

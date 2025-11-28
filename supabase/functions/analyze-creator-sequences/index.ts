@@ -49,7 +49,7 @@ serve(async (req) => {
     console.log('Fetching creator profile view events before first copy (SQL filtered)...')
     const { data: viewsBeforeCopy, error: viewsError } = await supabase
       .from('event_sequences')
-      .select('user_id, event_time, event_name, first_copy_time')
+      .select('user_id, event_time, event_name, creator_username, first_copy_time')
       .not('first_copy_time', 'is', null)
       .eq('event_name', 'Viewed Creator Profile')  // Filter to only creator profile views
       .order('first_copy_time', { ascending: false })
@@ -72,9 +72,10 @@ serve(async (req) => {
             views: []
           })
         }
-        // Note: creator profile views don't have portfolio_ticker, so we track raw event count
+        // Include creator_username for determining uniqueness
         userViewsMap.get(view.user_id).views.push({
-          time: view.event_time
+          time: view.event_time,
+          creator: view.creator_username
         })
         totalPreCopyEvents++
       }
@@ -94,17 +95,19 @@ serve(async (req) => {
 
 **Data provided**:
 - Users who copied at least once, with their "Viewed Creator Profile" events BEFORE first copy
+- Each view includes a "creator" field which contains the creatorUsername to identify which creator's profile was viewed
 
 **Your task**:
-Calculate the MEAN and MEDIAN number of creator profile views before first copy.
+Calculate the MEAN and MEDIAN number of UNIQUE creator profiles viewed before first copy.
 
-Since creator profile views don't have a creator identifier in our data (unlike portfolio views which have tickers), we simply count the total number of "Viewed Creator Profile" events per user.
+IMPORTANT: Use the "creator" field (which contains the creatorUsername) to determine uniqueness. Multiple views of the same creatorUsername should count as 1 unique creator.
 
 Example:
-- User A views: 5 creator profile events → 5 views
-- User B views: 2 creator profile events → 2 views
+- User A views: [{creator: "alice"}, {creator: "bob"}, {creator: "alice"}] → 2 unique creators (alice viewed twice = 1, bob = 1)
+- User B views: [{creator: "charlie"}, {creator: "charlie"}] → 1 unique creator (charlie viewed twice = 1)
+- User C views: [{creator: "alice"}, {creator: "bob"}, {creator: "charlie"}] → 3 unique creators
 
-For each user, count the creator profile views they performed BEFORE copying, then calculate:
+For each user, count the UNIQUE creatorUsernames they viewed BEFORE copying (count distinct values in the "creator" field), then calculate:
 1. Mean across all users
 2. Median across all users
 
@@ -118,7 +121,7 @@ Format your response as JSON:
 
 ${JSON.stringify(convertersWithViews, null, 2)}
 
-Calculate mean and median creator profile views before first copy.`
+Calculate mean and median UNIQUE creator profiles viewed before first copy. Use the "creator" field (creatorUsername) to determine uniqueness - count distinct creatorUsernames per user.`
 
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

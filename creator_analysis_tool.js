@@ -9,6 +9,9 @@
  */
 
 class CreatorAnalysisTool {
+    // Cache version - increment when cached HTML structure changes
+    static CACHE_VERSION = '2.15'; // Removed dead calculateCreatorSummaryStats function
+
     constructor() {
         this.container = null;
         this.outputContainer = null;
@@ -560,14 +563,13 @@ class CreatorAnalysisTool {
     restoreAnalysisResults() {
         try {
             // Version check - clear cache if structure has changed
-            const CACHE_VERSION = '2.15'; // Removed dead calculateCreatorSummaryStats function
             const cachedVersion = localStorage.getItem('creatorAnalysisCacheVersion');
 
-            if (cachedVersion !== CACHE_VERSION) {
+            if (cachedVersion !== CreatorAnalysisTool.CACHE_VERSION) {
                 console.log('Cache version mismatch, clearing old cache...');
                 localStorage.removeItem('creatorAnalysisResultsHTML');
                 localStorage.removeItem('creatorAnalysisResults');
-                localStorage.setItem('creatorAnalysisCacheVersion', CACHE_VERSION);
+                localStorage.setItem('creatorAnalysisCacheVersion', CreatorAnalysisTool.CACHE_VERSION);
                 return;
             }
 
