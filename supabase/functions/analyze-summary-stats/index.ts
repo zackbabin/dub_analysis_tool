@@ -82,10 +82,8 @@ interface SummaryStats {
   // Persona stats
   personaStats: {
     premium: { count: number; percentage: number }
-    aspiringPremium: { count: number; percentage: number }
     core: { count: number; percentage: number }
     activationTargets: { count: number; percentage: number }
-    lowerIncome: { count: number; percentage: number }
     nonActivated: { count: number; percentage: number }
   }
 }
@@ -168,75 +166,31 @@ function convertNetWorthToEnum(netWorth: string): number {
 }
 
 function classifyPersona(user: CleanedUser): string {
-  function isLowerOrUnknownIncome(income: string): boolean {
-    const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k']
-    if (!income) return true
-    const incomeStr = String(income)
-    return incomeStr.trim() === '' || lowerIncomes.includes(incomeStr)
-  }
-
-  function isLowerOrUnknownNetWorth(netWorth: string): boolean {
-    const lowerNetWorths = ['Less than $10,000', '<10k', '$10,000-$49,999', '10k–50k', '$50,000-$99,999', '50k–100k']
-    if (!netWorth) return true
-    const netWorthStr = String(netWorth)
-    return netWorthStr.trim() === '' || lowerNetWorths.includes(netWorthStr)
-  }
-
-  function isHigherOrUnknownIncome(income: string): boolean {
-    const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k']
-    if (!income) return true
-    const incomeStr = String(income)
-    return incomeStr.trim() === '' || !lowerIncomes.includes(incomeStr)
-  }
-
   const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0)
   const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0)
-  const hasCopied = user.totalCopies >= 1
 
-  // HIERARCHICAL PRIORITY ORDER
-  if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
+  // HIERARCHICAL PRIORITY ORDER (4 personas)
+  // 1. Premium: Active Premium subscribers
+  if (user.totalSubscriptions >= 1) {
     return 'premium'
   }
 
-  if (user.totalSubscriptions === 0 &&
-      hasCopied &&
-      isHigherOrUnknownIncome(user.income) &&
-      user.totalDeposits >= 1000) {
-    return 'aspiringPremium'
+  // 2. Core: Users with at least 1 copy
+  if (user.totalCopies >= 1) {
+    return 'core'
   }
 
-  if (user.totalSubscriptions === 0) {
-    const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1)
-    const engagementQualifies = (hasCopied || totalPDPViews >= 2)
-
-    if (depositQualifies || engagementQualifies) {
-      return 'core'
-    }
-  }
-
-  if (isHigherOrUnknownIncome(user.income) &&
-      user.hasLinkedBank === 0 &&
-      user.totalDeposits === 0 &&
-      user.totalCopies === 0 &&
-      totalCreatorViews > 0 &&
-      totalPDPViews < 2) {
+  // 3. Activation Targets: Users with no deposits but showing engagement
+  if (user.totalDeposits === 0 &&
+      (totalCreatorViews >= 3 || totalPDPViews >= 3)) {
     return 'activationTargets'
   }
 
-  const hasEngagement = hasCopied || totalPDPViews >= 1
-  if (user.totalDeposits <= 200 &&
-      isLowerOrUnknownIncome(user.income) &&
-      isLowerOrUnknownNetWorth(user.netWorth) &&
-      user.totalSubscriptions === 0 &&
-      user.hasLinkedBank === 1 &&
-      !hasEngagement) {
-    return 'lowerIncome'
-  }
-
+  // 4. Non-activated: Users with no bank linked, no deposits, and minimal engagement
   if (user.hasLinkedBank === 0 &&
       user.totalDeposits === 0 &&
-      totalPDPViews === 0 &&
-      totalCreatorViews === 0) {
+      totalPDPViews < 3 &&
+      totalCreatorViews < 3) {
     return 'nonActivated'
   }
 
@@ -284,8 +238,7 @@ function calculateSummaryStats(data: CleanedUser[]): SummaryStats {
   const usersWithLowDeposits = data.filter(d => d.totalDeposits !== null && d.totalDeposits < 1000).length
 
   const personaCounts: Record<string, number> = {
-    premium: 0, aspiringPremium: 0, core: 0, activationTargets: 0,
-    lowerIncome: 0, nonActivated: 0, unclassified: 0
+    premium: 0, core: 0, activationTargets: 0, nonActivated: 0, unclassified: 0
   }
 
   data.forEach(user => {
@@ -298,10 +251,6 @@ function calculateSummaryStats(data: CleanedUser[]): SummaryStats {
       count: personaCounts.premium,
       percentage: totalUsers > 0 ? (personaCounts.premium / totalUsers) * 100 : 0
     },
-    aspiringPremium: {
-      count: personaCounts.aspiringPremium,
-      percentage: totalUsers > 0 ? (personaCounts.aspiringPremium / totalUsers) * 100 : 0
-    },
     core: {
       count: personaCounts.core,
       percentage: totalUsers > 0 ? (personaCounts.core / totalUsers) * 100 : 0
@@ -309,10 +258,6 @@ function calculateSummaryStats(data: CleanedUser[]): SummaryStats {
     activationTargets: {
       count: personaCounts.activationTargets,
       percentage: totalUsers > 0 ? (personaCounts.activationTargets / totalUsers) * 100 : 0
-    },
-    lowerIncome: {
-      count: personaCounts.lowerIncome,
-      percentage: totalUsers > 0 ? (personaCounts.lowerIncome / totalUsers) * 100 : 0
     },
     nonActivated: {
       count: personaCounts.nonActivated,

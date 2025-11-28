@@ -709,75 +709,31 @@ function calculateCorrelation(x, y) {
 }
 
 function classifyPersona(user) {
-    function isLowerOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50,000-$74,999', '50k–100k'];
-        if (!income) return true;
-        const incomeStr = String(income);
-        return incomeStr.trim() === '' || lowerIncomes.includes(incomeStr);
-    }
-
-    function isLowerOrUnknownNetWorth(netWorth) {
-        const lowerNetWorths = ['Less than $10,000', '<10k', '$10,000-$49,999', '10k–50k', '$50,000-$99,999', '50k–100k'];
-        if (!netWorth) return true;
-        const netWorthStr = String(netWorth);
-        return netWorthStr.trim() === '' || lowerNetWorths.includes(netWorthStr);
-    }
-
-    function isHigherOrUnknownIncome(income) {
-        const lowerIncomes = ['Less than $25,000', '<25k', '$25,000-$49,999', '25k–50k', '$50000-$74,999', '50k–100k'];
-        if (!income) return true;
-        const incomeStr = String(income);
-        return incomeStr.trim() === '' || !lowerIncomes.includes(incomeStr);
-    }
-
     const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
     const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
-    const hasCopied = user.totalCopies >= 1;
 
-    // HIERARCHICAL PRIORITY ORDER
-    if (user.totalSubscriptions >= 1 || user.subscribedWithin7Days === 1) {
+    // HIERARCHICAL PRIORITY ORDER (4 personas)
+    // 1. Premium: Active Premium subscribers
+    if (user.totalSubscriptions >= 1) {
         return 'premium';
     }
 
-    if (user.totalSubscriptions === 0 &&
-        hasCopied &&
-        isHigherOrUnknownIncome(user.income) &&
-        user.totalDeposits >= 1000) {
-        return 'aspiringPremium';
+    // 2. Core: Users with at least 1 copy
+    if (user.totalCopies >= 1) {
+        return 'core';
     }
 
-    if (user.totalSubscriptions === 0) {
-        const depositQualifies = (user.totalDeposits >= 200 && user.totalDeposits <= 1000 && user.hasLinkedBank === 1);
-        const engagementQualifies = (hasCopied || totalPDPViews >= 2);
-
-        if (depositQualifies || engagementQualifies) {
-            return 'core';
-        }
-    }
-
-    if (isHigherOrUnknownIncome(user.income) &&
-        user.hasLinkedBank === 0 &&
-        user.totalDeposits === 0 &&
-        user.totalCopies === 0 &&
-        totalCreatorViews > 0 &&
-        totalPDPViews < 2) {
+    // 3. Activation Targets: Users with no deposits but showing engagement
+    if (user.totalDeposits === 0 &&
+        (totalCreatorViews >= 3 || totalPDPViews >= 3)) {
         return 'activationTargets';
     }
 
-    const hasEngagement = hasCopied || totalPDPViews >= 1;
-    if (user.totalDeposits <= 200 &&
-        isLowerOrUnknownIncome(user.income) &&
-        isLowerOrUnknownNetWorth(user.netWorth) &&
-        user.totalSubscriptions === 0 &&
-        user.hasLinkedBank === 1 &&
-        !hasEngagement) {
-        return 'lowerIncome';
-    }
-
+    // 4. Non-activated: Users with no bank linked, no deposits, and minimal engagement
     if (user.hasLinkedBank === 0 &&
         user.totalDeposits === 0 &&
-        totalPDPViews === 0 &&
-        totalCreatorViews === 0) {
+        totalPDPViews < 3 &&
+        totalCreatorViews < 3) {
         return 'nonActivated';
     }
 
@@ -824,8 +780,7 @@ function calculateSummaryStats(data) {
     // Calculate count of users with low deposits for demographic cards (<$1k means strictly less than 1000)
     const usersWithLowDeposits = data.filter(d => d.totalDeposits !== null && d.totalDeposits < 1000).length;
     const personaCounts = {
-        premium: 0, aspiringPremium: 0, core: 0, activationTargets: 0,
-        lowerIncome: 0, nonActivated: 0, unclassified: 0
+        premium: 0, core: 0, activationTargets: 0, nonActivated: 0, unclassified: 0
     };
 
     data.forEach(user => {
@@ -838,10 +793,6 @@ function calculateSummaryStats(data) {
             count: personaCounts.premium,
             percentage: totalUsers > 0 ? (personaCounts.premium / totalUsers) * 100 : 0
         },
-        aspiringPremium: {
-            count: personaCounts.aspiringPremium,
-            percentage: totalUsers > 0 ? (personaCounts.aspiringPremium / totalUsers) * 100 : 0
-        },
         core: {
             count: personaCounts.core,
             percentage: totalUsers > 0 ? (personaCounts.core / totalUsers) * 100 : 0
@@ -849,10 +800,6 @@ function calculateSummaryStats(data) {
         activationTargets: {
             count: personaCounts.activationTargets,
             percentage: totalUsers > 0 ? (personaCounts.activationTargets / totalUsers) * 100 : 0
-        },
-        lowerIncome: {
-            count: personaCounts.lowerIncome,
-            percentage: totalUsers > 0 ? (personaCounts.lowerIncome / totalUsers) * 100 : 0
         },
         nonActivated: {
             count: personaCounts.nonActivated,
@@ -1313,11 +1260,29 @@ function displayPersonaBreakdownInline(stats) {
     resultSection.className = 'qda-result-section';
     resultSection.style.marginTop = '2rem';
 
+    const titleContainer = document.createElement('div');
+    titleContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 1.5rem; margin-bottom: 0.5rem;';
+
     const title = document.createElement('h2');
-    title.style.marginTop = '1.5rem';
-    title.style.marginBottom = '0.5rem';
+    title.style.cssText = 'margin: 0;';
     title.textContent = 'Persona Breakdown';
-    resultSection.appendChild(title);
+    titleContainer.appendChild(title);
+
+    const tooltip = document.createElement('div');
+    tooltip.className = 'info-tooltip';
+    tooltip.innerHTML = `
+        <span class="info-icon">ℹ️</span>
+        <div class="info-tooltip-content">
+            <strong>Persona Definitions:</strong><br><br>
+            <strong>Premium:</strong> Users with ≥1 active subscription<br><br>
+            <strong>Core:</strong> Users with ≥1 portfolio copy<br><br>
+            <strong>Activation Targets:</strong> Users with $0 deposits but ≥3 profile views OR ≥3 PDP views<br><br>
+            <strong>Non-activated:</strong> Users with no bank linked, $0 deposits, and <3 profile views AND <3 PDP views
+        </div>
+    `;
+    titleContainer.appendChild(tooltip);
+
+    resultSection.appendChild(titleContainer);
 
     const grid = document.createElement('div');
     grid.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 1.5rem;';
@@ -1325,25 +1290,25 @@ function displayPersonaBreakdownInline(stats) {
     const personas = [
         {
             name: 'Premium',
-            subtitle: 'Active Premium subscribers',
+            subtitle: 'Users with ≥1 active subscription',
             data: stats.personaStats.premium,
             priority: 1
         },
         {
             name: 'Core',
-            subtitle: 'Engaged users with deposits and no Premium subscriptions',
+            subtitle: 'Users with ≥1 portfolio copy',
             data: stats.personaStats.core,
             priority: 2
         },
         {
             name: 'Activation Targets',
-            subtitle: 'Users that have shown engagement but no deposits or copies',
+            subtitle: '$0 deposits but ≥3 profile views OR ≥3 PDP views',
             data: stats.personaStats.activationTargets,
             priority: 3
         },
         {
             name: 'Non-activated',
-            subtitle: 'Users with no bank linked, deposits, or engagement',
+            subtitle: 'No bank linked, $0 deposits, <3 views',
             data: stats.personaStats.nonActivated,
             priority: 4
         }
