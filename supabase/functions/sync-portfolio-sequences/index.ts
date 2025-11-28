@@ -428,72 +428,19 @@ serve(async (req) => {
           })
         }
 
-        // CHANGE DETECTION: Check for existing records to avoid unnecessary DB writes
-        // This optimization reduces DB load by 60-90% on incremental syncs
-        let eventsToInsert = rawEventRows
-        let skippedDuplicates = 0
-
+        // Insert batch to database - PostgreSQL handles deduplication via unique constraint
+        // Unique index: idx_event_sequences_raw_portfolio_unique (user_id, event_time, portfolio_ticker)
         try {
-          // Build composite keys for checking existence
-          // Format: "user_id|event_time|portfolio_ticker"
-          const compositeKeys = rawEventRows.map(row =>
-            `${row.user_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}`
-          )
-
-          // Fetch existing records using the same conflict key as upsert
-          // This matches the database unique constraint: (user_id, event_time, portfolio_ticker)
-          const userIds = [...new Set(rawEventRows.map(r => r.user_id))]
-          const minEventTime = rawEventRows.reduce((min, r) => r.event_time < min ? r.event_time : min, rawEventRows[0].event_time)
-          const maxEventTime = rawEventRows.reduce((max, r) => r.event_time > max ? r.event_time : max, rawEventRows[0].event_time)
-
-          const { data: existingRecords, error: fetchError } = await supabase
-            .from('event_sequences_raw')
-            .select('user_id, event_time, portfolio_ticker')
-            .in('user_id', userIds)
-            .gte('event_time', minEventTime)
-            .lte('event_time', maxEventTime)
-
-          if (fetchError) {
-            // On fetch error, fall back to inserting all records (safe fallback)
-            console.warn(`  ⚠️ Change detection fetch failed, inserting all records as fallback:`, fetchError.message)
-          } else if (existingRecords && existingRecords.length > 0) {
-            // Build set of existing composite keys for fast lookup
-            const existingKeys = new Set(
-              existingRecords.map(r =>
-                `${r.user_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}`
-              )
-            )
-
-            // Filter out records that already exist
-            eventsToInsert = rawEventRows.filter((row, idx) => {
-              const exists = existingKeys.has(compositeKeys[idx])
-              if (exists) skippedDuplicates++
-              return !exists
-            })
-
-            if (skippedDuplicates > 0) {
-              console.log(`  📊 Change detection: ${skippedDuplicates} duplicates skipped, ${eventsToInsert.length} new records to insert`)
-            }
-          }
-        } catch (changeDetectionError) {
-          // On any error, fall back to inserting all records (safe fallback)
-          console.warn(`  ⚠️ Change detection error, inserting all records as fallback:`, changeDetectionError)
-          eventsToInsert = rawEventRows
-        }
-
-        // Insert batch to database (only new records if change detection succeeded)
-        try {
-          if (eventsToInsert.length === 0) {
-            console.log(`  ✓ All ${rawEventRows.length} events already exist (skipped)`)
+          if (rawEventRows.length === 0) {
+            console.log(`  ✓ No events in batch`)
             return
           }
 
           const { error: insertError } = await supabase
             .from('event_sequences_raw')
-            .upsert(eventsToInsert, {
-              onConflict: 'user_id,event_time,portfolio_ticker',
-              ignoreDuplicates: true
-            })
+            .insert(rawEventRows)
+            .onConflict('user_id,event_time,portfolio_ticker')
+            .ignoreDuplicates()  // PostgreSQL silently ignores duplicate events
 
           if (insertError) {
             const errorCode = insertError.code || insertError.error_code || ''
@@ -506,15 +453,12 @@ serve(async (req) => {
 
             // For other errors, log details and throw
             console.error(`❌ Error inserting batch:`, insertError)
-            console.error('   Sample record:', JSON.stringify(eventsToInsert[0]))
+            console.error('   Sample record:', JSON.stringify(rawEventRows[0]))
             throw insertError
           }
 
-          totalInserted += eventsToInsert.length
-          const efficiency = skippedDuplicates > 0
-            ? ` (${Math.round((skippedDuplicates / rawEventRows.length) * 100)}% duplicates skipped)`
-            : ''
-          console.log(`  ✓ Inserted ${eventsToInsert.length} events (${totalInserted} total) at ${elapsedSeconds}s${efficiency}`)
+          totalInserted += rawEventRows.length
+          console.log(`  ✓ Processed ${rawEventRows.length} events (${totalInserted} total processed) at ${elapsedSeconds}s`)
         } catch (err: any) {
           const errorCode = err?.code || err?.message
 
