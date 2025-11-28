@@ -1105,8 +1105,7 @@ function displaySummaryStatsInline(stats) {
         ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px'],
         ['Link Bank Rate', stats.linkBankConversion != null ? `${stats.linkBankConversion.toFixed(1)}%` : 'N/A', '18px'],
         ['Deposit Rate', stats.depositConversion != null ? `${stats.depositConversion.toFixed(1)}%` : 'N/A', '18px'],
-        ['Copy Rate', stats.firstCopyConversion != null ? `${stats.firstCopyConversion.toFixed(1)}%` : 'N/A', '18px'],
-        ['Subscription Rate', stats.subscriptionConversion != null ? `${stats.subscriptionConversion.toFixed(1)}%` : 'N/A', '18px']
+        ['Copy Rate', stats.firstCopyConversion != null ? `${stats.firstCopyConversion.toFixed(1)}%` : 'N/A', '18px']
     ];
 
     metrics.forEach(([title, content, size]) => {
