@@ -468,16 +468,8 @@ class SupabaseIntegration {
                 creatorProcessData = { stats: { failed: true, skipped: true } };
             }
 
-            // Refresh main_analysis view after all source tables and processing are complete
-            // (subscribers_insights + user_portfolio_creator_engagement + all engagement processing)
-            console.log('→ Refreshing main_analysis materialized view...');
-            try {
-                await this.supabase.rpc('refresh_main_analysis');
-                console.log('  ✓ main_analysis refreshed');
-            } catch (refreshError) {
-                console.warn('  ⚠ Failed to refresh main_analysis:', refreshError.message);
-            }
-
+            // Note: main_analysis refresh moved to Step 4 (after all data sync, before analysis)
+            // This ensures all materialized views refresh together in correct dependency order
             console.log('✅ Mixpanel Sync: Complete');
 
             // Invalidate all cached queries since data has been refreshed

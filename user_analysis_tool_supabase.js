@@ -229,66 +229,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
             this.updateProgress(35, 'Step 1/5: Complete');
 
-            // Step 2: Analyze behavioral drivers (requires user data from Step 1) - starts at 35%, completes at 42%
-            this.updateProgress(35, 'Step 2/5: Analyzing behavioral drivers...');
-            console.log('\n═══ Step 2: Behavioral Drivers Analysis ═══');
-            try {
-                const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-behavioral-drivers', { body: {} });
-                if (error) {
-                    console.warn('⚠ Step 2: Behavioral Drivers - Failed:', error.message);
-                } else if (data?.success) {
-                    console.log('✅ Step 2: Behavioral Drivers - Complete');
-                    console.log(`   - ${data.stats?.deposit_drivers_count || 0} deposit drivers calculated`);
-                    console.log(`   - ${data.stats?.copy_drivers_count || 0} copy drivers calculated`);
-                    console.log(`   - ${data.stats?.subscription_drivers_count || 0} subscription drivers calculated`);
-                } else {
-                    console.warn('⚠ Step 2: Behavioral Drivers - Failed');
-                }
-                this.updateProgress(42, 'Step 2/5: Complete');
-            } catch (error) {
-                console.warn('⚠ Step 2: Behavioral Drivers - Failed, continuing');
-                this.updateProgress(42, 'Step 2/5: Complete (with errors)');
-            }
-
-            // Step 2a: Analyze summary stats (requires user data from Step 1) - starts at 42%, completes at 45%
-            this.updateProgress(42, 'Step 2a/5: Analyzing summary stats...');
-            console.log('\n═══ Step 2a: Summary Stats Analysis ═══');
-            try {
-                const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-summary-stats', { body: {} });
-                if (error) {
-                    console.warn('⚠ Step 2a: Summary Stats - Failed:', error.message);
-                } else if (data?.success) {
-                    console.log('✅ Step 2a: Summary Stats - Complete');
-                    console.log(`   - ${data.stats?.total_users || 0} total users analyzed`);
-                    console.log(`   - ${data.stats?.premium_users || 0} premium users`);
-                    console.log(`   - ${data.stats?.core_users || 0} core users`);
-                    console.log(`   - Link bank conversion: ${data.stats?.link_bank_conversion?.toFixed(2) || 0}%`);
-                    console.log(`   - First copy conversion: ${data.stats?.first_copy_conversion?.toFixed(2) || 0}%`);
-                } else {
-                    console.warn('⚠ Step 2a: Summary Stats - Failed');
-                }
-                this.updateProgress(45, 'Step 2a/5: Complete');
-            } catch (error) {
-                console.warn('⚠ Step 2a: Summary Stats - Failed, continuing');
-                this.updateProgress(45, 'Step 2a/5: Complete (with errors)');
-            }
-
-            // Step 3: Sync creator data - starts at 45%, completes at 60%
-            this.updateProgress(45, 'Step 3/5: Syncing creator data...');
-            console.log('\n═══ Step 3: Creator Data ═══');
+            // Step 2: Sync creator data - starts at 35%, completes at 50%
+            this.updateProgress(35, 'Step 2/5: Syncing creator data...');
+            console.log('\n═══ Step 2: Creator Data ═══');
             let creatorResult = null;
             try {
                 creatorResult = await this.supabaseIntegration.triggerCreatorSync();
                 console.log('✅ Creator Sync: Complete');
-                this.updateProgress(60, 'Step 3/5: Complete');
+                this.updateProgress(50, 'Step 2/5: Complete');
             } catch (error) {
                 console.warn('⚠ Creator Sync: Failed, continuing with existing data');
-                this.updateProgress(60, 'Step 3/5: Complete (with errors)');
+                this.updateProgress(50, 'Step 2/5: Complete (with errors)');
             }
 
-            // Step 4: Support analysis workflow (Zendesk + Linear) - starts at 60%, completes at 75%
-            this.updateProgress(60, 'Step 4/5: Syncing support data...');
-            console.log('\n═══ Step 4: Support Analysis (Zendesk + Linear) ═══');
+            // Step 3: Support analysis workflow (Zendesk + Linear) - starts at 50%, completes at 65%
+            this.updateProgress(50, 'Step 3/5: Syncing support data...');
+            console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
             try {
                 const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
                 console.log('✅ Support Data Sync: Complete');
@@ -329,9 +285,36 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     await window.cxAnalysis.refresh();
                     console.log('  ✓ 3c: CX Analysis refreshed');
                 }
-                this.updateProgress(75, 'Step 4/5: Complete');
+                this.updateProgress(65, 'Step 3/5: Complete');
             } catch (error) {
                 console.warn('⚠ Support Analysis: Workflow failed, continuing');
+                this.updateProgress(65, 'Step 3/5: Complete (with errors)');
+            }
+
+            // Step 4: Refresh materialized views - starts at 65%, completes at 75%
+            this.updateProgress(65, 'Step 4/5: Refreshing views...');
+            console.log('\n═══ Step 4: Refresh Materialized Views ═══');
+            console.log('Refreshing:');
+            console.log('  1. main_analysis');
+            console.log('  2. portfolio_creator_engagement_metrics');
+            console.log('  3. enriched_support_conversations');
+            console.log('');
+            console.log('Auto-updating regular views:');
+            console.log('  - copy_engagement_summary');
+            console.log('  - subscription_engagement_summary');
+            console.log('  - hidden_gems_portfolios');
+
+            try {
+                const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
+                if (refreshResult?.success) {
+                    console.log('✅ All materialized views refreshed');
+                    this.updateProgress(75, 'Step 4/5: Complete');
+                } else {
+                    console.warn('⚠ Materialized views refresh failed, continuing');
+                    this.updateProgress(75, 'Step 4/5: Complete (with errors)');
+                }
+            } catch (error) {
+                console.warn('⚠ Materialized views refresh failed, continuing');
                 this.updateProgress(75, 'Step 4/5: Complete (with errors)');
             }
 
@@ -339,10 +322,53 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             this.updateProgress(75, 'Step 5/5: Running analysis...');
             console.log('\n═══ Step 5: Analysis Workflows (Parallel) ═══');
 
-            const [eventSeqResult, pricingResult, copyPatternsResult] = await Promise.allSettled([
+            await Promise.allSettled([
+                // Behavioral drivers analysis
+                (async () => {
+                    console.log('→ 5a: Behavioral Drivers (starting in parallel)');
+                    try {
+                        const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-behavioral-drivers', { body: {} });
+                        if (error) {
+                            console.warn('⚠ 5a: Behavioral Drivers - Failed:', error.message);
+                        } else if (data?.success) {
+                            console.log('✅ 5a: Behavioral Drivers - Complete');
+                            console.log(`   - ${data.stats?.deposit_drivers_count || 0} deposit drivers`);
+                            console.log(`   - ${data.stats?.copy_drivers_count || 0} copy drivers`);
+                            console.log(`   - ${data.stats?.subscription_drivers_count || 0} subscription drivers`);
+                        } else {
+                            console.warn('⚠ 5a: Behavioral Drivers - Failed');
+                        }
+                        return { success: data?.success };
+                    } catch (error) {
+                        console.warn('⚠ 5a: Behavioral Drivers - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })(),
+
+                // Summary stats analysis
+                (async () => {
+                    console.log('→ 5b: Summary Stats (starting in parallel)');
+                    try {
+                        const { data, error } = await this.supabaseIntegration.supabase.functions.invoke('analyze-summary-stats', { body: {} });
+                        if (error) {
+                            console.warn('⚠ 5b: Summary Stats - Failed:', error.message);
+                        } else if (data?.success) {
+                            console.log('✅ 5b: Summary Stats - Complete');
+                            console.log(`   - ${data.stats?.total_users || 0} total users analyzed`);
+                            console.log(`   - Link bank: ${data.stats?.link_bank_conversion?.toFixed(2) || 0}%`);
+                            console.log(`   - Copy: ${data.stats?.first_copy_conversion?.toFixed(2) || 0}%`);
+                        } else {
+                            console.warn('⚠ 5b: Summary Stats - Failed');
+                        }
+                        return { success: data?.success };
+                    } catch (error) {
+                        console.warn('⚠ 5b: Summary Stats - Failed, continuing');
+                        return { success: false, error: error.message };
+                    }
+                })(),
                 // Event sequence workflow (Portfolio + Creator - 2 steps: Sync both → Analyze both)
                 (async () => {
-                    console.log('→ 5a: Event Sequences (Portfolio + Creator)');
+                    console.log('→ 5c: Event Sequences (Portfolio + Creator)');
                     try {
                         // Step 1: Sync both portfolio and creator events in parallel
                         console.log('  → Step 1: Syncing portfolio views + creator profile views (parallel)');
@@ -382,79 +408,57 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator analysis failed');
                         }
 
-                        console.log('✅ 5a: Event Sequences (Portfolio + Creator) - Complete');
+                        console.log('✅ 5c: Event Sequences (Portfolio + Creator) - Complete');
                         return { success: true };
                     } catch (error) {
-                        console.warn('⚠ 5a: Event Sequences - Failed, continuing');
+                        console.warn('⚠ 5c: Event Sequences - Failed, continuing');
                         return { success: false, error: error.message };
                     }
                 })(),
 
                 // Subscription price analysis
                 (async () => {
-                    console.log('→ 5b: Subscription Pricing (starting in parallel)');
+                    console.log('→ 5d: Subscription Pricing (starting in parallel)');
                     try {
                         const priceResult = await this.supabaseIntegration.triggerSubscriptionPriceAnalysis();
                         if (priceResult?.success) {
-                            console.log('✅ 5b: Subscription Pricing - Complete');
+                            console.log('✅ 5d: Subscription Pricing - Complete');
                         } else {
-                            console.warn('⚠ 5b: Subscription Pricing - Failed');
+                            console.warn('⚠ 5d: Subscription Pricing - Failed');
                         }
                         return priceResult;
                     } catch (error) {
-                        console.warn('⚠ 5b: Subscription Pricing - Failed, continuing');
+                        console.warn('⚠ 5d: Subscription Pricing - Failed, continuing');
                         return { success: false, error: error.message };
                     }
                 })(),
 
                 // Copy pattern analysis
                 (async () => {
-                    console.log('→ 5c: Copy Pattern Analysis (starting in parallel)');
+                    console.log('→ 5e: Copy Pattern Analysis (starting in parallel)');
                     try {
                         const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
                         if (copyResult?.success) {
-                            console.log('✅ 5c: Copy Pattern Analysis - Complete');
+                            console.log('✅ 5e: Copy Pattern Analysis - Complete');
                         } else {
-                            console.warn('⚠ 5c: Copy Pattern Analysis - Failed');
+                            console.warn('⚠ 5e: Copy Pattern Analysis - Failed');
                         }
                         return copyResult;
                     } catch (error) {
-                        console.warn('⚠ 5c: Copy Pattern Analysis - Failed, continuing');
+                        console.warn('⚠ 5e: Copy Pattern Analysis - Failed, continuing');
                         return { success: false, error: error.message };
                     }
                 })()
             ]);
 
             // Log parallel completion
-            console.log('\n✅ Parallel workflows completed');
-            this.updateProgress(90, 'Step 5/5: Finalizing...');
-
-        } finally {
-            // Refresh materialized views (part of Step 4)
-            console.log('\n═══ Materialized Views ═══');
-            console.log('Refreshing:');
-            console.log('  1. main_analysis');
-            console.log('  2. portfolio_creator_engagement_metrics');
-            console.log('  3. hidden_gems_portfolios');
-            console.log('  4. premium_creator_stock_holdings');
-            console.log('  5. top_stocks_all_premium_creators');
-            console.log('  6. premium_creator_retention_analysis');
-
-            try {
-                const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
-                if (refreshResult?.success) {
-                    console.log('✅ All 6 materialized views refreshed');
-                    this.updateProgress(100, 'Complete!');
-                } else {
-                    console.warn('⚠ Materialized views refresh failed');
-                    this.updateProgress(100, 'Complete!');
-                }
-            } catch (error) {
-                console.warn('⚠ Materialized views refresh failed, continuing');
-                this.updateProgress(100, 'Complete!');
-            }
-
+            console.log('\n✅ All analysis workflows completed');
+            this.updateProgress(100, 'Complete!');
             console.log('\n✅ Sync Live Data: Workflow complete\n');
+        } catch (error) {
+            console.error('❌ Workflow failed:', error);
+            this.updateProgress(100, 'Complete (with errors)');
+            throw error;
         }
 
         return true;
