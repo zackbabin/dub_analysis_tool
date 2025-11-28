@@ -361,21 +361,21 @@ serve(async (req) => {
         let skippedDuplicates = 0
 
         try {
-          // Build composite keys for checking existence
-          // Format: "user_id|event_time|portfolio_ticker|creator_username"
+          // Build composite keys for checking existence (creator events only care about creator_username)
+          // Format: "user_id|event_time|creator_username"
           const compositeKeys = rawEventRows.map(row =>
-            `${row.user_id}|${row.event_time}|${row.portfolio_ticker || 'NULL'}|${row.creator_username || 'NULL'}`
+            `${row.user_id}|${row.event_time}|${row.creator_username || 'NULL'}`
           )
 
           // Fetch existing records using the same conflict key as upsert
-          // This matches the database unique constraint: (user_id, event_time, portfolio_ticker)
+          // This matches the database unique constraint: (user_id, event_time, creator_username)
           const userIds = [...new Set(rawEventRows.map(r => r.user_id))]
           const minEventTime = rawEventRows.reduce((min, r) => r.event_time < min ? r.event_time : min, rawEventRows[0].event_time)
           const maxEventTime = rawEventRows.reduce((max, r) => r.event_time > max ? r.event_time : max, rawEventRows[0].event_time)
 
           const { data: existingRecords, error: fetchError } = await supabase
             .from('event_sequences_raw')
-            .select('user_id, event_time, portfolio_ticker, creator_username')
+            .select('user_id, event_time, creator_username')
             .in('user_id', userIds)
             .gte('event_time', minEventTime)
             .lte('event_time', maxEventTime)
@@ -387,7 +387,7 @@ serve(async (req) => {
             // Build set of existing composite keys for fast lookup
             const existingKeys = new Set(
               existingRecords.map(r =>
-                `${r.user_id}|${r.event_time}|${r.portfolio_ticker || 'NULL'}|${r.creator_username || 'NULL'}`
+                `${r.user_id}|${r.event_time}|${r.creator_username || 'NULL'}`
               )
             )
 
@@ -418,7 +418,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('event_sequences_raw')
             .upsert(eventsToInsert, {
-              onConflict: 'user_id,event_time,portfolio_ticker',
+              onConflict: 'user_id,event_time,creator_username',
               ignoreDuplicates: true
             })
 
