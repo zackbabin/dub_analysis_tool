@@ -708,117 +708,9 @@ function calculateCorrelation(x, y) {
     return denominator === 0 ? 0 : numerator / denominator;
 }
 
-function classifyPersona(user) {
-    const totalPDPViews = (user.regularPDPViews || 0) + (user.premiumPDPViews || 0);
-    const totalCreatorViews = (user.regularCreatorProfileViews || 0) + (user.premiumCreatorProfileViews || 0);
-
-    // HIERARCHICAL PRIORITY ORDER (4 personas)
-    // 1. Premium: Active Premium subscribers
-    if (user.totalSubscriptions >= 1) {
-        return 'premium';
-    }
-
-    // 2. Core: Users with at least 1 copy
-    if (user.totalCopies >= 1) {
-        return 'core';
-    }
-
-    // 3. Activation Targets: Users with no deposits but showing engagement
-    if (user.totalDeposits === 0 &&
-        (totalCreatorViews >= 3 || totalPDPViews >= 3)) {
-        return 'activationTargets';
-    }
-
-    // 4. Non-activated: Users with no bank linked, no deposits, and minimal engagement
-    if (user.hasLinkedBank === 0 &&
-        user.totalDeposits === 0 &&
-        totalPDPViews < 3 &&
-        totalCreatorViews < 3) {
-        return 'nonActivated';
-    }
-
-    return 'unclassified';
-}
-
-function calculateDemographicBreakdown(data, key) {
-    let totalResponses = 0;
-    const counts = data.reduce((acc, d) => {
-        const value = d[key];
-        if (value && typeof value === 'string' && value.trim() !== '') {
-            acc[value] = (acc[value] || 0) + 1;
-            totalResponses++;
-        }
-        return acc;
-    }, {});
-    return { counts, totalResponses };
-}
-
-function calculateSummaryStats(data) {
-    const usersWithLinkedBank = data.filter(d => d.hasLinkedBank === 1).length;
-    const usersWithCopies = data.filter(d => d.totalCopies > 0).length;
-    const usersWithDeposits = data.filter(d => d.totalAchDeposits > 0).length;
-    const usersWithSubscriptions = data.filter(d => d.totalSubscriptions > 0).length;
-
-    const demographicKeys = [
-        'income', 'netWorth', 'investingExperienceYears',
-        'investingActivity', 'investmentType', 'investingObjective',
-        'acquisitionSurvey'
-    ];
-
-    const demographics = {};
-    demographicKeys.forEach(key => {
-        const breakdown = calculateDemographicBreakdown(data, key);
-        demographics[key + 'Breakdown'] = breakdown.counts;
-        demographics[key + 'TotalResponses'] = breakdown.totalResponses;
-    });
-
-    const totalUsers = data.length;
-
-    // Calculate count of users with non-null total deposits (for denominator)
-    const usersWithDepositData = data.filter(d => d.totalDeposits !== null && d.totalDeposits !== undefined).length;
-
-    // Calculate count of users with low deposits for demographic cards (<$1k means strictly less than 1000)
-    const usersWithLowDeposits = data.filter(d => d.totalDeposits !== null && d.totalDeposits < 1000).length;
-    const personaCounts = {
-        premium: 0, core: 0, activationTargets: 0, nonActivated: 0, unclassified: 0
-    };
-
-    data.forEach(user => {
-        const persona = classifyPersona(user);
-        personaCounts[persona] = (personaCounts[persona] || 0) + 1;
-    });
-
-    const personaStats = {
-        premium: {
-            count: personaCounts.premium,
-            percentage: totalUsers > 0 ? (personaCounts.premium / totalUsers) * 100 : 0
-        },
-        core: {
-            count: personaCounts.core,
-            percentage: totalUsers > 0 ? (personaCounts.core / totalUsers) * 100 : 0
-        },
-        activationTargets: {
-            count: personaCounts.activationTargets,
-            percentage: totalUsers > 0 ? (personaCounts.activationTargets / totalUsers) * 100 : 0
-        },
-        nonActivated: {
-            count: personaCounts.nonActivated,
-            percentage: totalUsers > 0 ? (personaCounts.nonActivated / totalUsers) * 100 : 0
-        }
-    };
-
-    return {
-        totalUsers: totalUsers,
-        linkBankConversion: (usersWithLinkedBank / totalUsers) * 100,
-        firstCopyConversion: (usersWithCopies / totalUsers) * 100,
-        depositConversion: (usersWithDeposits / totalUsers) * 100,
-        subscriptionConversion: (usersWithSubscriptions / totalUsers) * 100,
-        usersWithDepositData: usersWithDepositData,
-        usersWithLowDeposits: usersWithLowDeposits,
-        ...demographics,
-        personaStats
-    };
-}
+// Note: classifyPersona and calculateSummaryStats removed - these are now handled server-side
+// by the analyze-summary-stats edge function. Client-side CSV uploads for main_analysis data
+// are no longer supported (manual uploads are only for marketing metrics)
 
 function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData = null) {
     // Accept JSON directly instead of CSV text to avoid redundant parsing
@@ -1275,8 +1167,8 @@ function displayPersonaBreakdownInline(stats) {
         <div class="info-tooltip-content">
             <strong>Persona Definitions:</strong><br><br>
             <strong>Premium:</strong> Users with ≥1 active subscription<br><br>
-            <strong>Core:</strong> Users with ≥1 portfolio copy<br><br>
-            <strong>Activation Targets:</strong> Users with $0 deposits but ≥3 profile views OR ≥3 PDP views<br><br>
+            <strong>Core:</strong> Users with 0 subscriptions and ≥1 portfolio copy<br><br>
+            <strong>Activation Targets:</strong> Users with 0 subscriptions, 0 copies, $0 deposits, but ≥3 profile views OR ≥3 PDP views<br><br>
             <strong>Non-activated:</strong> Users with no bank linked, $0 deposits, and <3 profile views AND <3 PDP views
         </div>
     `;
@@ -1296,13 +1188,13 @@ function displayPersonaBreakdownInline(stats) {
         },
         {
             name: 'Core',
-            subtitle: 'Users with ≥1 portfolio copy',
+            subtitle: '0 subscriptions and ≥1 portfolio copy',
             data: stats.personaStats.core,
             priority: 2
         },
         {
             name: 'Activation Targets',
-            subtitle: '$0 deposits but ≥3 profile views OR ≥3 PDP views',
+            subtitle: '0 subs, 0 copies, $0 deposits, ≥3 views',
             data: stats.personaStats.activationTargets,
             priority: 3
         },

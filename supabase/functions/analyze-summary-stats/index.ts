@@ -175,13 +175,15 @@ function classifyPersona(user: CleanedUser): string {
     return 'premium'
   }
 
-  // 2. Core: Users with at least 1 copy
-  if (user.totalCopies >= 1) {
+  // 2. Core: Users with at least 1 copy and no Premium subscription
+  if (user.totalSubscriptions === 0 && user.totalCopies >= 1) {
     return 'core'
   }
 
-  // 3. Activation Targets: Users with no deposits but showing engagement
-  if (user.totalDeposits === 0 &&
+  // 3. Activation Targets: Users with no subscriptions, no copies, no deposits, but showing engagement
+  if (user.totalSubscriptions === 0 &&
+      user.totalCopies === 0 &&
+      user.totalDeposits === 0 &&
       (totalCreatorViews >= 3 || totalPDPViews >= 3)) {
     return 'activationTargets'
   }
