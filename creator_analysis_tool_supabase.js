@@ -791,6 +791,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             const metricSummary = document.createElement('div');
             metricSummary.className = 'qda-metric-summary';
+            metricSummary.style.gridTemplateColumns = 'repeat(5, 1fr)';  // 5 columns for 5 stocks
 
             topStocks.forEach(stock => {
                 const card = document.createElement('div');
