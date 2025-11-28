@@ -1155,7 +1155,7 @@ function displayPersonaBreakdownInline(stats) {
     const title = document.createElement('h2');
     title.style.marginTop = '1.5rem';
     title.style.marginBottom = '0.5rem';
-    title.innerHTML = `<span class="info-tooltip">Persona Breakdown<span class="info-icon">i</span>
+    title.innerHTML = `Persona Breakdown <span class="info-tooltip"><span class="info-icon">i</span>
         <span class="tooltip-text">
             <strong>Persona Definitions:</strong><br><br>
             <strong>Premium:</strong> Users with ≥1 active subscription<br><br>
