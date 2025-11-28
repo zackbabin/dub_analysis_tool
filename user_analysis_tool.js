@@ -1152,29 +1152,19 @@ function displayPersonaBreakdownInline(stats) {
     resultSection.className = 'qda-result-section';
     resultSection.style.marginTop = '2rem';
 
-    const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-top: 1.5rem; margin-bottom: 0.5rem;';
-
     const title = document.createElement('h2');
-    title.style.cssText = 'margin: 0;';
-    title.textContent = 'Persona Breakdown';
-    titleContainer.appendChild(title);
-
-    const tooltip = document.createElement('div');
-    tooltip.className = 'info-tooltip';
-    tooltip.innerHTML = `
-        <span class="info-icon">ℹ️</span>
-        <div class="info-tooltip-content">
+    title.style.marginTop = '1.5rem';
+    title.style.marginBottom = '0.5rem';
+    title.innerHTML = `<span class="info-tooltip">Persona Breakdown<span class="info-icon">i</span>
+        <span class="tooltip-text">
             <strong>Persona Definitions:</strong><br><br>
             <strong>Premium:</strong> Users with ≥1 active subscription<br><br>
             <strong>Core:</strong> Users with 0 subscriptions and ≥1 portfolio copy<br><br>
             <strong>Activation Targets:</strong> Users with 0 subscriptions, 0 copies, $0 deposits, but ≥3 profile views OR ≥3 PDP views<br><br>
             <strong>Non-activated:</strong> Users with no bank linked, $0 deposits, and <3 profile views AND <3 PDP views
-        </div>
-    `;
-    titleContainer.appendChild(tooltip);
-
-    resultSection.appendChild(titleContainer);
+        </span>
+    </span>`;
+    resultSection.appendChild(title);
 
     const grid = document.createElement('div');
     grid.style.cssText = 'display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 1.5rem;';
