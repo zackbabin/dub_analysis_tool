@@ -1681,25 +1681,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     const cell = document.createElement('td');
                     cell.style.cssText = 'text-align: center; padding: 0.5rem 0.75rem;';
 
-                    if (month === 0) {
-                        // < 1 Month column - show first renewal rate if available
-                        if (cohort.counts.length > 0) {
-                            const rate = (cohort.counts[0] / cohort.first) * 100;
-                            cell.textContent = rate.toFixed(1) + '%';
-                            cell.style.background = this.getRetentionColor(rate);
-                        } else {
-                            cell.textContent = '-';
-                        }
+                    // All months: directly use month as index into counts array
+                    // counts[0] = "< 1 Month", counts[1] = "Month 1", counts[3] = "Month 3", etc.
+                    if (cohort.counts.length > month && cohort.counts[month] !== undefined) {
+                        const rate = (cohort.counts[month] / cohort.first) * 100;
+                        cell.textContent = rate.toFixed(1) + '%';
+                        cell.style.background = this.getRetentionColor(rate);
                     } else {
-                        // Month 1-6
-                        const countIndex = month - 1;
-                        if (cohort.counts.length > countIndex && cohort.counts[countIndex] !== undefined) {
-                            const rate = (cohort.counts[countIndex] / cohort.first) * 100;
-                            cell.textContent = rate.toFixed(1) + '%';
-                            cell.style.background = this.getRetentionColor(rate);
-                        } else {
-                            cell.textContent = '-';
-                        }
+                        cell.textContent = '-';
                     }
 
                     cohortRow.appendChild(cell);
@@ -1790,10 +1779,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Format cohort date to readable format (always shows 1st of month)
      */
     formatCohortDate(dateStr) {
-        const date = new Date(dateStr);
+        // Parse date explicitly to avoid timezone issues
+        // Expected format: "2025-08-01" -> "Aug 1, 2025"
+        const [year, month, day] = dateStr.split('-');
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[date.getMonth()]} 1, ${date.getFullYear()}`;
+        const monthIndex = parseInt(month, 10) - 1; // Month is 1-indexed in the string
+        return `${monthNames[monthIndex]} 1, ${year}`;
     }
 
     /**
