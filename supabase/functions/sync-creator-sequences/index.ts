@@ -345,13 +345,18 @@ serve(async (req) => {
           // Extract creator_username from event properties
           const creatorUsername = event.properties.creatorUsername
 
+          // Skip events without creatorUsername (required for unique constraint)
+          if (!creatorUsername) {
+            continue
+          }
+
           // Store raw event data with user_id and creatorUsername from Export API
           rawEventRows.push({
             user_id: userId,              // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
             portfolio_ticker: null,       // Creator profile views don't have portfolio_ticker
-            creator_username: creatorUsername || null  // For determining uniqueness in analysis
+            creator_username: creatorUsername  // Required for unique constraint
           })
         }
 
