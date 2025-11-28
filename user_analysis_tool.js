@@ -1153,15 +1153,17 @@ function displayPersonaBreakdownInline(stats) {
     resultSection.style.marginTop = '2rem';
 
     const title = document.createElement('h2');
-    title.style.marginTop = '1.5rem';
-    title.style.marginBottom = '0.5rem';
-    title.innerHTML = `Persona Breakdown <span class="info-tooltip"><span class="info-icon">i</span>
+    title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
+    title.innerHTML = `<span class="info-tooltip">Persona Breakdown<span class="info-icon">i</span>
         <span class="tooltip-text">
-            <strong>Persona Definitions:</strong><br><br>
-            <strong>Premium:</strong> Users with ≥1 active subscription<br><br>
-            <strong>Core:</strong> Users with 0 subscriptions and ≥1 portfolio copy<br><br>
-            <strong>Activation Targets:</strong> Users with 0 subscriptions, 0 copies, $0 deposits, but ≥3 profile views OR ≥3 PDP views<br><br>
-            <strong>Non-activated:</strong> Users with no bank linked, $0 deposits, and <3 profile views AND <3 PDP views
+            <strong>Persona Breakdown</strong>
+            User segmentation based on engagement and subscription status.
+            <ul>
+                <li><strong>Premium:</strong> Users with ≥1 active subscription</li>
+                <li><strong>Core:</strong> Users with 0 subscriptions and ≥1 portfolio copy</li>
+                <li><strong>Activation Targets:</strong> Users with 0 subscriptions, 0 copies, $0 deposits, but ≥3 profile views OR ≥3 PDP views</li>
+                <li><strong>Non-activated:</strong> Users with no bank linked, $0 deposits, and <3 profile views AND <3 PDP views</li>
+            </ul>
         </span>
     </span>`;
     resultSection.appendChild(title);
