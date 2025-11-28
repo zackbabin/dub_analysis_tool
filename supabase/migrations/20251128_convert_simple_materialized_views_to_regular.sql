@@ -17,7 +17,7 @@
 -- 1. copy_engagement_summary
 -- =======================
 
--- Drop the materialized view and recreate as regular view
+-- Drop the materialized view and recreate as regular view WITH EXACT SAME SCHEMA
 DROP MATERIALIZED VIEW IF EXISTS copy_engagement_summary CASCADE;
 
 CREATE OR REPLACE VIEW copy_engagement_summary AS
@@ -26,23 +26,11 @@ SELECT
   COUNT(DISTINCT user_id) AS total_users,
   ROUND(AVG(total_profile_views), 2) AS avg_profile_views,
   ROUND(AVG(total_pdp_views), 2) AS avg_pdp_views,
-  -- Get mean/median from event_sequence_metrics for converters only
-  CASE
-    WHEN did_copy = 1 THEN (SELECT mean_unique_creators FROM event_sequence_metrics WHERE id = 1 LIMIT 1)
-    ELSE NULL
-  END AS mean_unique_creators,
-  CASE
-    WHEN did_copy = 1 THEN (SELECT median_unique_creators FROM event_sequence_metrics WHERE id = 1 LIMIT 1)
-    ELSE NULL
-  END AS median_unique_creators,
-  CASE
-    WHEN did_copy = 1 THEN (SELECT mean_unique_portfolios FROM event_sequence_metrics WHERE id = 1 LIMIT 1)
-    ELSE NULL
-  END AS mean_unique_portfolios,
-  CASE
-    WHEN did_copy = 1 THEN (SELECT median_unique_portfolios FROM event_sequence_metrics WHERE id = 1 LIMIT 1)
-    ELSE NULL
-  END AS median_unique_portfolios
+  -- Event sequence metrics (only for did_copy=1, from analyze-portfolio-sequences and analyze-creator-sequences)
+  CASE WHEN did_copy = 1 THEN (SELECT mean_unique_creators FROM event_sequence_metrics WHERE id = 1 LIMIT 1) ELSE NULL END AS mean_unique_creators,
+  CASE WHEN did_copy = 1 THEN (SELECT median_unique_creators FROM event_sequence_metrics WHERE id = 1 LIMIT 1) ELSE NULL END AS median_unique_creators,
+  CASE WHEN did_copy = 1 THEN (SELECT mean_unique_portfolios FROM event_sequence_metrics WHERE id = 1 LIMIT 1) ELSE NULL END AS mean_unique_portfolios,
+  CASE WHEN did_copy = 1 THEN (SELECT median_unique_portfolios FROM event_sequence_metrics WHERE id = 1 LIMIT 1) ELSE NULL END AS median_unique_portfolios
 FROM main_analysis
 GROUP BY did_copy;
 
@@ -57,7 +45,7 @@ COMMENT ON VIEW copy_engagement_summary IS
 -- 2. subscription_engagement_summary
 -- =======================
 
--- Drop the materialized view and recreate as regular view
+-- Drop the materialized view and recreate as regular view WITH EXACT SAME SCHEMA
 DROP MATERIALIZED VIEW IF EXISTS subscription_engagement_summary CASCADE;
 
 CREATE OR REPLACE VIEW subscription_engagement_summary AS
@@ -82,26 +70,27 @@ COMMENT ON VIEW subscription_engagement_summary IS
 -- 3. hidden_gems_portfolios
 -- =======================
 
--- Drop the materialized view and recreate as regular view
+-- Drop the materialized view and recreate as regular view WITH EXACT SAME SCHEMA FROM 20251127_recreate_hidden_gems_portfolios.sql
 DROP MATERIALIZED VIEW IF EXISTS hidden_gems_portfolios CASCADE;
 
 CREATE OR REPLACE VIEW hidden_gems_portfolios AS
 SELECT
-  portfolio_ticker,
-  creator_id,
-  creator_username,
-  unique_viewers,
-  total_pdp_views,
-  unique_copiers,
-  total_copies,
-  ROUND((unique_viewers::NUMERIC / NULLIF(unique_copiers, 0)), 2) as viewers_to_copiers_ratio,
-  conversion_rate_pct
+    portfolio_ticker,
+    creator_id,
+    creator_username,
+    unique_viewers,
+    total_pdp_views,
+    total_copies,
+    copy_conversion_rate,
+    CASE
+        WHEN total_copies > 0 THEN ROUND((unique_viewers::NUMERIC / total_copies::NUMERIC), 2)
+        ELSE NULL::NUMERIC
+    END AS viewer_copier_ratio
 FROM portfolio_creator_engagement_metrics
-WHERE unique_viewers >= 10
-  AND unique_copiers > 0
-  AND (unique_viewers::NUMERIC / NULLIF(unique_copiers, 0)) >= 5
-  AND unique_copiers <= 100
-ORDER BY unique_viewers DESC;
+WHERE unique_viewers >= 5
+    AND total_copies < 100
+    AND unique_viewers >= (total_copies * 5)
+ORDER BY total_pdp_views DESC;
 
 -- Grant permissions
 GRANT SELECT ON hidden_gems_portfolios TO service_role, authenticated, anon;
