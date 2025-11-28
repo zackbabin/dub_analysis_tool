@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=157"></script>
+    <script src="csv_utils.js?v=158"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=157"></script>
+    <script src="analysis_utils.js?v=158"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=157"></script>
+    <script src="supabase_integration.js?v=158"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=157"></script>
+    <script src="user_analysis_tool.js?v=158"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=157"></script>
+    <script src="user_analysis_tool_supabase.js?v=158"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=157"></script>
+    <script src="creator_analysis_tool.js?v=158"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=157"></script>
+    <script src="creator_analysis_tool_supabase.js?v=158"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=157"></script>
+    <script src="business-model-analysis.js?v=158"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=157"></script>
+    <script src="crypto-analysis.js?v=158"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=157"></script>
+    <script src="cx-analysis.js?v=158"></script>
 
     <script>
         // Supabase Configuration
@@ -129,7 +129,6 @@
                         <div style="display: flex; gap: 10px; flex-shrink: 0;">
                             <button id="syncLiveDataBtn" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Sync Live Data</button>
                             <button id="manualUploadBtn" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Upload Data</button>
-                            <button id="refreshDataBtn" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background 0.2s;">Refresh Data</button>
                         </div>
                         <!-- Progress bar - to the right, fills remaining space -->
                         <div id="unifiedProgressSection" style="display: none; flex: 1; min-width: 0;">
@@ -147,7 +146,6 @@
 
             const syncBtn = document.getElementById('syncLiveDataBtn');
             const uploadBtn = document.getElementById('manualUploadBtn');
-            const refreshBtn = document.getElementById('refreshDataBtn');
 
             // Hover effects for sync button
             const syncHoverIn = () => {
@@ -173,21 +171,10 @@
                 }
             };
 
-            // Hover effects for refresh button
-            const refreshHoverIn = () => {
-                refreshBtn.style.background = '#138496';
-            };
-            const refreshHoverOut = () => {
-                refreshBtn.style.background = '#17a2b8';
-            };
-
             syncBtn.onmouseover = syncHoverIn;
             syncBtn.onmouseout = syncHoverOut;
             uploadBtn.onmouseover = uploadHoverIn;
             uploadBtn.onmouseout = uploadHoverOut;
-            refreshBtn.onmouseover = refreshHoverIn;
-            refreshBtn.onmouseout = refreshHoverOut;
-            refreshBtn.onclick = window.refreshAllTabs;
 
             return { syncBtn, uploadBtn, syncHoverIn, syncHoverOut, uploadHoverIn, uploadHoverOut };
         }
