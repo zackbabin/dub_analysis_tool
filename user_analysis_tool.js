@@ -1046,44 +1046,13 @@ function displayDemographicBreakdownInline(stats) {
                 percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
             }));
 
-        // Special handling for Acquisition Survey: aggregate all "Other" responses
-        if (isAcquisitionSurvey) {
-            const otherItems = dataArray.filter(item =>
-                item.category.toLowerCase().includes('other')
-            );
-            const nonOtherItems = dataArray.filter(item =>
-                !item.category.toLowerCase().includes('other')
-            );
-
-            if (otherItems.length > 0) {
-                // Calculate total count and percentage for all "Other" items
-                const totalOtherCount = otherItems.reduce((sum, item) => sum + item.count, 0);
-                const totalOtherPercentage = totalResponses > 0 ? (totalOtherCount / totalResponses) * 100 : 0;
-
-                // Get top 5 "Other" responses by count
-                const sortedOtherItems = [...otherItems].sort((a, b) => b.count - a.count);
-                const top5Other = sortedOtherItems.slice(0, 5).map(item => {
-                    // Extract the actual response text after "Other - "
-                    const match = item.category.match(/Other\s*-\s*(.+)/i);
-                    return match ? match[1].trim() : item.category;
-                });
-
-                // Create aggregated "Other" row
-                const aggregatedOther = {
-                    category: `Other - ${top5Other.join(', ')}`,
-                    count: totalOtherCount,
-                    percentage: totalOtherPercentage
-                };
-
-                // Combine non-Other items with aggregated Other
-                dataArray = [...nonOtherItems, aggregatedOther];
-            }
-
-            // Filter out items with less than 0.1% for Acquisition Survey
-            dataArray = dataArray.filter(item => item.percentage >= 0.1);
-        }
-
+        // Sort by percentage descending
         dataArray.sort((a, b) => b.percentage - a.percentage);
+
+        // Special handling for Acquisition Survey: show only top 5 responses
+        if (isAcquisitionSurvey) {
+            dataArray = dataArray.slice(0, 5);
+        }
 
         // Use DocumentFragment to batch DOM insertions
         const fragment = document.createDocumentFragment();
