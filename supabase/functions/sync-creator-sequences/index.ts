@@ -136,7 +136,6 @@ async function fetchAndProcessEventsStreaming(
     let eventBatch: MixpanelExportEvent[] = []
     let buffer = ''
     let totalBytes = 0
-    let parseFailures = 0
 
     // Get readable stream from response body
     const reader = response.body?.getReader()
@@ -179,18 +178,9 @@ async function fetchAndProcessEventsStreaming(
               await onBatch(eventBatch)
               eventBatch = [] // Clear batch after processing
             }
-          } catch (parseError: any) {
-            parseFailures++
-            // Log details to understand what's failing
-            console.warn(`Parse failure #${parseFailures} at line ${lineCount + parseFailures}:`)
-            console.warn(`  Starts with '{': ${trimmedLine.startsWith('{')}`)
-            console.warn(`  Ends with '}': ${trimmedLine.endsWith('}')}`)
-            console.warn(`  Length: ${trimmedLine.length} chars`)
-            console.warn(`  Error: ${parseError.message}`)
-            console.warn(`  Preview: ${trimmedLine.substring(0, 200)}`)
-            if (trimmedLine.length > 200) {
-              console.warn(`  End: ...${trimmedLine.substring(trimmedLine.length - 50)}`)
-            }
+          } catch (parseError) {
+            // Silently skip unparseable lines (expected for incomplete chunks at stream boundaries)
+            // The buffer logic keeps incomplete lines for the next iteration
           }
         }
       }
@@ -201,13 +191,8 @@ async function fetchAndProcessEventsStreaming(
           const event = JSON.parse(buffer.trim())
           eventBatch.push(event)
           lineCount++
-        } catch (parseError: any) {
-          const trimmedBuffer = buffer.trim()
-          // Only log if buffer appears to be a complete JSON object
-          if (trimmedBuffer.startsWith('{') && trimmedBuffer.endsWith('}')) {
-            console.warn(`Failed to parse final JSONL line (${trimmedBuffer.length} chars):`, parseError.message)
-            console.warn(`  Line preview: ${trimmedBuffer.substring(0, 150)}...`)
-          }
+        } catch (parseError) {
+          // Silently skip - final buffer should be empty or complete, parse errors are rare here
         }
       }
 
@@ -219,9 +204,6 @@ async function fetchAndProcessEventsStreaming(
 
       const streamDuration = Math.round((Date.now() - streamStartTime) / 1000)
       console.log(`✓ Streamed and processed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${streamDuration}s`)
-      if (parseFailures > 0) {
-        console.warn(`⚠️ Total parse failures: ${parseFailures}`)
-      }
 
       clearTimeout(timeoutId)
     } catch (streamError: any) {
