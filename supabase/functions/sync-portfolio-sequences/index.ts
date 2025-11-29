@@ -420,12 +420,20 @@ serve(async (req) => {
             continue
           }
 
+          // Extract portfolio_ticker from event properties
+          const portfolioTicker = event.properties.portfolioTicker
+
+          // Skip events without portfolioTicker - not useful for analysis
+          if (!portfolioTicker) {
+            continue
+          }
+
           // Store raw event data with user_id from Export API
           rawEventRows.push({
             user_id: userId,          // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
-            portfolio_ticker: event.properties.portfolioTicker || null
+            portfolio_ticker: portfolioTicker
           })
         }
 
