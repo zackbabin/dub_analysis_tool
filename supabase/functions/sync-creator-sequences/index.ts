@@ -136,6 +136,7 @@ async function fetchAndProcessEventsStreaming(
     let eventBatch: MixpanelExportEvent[] = []
     let buffer = ''
     let totalBytes = 0
+    let parseFailures = 0
 
     // Get readable stream from response body
     const reader = response.body?.getReader()
@@ -179,11 +180,16 @@ async function fetchAndProcessEventsStreaming(
               eventBatch = [] // Clear batch after processing
             }
           } catch (parseError: any) {
-            // Skip unparseable lines silently - these are typically incomplete JSON from stream boundaries
-            // Only log if line appears to be a complete JSON object (starts with { and ends with })
-            if (trimmedLine.startsWith('{') && trimmedLine.endsWith('}')) {
-              console.warn(`Failed to parse complete JSONL line (${trimmedLine.length} chars):`, parseError.message)
-              console.warn(`  Line preview: ${trimmedLine.substring(0, 150)}...`)
+            parseFailures++
+            // Log details to understand what's failing
+            console.warn(`Parse failure #${parseFailures} at line ${lineCount + parseFailures}:`)
+            console.warn(`  Starts with '{': ${trimmedLine.startsWith('{')}`)
+            console.warn(`  Ends with '}': ${trimmedLine.endsWith('}')}`)
+            console.warn(`  Length: ${trimmedLine.length} chars`)
+            console.warn(`  Error: ${parseError.message}`)
+            console.warn(`  Preview: ${trimmedLine.substring(0, 200)}`)
+            if (trimmedLine.length > 200) {
+              console.warn(`  End: ...${trimmedLine.substring(trimmedLine.length - 50)}`)
             }
           }
         }
@@ -213,6 +219,9 @@ async function fetchAndProcessEventsStreaming(
 
       const streamDuration = Math.round((Date.now() - streamStartTime) / 1000)
       console.log(`✓ Streamed and processed ${lineCount} events (${Math.round(totalBytes / 1024 / 1024)}MB) in ${streamDuration}s`)
+      if (parseFailures > 0) {
+        console.warn(`⚠️ Total parse failures: ${parseFailures}`)
+      }
 
       clearTimeout(timeoutId)
     } catch (streamError: any) {
