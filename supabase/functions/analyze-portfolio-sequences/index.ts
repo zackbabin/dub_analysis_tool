@@ -3,7 +3,7 @@
 // Claude calculates average unique portfolio views before first copy
 //
 // Data sources:
-//   - event_sequences: View joining event_sequences_raw + user_first_copies (complete event history)
+//   - portfolio_sequences: View joining portfolio_sequences_raw + user_first_copies (complete event history)
 //   - user_first_copies: 250 most recent users who copied at least once
 //
 // No pre-aggregation - Claude analyzes raw events directly
@@ -81,7 +81,7 @@ serve(async (req) => {
      * // Filter to events BEFORE first copy using SQL
      * console.log('Fetching portfolio view events before first copy (SQL filtered)...')
      * const { data: viewsBeforeCopy, error: viewsError } = await supabase
-     *   .from('event_sequences')
+     *   .from('portfolio_sequences')
      *   .select('user_id, event_time, portfolio_ticker, first_copy_time')
      *   .not('first_copy_time', 'is', null)
      *   .eq('event_name', 'Viewed Portfolio Details')

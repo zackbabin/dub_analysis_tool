@@ -356,13 +356,12 @@ serve(async (req) => {
             user_id: userId,              // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
-            portfolio_ticker: null,       // Creator profile views don't have portfolio_ticker
             creator_username: creatorUsername
           })
         }
 
         // Insert batch to database - PostgreSQL handles deduplication via unique constraint
-        // Unique index: idx_event_sequences_raw_creator_unique (user_id, event_time, creator_username)
+        // Unique index: idx_creator_sequences_raw_unique (user_id, event_time, creator_username)
         try {
           if (rawEventRows.length === 0) {
             console.log(`  ✓ No events in batch`)
@@ -370,7 +369,7 @@ serve(async (req) => {
           }
 
           const { error: insertError } = await supabase
-            .from('event_sequences_raw')
+            .from('creator_sequences_raw')
             .insert(rawEventRows)
             .onConflict('user_id,event_time,creator_username')
             .ignoreDuplicates()  // PostgreSQL silently ignores duplicate events
@@ -496,7 +495,7 @@ serve(async (req) => {
         )
       }
 
-      console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
+      console.log(`✅ Inserted ${totalInserted} raw events to creator_sequences_raw`)
 
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)

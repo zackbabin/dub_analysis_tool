@@ -438,7 +438,7 @@ serve(async (req) => {
         }
 
         // Insert batch to database - PostgreSQL handles deduplication via unique constraint
-        // Unique index: idx_event_sequences_raw_portfolio_unique (user_id, event_time, portfolio_ticker)
+        // Unique index: idx_portfolio_sequences_raw_unique (user_id, event_time, portfolio_ticker)
         try {
           if (rawEventRows.length === 0) {
             console.log(`  ✓ No events in batch`)
@@ -446,7 +446,7 @@ serve(async (req) => {
           }
 
           const { error: insertError } = await supabase
-            .from('event_sequences_raw')
+            .from('portfolio_sequences_raw')
             .insert(rawEventRows)
             .onConflict('user_id,event_time,portfolio_ticker')
             .ignoreDuplicates()  // PostgreSQL silently ignores duplicate events
@@ -573,9 +573,9 @@ serve(async (req) => {
         )
       }
 
-      console.log(`✅ Inserted ${totalInserted} raw events to event_sequences_raw`)
+      console.log(`✅ Inserted ${totalInserted} raw events to portfolio_sequences_raw`)
 
-      // Note: user_id is available via event_sequences view (joins with user_first_copies)
+      // Note: user_id is available via portfolio_sequences view (joins with user_first_copies)
 
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
