@@ -1046,6 +1046,32 @@ function displayDemographicBreakdownInline(stats) {
                 percentage: totalResponses > 0 ? (data[category] / totalResponses) * 100 : 0
             }));
 
+        // Special handling for Acquisition Survey: aggregate all "Other" responses
+        if (isAcquisitionSurvey) {
+            const otherItems = dataArray.filter(item =>
+                item.category.toLowerCase().includes('other')
+            );
+            const nonOtherItems = dataArray.filter(item =>
+                !item.category.toLowerCase().includes('other')
+            );
+
+            if (otherItems.length > 0) {
+                // Calculate total count and percentage for all "Other" items
+                const totalOtherCount = otherItems.reduce((sum, item) => sum + item.count, 0);
+                const totalOtherPercentage = totalResponses > 0 ? (totalOtherCount / totalResponses) * 100 : 0;
+
+                // Create aggregated "Other" row
+                const aggregatedOther = {
+                    category: 'Other',
+                    count: totalOtherCount,
+                    percentage: totalOtherPercentage
+                };
+
+                // Combine non-Other items with aggregated Other
+                dataArray = [...nonOtherItems, aggregatedOther];
+            }
+        }
+
         // Sort by percentage descending
         dataArray.sort((a, b) => b.percentage - a.percentage);
 
