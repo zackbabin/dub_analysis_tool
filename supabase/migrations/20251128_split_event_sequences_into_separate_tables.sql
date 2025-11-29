@@ -44,16 +44,16 @@ ON creator_sequences_raw(event_time);
 
 -- Migrate existing data from event_sequences_raw
 -- Portfolio events (where portfolio_ticker IS NOT NULL)
-INSERT INTO portfolio_sequences_raw (user_id, event_name, event_time, portfolio_ticker, created_at)
-SELECT user_id, event_name, event_time, portfolio_ticker, created_at
+INSERT INTO portfolio_sequences_raw (user_id, event_name, event_time, portfolio_ticker)
+SELECT user_id, event_name, event_time, portfolio_ticker
 FROM event_sequences_raw
-WHERE event_name = 'Viewed Portfolio Details' 
+WHERE event_name = 'Viewed Portfolio Details'
   AND portfolio_ticker IS NOT NULL
 ON CONFLICT (user_id, event_time, portfolio_ticker) DO NOTHING;
 
 -- Creator events (where creator_username IS NOT NULL)
-INSERT INTO creator_sequences_raw (user_id, event_name, event_time, creator_username, created_at)
-SELECT user_id, event_name, event_time, creator_username, created_at
+INSERT INTO creator_sequences_raw (user_id, event_name, event_time, creator_username)
+SELECT user_id, event_name, event_time, creator_username
 FROM event_sequences_raw
 WHERE event_name = 'Viewed Creator Profile'
   AND creator_username IS NOT NULL
