@@ -8,8 +8,7 @@ CREATE TABLE IF NOT EXISTS portfolio_sequences_raw (
   user_id text NOT NULL,
   event_name text NOT NULL,
   event_time timestamptz NOT NULL,
-  portfolio_ticker text NOT NULL,
-  created_at timestamptz DEFAULT now()
+  portfolio_ticker text NOT NULL
 );
 
 -- Create creator_sequences_raw table
@@ -18,8 +17,7 @@ CREATE TABLE IF NOT EXISTS creator_sequences_raw (
   user_id text NOT NULL,
   event_name text NOT NULL,
   event_time timestamptz NOT NULL,
-  creator_username text NOT NULL,
-  created_at timestamptz DEFAULT now()
+  creator_username text NOT NULL
 );
 
 -- Create unique indexes
