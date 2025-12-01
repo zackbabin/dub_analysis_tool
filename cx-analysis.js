@@ -90,9 +90,10 @@ class CXAnalysis {
         this.container.appendChild(resultsDiv);
 
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Use the actual analysis created_at timestamp (consistent with other tabs)
-        const analysisTime = data.created_at ? new Date(data.created_at) : new Date();
-        const formattedTimestamp = analysisTime.toLocaleString('en-US', {
+        // Use sync_logs table to get actual support analysis sync time (consistent with other tabs)
+        const supportSyncTime = await this.supabaseIntegration.getLastSupportAnalysisSyncTime();
+        const displayTime = supportSyncTime || new Date(); // Fallback to current time if no sync found
+        const formattedTimestamp = displayTime.toLocaleString('en-US', {
             month: 'numeric',
             day: 'numeric',
             year: 'numeric',

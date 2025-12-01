@@ -167,6 +167,35 @@ class SupabaseIntegration {
     }
 
     /**
+     * Get last successful support analysis sync timestamp from sync_logs table
+     * Used for displaying "Data as of:" timestamp on CX Analysis tab
+     * @returns {Promise<Date|null>} - Last sync time or null if no sync found
+     */
+    async getLastSupportAnalysisSyncTime() {
+        try {
+            const { data, error } = await this.supabase
+                .from('sync_logs')
+                .select('sync_completed_at')
+                .eq('source', 'support')
+                .eq('data_type', 'support_analysis')
+                .eq('sync_status', 'completed')
+                .order('sync_completed_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error || !data || !data.sync_completed_at) {
+                console.warn('No support analysis sync time found:', error);
+                return null;
+            }
+
+            return new Date(data.sync_completed_at);
+        } catch (error) {
+            console.warn('Failed to get support analysis sync time:', error);
+            return null;
+        }
+    }
+
+    /**
      * UNIVERSAL RESILIENT DATA LOADING PATTERN
      * Use this for ALL sections across User Analysis, Creator Analysis, and Summary tabs
      *
