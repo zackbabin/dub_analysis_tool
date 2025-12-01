@@ -894,14 +894,17 @@ class SupabaseIntegration {
             });
 
             if (error) {
+                // Check if it's a timeout/network error (function still running)
+                if (error.message?.includes('Failed to send a request') || error.message?.includes('fetch')) {
+                    console.log('⏱️ Portfolio sequences sync running (browser timeout)');
+                    return { success: true, timeout: true };
+                }
                 console.error('Edge Function error:', error);
-                // Don't throw - return error so analysis can still run
                 return { success: false, error: error.message };
             }
 
             if (!data.success) {
                 console.error('Sync failed:', data.error);
-                // Don't throw - return error so analysis can still run
                 return { success: false, error: data.error || 'Unknown error during portfolio sequences sync' };
             }
 
@@ -913,8 +916,12 @@ class SupabaseIntegration {
 
             return data;
         } catch (error) {
+            // Check if it's a timeout/network error (function still running)
+            if (error.message?.includes('Failed to send a request') || error.message?.includes('fetch')) {
+                console.log('⏱️ Portfolio sequences sync running (browser timeout)');
+                return { success: true, timeout: true };
+            }
             console.error('Error calling portfolio sequences sync Edge Function:', error);
-            // Don't throw - return error so analysis can still run
             return { success: false, error: error.message };
         }
     }
@@ -934,14 +941,17 @@ class SupabaseIntegration {
             });
 
             if (error) {
+                // Check if it's a timeout/network error (function still running)
+                if (error.message?.includes('Failed to send a request') || error.message?.includes('fetch') || error.message?.includes('non-2xx status')) {
+                    console.log('⏱️ Creator sequences sync running (browser timeout)');
+                    return { success: true, timeout: true };
+                }
                 console.error('Edge Function error:', error);
-                // Don't throw - return error so analysis can still run
                 return { success: false, error: error.message };
             }
 
             if (!data.success) {
                 console.error('Sync failed:', data.error);
-                // Don't throw - return error so analysis can still run
                 return { success: false, error: data.error || 'Unknown error during creator sequences sync' };
             }
 
@@ -953,8 +963,12 @@ class SupabaseIntegration {
 
             return data;
         } catch (error) {
+            // Check if it's a timeout/network error (function still running)
+            if (error.message?.includes('Failed to send a request') || error.message?.includes('fetch') || error.message?.includes('non-2xx status')) {
+                console.log('⏱️ Creator sequences sync running (browser timeout)');
+                return { success: true, timeout: true };
+            }
             console.error('Error calling creator sequences sync Edge Function:', error);
-            // Don't throw - return error so analysis can still run
             return { success: false, error: error.message };
         }
     }
@@ -1289,31 +1303,42 @@ class SupabaseIntegration {
             const { data: portfolioData, error: portfolioError } = portfolioResult;
             const { data: creatorData, error: creatorError } = creatorResult;
 
+            // Handle portfolio analysis timeout/errors
             if (portfolioError) {
-                console.error('Portfolio copy analysis error:', portfolioError);
-                throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
+                if (portfolioError.message?.includes('Failed to send a request') || portfolioError.message?.includes('fetch')) {
+                    console.log('⏱️ Portfolio copy analysis running (browser timeout)');
+                } else {
+                    console.error('Portfolio copy analysis error:', portfolioError);
+                    throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
+                }
+            } else {
+                console.log('✅ Portfolio copy analysis completed:', portfolioData);
             }
 
+            // Handle creator analysis timeout/errors
             if (creatorError) {
-                console.error('Creator copy analysis error:', creatorError);
-                throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
+                if (creatorError.message?.includes('Failed to send a request') || creatorError.message?.includes('fetch')) {
+                    console.log('⏱️ Creator copy analysis running (browser timeout)');
+                } else {
+                    console.error('Creator copy analysis error:', creatorError);
+                    throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
+                }
+            } else {
+                console.log('✅ Creator copy analysis completed:', creatorData);
             }
 
-            console.log('✅ Portfolio copy analysis completed:', portfolioData);
-            console.log('✅ Creator copy analysis completed:', creatorData);
-
-            // Return combined results
+            // Return combined results (may have timeouts)
             const data = {
                 success: true,
-                portfolio: portfolioData,
-                creator: creatorData,
+                portfolio: portfolioData || { timeout: true },
+                creator: creatorData || { timeout: true },
                 stats: {
                     portfolio: portfolioData?.stats,
                     creator: creatorData?.stats
                 }
             };
 
-            console.log('✅ Copy analysis completed successfully:', data.stats);
+            console.log('✅ Copy analysis completed:', data.stats);
             return data;
         } catch (error) {
             console.error('Error calling copy analysis Edge Function:', error);
