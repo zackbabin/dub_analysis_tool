@@ -494,7 +494,7 @@ serve(async (req) => {
 
     for (const pair of pairRows) {
       const entityId = config.entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
-      const viewCount = pair[filterColumn] || 0
+      const viewCount = pair[config.filterColumn] || 0
       const userId = pair.user_id
 
       // Build view count map for this entity
