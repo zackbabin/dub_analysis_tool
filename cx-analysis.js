@@ -90,11 +90,11 @@ class CXAnalysis {
         this.container.appendChild(resultsDiv);
 
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Use current time to show when the data was last refreshed (similar to User/Creator tools)
-        const currentTime = new Date();
-        const formattedTimestamp = currentTime.toLocaleString('en-US', {
-            month: '2-digit',
-            day: '2-digit',
+        // Use the actual analysis created_at timestamp (consistent with other tabs)
+        const analysisTime = data.created_at ? new Date(data.created_at) : new Date();
+        const formattedTimestamp = analysisTime.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
             year: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
