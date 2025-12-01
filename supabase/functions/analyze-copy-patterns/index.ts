@@ -123,7 +123,8 @@ function fitLogisticRegression(
 function evaluateCombination(
   combination: string[],
   users: UserData[],
-  pairRows: any[],
+  entityViewMaps: Map<string, Map<string, number>>,  // Pre-computed: entityId -> (userId -> viewCount)
+  userCopiesMap: Map<string, number>,                // Pre-computed: userId -> copyCount
   entityType: string,
   filterColumn: string
 ): CombinationResult {
@@ -186,43 +187,18 @@ function evaluateCombination(
   const lift = overallConversionRate > 0 ? conversionRateInGroup / overallConversionRate : 0
 
   // Calculate per-combination metrics for users who viewed BOTH entities
+  // Use pre-computed maps instead of iterating through pairRows
+  const entity1ViewMap = entityViewMaps.get(combination[0]) || new Map()
+  const entity2ViewMap = entityViewMaps.get(combination[1]) || new Map()
+
   let totalViewsEntity1 = 0
   let totalViewsEntity2 = 0
-  const userCopiesMap = new Map<string, number>() // Track copies per user to avoid double-counting
-
-  // Create a lookup map for entity views to avoid O(n) lookups
-  const entity1Rows = new Map<string, number>() // user_id -> view_count for entity 1
-  const entity2Rows = new Map<string, number>() // user_id -> view_count for entity 2
-
-  for (const pair of pairRows) {
-    const entityId = entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
-    const viewCount = pair[filterColumn] || 0
-
-    // Build lookup maps for both entities
-    if (entityId === combination[0]) {
-      entity1Rows.set(pair.user_id, viewCount)
-    }
-    if (entityId === combination[1]) {
-      entity2Rows.set(pair.user_id, viewCount)
-    }
-
-    // Track total copies per user (to avoid double-counting)
-    const copyCount = pair.copy_count || pair.subscription_count || 0
-    if (copyCount > 0) {
-      const currentUserCopies = userCopiesMap.get(pair.user_id) || 0
-      userCopiesMap.set(pair.user_id, Math.max(currentUserCopies, copyCount))
-    }
-  }
-
-  // Now sum views ONLY for users who viewed BOTH entities
-  for (const userId of usersWithBothExposures) {
-    totalViewsEntity1 += (entity1Rows.get(userId) || 0)
-    totalViewsEntity2 += (entity2Rows.get(userId) || 0)
-  }
-
-  // Sum unique user copies (only users who viewed BOTH entities)
   let totalCopies = 0
+
+  // Sum views and copies ONLY for users who viewed BOTH entities
   for (const userId of usersWithBothExposures) {
+    totalViewsEntity1 += (entity1ViewMap.get(userId) || 0)
+    totalViewsEntity2 += (entity2ViewMap.get(userId) || 0)
     totalCopies += (userCopiesMap.get(userId) || 0)
   }
 
@@ -509,6 +485,32 @@ serve(async (req) => {
       )
     }
 
+    // Pre-compute entity view maps and user copies map ONCE (major performance optimization)
+    // This changes complexity from O(combinations × rows) to O(rows) + O(combinations)
+    console.log('Pre-computing entity view maps for fast lookup...')
+    const entityViewMaps = new Map<string, Map<string, number>>()  // entityId -> (userId -> viewCount)
+    const userCopiesMap = new Map<string, number>()                // userId -> copyCount
+
+    for (const pair of pairRows) {
+      const entityId = config.entityType === 'portfolio' ? pair.portfolio_ticker : pair.creator_id
+      const viewCount = pair[filterColumn] || 0
+      const userId = pair.user_id
+
+      // Build view count map for this entity
+      if (!entityViewMaps.has(entityId)) {
+        entityViewMaps.set(entityId, new Map())
+      }
+      entityViewMaps.get(entityId)!.set(userId, viewCount)
+
+      // Track max copies per user (avoid double-counting)
+      const copyCount = pair.copy_count || pair.subscription_count || 0
+      if (copyCount > 0) {
+        const currentUserCopies = userCopiesMap.get(userId) || 0
+        userCopiesMap.set(userId, Math.max(currentUserCopies, copyCount))
+      }
+    }
+    console.log(`✓ Pre-computed maps for ${entityViewMaps.size} entities and ${userCopiesMap.size} users with copies`)
+
     // Parallel evaluation with controlled concurrency
     // Increased from 4 to 8 for better CPU utilization
     const EVAL_CONCURRENCY = 8
@@ -529,7 +531,8 @@ serve(async (req) => {
       const chunk = allCombinations.slice(i, Math.min(i + EVAL_CONCURRENCY, allCombinations.length))
 
       // Evaluate chunk synchronously (evaluateCombination is not async)
-      const chunkResults = chunk.map(combo => evaluateCombination(combo, users, pairRows, config.entityType, config.filterColumn))
+      // Pass pre-computed maps instead of pairRows for massive performance gain
+      const chunkResults = chunk.map(combo => evaluateCombination(combo, users, entityViewMaps, userCopiesMap, config.entityType, config.filterColumn))
 
       // Filter and collect results
       for (const result of chunkResults) {
