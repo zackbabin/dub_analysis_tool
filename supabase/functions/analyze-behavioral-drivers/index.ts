@@ -49,7 +49,7 @@ const INCLUSIONS = {
     'unique_portfolios_viewed',    // Joined from other table
   ],
   total_copies: [
-    // Copy Portfolios: 19 specific variables from CSV
+    // Copy Portfolios: 18 specific variables from CSV (removed total_ach_deposits)
     'total_bank_links',            // A. Total Bank Links
     'regular_pdp_views',           // E. Regular PDP Views
     'premium_pdp_views',           // F. Premium PDP Views
@@ -64,7 +64,6 @@ const INCLUSIONS = {
     'stripe_modal_views',          // O. Stripe Modal Views
     'creator_card_taps',           // P. Creator Card Taps
     'portfolio_card_taps',         // Q. Portfolio Card Taps
-    'total_ach_deposits',          // R. Total ACH Deposits
     'unique_creators_viewed',      // Joined from other table
     'unique_portfolios_viewed',    // Joined from other table
     'buying_power',                // buyingPower

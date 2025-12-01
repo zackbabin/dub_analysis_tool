@@ -101,7 +101,16 @@ function getVariableLabel(columnName) {
         'total_deposits': 'Total Deposits'
     };
 
-    return VARIABLE_LABELS[columnName] || columnName;
+    // If found in mapping, return the mapped value
+    if (VARIABLE_LABELS[columnName]) {
+        return VARIABLE_LABELS[columnName];
+    }
+
+    // Otherwise, convert snake_case to Title Case
+    return columnName
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
 }
 
 /**
