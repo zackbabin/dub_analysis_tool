@@ -2,7 +2,7 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-01-v1
+// Version: 2025-12-01-v2
 // - Added creator sequence analysis workflow (sync-creator-sequences + analyze-creator-sequences)
 // - Renamed event sequences functions for consistency: sync-portfolio-sequences + analyze-portfolio-sequences
 // - Now runs 4 functions: sync-portfolio-sequences + sync-creator-sequences (parallel) → analyze-portfolio-sequences + analyze-creator-sequences (parallel)
@@ -99,7 +99,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 22; // Fixed Total Investments CSV upload to extract single "Value" column
+    static CACHE_VERSION = 23; // Fixed behavioral drivers: removed total_ach_deposits from Copy and added snake_case formatter
 
     constructor() {
         super();
