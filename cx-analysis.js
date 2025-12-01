@@ -82,7 +82,7 @@ class CXAnalysis {
         `;
     }
 
-    displayResults(data) {
+    async displayResults(data) {
         // Create results div
         const resultsDiv = document.createElement('div');
         resultsDiv.className = 'qda-analysis-results';
