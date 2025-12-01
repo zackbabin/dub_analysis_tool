@@ -2,7 +2,7 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-11-28-v3
+// Version: 2025-12-01-v1
 // - Added creator sequence analysis workflow (sync-creator-sequences + analyze-creator-sequences)
 // - Renamed event sequences functions for consistency: sync-portfolio-sequences + analyze-portfolio-sequences
 // - Now runs 4 functions: sync-portfolio-sequences + sync-creator-sequences (parallel) → analyze-portfolio-sequences + analyze-creator-sequences (parallel)
@@ -99,7 +99,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 21; // Updated tooltip positioning and added dynamic time range for sequence metrics
+    static CACHE_VERSION = 22; // Fixed Total Investments CSV upload to extract single "Value" column
 
     constructor() {
         super();
@@ -2662,10 +2662,10 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
         const headers = parseCSVLine(lines[0]);
         console.log('Headers:', headers);
 
-        const totalHoldingsIndex = headers.findIndex(h => h.toLowerCase() === 'total holdings ($)');
+        const valueIndex = headers.findIndex(h => h.toLowerCase() === 'value');
 
-        if (totalHoldingsIndex === -1) {
-            this.addStatusMessage('❌ CSV file must contain a "Total Holdings ($)" column', 'error');
+        if (valueIndex === -1) {
+            this.addStatusMessage('❌ CSV file must contain a "Value" column', 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
@@ -2674,28 +2674,27 @@ UserAnalysisToolSupabase.prototype.processTotalInvestmentsCSV = async function(f
 
         // Add delay before next step
         await new Promise(resolve => setTimeout(resolve, 300));
-        this.updateProgress(50, 'Extracting Total Holdings from most recent month...');
+        this.updateProgress(50, 'Extracting Total Investments value...');
 
-        // Get the most recent month row (last row with data, before any trailing empty lines)
-        // Lines array already has empty lines filtered out, so the last line is the most recent
-        const lastDataLine = lines[lines.length - 1];
-        console.log('Last data line:', lastDataLine);
+        // Get the value from the first data row (row index 1)
+        const dataLine = lines[1];
+        console.log('Data line:', dataLine);
 
-        const values = parseCSVLine(lastDataLine);
+        const values = parseCSVLine(dataLine);
         console.log('Parsed values:', values);
-        console.log('Total Holdings Index:', totalHoldingsIndex);
+        console.log('Value Index:', valueIndex);
 
-        const totalHoldingsValue = values[totalHoldingsIndex]?.trim() || '0';
-        console.log('Total Holdings Value (raw):', totalHoldingsValue);
+        const totalInvestmentsValue = values[valueIndex]?.trim() || '0';
+        console.log('Total Investments Value (raw):', totalInvestmentsValue);
 
         // Remove commas from the numeric value
-        const cleanedValue = totalHoldingsValue.replace(/,/g, '');
+        const cleanedValue = totalInvestmentsValue.replace(/,/g, '');
         console.log('Cleaned value:', cleanedValue);
 
         const totalInvestments = parseFloat(cleanedValue);
 
         if (isNaN(totalInvestments) || totalInvestments === 0) {
-            this.addStatusMessage(`❌ Could not parse Total Holdings value from most recent month (got: "${totalHoldingsValue}")`, 'error');
+            this.addStatusMessage(`❌ Could not parse Total Investments value (got: "${totalInvestmentsValue}")`, 'error');
             setTimeout(() => {
                 if (progressSection) progressSection.style.display = 'none';
             }, 1500);
