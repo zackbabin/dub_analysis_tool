@@ -197,7 +197,7 @@ class CXAnalysis {
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 400px; position: sticky; left: 50px; background: #f8f9fa; z-index: 2;">Summarized Feedback</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 160px;">Category</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 170px; white-space: nowrap;">Percent of Feedback</th>
-                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Weekly Volume</th>
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 150px; white-space: nowrap;">Avg Weekly Volume</th>
                             <th style="padding: 12px 16px; text-align: center; font-weight: 600; width: 140px;">Examples</th>
                             <th style="padding: 12px 16px; text-align: left; font-weight: 600; width: 200px;">Linear Tickets</th>
                         </tr>
@@ -401,6 +401,12 @@ class CXAnalysis {
         // Format percentage
         const percentText = issue.percentage_of_total ? `${issue.percentage_of_total.toFixed(1)}%` : '-';
 
+        // Format weekly volume - show "<1" if less than 1
+        let volumeText = '-';
+        if (issue.weekly_volume !== null && issue.weekly_volume !== undefined) {
+            volumeText = issue.weekly_volume < 1 ? '<1' : issue.weekly_volume.toString();
+        }
+
         // Alternate row colors
         const rowBg = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
 
@@ -431,7 +437,7 @@ class CXAnalysis {
                     ${percentText}
                 </td>
                 <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #495057;">
-                    ${issue.weekly_volume || '-'}
+                    ${volumeText}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     ${examplesContent}
