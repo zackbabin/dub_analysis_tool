@@ -12,19 +12,18 @@
 CREATE OR REPLACE FUNCTION calculate_portfolio_sequence_metrics()
 RETURNS TABLE(
   mean_unique_portfolios NUMERIC,
-  median_unique_portfolios NUMERIC,
-  converter_count INTEGER
+  median_unique_portfolios NUMERIC
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
   RETURN QUERY
   WITH recent_converters AS (
-    -- Get ALL users who copied (no limit - analyze full dataset)
+    -- Get 250 most recent users who copied
     SELECT user_id, first_copy_time
     FROM user_first_copies
     ORDER BY first_copy_time DESC
-    -- No LIMIT - SQL is fast enough to handle all converters
+    LIMIT 250
   ),
   user_unique_counts AS (
     -- For each user, count distinct portfolios viewed BEFORE first copy
@@ -40,16 +39,15 @@ BEGIN
   )
   SELECT
     ROUND(AVG(unique_portfolios), 2) as mean_unique_portfolios,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unique_portfolios) as median_unique_portfolios,
-    COUNT(*)::INTEGER as converter_count
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unique_portfolios) as median_unique_portfolios
   FROM user_unique_counts;
 END;
 $$;
 
 COMMENT ON FUNCTION calculate_portfolio_sequence_metrics IS
-'Calculates mean and median unique portfolio views before first copy for ALL converters (no limit).
+'Calculates mean and median unique portfolio views before first copy for 250 most recent converters.
 Replaces Claude API call in analyze-portfolio-sequences edge function.
-Returns: mean_unique_portfolios, median_unique_portfolios, converter_count';
+Returns: mean_unique_portfolios, median_unique_portfolios';
 
 -- =======================
 -- 2. Creator Sequence Analysis Function
@@ -58,19 +56,18 @@ Returns: mean_unique_portfolios, median_unique_portfolios, converter_count';
 CREATE OR REPLACE FUNCTION calculate_creator_sequence_metrics()
 RETURNS TABLE(
   mean_unique_creators NUMERIC,
-  median_unique_creators NUMERIC,
-  converter_count INTEGER
+  median_unique_creators NUMERIC
 )
 LANGUAGE plpgsql
 AS $$
 BEGIN
   RETURN QUERY
   WITH recent_converters AS (
-    -- Get ALL users who copied (no limit - analyze full dataset)
+    -- Get 250 most recent users who copied
     SELECT user_id, first_copy_time
     FROM user_first_copies
     ORDER BY first_copy_time DESC
-    -- No LIMIT - SQL is fast enough to handle all converters
+    LIMIT 250
   ),
   user_unique_counts AS (
     -- For each user, count distinct creators viewed BEFORE first copy
@@ -86,16 +83,15 @@ BEGIN
   )
   SELECT
     ROUND(AVG(unique_creators), 2) as mean_unique_creators,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unique_creators) as median_unique_creators,
-    COUNT(*)::INTEGER as converter_count
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unique_creators) as median_unique_creators
   FROM user_unique_counts;
 END;
 $$;
 
 COMMENT ON FUNCTION calculate_creator_sequence_metrics IS
-'Calculates mean and median unique creator profile views before first copy for ALL converters (no limit).
+'Calculates mean and median unique creator profile views before first copy for 250 most recent converters.
 Replaces Claude API call in analyze-creator-sequences edge function.
-Returns: mean_unique_creators, median_unique_creators, converter_count';
+Returns: mean_unique_creators, median_unique_creators';
 
 -- =======================
 -- 3. Grant Permissions
