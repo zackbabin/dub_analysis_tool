@@ -26,7 +26,6 @@ interface EnrichedConversation {
   tags: string[] | null
   custom_fields: Record<string, any> | null
   message_count: number
-  all_messages: string[] | null
 }
 
 /**
@@ -271,17 +270,15 @@ serve(async (req) => {
       console.log(`Analyzing conversations from ${weekStart} to ${weekEnd} (${analysisWindowDays} days)`)
 
       // NOTE: enriched_support_conversations is a regular view (not materialized)
-      // It automatically shows latest data from support conversations and messages
+      // It automatically shows latest data from support conversations
       // No refresh needed - queries are fast with indexed date filters
       console.log('Querying enriched_support_conversations (regular view - always current)...')
 
-      let conversations = null
-      let fetchError = null
       const MAX_CONVERSATIONS = 250
 
       // Query enriched view with date filter
       console.log('Fetching from enriched_support_conversations...')
-      const enrichedResult = await supabase
+      const { data: conversations, error: fetchError } = await supabase
         .from('enriched_support_conversations')
         .select('*')
         .gte('created_at', startDate.toISOString())
@@ -289,91 +286,28 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
         .limit(MAX_CONVERSATIONS)
 
-      if (enrichedResult.error) {
-        console.warn('⚠️ Failed to fetch from enriched view:', enrichedResult.error.message)
-      } else if (enrichedResult.data && enrichedResult.data.length > 0) {
-        console.log(`✓ Fetched ${enrichedResult.data.length} conversations from enriched view`)
-        conversations = enrichedResult.data
+      if (fetchError) {
+        console.error('❌ Failed to fetch from enriched view:', fetchError)
+        throw fetchError
       }
 
-      // FALLBACK: If enriched view is empty or failed, query raw table directly
       if (!conversations || conversations.length === 0) {
-        console.log('⚠️ Enriched view empty or unavailable, querying raw_support_conversations...')
-
-        const rawResult = await supabase
-          .from('raw_support_conversations')
-          .select(`
-            id,
-            external_id,
-            source,
-            title,
-            description,
-            created_at,
-            status,
-            priority,
-            tags,
-            custom_fields,
-            message_count
-          `)
-          .gte('created_at', startDate.toISOString())
-          .lt('created_at', now.toISOString())
-          .order('created_at', { ascending: false })
-          .limit(MAX_CONVERSATIONS)
-
-        if (rawResult.error) {
-          console.error('❌ Failed to fetch from raw table:', rawResult.error)
-          throw rawResult.error
-        }
-
-        if (!rawResult.data || rawResult.data.length === 0) {
-          console.log('No conversations found in raw table either')
-          await updateSyncLogSuccess(supabase, syncLogId, {
-            total_records_inserted: 0,
-          })
-
-          return createSuccessResponse('No conversations to analyze', {
-            conversation_count: 0,
-            week_start: weekStart,
-            week_end: weekEnd,
-          })
-        }
-
-        // Fetch messages separately for raw conversations
-        console.log(`✓ Fetched ${rawResult.data.length} conversations from raw table, fetching messages...`)
-
-        const conversationIds = rawResult.data.map(c => c.id)
-        const { data: messages } = await supabase
-          .from('support_conversation_messages')
-          .select('conversation_id, body, created_at')
-          .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: true })
-
-        // Build enriched format from raw data
-        conversations = rawResult.data.map((conv: any) => {
-          const convMessages = messages?.filter(m => m.conversation_id === conv.id) || []
-          return {
-            ...conv,
-            // Use message_count from database if available, otherwise count messages
-            message_count: conv.message_count ?? convMessages.length,
-            all_messages: convMessages.map(m => m.body),
-            // No Linear data available in fallback mode
-            linear_identifier: null,
-            linear_title: null,
-            linear_state: null,
-            linear_url: null
-          }
+        console.log('No conversations found')
+        await updateSyncLogSuccess(supabase, syncLogId, {
+          total_records_inserted: 0,
         })
 
-        console.log(`✓ Built ${conversations.length} enriched conversations from raw data (without Linear metadata)`)
+        return createSuccessResponse('No conversations to analyze', {
+          conversation_count: 0,
+          week_start: weekStart,
+          week_end: weekEnd,
+        })
       }
 
       console.log(`Found ${conversations.length} conversations to analyze`)
 
       // Format conversations for Claude (with text sanitization and truncation)
       const formattedConversations = conversations.map((conv: EnrichedConversation, idx: number) => {
-        const messages = conv.all_messages || []
-        const conversationText = messages.length > 0 ? messages.join('\n---\n') : conv.description || ''
-
         // Sanitize text to prevent JSON issues
         const sanitize = (text: string | null) => {
           if (!text) return ''
@@ -391,11 +325,11 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 225 chars to stay under 200k token limit (with buffer for tags)
-        const MAX_CONVERSATION_LENGTH = 225
-        let truncatedText = sanitize(conversationText)
-        if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
-          truncatedText = truncatedText.substring(0, MAX_CONVERSATION_LENGTH) + '... [truncated]'
+        // Truncate description to 225 chars to stay under 200k token limit
+        const MAX_DESCRIPTION_LENGTH = 225
+        let truncatedDescription = sanitize(conv.description || '')
+        if (truncatedDescription.length > MAX_DESCRIPTION_LENGTH) {
+          truncatedDescription = truncatedDescription.substring(0, MAX_DESCRIPTION_LENGTH) + '... [truncated]'
         }
 
         // Construct proper Zendesk web UI URL if source is Zendesk
@@ -410,11 +344,11 @@ serve(async (req) => {
           ticket_id: conv.id, // Ticket ID from source system
           source: conv.source,
           title: sanitize(conv.title),
+          description: truncatedDescription,
           created_at: conv.created_at,
           status: conv.status,
           priority: conv.priority,
           tags: conv.tags || [],
-          full_conversation: truncatedText,
           message_count: conv.message_count,
           zendesk_url: zendesk_url,
         }
