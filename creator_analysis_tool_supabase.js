@@ -153,6 +153,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         breakdownContainer.id = 'premiumCreatorBreakdownInline';
         resultsDiv.appendChild(breakdownContainer);
 
+        const subscriptionPriceContainer = document.createElement('div');
+        subscriptionPriceContainer.id = 'subscriptionPriceDistributionInline';
+        resultsDiv.appendChild(subscriptionPriceContainer);
+
         const portfolioAssetsContainer = document.createElement('div');
         portfolioAssetsContainer.id = 'portfolioAssetsBreakdownInline';
         resultsDiv.appendChild(portfolioAssetsContainer);
@@ -174,6 +178,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Load and display premium creator breakdown
         await this.loadAndDisplayPremiumCreatorBreakdown();
+
+        // Display subscription price distribution (after breakdown)
+        this.displaySubscriptionPriceDistribution();
 
         // Load and display portfolio assets breakdown (top stocks)
         await this.loadAndDisplayPortfolioAssetsBreakdown();
@@ -346,6 +353,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Override: Display creator summary statistics - Show 4 metric cards at top
      */
     async displayCreatorSummaryStats(stats, subscriptionDistribution) {
+        // Store subscription distribution for later use
+        this.subscriptionDistribution = subscriptionDistribution;
+
         const container = document.getElementById('creatorSummaryStatsInline');
         if (!container) {
             console.error('❌ Container creatorSummaryStatsInline not found!');
@@ -467,33 +477,52 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         // Display Stripe subscription table below metric cards
         // COMMENTED OUT: Stripe API key removed, functionality disabled
         // await this.displayStripeSubscriptionTable(section);
+    }
 
-        // Display subscription price distribution (data passed as parameter)
-        if (subscriptionDistribution && subscriptionDistribution.length > 0) {
-            const chartId = `subscription-price-chart-${Date.now()}`;
-
-            const chartSection = document.createElement('div');
-            chartSection.style.marginTop = '3rem';
-            chartSection.innerHTML = `
-                <h2 style="margin-top: 0; margin-bottom: 0.25rem;"><span class="info-tooltip">Subscription Price Distribution<span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>Subscription Price Distribution</strong>
-                    Distribution of subscription prices across all creator subscriptions.
-                    <ul>
-                        <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)</li>
-                        <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
-                    </ul>
-                </span>
-            </span></h2>
-                <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
-            `;
-            section.appendChild(chartSection);
-
-            // Render chart after DOM is ready
-            setTimeout(() => {
-                this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
-            }, 100);
+    /**
+     * Display subscription price distribution chart
+     * Moved to appear after Premium Creator Breakdown
+     */
+    displaySubscriptionPriceDistribution() {
+        const container = document.getElementById('subscriptionPriceDistributionInline');
+        if (!container) {
+            console.error('❌ Container subscriptionPriceDistributionInline not found!');
+            return;
         }
+        container.innerHTML = '';
+
+        const subscriptionDistribution = this.subscriptionDistribution;
+
+        // Only display if we have data
+        if (!subscriptionDistribution || subscriptionDistribution.length === 0) {
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'qda-result-section';
+        section.style.marginTop = '3rem';
+
+        const chartId = `subscription-price-chart-${Date.now()}`;
+
+        section.innerHTML = `
+            <h2 style="margin-top: 0; margin-bottom: 0.25rem;"><span class="info-tooltip">Subscription Price Distribution<span class="info-icon">i</span>
+            <span class="tooltip-text">
+                <strong>Subscription Price Distribution</strong>
+                Distribution of subscription prices across all creator subscriptions.
+                <ul>
+                    <li><strong>Data Source:</strong> <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85154450%22" target="_blank" style="color: #17a2b8;">Chart 85154450</a> (Subscription Pricing)</li>
+                    <li><strong>Metrics:</strong> Price tiers, subscription counts, revenue distribution</li>
+                </ul>
+            </span>
+        </span></h2>
+            <div id="${chartId}" style="width: 100%; height: 400px; margin-top: 1rem;"></div>
+        `;
+        container.appendChild(section);
+
+        // Render chart after DOM is ready
+        setTimeout(() => {
+            this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
+        }, 100);
     }
 
     /**
@@ -841,7 +870,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
                         Manual CSV Upload (Portfolio Performance & Stock Holdings)
                     </li>
-                    <li><strong>Metrics:</strong> Copies, Liquidations, Liquidation Rate, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
+                    <li><strong>Metrics:</strong> Copies, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
                 </ul>
             </span>
         </span>`;
@@ -871,8 +900,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             <tr>
                 <th style="text-align: left; min-width: 180px; position: sticky; left: 0; background: white; z-index: 10; box-shadow: 2px 0 4px rgba(0,0,0,0.1);">Premium Creator</th>
                 <th style="text-align: right; min-width: 100px;">Copies</th>
-                <th style="text-align: right; min-width: 120px;">Liquidations</th>
-                <th style="text-align: right; min-width: 140px;">Liquidation Rate</th>
                 <th style="text-align: right; min-width: 130px;">Subscriptions</th>
                 <th style="text-align: right; min-width: 150px;">Subscription CVR</th>
                 <th style="text-align: right; min-width: 160px;">Cancellation Rate</th>
@@ -914,8 +941,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             tr.innerHTML = `
                 <td style="font-weight: 600; position: sticky; left: 0; background: white; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.05);">${row.creator_username || 'N/A'}</td>
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.total_liquidations || 0).toLocaleString()}</td>
-                <td style="text-align: right;">${(row.liquidation_rate || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
                 <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
