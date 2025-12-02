@@ -13,7 +13,7 @@ import {
   checkAndHandleSkipSync,
 } from '../_shared/sync-helpers.ts'
 
-const SUBSCRIBED_CHART_ID = '85857452'  // "Subscribed to Creator" metric - now uses $user_id
+const SUBSCRIBED_CHART_ID = '85857452'  // "Total Subscriptions (net refunds)" metric - now uses $user_id
 const RENEWED_CHART_ID = '86188712'      // "Renewed Subscription" metric - now uses $user_id
 
 serve(async (req) => {
@@ -74,7 +74,7 @@ serve(async (req) => {
       const subscribedChartData = await fetchInsightsData(
         credentials,
         SUBSCRIBED_CHART_ID,
-        'Subscribed to Creator'
+        'Total Subscriptions (net refunds)'
       )
 
       console.log(`✅ Received subscribed chart data`)
@@ -181,7 +181,7 @@ serve(async (req) => {
  * Process TWO Mixpanel Insights Charts into retention event records
  *
  * Input:
- * - subscribedChartData: Chart 85857452 with series["Subscribed to Creator"] - uses $user_id
+ * - subscribedChartData: Chart 85857452 with series["Total Subscriptions (net refunds)"] - uses $user_id
  * - renewedChartData: Chart 86188712 with series["Renewed Subscription"] - uses $user_id
  *
  * Structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
@@ -204,7 +204,7 @@ function processRetentionChartData(subscribedChartData: any, renewedChartData: a
   }
 
   // Extract the actual metric data from each chart
-  const subscribedData = subscribedChartData.series['Subscribed to Creator'] || {}
+  const subscribedData = subscribedChartData.series['Total Subscriptions (net refunds)'] || {}
   const renewedData = renewedChartData.series['Renewed Subscription'] || {}
 
   console.log(`Subscribed data has ${Object.keys(subscribedData).length} user_ids`)
