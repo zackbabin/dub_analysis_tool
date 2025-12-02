@@ -406,10 +406,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 ? stats.median_copies.toLocaleString(undefined, {maximumFractionDigits: 0})
                 : null;
 
-            // Card 2: Avg Subscription CVR (no median)
+            // Card 2: Avg Subscription CVR (median: ##%)
             const avgSubCVRDisplay = stats.avg_subscription_cvr !== null && stats.avg_subscription_cvr !== undefined
                 ? stats.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%'
                 : '—';
+            const medianSubCVRDisplay = stats.median_subscription_cvr !== null && stats.median_subscription_cvr !== undefined
+                ? stats.median_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%'
+                : null;
 
             // Card 3: Avg All-Time Returns (median: ##%)
             const avgPerformanceDisplay = stats.avg_all_time_returns !== null && stats.avg_all_time_returns !== undefined
@@ -437,8 +440,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 {
                     title: 'Avg Subscription CVR',
                     avgValue: avgSubCVRDisplay,
-                    medianValue: null,
-                    tooltip: 'Viewed Paywall → Subscribed to Creator'
+                    medianValue: medianSubCVRDisplay,
+                    tooltip: 'Viewed Paywall → Subscribed to Creator. Average (mean) conversion rate with median shown for comparison'
                 },
                 {
                     title: 'Avg All-Time Returns',
@@ -740,6 +743,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     avg_copies: null,
                     median_copies: null,
                     avg_subscription_cvr: 0,
+                    median_subscription_cvr: null,
                     avg_all_time_returns: null,
                     median_all_time_returns: null,
                     avg_copy_capital: null,
@@ -752,6 +756,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 avg_copies: data.avg_copies || null,
                 median_copies: data.median_copies || null,
                 avg_subscription_cvr: data.avg_subscription_cvr || 0,
+                median_subscription_cvr: data.median_subscription_cvr || null,
                 avg_all_time_returns: data.avg_all_time_returns || null,
                 median_all_time_returns: data.median_all_time_returns || null,
                 avg_copy_capital: data.avg_copy_capital || null,
