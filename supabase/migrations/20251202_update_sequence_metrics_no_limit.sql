@@ -11,6 +11,9 @@
 -- 1. Update Portfolio Sequence Analysis Function
 -- =======================
 
+-- Drop existing function first (signature changed - added converter_count)
+DROP FUNCTION IF EXISTS calculate_portfolio_sequence_metrics();
+
 CREATE OR REPLACE FUNCTION calculate_portfolio_sequence_metrics()
 RETURNS TABLE(
   mean_unique_portfolios NUMERIC,
@@ -57,6 +60,9 @@ Returns: mean_unique_portfolios, median_unique_portfolios, converter_count';
 -- =======================
 -- 2. Update Creator Sequence Analysis Function
 -- =======================
+
+-- Drop existing function first (signature changed - added converter_count)
+DROP FUNCTION IF EXISTS calculate_creator_sequence_metrics();
 
 CREATE OR REPLACE FUNCTION calculate_creator_sequence_metrics()
 RETURNS TABLE(
