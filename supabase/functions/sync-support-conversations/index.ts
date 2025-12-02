@@ -149,6 +149,12 @@ serve(async (req) => {
 
           totalTicketsStored += normalizedBatch.length
           console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
+
+          // Update sync log after each successful batch to ensure progress is tracked
+          // even if function times out or rate limits later
+          await updateSyncLogSuccess(supabase, syncLogId, {
+            total_records_inserted: totalTicketsStored,
+          })
         } catch (err) {
           // Catch any timeout or connection errors
           const errorCode = err?.code || err?.error_code || err?.message
