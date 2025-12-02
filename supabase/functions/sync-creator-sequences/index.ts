@@ -93,10 +93,10 @@ async function fetchAndProcessEventsStreaming(
   }
   console.log(`Full URL: ${url.substring(0, 200)}...`) // Truncate for logging
 
-  // Add 120s timeout for entire Mixpanel API operation (fetch + streaming response)
+  // Add 240s timeout for entire Mixpanel API operation (fetch + streaming response)
   // Needs to be longer for backfill mode - streaming large datasets can take time
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120000)
+  const timeoutId = setTimeout(() => controller.abort(), 240000)
 
   let response: Response
   let lineCount = 0
@@ -214,8 +214,8 @@ async function fetchAndProcessEventsStreaming(
     clearTimeout(timeoutId)
 
     if (fetchError.name === 'AbortError') {
-      console.error('❌ Mixpanel API request timed out after 120s')
-      throw new Error('Mixpanel Export API request timed out after 120 seconds')
+      console.error('❌ Mixpanel API request timed out after 240s')
+      throw new Error('Mixpanel Export API request timed out after 240 seconds')
     }
     console.error('❌ Mixpanel API error:', fetchError.message)
     throw new Error(`Mixpanel Export API failed: ${fetchError.message}`)
@@ -265,17 +265,26 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      // OPTIMIZED: Always fetch last 30 days (no incremental mode)
-      // Combined with user filtering, this keeps data volume manageable
-      console.log('📦 Date range: last 30 days')
-      const backfillDays = 30
-      const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
       // Use yesterday as toDate to avoid timezone issues with Mixpanel API
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      fromDate = startDate.toISOString().split('T')[0]
       toDate = yesterday.toISOString().split('T')[0]
-      syncMode = 'backfill'
-      console.log(`Date range: ${fromDate} to ${toDate}`)
+
+      if (syncStatus?.last_sync_timestamp) {
+        // Incremental: fetch from last sync
+        console.log('📦 Mode: Incremental sync')
+        const lastSync = new Date(syncStatus.last_sync_timestamp)
+        fromDate = lastSync.toISOString().split('T')[0]
+        syncMode = 'incremental'
+        console.log(`Date range: ${fromDate} to ${toDate}`)
+      } else {
+        // Backfill: fetch last 30 days on first run
+        console.log('📦 Mode: Backfill (first sync)')
+        const backfillDays = 30
+        const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
+        fromDate = startDate.toISOString().split('T')[0]
+        syncMode = 'backfill'
+        console.log(`Date range: ${fromDate} to ${toDate}`)
+      }
 
       // STEP 1: Fetch target user IDs from user_first_copies (already populated by sync-event-sequences-v2)
       console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
