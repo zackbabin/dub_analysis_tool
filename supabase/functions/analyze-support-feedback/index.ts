@@ -45,7 +45,7 @@ Platform: Investment copy-trading platform (Dub)
 Time Period: ${weekStart} to ${weekEnd}
 Total Conversations: ${totalCount}
 Data Sources: Zendesk support tickets + Instabug mobile bug reports
-Metadata: Each conversation includes tags and custom_fields that may contain platform info, product areas, or other categorization hints
+Metadata: Each conversation includes tags that may contain platform info, product areas, or other categorization hints
 </analysis_context>
 
 <conversations>
@@ -61,7 +61,7 @@ Generate a minimum of 10 and maximum of 15 feedback items. Only create a feedbac
 - Look for recurring patterns and common root causes across conversations
 - Group similar issues together (e.g., "ACH transfer delays" not "payment issues" and "transfer problems" separately)
 - Be specific: identify the exact feature, flow, or technical problem users are experiencing
-- Consider tags and custom_fields in each conversation for additional context about the issue type, platform, or product area
+- Consider tags in each conversation for additional context about the issue type, platform, or product area
 - Focus on the core underlying issue, not superficial variations in how users describe it
 - Maintain consistent terminology across analyses - use the same names for recurring issues
 
@@ -391,7 +391,7 @@ serve(async (req) => {
             .replace(/\t/g, ' ')      // Replace tabs with spaces
         }
 
-        // Truncate conversation text to 225 chars to stay under 200k token limit (with buffer for tags/custom_fields)
+        // Truncate conversation text to 225 chars to stay under 200k token limit (with buffer for tags)
         const MAX_CONVERSATION_LENGTH = 225
         let truncatedText = sanitize(conversationText)
         if (truncatedText.length > MAX_CONVERSATION_LENGTH) {
@@ -414,7 +414,6 @@ serve(async (req) => {
           status: conv.status,
           priority: conv.priority,
           tags: conv.tags || [],
-          custom_fields: conv.custom_fields || {},
           full_conversation: truncatedText,
           message_count: conv.message_count,
           zendesk_url: zendesk_url,
