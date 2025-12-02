@@ -875,7 +875,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85821646%22" target="_blank" style="color: #17a2b8;">Chart 85821646</a> (Subscription Metrics),
                         Manual CSV Upload (Portfolio Performance & Stock Holdings)
                     </li>
-                    <li><strong>Metrics:</strong> Copies, Subscriptions, Subscription CVR, Cancellation Rate, All-Time Returns, Copy Capital</li>
+                    <li><strong>Metrics:</strong> Copies, Subscriptions, Subscription CVR, All-Time Returns, Copy Capital</li>
                 </ul>
             </span>
         </span>`;
@@ -907,7 +907,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <th style="text-align: right; min-width: 100px;">Copies</th>
                 <th style="text-align: right; min-width: 130px;">Subscriptions</th>
                 <th style="text-align: right; min-width: 150px;">Subscription CVR</th>
-                <th style="text-align: right; min-width: 160px;">Cancellation Rate</th>
                 <th style="text-align: right; min-width: 160px;">
                     <span class="info-tooltip">All-Time Returns<span class="info-icon">i</span>
                         <span class="tooltip-text">Average all-time returns across all portfolios created after 9/30/2024</span>
@@ -948,7 +947,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 <td style="text-align: right;">${(row.total_copies || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.total_subscriptions || 0).toLocaleString()}</td>
                 <td style="text-align: right;">${(row.subscription_cvr || 0).toFixed(2)}%</td>
-                <td style="text-align: right;">${(row.cancellation_rate || 0).toFixed(2)}%</td>
                 <td style="${returnsStyle}">${returnsDisplay}</td>
                 <td style="text-align: right;">${capitalDisplay}</td>
             `;
