@@ -8,7 +8,6 @@ import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
   handleCorsRequest,
-  checkAndHandleSkipSync,
   createSyncLog,
   updateSyncLogSuccess,
   updateSyncLogFailure,
@@ -209,11 +208,6 @@ serve(async (req) => {
     const supabase = initializeSupabaseClient()
 
     console.log('Starting Mixpanel user events sync v2 (Insights API)...')
-
-    // Check skip sync (within 1-hour window)
-    console.log('Checking skip sync...')
-    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_events_v2', 1)
-    if (skipResponse) return skipResponse
 
     console.log('Creating sync log...')
     const executionStartMs = Date.now()

@@ -15,7 +15,6 @@ import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
   handleCorsRequest,
-  checkAndHandleSkipSync,
   createSyncLog,
   updateSyncLogSuccess,
   updateSyncLogFailure,
@@ -363,13 +362,6 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     const page = body.page || 0
     const sessionId = body.sessionId || undefined
-
-    // Only check skip sync on first page
-    if (page === 0) {
-      console.log('Checking skip sync...')
-      const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_user_properties_v2', 1)
-      if (skipResponse) return skipResponse
-    }
 
     console.log('Creating sync log...')
     const executionStartMs = Date.now()
