@@ -173,6 +173,13 @@ serve(async (req) => {
       // NOTE: Comments are synced separately via sync-support-messages function
       totalMessagesStored = 0
 
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: totalTicketsStored + totalMessagesStored,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // NOTE: Workflow chain trigger has been moved to frontend (supabase_integration.js)
       // Frontend will trigger sync-linear-issues after this function completes OR times out
       // This ensures the workflow runs on the complete dataset, not just first batch
@@ -180,11 +187,6 @@ serve(async (req) => {
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)
-
-      // Update sync log with success
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: totalTicketsStored + totalMessagesStored,
-      })
 
       console.log(`Sync completed successfully in ${elapsedSec}s`)
       // Note: Workflow chain will be triggered by frontend after this returns

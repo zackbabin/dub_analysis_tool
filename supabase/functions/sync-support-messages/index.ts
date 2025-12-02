@@ -161,13 +161,15 @@ serve(async (req) => {
       console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
       console.log(`ℹ️  Run update-support-message-counts to populate message_count column`)
 
-      const elapsedMs = Date.now() - executionStartMs
-      const elapsedSec = Math.round(elapsedMs / 1000)
-
-      // Update sync log with success
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: totalStored,
       })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
+      const elapsedMs = Date.now() - executionStartMs
+      const elapsedSec = Math.round(elapsedMs / 1000)
 
       console.log(`Messages sync completed successfully in ${elapsedSec}s`)
 
