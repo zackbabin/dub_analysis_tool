@@ -1,5 +1,6 @@
 // CX Analysis Tool - Displays support feedback analysis from Claude
 // Fetches top issues from support_analysis_results table
+// Version: 1.1.0 - Added Account Opening category, updated to show 10-15 issues
 
 class CXAnalysis {
     constructor(containerId) {
@@ -140,6 +141,7 @@ class CXAnalysis {
                             <li><strong>Categories (by priority):</strong>
                                 <ul style="margin-top: 4px;">
                                     <li>Money Movement - user cannot deposit or withdraw money</li>
+                                    <li>Account Opening - user's ability to open an account is affected (KYC, APEX verification, etc.)</li>
                                     <li>Trading - user unable to trade or sell</li>
                                     <li>App Functionality - user cannot access app or faces broken functionality</li>
                                     <li>Feedback - user frustration or feedback about app experience/features</li>
@@ -147,7 +149,7 @@ class CXAnalysis {
                             </li>
                             <li><strong>Ranking Formula:</strong> Priority Score = (Category Weight × 0.4) + (Percentage × 0.2) + (min(Volume, 100) × 0.4)
                                 <ul style="margin-top: 4px;">
-                                    <li>Category Weight: Money Movement=100, Trading=80, App=60, Feedback=40 (0-100 scale)</li>
+                                    <li>Category Weight: Money Movement=100, Account Opening=90, Trading=80, App=60, Feedback=40 (0-100 scale)</li>
                                     <li>Percentage: % of total conversations affected (0-100 scale)</li>
                                     <li>Volume: Weekly ticket count, capped at 100 (0-100 scale)</li>
                                     <li>All factors are on 0-100 scale before weights applied (40% + 20% + 40% = 100%)</li>
@@ -165,7 +167,7 @@ class CXAnalysis {
                 </span></h1>
             </div>
             <div style="color: #6c757d; font-size: 0.9rem;">
-                AI-powered analysis of the top 10 product issues and feedback
+                AI-powered analysis of the top 10-15 product issues and feedback
             </div>
         `;
         resultsDiv.appendChild(titleSection);
@@ -388,6 +390,7 @@ class CXAnalysis {
         // Determine category color/badge
         const categoryColors = {
             'Money Movement': '#dc3545',
+            'Account Opening': '#e83e8c',
             'Trading': '#fd7e14',
             'App Functionality': '#ffc107',
             'Feedback': '#17a2b8'

@@ -53,7 +53,9 @@ ${JSON.stringify(conversations, null, 2)}
 </conversations>
 
 <task>
-Analyze all conversations and identify the top 10 most significant product issues and feedback themes, ranked by a composite priority score.
+Analyze all conversations and identify the most significant product issues and feedback themes, ranked by a composite priority score.
+
+Generate a minimum of 10 and maximum of 15 feedback items. Only create a feedback item if it represents a material number of tickets and feedback from users to warrant its own item. Avoid creating items for one-off issues or very rare occurrences.
 
 **ANALYSIS APPROACH:**
 - Look for recurring patterns and common root causes across conversations
@@ -75,7 +77,16 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Refunds and chargebacks
    - Account balance discrepancies
 
-2. **Trading** - If a user is unable to trade or sell:
+2. **Account Opening** - If a user's ability to open an account is affected:
+   - KYC (Know Your Customer) verification issues
+   - APEX account verification and approval
+   - Identity verification failures
+   - Document upload and review problems
+   - Account application status and delays
+   - Onboarding flow issues preventing account creation
+   - Regulatory compliance checks blocking account opening
+
+3. **Trading** - If a user is unable to trade or sell:
    - Order execution and fills
    - Portfolio copying and synchronization
    - Trade replication from creators
@@ -84,7 +95,7 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Market data and quotes
    - Trade timing and latency
 
-3. **App Functionality** - If the user cannot access the app or faces broken functionality:
+4. **App Functionality** - If the user cannot access the app or faces broken functionality:
    - UI bugs and crashes
    - App performance and loading times
    - Navigation and user flow problems
@@ -94,7 +105,7 @@ You MUST assign each issue to exactly ONE of these categories, in this priority 
    - Settings and preferences
    - Mobile app vs. web app issues
 
-4. **Feedback** - If user gets frustrated or provides feedback about the app experience or new features:
+5. **Feedback** - If user gets frustrated or provides feedback about the app experience or new features:
    - User frustration or complaints
    - General feedback about the app experience
    - New feature suggestions
@@ -109,7 +120,7 @@ Calculate a composite priority score (0-100) for each issue using this formula:
 Priority Score = (Category Weight × 0.4) + (Percentage × 0.2) + (min(Volume, 100) × 0.4)
 
 Where:
-- Category Weight: Money Movement=100, Trading=80, App Functionality=60, Feedback=40 (0-100 scale)
+- Category Weight: Money Movement=100, Account Opening=90, Trading=80, App Functionality=60, Feedback=40 (0-100 scale)
 - Percentage: The percentage of total conversations (e.g., 15.5 means 15.5 out of 100, 0-100 scale)
 - Volume: Weekly ticket count, capped at 100 (0-100 scale)
 - Component weights: 40% category + 20% percentage + 40% volume = 100%
@@ -122,11 +133,11 @@ Example: If an issue has Category=100, Percentage=15, Volume=25:
 - Volume contribution: 25 × 0.4 = 10 points
 - Total Priority Score: 40 + 3 + 10 = 53 points
 
-Then rank all issues by priority score (highest to lowest) and return the top 10.
+Then rank all issues by priority score (highest to lowest) and return between 10-15 of the highest ranked issues.
 
-For each of the top 10 issues, provide:
+For each issue, provide:
 
-1. **Category**: ONE of: Money Movement, Trading, App Functionality, Feedback
+1. **Category**: ONE of: Money Movement, Account Opening, Trading, App Functionality, Feedback
 
 2. **Issue Summary**: Clear, concise description (140 characters or less, 1-2 sentences max)
 
@@ -153,6 +164,7 @@ Return ONLY valid JSON matching this exact structure:
     "week_end": "YYYY-MM-DD",
     "category_breakdown": {
       "money_movement": number,
+      "account_opening": number,
       "trading": number,
       "app_functionality": number,
       "feedback": number
@@ -162,7 +174,7 @@ Return ONLY valid JSON matching this exact structure:
   "top_issues": [
     {
       "rank": 1,
-      "category": "Money Movement | Trading | App Functionality | Feedback",
+      "category": "Money Movement | Account Opening | Trading | App Functionality | Feedback",
       "issue_summary": "string (max 140 characters)",
       "percentage_of_total": number,
       "weekly_volume": number,
@@ -190,11 +202,11 @@ Return ONLY valid JSON matching this exact structure:
 
 <critical_instructions>
 - Return ONLY the JSON object, no markdown formatting or code blocks
-- Ensure all 10 issues have exactly 3 examples each
-- STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Trading > App Functionality > Feedback)
+- Return between 10-15 issues (minimum 10, maximum 15), each with exactly 3 examples
+- STRICT CATEGORIZATION: Each issue must be assigned to exactly ONE category using the priority hierarchy (Money Movement > Account Opening > Trading > App Functionality > Feedback)
 - When an issue could fit multiple categories, choose the HIGHEST priority category it matches
 - Calculate priority scores exactly as specified in the formula: 40% category weight, 20% percentage, 40% volume
-- Rank issues 1-10 by priority score (highest score = rank 1)
+- Rank all issues by priority score (highest score = rank 1)
 
 **SPECIFICITY REQUIREMENTS:**
 - Be specific and concrete in your issue summaries - avoid vague descriptions
