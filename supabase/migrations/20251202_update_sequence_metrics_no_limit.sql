@@ -34,14 +34,14 @@ BEGIN
   user_unique_counts AS (
     -- For each user, count distinct portfolios viewed BEFORE first copy
     SELECT
-      es.user_id,
-      COUNT(DISTINCT es.portfolio_ticker) as unique_portfolios
-    FROM event_sequences_raw es
-    INNER JOIN recent_converters rc ON es.user_id = rc.user_id
-    WHERE es.event_name = 'Viewed Portfolio Details'
-      AND es.event_time < rc.first_copy_time  -- Events before first copy
-      AND es.portfolio_ticker IS NOT NULL
-    GROUP BY es.user_id
+      ps.user_id,
+      COUNT(DISTINCT ps.portfolio_ticker) as unique_portfolios
+    FROM portfolio_sequences_raw ps
+    INNER JOIN recent_converters rc ON ps.user_id = rc.user_id
+    WHERE ps.event_name = 'Viewed Portfolio Details'
+      AND ps.event_time < rc.first_copy_time  -- Events before first copy
+      AND ps.portfolio_ticker IS NOT NULL
+    GROUP BY ps.user_id
   )
   SELECT
     ROUND(AVG(unique_portfolios), 2) as mean_unique_portfolios,
@@ -84,14 +84,14 @@ BEGIN
   user_unique_counts AS (
     -- For each user, count distinct creators viewed BEFORE first copy
     SELECT
-      es.user_id,
-      COUNT(DISTINCT es.creator_username) as unique_creators
-    FROM event_sequences_raw es
-    INNER JOIN recent_converters rc ON es.user_id = rc.user_id
-    WHERE es.event_name = 'Viewed Creator Profile'
-      AND es.event_time < rc.first_copy_time  -- Events before first copy
-      AND es.creator_username IS NOT NULL
-    GROUP BY es.user_id
+      cs.user_id,
+      COUNT(DISTINCT cs.creator_username) as unique_creators
+    FROM creator_sequences_raw cs
+    INNER JOIN recent_converters rc ON cs.user_id = rc.user_id
+    WHERE cs.event_name = 'Viewed Creator Profile'
+      AND cs.event_time < rc.first_copy_time  -- Events before first copy
+      AND cs.creator_username IS NOT NULL
+    GROUP BY cs.user_id
   )
   SELECT
     ROUND(AVG(unique_creators), 2) as mean_unique_creators,
