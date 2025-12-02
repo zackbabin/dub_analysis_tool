@@ -381,9 +381,10 @@ serve(async (req) => {
 
           const { error: insertError } = await supabase
             .from('creator_sequences_raw')
-            .insert(rawEventRows)
-            .onConflict('user_id,event_time,creator_username')
-            .ignoreDuplicates()  // PostgreSQL silently ignores duplicate events
+            .upsert(rawEventRows, {
+              onConflict: 'user_id,event_time,creator_username',
+              ignoreDuplicates: true
+            })
 
           if (insertError) {
             const errorCode = insertError.code || insertError.error_code || ''
