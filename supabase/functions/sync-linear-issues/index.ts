@@ -28,15 +28,13 @@ function initializeLinearClient(): LinearClient {
 }
 
 /**
- * Fetch issues from Linear for "dub 3.0" team, last 6 months
+ * Fetch issues from Linear for "dub 3.0" team
+ * Uses incremental sync based on last successful sync from sync_logs
+ * Falls back to 6 months on first run
  * Uses GraphQL directly to fetch all nested data in single request per page
  */
-async function fetchLinearIssues(linearClient: LinearClient) {
-  console.log('Fetching issues from Linear...')
-
-  // Calculate date range (6 months ago)
-  const sixMonthsAgo = new Date()
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+async function fetchLinearIssues(linearClient: LinearClient, startDate: Date) {
+  console.log(`Fetching issues from Linear since ${startDate.toISOString()}...`)
 
   try {
     // Get the "dub 3.0" team first
@@ -114,7 +112,7 @@ async function fetchLinearIssues(linearClient: LinearClient) {
 
       const variables = {
         teamId: dubTeam.id,
-        createdAt: sixMonthsAgo.toISOString(),
+        createdAt: startDate.toISOString(),
         first: PAGE_SIZE,
         after: cursor
       }
@@ -207,8 +205,30 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
+      // Get last successful sync from sync_logs for incremental sync
+      const { data: lastSyncLog } = await supabase
+        .from('sync_logs')
+        .select('sync_completed_at, created_at')
+        .eq('source', 'linear_issues')
+        .eq('sync_status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      // Default to 6 months lookback if no previous sync
+      const defaultLookbackMonths = 6
+      const defaultStartDate = new Date()
+      defaultStartDate.setMonth(defaultStartDate.getMonth() - defaultLookbackMonths)
+
+      const startDate = lastSyncLog?.sync_completed_at
+        ? new Date(lastSyncLog.sync_completed_at)
+        : defaultStartDate
+
+      console.log(`Sync mode: ${lastSyncLog ? 'Incremental' : 'Backfill (first sync)'}`)
+      console.log(`Fetching issues since: ${startDate.toISOString()}`)
+
       // Fetch issues from Linear
-      const issues = await fetchLinearIssues(linearClient)
+      const issues = await fetchLinearIssues(linearClient, startDate)
 
       // Store in database
       const issuesStored = await storeLinearIssues(supabase, issues)
