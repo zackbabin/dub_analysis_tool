@@ -18,7 +18,6 @@ import {
   initializeMixpanelCredentials,
   initializeSupabaseClient,
   handleCorsRequest,
-  checkAndHandleSkipSync,
   createSyncLog,
   updateSyncLogSuccess,
   updateSyncLogFailure,
@@ -242,10 +241,6 @@ serve(async (req) => {
 
     console.log('Starting portfolio sequences sync (Export API)...')
 
-    // Check if sync should be skipped (within 1-hour window for portfolio sequences)
-    const skipResponse = await checkAndHandleSkipSync(supabase, 'mixpanel_portfolio_sequences', 1)
-    if (skipResponse) return skipResponse
-
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_portfolio_sequences')
     const syncLogId = syncLog.id
@@ -268,17 +263,18 @@ serve(async (req) => {
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
 
-      // Use yesterday as toDate to avoid timezone issues with Mixpanel API
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-      toDate = yesterday.toISOString().split('T')[0]
+      // Use today as toDate to capture all recent data
+      toDate = now.toISOString().split('T')[0]
 
       if (lastSyncLog?.sync_completed_at) {
-        // Incremental: fetch from last successful sync completion time
+        // Incremental: fetch from 1 day before last sync to ensure at least 1 day lookback
+        // Database unique constraints handle deduplication of any overlapping events
         console.log('📦 Mode: Incremental sync')
         const lastSync = new Date(lastSyncLog.sync_completed_at)
-        fromDate = lastSync.toISOString().split('T')[0]
+        const oneDayBeforeLastSync = new Date(lastSync.getTime() - 24 * 60 * 60 * 1000)
+        fromDate = oneDayBeforeLastSync.toISOString().split('T')[0]
         syncMode = 'incremental'
-        console.log(`Date range: ${fromDate} to ${toDate} (from last sync_logs entry)`)
+        console.log(`Date range: ${fromDate} to ${toDate} (1 day before last sync for overlap)`)
       } else {
         // Backfill: fetch last 30 days on first run
         console.log('📦 Mode: Backfill (first sync)')
@@ -643,7 +639,7 @@ serve(async (req) => {
           dateRange: `${fromDate} to ${toDate}`,
           portfolioViews: stats.eventsInserted,
           firstCopies: stats.copyEventsSynced,
-          note: 'Simplified workflow - no aggregation needed',
+          note: 'Uses 1-day lookback with deduplication - ensures no data missed',
           analysisResult: analysisResult,
           partialSync: partialSync
         }
