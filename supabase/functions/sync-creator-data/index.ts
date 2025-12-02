@@ -785,29 +785,49 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       }
     }
 
-    // Find all creator_ids for this username and sum metrics (combine duplicates)
-    for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
-      if (creatorId === '$overall') continue
-      if (typeof creatorIdData !== 'object') continue
+    // Check if there's an $overall value at username level (preferred)
+    const overallData = (usernameData as any)['$overall']
+    if (overallData && typeof overallData === 'object') {
+      // Use $overall values directly - this is the correct total
+      totalSubscriptions = getMetricValue(metrics.subscriptions, '$overall')
+      totalPaywallViews = getMetricValue(metrics.paywallViews, '$overall')
+      totalStripeModalViews = getMetricValue(metrics.stripeModalViews, '$overall')
+      totalCancellations = getMetricValue(metrics.cancellations, '$overall')
 
-      // Check if this is a valid 18-digit creator_id
-      if (/^\d{18}$/.test(creatorId)) {
-        creatorIds.push(creatorId)
+      // Still need to find creator_ids for the record
+      for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
+        if (creatorId === '$overall') continue
+        if (/^\d{18}$/.test(creatorId)) {
+          creatorIds.push(creatorId)
+        } else {
+          nonNumericKeys.push(creatorId)
+        }
+      }
+    } else {
+      // Fallback: sum individual creator_ids if no $overall exists
+      for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
+        if (creatorId === '$overall') continue
+        if (typeof creatorIdData !== 'object') continue
 
-        // Sum metrics across all creator_ids (combine duplicates like @dubAdvisors)
-        totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
-        totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
-        totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
-        totalCancellations += getMetricValue(metrics.cancellations, creatorId)
-      } else {
-        // Track non-numeric keys - might still have metrics
-        nonNumericKeys.push(creatorId)
+        // Check if this is a valid 18-digit creator_id
+        if (/^\d{18}$/.test(creatorId)) {
+          creatorIds.push(creatorId)
 
-        // Sum metrics even from non-numeric keys (combine duplicates)
-        totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
-        totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
-        totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
-        totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+          // Sum metrics across all creator_ids (combine duplicates like @dubAdvisors)
+          totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+          totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+          totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+          totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+        } else {
+          // Track non-numeric keys - might still have metrics
+          nonNumericKeys.push(creatorId)
+
+          // Sum metrics even from non-numeric keys (combine duplicates)
+          totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+          totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+          totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+          totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+        }
       }
     }
 
