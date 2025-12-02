@@ -733,12 +733,13 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
   console.log('Processing subscription metrics from nested Mixpanel format...')
   console.log('Available metrics:', Object.keys(data.series))
 
-  // Extract subscription-level metrics (A through D)
+  // Extract subscription-level metrics
+  // Updated format uses "Total Subscriptions (net refunds)" for primary metric
   const metrics = {
-    subscriptions: data.series['A. Total Subscriptions'] || {},
-    paywallViews: data.series['B. Total Paywall Views'] || {},
-    stripeModalViews: data.series['C. Total Stripe Modal Views'] || {},
-    cancellations: data.series['D. Total Cancellations'] || {},
+    subscriptions: data.series['Total Subscriptions (net refunds)'] || data.series['A. Total Subscriptions'] || {},
+    paywallViews: data.series['C. Total Paywall Views'] || data.series['B. Total Paywall Views'] || {},
+    stripeModalViews: data.series['D. Total Stripe Modal Views'] || data.series['C. Total Stripe Modal Views'] || {},
+    cancellations: data.series['E. Total Cancellations'] || data.series['D. Total Cancellations'] || {},
   }
 
   // Use subscriptions as the primary metric to iterate
