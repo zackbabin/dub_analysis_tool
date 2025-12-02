@@ -52,22 +52,22 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Get last sync timestamp for incremental sync
-      const { data: syncStatus } = await supabase
-        .from('sync_status')
-        .select('*')
-        .eq('source', 'zendesk')
-        .eq('tool_type', 'support_messages')
+      // Get last successful sync from sync_logs for incremental sync
+      const { data: lastSyncLog } = await supabase
+        .from('sync_logs')
+        .select('sync_completed_at, created_at')
+        .eq('source', 'support_messages')
+        .eq('sync_status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single()
-
-      const lastSync = syncStatus?.last_sync_timestamp
 
       // Default to 7 days lookback if no previous sync
       const lookbackDays = parseInt(Deno.env.get('ANALYSIS_LOOKBACK_DAYS') || '7')
       const defaultStartDate = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
 
-      const startTime = lastSync
-        ? Math.floor(new Date(lastSync).getTime() / 1000)
+      const startTime = lastSyncLog?.sync_completed_at
+        ? Math.floor(new Date(lastSyncLog.sync_completed_at).getTime() / 1000)
         : Math.floor(defaultStartDate.getTime() / 1000)
 
       console.log(`Syncing Zendesk comments from ${new Date(startTime * 1000).toISOString()}`)
@@ -161,27 +161,6 @@ serve(async (req) => {
       console.log(`✓ Successfully stored ${totalStored} comments from ${ticketIds.size} tickets`)
       console.log(`ℹ️  Run update-support-message-counts to populate message_count column`)
 
-      // Update sync status with last messages sync timestamp (upsert to create if doesn't exist)
-      const now = new Date().toISOString()
-      const { error: syncStatusError } = await supabase
-        .from('sync_status')
-        .upsert({
-          source: 'zendesk',
-          tool_type: 'support_messages',
-          last_sync_timestamp: now,
-          last_sync_status: 'success',
-          records_synced: totalStored,
-          updated_at: now,
-        }, {
-          onConflict: 'source,tool_type'
-        })
-
-      if (syncStatusError) {
-        console.error('⚠️ Failed to update sync_status:', syncStatusError)
-      } else {
-        console.log('✓ Updated sync_status table')
-      }
-
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)
 
@@ -203,27 +182,6 @@ serve(async (req) => {
       // Handle preemptive timeout gracefully (partial success)
       if (error?.message?.includes('TIMEOUT_PREEMPTIVE')) {
         console.warn('⏱️ Function stopped due to approaching timeout - returning partial results')
-
-        // Update sync_status even on timeout (partial success still counts as successful sync)
-        const now = new Date().toISOString()
-        const { error: syncStatusError } = await supabase
-          .from('sync_status')
-          .upsert({
-            source: 'zendesk',
-            tool_type: 'support_messages',
-            last_sync_timestamp: now,
-            last_sync_status: 'success',
-            records_synced: totalStored,
-            updated_at: now,
-          }, {
-            onConflict: 'source,tool_type'
-          })
-
-        if (syncStatusError) {
-          console.error('⚠️ Failed to update sync_status:', syncStatusError)
-        } else {
-          console.log('✓ Updated sync_status table (partial sync)')
-        }
 
         await updateSyncLogSuccess(supabase, syncLogId, {
           total_records_inserted: totalStored,

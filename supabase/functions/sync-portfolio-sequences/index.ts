@@ -251,15 +251,16 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      // Get sync status to determine if incremental or backfill sync
-      const { data: syncStatus } = await supabase
-        .from('sync_status')
-        .select('*')
-        .eq('source', 'mixpanel')
-        .eq('tool_type', 'event_sequences')
+      // Get last successful sync from sync_logs to determine if incremental or backfill sync
+      const { data: lastSyncLog } = await supabase
+        .from('sync_logs')
+        .select('sync_completed_at, created_at')
+        .eq('source', 'mixpanel_portfolio_sequences')
+        .eq('sync_status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single()
 
-      const lastSync = syncStatus?.last_sync_timestamp
       const now = new Date()
 
       // Calculate date range based on sync mode
@@ -271,13 +272,13 @@ serve(async (req) => {
       const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
       toDate = yesterday.toISOString().split('T')[0]
 
-      if (syncStatus?.last_sync_timestamp) {
-        // Incremental: fetch from last sync
+      if (lastSyncLog?.sync_completed_at) {
+        // Incremental: fetch from last successful sync completion time
         console.log('📦 Mode: Incremental sync')
-        const lastSync = new Date(syncStatus.last_sync_timestamp)
+        const lastSync = new Date(lastSyncLog.sync_completed_at)
         fromDate = lastSync.toISOString().split('T')[0]
         syncMode = 'incremental'
-        console.log(`Date range: ${fromDate} to ${toDate}`)
+        console.log(`Date range: ${fromDate} to ${toDate} (from last sync_logs entry)`)
       } else {
         // Backfill: fetch last 30 days on first run
         console.log('📦 Mode: Backfill (first sync)')
