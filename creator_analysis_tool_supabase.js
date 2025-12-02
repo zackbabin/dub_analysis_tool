@@ -425,6 +425,10 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             section.appendChild(metricSummary);
         }
 
+        // Display Stripe subscription table below metric cards
+        // COMMENTED OUT: Stripe API key removed, functionality disabled
+        // await this.displayStripeSubscriptionTable(section);
+
         // Display subscription price distribution (data passed as parameter)
         if (subscriptionDistribution && subscriptionDistribution.length > 0) {
             const chartId = `subscription-price-chart-${Date.now()}`;
@@ -450,6 +454,194 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             setTimeout(() => {
                 this.renderSubscriptionPriceChart(chartId, subscriptionDistribution);
             }, 100);
+        }
+    }
+
+    /**
+     * Display Stripe subscription metrics table
+     * COMMENTED OUT: Stripe API key removed, functionality disabled
+     */
+    async displayStripeSubscriptionTable(parentSection) {
+        // DISABLED: Stripe integration temporarily disabled
+        return;
+        try {
+            if (!this.supabaseIntegration) {
+                console.error('Supabase not configured');
+                return;
+            }
+
+            // Fetch Stripe subscription metrics
+            const { data, error } = await this.supabaseIntegration.supabase
+                .from('stripe_subscription_metrics_by_account')
+                .select('*')
+                .order('total_subscriptions_net', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching Stripe subscription metrics:', error);
+                return;
+            }
+
+            // If no data, show placeholder
+            if (!data || data.length === 0) {
+                const placeholderSection = document.createElement('div');
+                placeholderSection.style.marginTop = '2rem';
+                placeholderSection.innerHTML = `
+                    <h2 style="margin-top: 0; margin-bottom: 1rem;">Stripe Subscription Metrics</h2>
+                    <div style="padding: 2rem; background: #f8f9fa; border-radius: 8px; text-align: center; color: #6c757d;">
+                        <p style="margin: 0 0 1rem 0;">No Stripe subscription data available yet.</p>
+                        <button id="syncStripeButton" class="qda-btn" style="padding: 10px 20px; font-size: 14px;">
+                            Sync Stripe Data
+                        </button>
+                    </div>
+                `;
+                parentSection.appendChild(placeholderSection);
+
+                // Attach sync button handler
+                setTimeout(() => {
+                    const syncBtn = document.getElementById('syncStripeButton');
+                    if (syncBtn) {
+                        syncBtn.addEventListener('click', () => this.syncStripeData());
+                    }
+                }, 0);
+
+                return;
+            }
+
+            // Create table section
+            const tableSection = document.createElement('div');
+            tableSection.style.marginTop = '2rem';
+
+            // Section title with refresh button
+            const titleContainer = document.createElement('div');
+            titleContainer.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;';
+
+            const title = document.createElement('h2');
+            title.style.cssText = 'margin: 0;';
+            title.innerHTML = `<span class="info-tooltip">Stripe Subscription Metrics<span class="info-icon">i</span>
+                <span class="tooltip-text">
+                    <strong>Stripe Subscription Metrics</strong>
+                    Direct subscription data from Stripe Connected Accounts.
+                    <ul>
+                        <li><strong>Data Source:</strong> Stripe API via Connected Accounts</li>
+                        <li><strong>Total Subscriptions:</strong> All-time subscriptions (net of refunds)</li>
+                        <li><strong>Active Subscriptions:</strong> Currently active subscriptions (net of expired)</li>
+                    </ul>
+                </span>
+            </span>`;
+
+            const refreshBtn = document.createElement('button');
+            refreshBtn.id = 'syncStripeButton';
+            refreshBtn.className = 'qda-btn';
+            refreshBtn.style.cssText = 'padding: 8px 16px; font-size: 12px;';
+            refreshBtn.textContent = 'Sync Stripe Data';
+            refreshBtn.addEventListener('click', () => this.syncStripeData());
+
+            titleContainer.appendChild(title);
+            titleContainer.appendChild(refreshBtn);
+            tableSection.appendChild(titleContainer);
+
+            // Last synced timestamp
+            if (data[0]?.last_synced_at) {
+                const lastSynced = new Date(data[0].last_synced_at);
+                const timestamp = document.createElement('div');
+                timestamp.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-bottom: 1rem;';
+                timestamp.textContent = `Last synced: ${lastSynced.toLocaleString()}`;
+                tableSection.appendChild(timestamp);
+            }
+
+            // Create table wrapper for responsiveness
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'qda-table-wrapper';
+            tableWrapper.style.cssText = 'overflow-x: auto;';
+
+            const table = document.createElement('table');
+            table.className = 'qda-regression-table';
+            table.style.width = '100%';
+
+            // Table header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th style="text-align: left; min-width: 200px;">Creator</th>
+                    <th style="text-align: right; min-width: 150px;">Total Subscriptions</th>
+                    <th style="text-align: right; min-width: 150px;">Active Subscriptions</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+
+            // Table body
+            const tbody = document.createElement('tbody');
+            data.forEach(account => {
+                const row = document.createElement('tr');
+
+                // Creator name (from individual.account)
+                const creatorName = account.creator_name || account.stripe_account_id;
+
+                row.innerHTML = `
+                    <td style="text-align: left;">${creatorName}</td>
+                    <td style="text-align: right;">${account.total_subscriptions_net.toLocaleString()}</td>
+                    <td style="text-align: right;">${account.active_subscriptions_net.toLocaleString()}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+
+            tableWrapper.appendChild(table);
+            tableSection.appendChild(tableWrapper);
+            parentSection.appendChild(tableSection);
+
+        } catch (error) {
+            console.error('Error in displayStripeSubscriptionTable:', error);
+        }
+    }
+
+    /**
+     * Sync Stripe data by calling Edge Function
+     * COMMENTED OUT: Stripe API key removed, functionality disabled
+     */
+    async syncStripeData() {
+        // DISABLED: Stripe integration temporarily disabled
+        return;
+        const syncBtn = document.getElementById('syncStripeButton');
+        if (!syncBtn) return;
+
+        try {
+            // Disable button and show loading state
+            syncBtn.disabled = true;
+            const originalText = syncBtn.textContent;
+            syncBtn.textContent = 'Syncing...';
+
+            console.log('Calling sync-stripe-subscriptions Edge Function...');
+
+            // Call Edge Function
+            const { data, error } = await this.supabaseIntegration.supabase.functions.invoke(
+                'sync-stripe-subscriptions',
+                {
+                    body: {},
+                }
+            );
+
+            if (error) {
+                console.error('Error syncing Stripe data:', error);
+                alert(`Error syncing Stripe data: ${error.message}`);
+                syncBtn.textContent = originalText;
+                syncBtn.disabled = false;
+                return;
+            }
+
+            console.log('Stripe sync completed:', data);
+
+            // Show success message
+            alert(`Successfully synced ${data.accounts_synced} accounts and ${data.subscriptions_synced} subscriptions`);
+
+            // Refresh the display
+            window.location.reload();
+
+        } catch (error) {
+            console.error('Error in syncStripeData:', error);
+            alert(`Error: ${error.message}`);
+            syncBtn.textContent = 'Sync Stripe Data';
+            syncBtn.disabled = false;
         }
     }
 
