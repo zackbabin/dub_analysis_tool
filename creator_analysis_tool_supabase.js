@@ -387,37 +387,76 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             metricSummary.style.marginTop = '1.5rem';
             metricSummary.style.marginBottom = '2rem';
 
-            // Format displays
+            // Format displays - Avg as primary with median in smaller text
+            // Card 1: Avg Copies (median: ##)
+            const avgCopiesDisplay = stats.avg_copies !== null && stats.avg_copies !== undefined
+                ? stats.avg_copies.toLocaleString(undefined, {maximumFractionDigits: 0})
+                : '—';
             const medianCopiesDisplay = stats.median_copies !== null && stats.median_copies !== undefined
                 ? stats.median_copies.toLocaleString(undefined, {maximumFractionDigits: 0})
-                : '—';
+                : null;
+
+            // Card 2: Avg Subscription CVR (no median)
             const avgSubCVRDisplay = stats.avg_subscription_cvr !== null && stats.avg_subscription_cvr !== undefined
                 ? stats.avg_subscription_cvr.toLocaleString(undefined, {maximumFractionDigits: 2}) + '%'
                 : '—';
-            const medianPerformanceDisplay = stats.median_all_time_performance !== null && stats.median_all_time_performance !== undefined
-                ? `${stats.median_all_time_performance >= 0 ? '+' : ''}${(stats.median_all_time_performance * 100).toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+
+            // Card 3: Avg All-Time Returns (median: ##%)
+            const avgPerformanceDisplay = stats.avg_all_time_returns !== null && stats.avg_all_time_returns !== undefined
+                ? `${stats.avg_all_time_returns >= 0 ? '+' : ''}${(stats.avg_all_time_returns * 100).toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                : '—';
+            const medianPerformanceDisplay = stats.median_all_time_returns !== null && stats.median_all_time_returns !== undefined
+                ? `${stats.median_all_time_returns >= 0 ? '+' : ''}${(stats.median_all_time_returns * 100).toLocaleString(undefined, {maximumFractionDigits: 2})}%`
+                : null;
+
+            // Card 4: Avg Copy Capital (median: $##)
+            const avgCopyCapitalDisplay = stats.avg_copy_capital !== null && stats.avg_copy_capital !== undefined
+                ? `$${stats.avg_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
                 : '—';
             const medianCopyCapitalDisplay = stats.median_copy_capital !== null && stats.median_copy_capital !== undefined
                 ? `$${stats.median_copy_capital.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
-                : '—';
+                : null;
 
             const cards = [
-                ['Median Copies', medianCopiesDisplay, 'Median number of copies across all Premium Creators'],
-                ['Avg Subscription CVR', avgSubCVRDisplay, 'Viewed Paywall → Subscribed to Creator'],
-                ['Median All-Time Returns', medianPerformanceDisplay, 'Median portfolio returns across all Premium Creators'],
-                ['Median Copy Capital', medianCopyCapitalDisplay, 'Median capital deployed to copy portfolios across all Premium Creators']
+                {
+                    title: 'Avg Copies',
+                    avgValue: avgCopiesDisplay,
+                    medianValue: medianCopiesDisplay,
+                    tooltip: 'Average (mean) number of copies across all Premium Creators, with median shown for comparison'
+                },
+                {
+                    title: 'Avg Subscription CVR',
+                    avgValue: avgSubCVRDisplay,
+                    medianValue: null,
+                    tooltip: 'Viewed Paywall → Subscribed to Creator'
+                },
+                {
+                    title: 'Avg All-Time Returns',
+                    avgValue: avgPerformanceDisplay,
+                    medianValue: medianPerformanceDisplay,
+                    tooltip: 'Average (mean) portfolio returns across all Premium Creators, with median shown for comparison'
+                },
+                {
+                    title: 'Avg Copy Capital',
+                    avgValue: avgCopyCapitalDisplay,
+                    medianValue: medianCopyCapitalDisplay,
+                    tooltip: 'Average (mean) capital deployed to copy portfolios across all Premium Creators, with median shown for comparison'
+                }
             ];
 
-            cards.forEach(([cardTitle, content, tooltip]) => {
+            cards.forEach(({ title, avgValue, medianValue, tooltip }) => {
                 const card = document.createElement('div');
                 card.className = 'qda-metric-card';
                 card.innerHTML = `
                     <div style="font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;">
-                        <span class="info-tooltip">${cardTitle}<span class="info-icon">i</span>
+                        <span class="info-tooltip">${title}<span class="info-icon">i</span>
                             <span class="tooltip-text">${tooltip}</span>
                         </span>
                     </div>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">${content}</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #000;">
+                        ${avgValue}
+                        ${medianValue ? `<div style="font-size: 0.875rem; font-weight: normal; color: #6c757d; margin-top: 0.25rem;">(median: ${medianValue})</div>` : ''}
+                    </div>
                 `;
                 metricSummary.appendChild(card);
             });
@@ -669,18 +708,24 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             if (!data) {
                 console.log('No premium creator metrics found');
                 return {
+                    avg_copies: null,
                     median_copies: null,
                     avg_subscription_cvr: 0,
-                    median_all_time_performance: null,
+                    avg_all_time_returns: null,
+                    median_all_time_returns: null,
+                    avg_copy_capital: null,
                     median_copy_capital: null
                 };
             }
 
             // Return the pre-calculated metrics from the view
             return {
+                avg_copies: data.avg_copies || null,
                 median_copies: data.median_copies || null,
                 avg_subscription_cvr: data.avg_subscription_cvr || 0,
-                median_all_time_performance: data.median_all_time_performance || null,
+                avg_all_time_returns: data.avg_all_time_returns || null,
+                median_all_time_returns: data.median_all_time_returns || null,
+                avg_copy_capital: data.avg_copy_capital || null,
                 median_copy_capital: data.median_copy_capital || null,
                 total_creators: data.total_creators || 0
             };
