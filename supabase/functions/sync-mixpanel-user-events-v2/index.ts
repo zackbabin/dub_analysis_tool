@@ -245,6 +245,13 @@ serve(async (req) => {
         console.log(`✓ Upserted ${updatedCount} users`)
       }
 
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: users.length,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Refresh dependent materialized views
       console.log('Refreshing main_analysis view...')
       const mainAnalysisStart = Date.now()
@@ -264,10 +271,6 @@ serve(async (req) => {
 
       const elapsedMs = Date.now() - executionStartMs
       const elapsedSec = Math.round(elapsedMs / 1000)
-
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: users.length,
-      })
 
       console.log(`✅ Sync completed successfully in ${elapsedSec}s`)
 

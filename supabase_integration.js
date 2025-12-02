@@ -1287,6 +1287,32 @@ class SupabaseIntegration {
     }
 
     /**
+     * Load portfolio copy path analysis data
+     * Returns ordered portfolio viewing patterns before first copy
+     */
+    async loadPortfolioCopyPaths() {
+        return this.cachedQuery('portfolio_copy_path_analysis', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .from('portfolio_copy_path_analysis')
+                    .select('*')
+                    .order('analysis_type', { ascending: true })
+                    .order('path_rank', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading portfolio copy paths:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading portfolio copy paths:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
      * Trigger copy pattern analysis via Edge Function
      * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
      */

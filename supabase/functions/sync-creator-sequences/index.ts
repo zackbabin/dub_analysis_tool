@@ -508,6 +508,13 @@ serve(async (req) => {
 
       console.log(`✅ Inserted ${totalInserted} raw events to creator_sequences_raw`)
 
+      // Update sync log with success IMMEDIATELY after storing data (even if partial)
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: stats.eventsInserted,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Log timeout status before proceeding
       console.log(`⏱️ Elapsed time: ${timeoutGuard.getElapsedSeconds()}s / 140s limit`)
 
@@ -516,32 +523,6 @@ serve(async (req) => {
       const message = partialSync
         ? `Partial sync completed - ${stats.eventsInserted} of ${stats.eventsFetched} events inserted before timeout`
         : `Creator sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
-
-      // Update sync status with last sync timestamp (only if not partial)
-      if (!partialSync) {
-        await supabase
-          .from('sync_status')
-          .upsert({
-            source: 'mixpanel',
-            tool_type: 'creator_sequences',
-            last_sync_timestamp: now.toISOString(),
-            last_sync_status: 'success',
-            records_synced: stats.eventsInserted,
-            error_message: null,
-            updated_at: now.toISOString(),
-          }, {
-            onConflict: 'source,tool_type'
-          })
-
-        console.log(`✓ Updated sync status: last_sync_timestamp = ${now.toISOString()}`)
-      } else {
-        console.warn('⚠️ Partial sync - not updating last_sync_timestamp (will retry full range next time)')
-      }
-
-      // Update sync log with success (even if partial)
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: stats.eventsInserted,
-      })
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log(`Creator profile views: ${stats.eventsInserted}`)

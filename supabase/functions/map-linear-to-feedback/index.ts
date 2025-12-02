@@ -474,13 +474,15 @@ serve(async (req) => {
       // Perform mapping
       const stats = await mapLinearToFeedback(supabase, anthropic, syncLogId)
 
-      const elapsedMs = Date.now() - executionStartMs
-      const elapsedSec = Math.round(elapsedMs / 1000)
-
-      // Update sync log with success
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: stats.total_mappings,
       })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
+      const elapsedMs = Date.now() - executionStartMs
+      const elapsedSec = Math.round(elapsedMs / 1000)
 
       console.log(`✅ Linear mapping completed successfully in ${elapsedSec}s`)
 

@@ -457,9 +457,10 @@ serve(async (req) => {
 
           const { error: insertError } = await supabase
             .from('portfolio_sequences_raw')
-            .insert(rawEventRows)
-            .onConflict('user_id,event_time,portfolio_ticker')
-            .ignoreDuplicates()  // PostgreSQL silently ignores duplicate events
+            .upsert(rawEventRows, {
+              onConflict: 'user_id,event_time,portfolio_ticker',
+              ignoreDuplicates: true
+            })
 
           if (insertError) {
             const errorCode = insertError.code || insertError.error_code || ''
@@ -585,6 +586,13 @@ serve(async (req) => {
 
       console.log(`✅ Inserted ${totalInserted} raw events to portfolio_sequences_raw`)
 
+      // Update sync log with success IMMEDIATELY after storing data (even if partial)
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: stats.eventsInserted,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Note: user_id is available via portfolio_sequences view (joins with user_first_copies)
 
       // Log timeout status before proceeding
@@ -616,11 +624,6 @@ serve(async (req) => {
       } else {
         console.warn('⚠️ Partial sync - not updating last_sync_timestamp (will retry full range next time)')
       }
-
-      // Update sync log with success (even if partial)
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: stats.eventsInserted,
-      })
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)

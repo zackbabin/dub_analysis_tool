@@ -323,6 +323,14 @@ serve(async (req) => {
 
       console.log('Creator enrichment sync completed successfully')
 
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        subscribers_fetched: stats.enrichedCreators,
+        total_records_inserted: stats.enrichedCreators,
+      }, syncStartTime)
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Refresh materialized views asynchronously (fire-and-forget)
       // This can take a long time, so don't wait for it
       console.log('Triggering materialized view refresh (async)...')
@@ -338,12 +346,6 @@ serve(async (req) => {
       // Note: Premium creator affinity is now computed via database views
       // See: premium_creator_affinity_display view
       console.log('✅ Premium creator affinity available via views')
-
-      // Update sync log with success
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        subscribers_fetched: stats.enrichedCreators,
-        total_records_inserted: stats.enrichedCreators,
-      }, syncStartTime)
 
       return createSuccessResponse(
         'Creator enrichment sync completed successfully',

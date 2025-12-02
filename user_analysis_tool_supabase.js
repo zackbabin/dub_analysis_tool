@@ -1121,8 +1121,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Build Portfolio Content Section
         const portfolioContentSection = document.getElementById('portfolioContentSection');
 
+        // Load portfolio copy path analysis
+        const portfolioCopyPaths = await this.supabaseIntegration.loadPortfolioCopyPaths().catch(e => {
+            console.warn('Failed to load portfolio copy paths:', e);
+            return null;
+        });
+
         // Build all HTML sections
         const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
+        const copyPathsHTML = this.generatePortfolioCopyPathsHTML(portfolioCopyPaths);
         const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
         const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
         const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
@@ -1139,6 +1146,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     </span></h1>
                 </div>
                 ${metricsHTML}
+                ${copyPathsHTML}
                 ${hiddenGemsHTML}
             </div>
         `;
@@ -1600,6 +1608,124 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const tempContainer = document.createElement('div');
         tempContainer.appendChild(fragment);
         return tempContainer.innerHTML;
+    }
+
+    /**
+     * Generate Portfolio Copy Paths HTML - visualizes ordered portfolio viewing patterns
+     */
+    generatePortfolioCopyPathsHTML(pathData) {
+        if (!pathData || pathData.length === 0) {
+            return '';
+        }
+
+        // Group by analysis type
+        const firstPortfolios = pathData.filter(r => r.analysis_type === 'first_portfolio');
+        const lastPortfolios = pathData.filter(r => r.analysis_type === 'last_portfolio');
+        const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
+
+        if (firstPortfolios.length === 0 && lastPortfolios.length === 0 && fullSequences.length === 0) {
+            return '';
+        }
+
+        // Build HTML sections
+        let html = `
+            <div class="copy-path-analysis-container" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+        `;
+
+        // Entry Portfolios Section
+        if (firstPortfolios.length > 0) {
+            html += `
+                <div class="path-section" style="margin-bottom: 24px;">
+                    <h4 style="margin-bottom: 16px; color: #333;">🎯 Top Entry Portfolios (First Viewed)</h4>
+                    <div class="portfolio-list">
+            `;
+
+            firstPortfolios.forEach(item => {
+                const ticker = item.portfolio_sequence[0];
+                const pct = parseFloat(item.pct_of_converters);
+                const count = item.converter_count;
+
+                html += `
+                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${ticker}</span>
+                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
+                        </div>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}% (${count})</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Final Portfolios Section
+        if (lastPortfolios.length > 0) {
+            html += `
+                <div class="path-section" style="margin-bottom: 24px;">
+                    <h4 style="margin-bottom: 16px; color: #333;">🎯 Top Final Portfolios (Last Before Copy)</h4>
+                    <div class="portfolio-list">
+            `;
+
+            lastPortfolios.forEach(item => {
+                const ticker = item.portfolio_sequence[0];
+                const pct = parseFloat(item.pct_of_converters);
+                const count = item.converter_count;
+
+                html += `
+                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${ticker}</span>
+                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
+                        </div>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}% (${count})</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Full Sequences Section
+        if (fullSequences.length > 0) {
+            html += `
+                <div class="path-section">
+                    <h4 style="margin-bottom: 16px; color: #333;">🔄 Top 5 Most Common Paths</h4>
+                    <div class="paths-list">
+            `;
+
+            fullSequences.forEach(item => {
+                const pathStr = item.portfolio_sequence.join(' → ');
+                const pct = parseFloat(item.pct_of_converters);
+
+                html += `
+                    <div class="path-row" style="display: flex; gap: 12px; padding: 8px 0; font-family: 'Courier New', monospace;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="path" style="flex: 1; color: #495057;">${pathStr}</span>
+                        <span class="pct" style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `
+            </div>
+        `;
+
+        return html;
     }
 
     /**

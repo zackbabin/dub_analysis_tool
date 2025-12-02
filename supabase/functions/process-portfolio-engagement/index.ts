@@ -245,6 +245,13 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Step 2 complete: ${portfolioCount} records upserted from ${recordsProcessed} staged records in ${processingElapsedSec}s`)
 
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: portfolioCount,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Step 3: Clear staging table
       console.log('Step 3/3: Clearing staging table...')
       const { error: finalClearError } = await supabase.rpc('clear_portfolio_engagement_staging')
@@ -261,11 +268,6 @@ serve(async (req) => {
       console.log(`✅ Portfolio processing completed successfully in ${totalElapsedSec}s (Postgres-accelerated)`)
 
       // Note: process-creator-engagement should be called next by the frontend
-
-      // Update sync log with success
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: portfolioCount,
-      })
 
       console.log('Portfolio processing completed successfully')
 

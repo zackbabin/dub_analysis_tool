@@ -132,10 +132,12 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Raw data stored: ${filename}`)
 
-      // Update sync log with fetch success
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
       await updateSyncLogSuccess(supabase, syncLogId, {
         total_records_inserted: 0,  // No records inserted yet - happens in processing functions
       })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
 
       // NOTE: Processing functions (process-portfolio-engagement, process-creator-engagement)
       // are now called sequentially by the frontend to avoid WORKER_LIMIT errors.

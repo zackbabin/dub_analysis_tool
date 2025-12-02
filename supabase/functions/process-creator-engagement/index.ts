@@ -261,6 +261,13 @@ serve(async (req) => {
       logElapsed()
       console.log(`✓ Step 2 complete: ${creatorCount} records upserted from ${recordsProcessed} staged records in ${processingElapsedSec}s`)
 
+      // Update sync log with success IMMEDIATELY after storing data
+      // This ensures the log is marked as completed even if function times out after this point
+      await updateSyncLogSuccess(supabase, syncLogId, {
+        total_records_inserted: creatorCount,
+      })
+      console.log(`✅ Sync log ${syncLogId} marked as completed`)
+
       // Step 3: Clear staging table
       console.log('Step 3/3: Clearing staging table...')
       const { error: finalClearError } = await supabase.rpc('clear_creator_engagement_staging')
@@ -279,11 +286,6 @@ serve(async (req) => {
       // NOTE: Materialized views refresh is now handled at the end of the full workflow
       // This ensures all data (subscribers, creators, events, etc.) is synced before refreshing
       console.log('✓ Creator engagement processing complete - views will be refreshed after all syncs finish')
-
-      // Update sync log with success
-      await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: creatorCount,
-      })
 
       // Delete the raw data file from storage (cleanup)
       console.log('Cleaning up storage file...')
