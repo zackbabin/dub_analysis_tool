@@ -1463,11 +1463,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const copiersData = summaryData.find(d => d.did_copy === 1 || d.did_copy === true) || {};
         const nonCopiersData = summaryData.find(d => d.did_copy === 0 || d.did_copy === false) || {};
 
-        // Extract unique creators and portfolios mean/median from copiers data (populated by Claude AI via event_sequence_metrics table)
+        // Extract unique creators and portfolios mean/median from copiers data (populated by SQL via event_sequence_metrics table)
         const uniqueCreatorsMean = copiersData.mean_unique_creators || 0;
         const uniqueCreatorsMedian = copiersData.median_unique_creators || 0;
         const uniquePortfoliosMean = copiersData.mean_unique_portfolios || 0;
         const uniquePortfoliosMedian = copiersData.median_unique_portfolios || 0;
+        const creatorConverterCount = copiersData.creator_converter_count || 0;
+        const portfolioConverterCount = copiersData.portfolio_converter_count || 0;
 
         // Calculate dynamic time range (last 30 days)
         const today = new Date();
@@ -1483,7 +1485,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 secondaryValue: uniqueCreatorsMedian,
                 showComparison: false,
                 showMedian: true,
-                tooltip: `Average number of unique creator profiles viewed before first copy. Calculated by analyzing "Viewed Creator Profile" events from the last 30 days (${timeRangeText}) for the 250 most recent converters, counting distinct creator profiles viewed before their first copy, then calculating mean and median across all converters.`,
+                tooltip: `Average number of unique creator profiles viewed before first copy. Calculated by analyzing "Viewed Creator Profile" events from the last 30 days (${timeRangeText}) for ${creatorConverterCount.toLocaleString()} converters, counting distinct creator profiles viewed before their first copy, then calculating mean and median across all converters.`,
                 tooltipPosition: 'top'
             },
             {
@@ -1492,7 +1494,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 secondaryValue: uniquePortfoliosMedian,
                 showComparison: false,
                 showMedian: true,
-                tooltip: `Average number of unique portfolio detail pages viewed before first copy. Calculated by analyzing "Viewed Portfolio Details" events from the last 30 days (${timeRangeText}) for the 250 most recent converters, counting distinct portfolios viewed before their first copy, then calculating mean and median across all converters.`,
+                tooltip: `Average number of unique portfolio detail pages viewed before first copy. Calculated by analyzing "Viewed Portfolio Details" events from the last 30 days (${timeRangeText}) for ${portfolioConverterCount.toLocaleString()} converters, counting distinct portfolios viewed before their first copy, then calculating mean and median across all converters.`,
                 tooltipPosition: 'top'
             }
         ];

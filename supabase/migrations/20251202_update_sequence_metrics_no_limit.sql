@@ -1,12 +1,14 @@
--- Migration: Add SQL functions for event sequence analysis
--- Created: 2025-11-28
--- Purpose: Replace Claude API calls with native PostgreSQL calculations for performance
+-- Migration: Update sequence analysis functions to analyze ALL converters
+-- Created: 2025-12-02
+-- Purpose: Remove 250 converter limit and return converter count for dynamic tooltips
 --
--- Performance improvement: 95% faster (5-15s → 100-500ms), $0.75/run savings
--- Replaces: Claude API calls in analyze-portfolio-sequences and analyze-creator-sequences
+-- Changes:
+-- - Remove LIMIT 250 from both functions (analyze all converters)
+-- - Add converter_count to return values
+-- - Update function signatures and comments
 
 -- =======================
--- 1. Portfolio Sequence Analysis Function
+-- 1. Update Portfolio Sequence Analysis Function
 -- =======================
 
 CREATE OR REPLACE FUNCTION calculate_portfolio_sequence_metrics()
@@ -48,11 +50,12 @@ $$;
 
 COMMENT ON FUNCTION calculate_portfolio_sequence_metrics IS
 'Calculates mean and median unique portfolio views before first copy for ALL converters (no limit).
+Returns converter_count for dynamic UI display.
 Replaces Claude API call in analyze-portfolio-sequences edge function.
 Returns: mean_unique_portfolios, median_unique_portfolios, converter_count';
 
 -- =======================
--- 2. Creator Sequence Analysis Function
+-- 2. Update Creator Sequence Analysis Function
 -- =======================
 
 CREATE OR REPLACE FUNCTION calculate_creator_sequence_metrics()
@@ -94,44 +97,31 @@ $$;
 
 COMMENT ON FUNCTION calculate_creator_sequence_metrics IS
 'Calculates mean and median unique creator profile views before first copy for ALL converters (no limit).
+Returns converter_count for dynamic UI display.
 Replaces Claude API call in analyze-creator-sequences edge function.
 Returns: mean_unique_creators, median_unique_creators, converter_count';
 
 -- =======================
--- 3. Grant Permissions
+-- 3. Add converter count columns to event_sequence_metrics table
 -- =======================
 
-GRANT EXECUTE ON FUNCTION calculate_portfolio_sequence_metrics TO service_role;
-GRANT EXECUTE ON FUNCTION calculate_creator_sequence_metrics TO service_role;
+ALTER TABLE event_sequence_metrics
+ADD COLUMN IF NOT EXISTS portfolio_converter_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS creator_converter_count INTEGER DEFAULT 0;
+
+COMMENT ON COLUMN event_sequence_metrics.portfolio_converter_count IS 'Number of converters analyzed for portfolio sequence metrics';
+COMMENT ON COLUMN event_sequence_metrics.creator_converter_count IS 'Number of converters analyzed for creator sequence metrics';
 
 -- =======================
--- 4. Create composite index for performance
--- =======================
-
--- This index optimizes the WHERE clause: user_id + event_name + event_time < first_copy_time
--- Covers both portfolio and creator queries
-CREATE INDEX IF NOT EXISTS idx_event_sequences_raw_analysis
-ON event_sequences_raw (user_id, event_name, event_time);
-
-COMMENT ON INDEX idx_event_sequences_raw_analysis IS
-'Optimizes event sequence analysis queries. Supports filtering by user_id, event_name, and event_time range for pre-copy analysis.';
-
--- =======================
--- 5. Log the changes
+-- Migration Complete
 -- =======================
 
 DO $$
 BEGIN
   RAISE NOTICE '';
-  RAISE NOTICE '✅ Created event sequence analysis SQL functions';
-  RAISE NOTICE '   1. calculate_portfolio_sequence_metrics() - replaces Claude API for portfolio analysis';
-  RAISE NOTICE '   2. calculate_creator_sequence_metrics() - replaces Claude API for creator analysis';
-  RAISE NOTICE '';
-  RAISE NOTICE 'Performance improvement:';
-  RAISE NOTICE '   - Latency: 5-15s → 100-500ms (95%% faster)';
-  RAISE NOTICE '   - Cost: $0.75/run → $0 (100%% savings)';
-  RAISE NOTICE '   - No external API dependency';
-  RAISE NOTICE '';
-  RAISE NOTICE 'Index created: idx_event_sequences_raw_analysis (user_id, event_name, event_time)';
+  RAISE NOTICE '✅ Updated event sequence analysis SQL functions';
+  RAISE NOTICE '   - Removed 250 converter limit (now analyzes ALL converters)';
+  RAISE NOTICE '   - Added converter_count to return values';
+  RAISE NOTICE '   - SQL performance is fast enough for full dataset';
   RAISE NOTICE '';
 END $$;

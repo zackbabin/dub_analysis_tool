@@ -55,9 +55,10 @@ serve(async (req) => {
     const result = metrics[0]
     const meanValue = result.mean_unique_portfolios || null
     const medianValue = result.median_unique_portfolios || null
+    const converterCount = result.converter_count || 0
 
     console.log('✅ SQL analysis complete')
-    console.log(`Mean: ${meanValue}, Median: ${medianValue}`)
+    console.log(`Mean: ${meanValue}, Median: ${medianValue}, Converters analyzed: ${converterCount}`)
 
     // Update event_sequence_metrics table (which feeds into copy_engagement_summary view)
     console.log('Updating event_sequence_metrics table...')
@@ -126,6 +127,7 @@ serve(async (req) => {
       .update({
         mean_unique_portfolios: meanValue,
         median_unique_portfolios: medianValue,
+        portfolio_converter_count: converterCount,
         updated_at: new Date().toISOString()
       })
       .eq('id', 1)
@@ -143,6 +145,7 @@ serve(async (req) => {
         method: 'SQL',
         mean_unique_portfolios: meanValue,
         median_unique_portfolios: medianValue,
+        converter_count: converterCount,
         updated_summary: !updateError,
       }),
       {
