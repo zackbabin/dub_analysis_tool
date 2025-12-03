@@ -107,13 +107,34 @@ serve(async (req) => {
       // COMMENTED OUT: Instabug integration (not ready yet)
       // const instabugClient = new InstabugClient(credentials.instabug.token)
 
-      // Fetch and store Zendesk tickets using streaming (stores each batch immediately)
-      console.log('Fetching and storing Zendesk tickets (streaming mode)...')
+      // Fetch and store Zendesk tickets using larger batch accumulation
+      console.log('Fetching and storing Zendesk tickets (optimized batching)...')
+
+      const BATCH_SIZE = 500 // Accumulate 500 tickets before upserting
+      let accumulatedTickets: any[] = []
+      let batchCount = 0
 
       await zendeskClient.fetchTicketsSince(zendeskStartTime, async (ticketBatch) => {
         // Check timeout before processing batch
         if (timeoutGuard.isApproachingTimeout()) {
           console.warn('⏱️ Approaching 140s timeout during Zendesk fetch - stopping early')
+
+          // Store any remaining accumulated tickets before timing out
+          if (accumulatedTickets.length > 0) {
+            console.log(`  Storing final ${accumulatedTickets.length} accumulated tickets before timeout...`)
+            try {
+              await supabase
+                .from('raw_support_conversations')
+                .upsert(accumulatedTickets, {
+                  onConflict: 'source,id',
+                  ignoreDuplicates: false,
+                })
+              totalTicketsStored += accumulatedTickets.length
+            } catch (err) {
+              console.warn(`Failed to store final batch: ${err?.message}`)
+            }
+          }
+
           timeoutGuard.logStatus('During-Zendesk-Fetch')
           throw new Error('TIMEOUT_PREEMPTIVE: Stopped early to avoid 150s timeout')
         }
@@ -123,56 +144,92 @@ serve(async (req) => {
           ConversationNormalizer.normalizeZendeskTicket(t)
         )
 
-        // Store batch immediately with timeout handling
+        // Accumulate tickets instead of storing immediately
+        accumulatedTickets.push(...normalizedBatch)
+        console.log(`  Accumulated ${accumulatedTickets.length} tickets...`)
+
+        // Store when we reach the batch size threshold
+        if (accumulatedTickets.length >= BATCH_SIZE) {
+          batchCount++
+          console.log(`  Storing batch ${batchCount} (${accumulatedTickets.length} tickets)...`)
+
+          try {
+            const { error: batchError } = await supabase
+              .from('raw_support_conversations')
+              .upsert(accumulatedTickets, {
+                onConflict: 'source,id',
+                ignoreDuplicates: false,
+              })
+
+            if (batchError) {
+              const errorCode = batchError.code || batchError.error_code || batchError.message
+              console.log(`Batch error details: code=${errorCode}, message=${batchError.message}`)
+
+              if (errorCode === '57014' || errorCode?.includes('57014') || batchError.message?.includes('statement timeout')) {
+                console.warn(`⚠️ Statement timeout detected - skipping batch and continuing...`)
+                accumulatedTickets = [] // Clear accumulator
+                return
+              }
+
+              console.error('Error storing batch:', batchError)
+              throw batchError
+            }
+
+            totalTicketsStored += accumulatedTickets.length
+            console.log(`  ✓ Stored batch ${batchCount} of ${accumulatedTickets.length} tickets (total: ${totalTicketsStored})`)
+
+            // Clear accumulator after successful store
+            accumulatedTickets = []
+
+            // Update sync log every 5 batches instead of every batch
+            if (batchCount % 5 === 0) {
+              await updateSyncLogSuccess(supabase, syncLogId, {
+                total_records_inserted: totalTicketsStored,
+              })
+            }
+          } catch (err) {
+            const errorCode = err?.code || err?.error_code || err?.message
+            console.log(`Caught error in batch processing: code=${errorCode}, message=${err?.message}`)
+
+            if (err?.message?.includes('TIMEOUT_PREEMPTIVE')) {
+              console.warn(`⏱️ Preemptive timeout triggered - stopping batch processing`)
+              throw err
+            }
+
+            if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
+              console.warn(`⚠️ Caught statement timeout exception - continuing with next batch...`)
+              accumulatedTickets = []
+              return
+            }
+            throw err
+          }
+        }
+      })
+
+      // Store any remaining tickets that didn't reach the batch size threshold
+      if (accumulatedTickets.length > 0) {
+        batchCount++
+        console.log(`  Storing final batch ${batchCount} (${accumulatedTickets.length} tickets)...`)
+
         try {
           const { error: batchError } = await supabase
             .from('raw_support_conversations')
-            .upsert(normalizedBatch, {
+            .upsert(accumulatedTickets, {
               onConflict: 'source,id',
               ignoreDuplicates: false,
             })
 
-          if (batchError) {
-            // Handle statement timeout gracefully for all syncs (full or incremental)
-            // This typically means we're trying to upsert duplicates or the DB is busy
-            const errorCode = batchError.code || batchError.error_code || batchError.message
-            console.log(`Batch error details: code=${errorCode}, message=${batchError.message}`)
-
-            if (errorCode === '57014' || errorCode?.includes('57014') || batchError.message?.includes('statement timeout')) {
-              console.warn(`⚠️ Statement timeout detected - skipping batch and continuing...`)
-              return // Skip this batch but don't fail the whole sync
-            }
-
-            console.error('Error storing batch:', batchError)
+          if (batchError && batchError.code !== '57014') {
+            console.error('Error storing final batch:', batchError)
             throw batchError
           }
 
-          totalTicketsStored += normalizedBatch.length
-          console.log(`  ✓ Stored batch of ${normalizedBatch.length} tickets (total: ${totalTicketsStored})`)
-
-          // Update sync log after each successful batch to ensure progress is tracked
-          // even if function times out or rate limits later
-          await updateSyncLogSuccess(supabase, syncLogId, {
-            total_records_inserted: totalTicketsStored,
-          })
+          totalTicketsStored += accumulatedTickets.length
+          console.log(`  ✓ Stored final batch of ${accumulatedTickets.length} tickets (total: ${totalTicketsStored})`)
         } catch (err) {
-          // Catch any timeout or connection errors
-          const errorCode = err?.code || err?.error_code || err?.message
-          console.log(`Caught error in batch processing: code=${errorCode}, message=${err?.message}`)
-
-          // Handle preemptive timeout (our 140s check)
-          if (err?.message?.includes('TIMEOUT_PREEMPTIVE')) {
-            console.warn(`⏱️ Preemptive timeout triggered - stopping batch processing`)
-            throw err // Propagate to outer catch for graceful handling
-          }
-
-          if (errorCode === '57014' || errorCode?.includes('57014') || err?.message?.includes('statement timeout')) {
-            console.warn(`⚠️ Caught statement timeout exception - continuing with next batch...`)
-            return // Skip this batch but don't fail
-          }
-          throw err
+          console.warn(`Failed to store final batch: ${err?.message}`)
         }
-      })
+      }
 
       console.log(`✓ Successfully stored ${totalTicketsStored} tickets`)
 

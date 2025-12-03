@@ -1,0 +1,127 @@
+    /**
+     * Generate Creator Copy Paths HTML - visualizes ordered creator viewing patterns
+     */
+    generateCreatorCopyPathsHTML(pathData) {
+        if (!pathData || pathData.length === 0) {
+            return '';
+        }
+
+        // Group by analysis type
+        const firstCreators = pathData.filter(r => r.analysis_type === 'first_creator');
+        const creatorCombinations = pathData.filter(r => r.analysis_type === 'creator_combinations');
+        const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
+
+        if (firstCreators.length === 0 && creatorCombinations.length === 0 && fullSequences.length === 0) {
+            return '';
+        }
+
+        // Build HTML with section header and 3 separate grey cards
+        let html = `
+            <div class="qda-result-section" style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Creator Conversion Paths<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Creator Conversion Paths</strong>
+                        <p>Analyzes the creator profile viewing patterns that lead to copy conversions. Shows the most common entry creators, creator combinations viewed together, and complete sequential viewing paths.</p>
+                    </span>
+                </span></h2>
+                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">
+                    Creator profile viewing patterns that lead to successful copy conversions
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px;">
+        `;
+
+        // Entry Creators Section
+        if (firstCreators.length > 0) {
+            html += `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Entry Creators</h4>
+                    <div class="portfolio-list">
+            `;
+
+            firstCreators.forEach(item => {
+                const creator = item.creator_sequence[0];
+                const pct = parseFloat(item.pct_of_converters);
+
+                html += `
+                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${creator}</span>
+                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #9C27B0, #7B1FA2); transition: width 0.3s;"></div>
+                        </div>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Creator Combinations Section
+        if (creatorCombinations.length > 0) {
+            html += `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔗 Creator Combinations</h4>
+                    <div class="portfolio-list">
+            `;
+
+            creatorCombinations.forEach(item => {
+                // Display as comma-separated list since order doesn't matter
+                const creatorSet = item.creator_sequence.join(', ');
+                const pct = parseFloat(item.pct_of_converters);
+
+                html += `
+                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px; flex: 1;">${creatorSet}</span>
+                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #FF9800, #F57C00); transition: width 0.3s;"></div>
+                        </div>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Full Sequences Section
+        if (fullSequences.length > 0) {
+            html += `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔄 Common Paths</h4>
+                    <div class="paths-list">
+            `;
+
+            fullSequences.forEach(item => {
+                const pathStr = item.creator_sequence.join(' → ');
+                const pct = parseFloat(item.pct_of_converters);
+
+                html += `
+                    <div class="path-row" style="display: flex; gap: 12px; padding: 8px 0; font-family: 'Courier New', monospace;">
+                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span class="path" style="flex: 2; color: #495057;">${pathStr}</span>
+                        <span class="pct" style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        return html;
+    }

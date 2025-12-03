@@ -1313,6 +1313,32 @@ class SupabaseIntegration {
     }
 
     /**
+     * Load creator copy path analysis data
+     * Returns ordered creator viewing patterns before first copy
+     */
+    async loadCreatorCopyPaths() {
+        return this.cachedQuery('creator_copy_path_analysis', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .from('creator_copy_path_analysis')
+                    .select('*')
+                    .order('analysis_type', { ascending: true })
+                    .order('path_rank', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading creator copy paths:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading creator copy paths:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
      * Trigger copy pattern analysis via Edge Function
      * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
      */
