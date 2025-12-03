@@ -6,8 +6,9 @@
 --          View performs expensive JOINs on user_portfolio_creator_engagement
 -- Solution: Convert to materialized table, refresh via Edge Function
 
--- Drop the existing view
+-- Drop the existing view or table (handle both cases)
 DROP VIEW IF EXISTS premium_creator_affinity_display CASCADE;
+DROP TABLE IF EXISTS premium_creator_affinity_display CASCADE;
 
 -- Create materialized table
 CREATE TABLE premium_creator_affinity_display (
