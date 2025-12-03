@@ -1652,7 +1652,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
                             <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}% (${count})</span>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1683,7 +1683,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
                             <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}% (${count})</span>
+                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1709,7 +1709,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 html += `
                     <div class="path-row" style="display: flex; gap: 12px; padding: 8px 0; font-family: 'Courier New', monospace;">
                         <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="path" style="flex: 1; color: #495057;">${pathStr}</span>
+                        <span class="path" style="flex: 2; color: #495057;">${pathStr}</span>
                         <span class="pct" style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
