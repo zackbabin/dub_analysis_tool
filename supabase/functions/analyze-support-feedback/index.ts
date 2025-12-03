@@ -253,6 +253,45 @@ serve(async (req) => {
 
     const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
+    // Check if analysis was already completed today
+    const today = new Date().toISOString().split('T')[0]
+    const { data: todaySync, error: todaySyncError } = await supabase
+      .from('sync_logs')
+      .select('id, sync_completed_at')
+      .eq('source', 'support_analysis')
+      .eq('sync_status', 'completed')
+      .gte('sync_completed_at', today)
+      .order('sync_completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (todaySync) {
+      console.log(`✓ Support analysis already completed today at ${todaySync.sync_completed_at}`)
+      console.log('Skipping Claude API call - returning existing analysis')
+
+      // Fetch existing analysis results
+      const { data: existingAnalysis, error: fetchError } = await supabase
+        .from('support_feedback_analysis')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingAnalysis) {
+        return createSuccessResponse(
+          'Support analysis already completed today - using cached results',
+          {
+            skipped: true,
+            last_analysis: todaySync.sync_completed_at,
+            top_issues: existingAnalysis.top_issues,
+            total_issues_analyzed: existingAnalysis.top_issues?.length || 0
+          }
+        )
+      }
+    }
+
+    console.log('No analysis completed today - proceeding with new analysis')
+
     // Create sync log entry
     const executionStartMs = Date.now()
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'support', 'support_analysis')
