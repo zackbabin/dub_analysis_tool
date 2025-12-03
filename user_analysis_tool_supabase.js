@@ -2,10 +2,11 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-01-v2
-// - Added creator sequence analysis workflow (sync-creator-sequences + analyze-creator-sequences)
-// - Renamed event sequences functions for consistency: sync-portfolio-sequences + analyze-portfolio-sequences
-// - Now runs 4 functions: sync-portfolio-sequences + sync-creator-sequences (parallel) → analyze-portfolio-sequences + analyze-creator-sequences (parallel)
+// Version: 2025-12-03-v2
+// - Split Copy Conversion Paths into 3 separate grey cards (matching metric card styling)
+// - Added section H2 header "Copy Conversion Paths" with tooltip
+// - Removed border, kept grey background on individual cards
+// - Grid layout: Entry (1fr) + Final (1fr) + Common Paths (2fr)
 
 'use strict';
 
@@ -1619,23 +1620,32 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Group by analysis type
         const firstPortfolios = pathData.filter(r => r.analysis_type === 'first_portfolio');
-        const lastPortfolios = pathData.filter(r => r.analysis_type === 'last_portfolio');
+        const portfolioCombinations = pathData.filter(r => r.analysis_type === 'portfolio_combinations');
         const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
 
-        if (firstPortfolios.length === 0 && lastPortfolios.length === 0 && fullSequences.length === 0) {
+        if (firstPortfolios.length === 0 && portfolioCombinations.length === 0 && fullSequences.length === 0) {
             return '';
         }
 
-        // Build HTML sections with all 3 charts in a single row
+        // Build HTML with section header and 3 separate grey cards
         let html = `
-            <div class="copy-path-analysis-container" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-top: 20px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div class="qda-result-section" style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Copy Conversion Paths</strong>
+                        <p>Analyzes the portfolio viewing patterns that lead to copy conversions. Shows the most common entry points, portfolio combinations viewed together, and complete sequential viewing paths.</p>
+                    </span>
+                </span></h2>
+                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">
+                    Portfolio viewing patterns that lead to successful copy conversions
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px;">
         `;
 
         // Entry Portfolios Section
         if (firstPortfolios.length > 0) {
             html += `
-                <div class="path-section">
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
                     <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Entry Portfolios</h4>
                     <div class="portfolio-list">
             `;
@@ -1663,25 +1673,26 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Final Portfolios Section
-        if (lastPortfolios.length > 0) {
+        // Portfolio Combinations Section
+        if (portfolioCombinations.length > 0) {
             html += `
-                <div class="path-section">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Final Portfolios</h4>
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔗 Portfolio Combinations</h4>
                     <div class="portfolio-list">
             `;
 
-            lastPortfolios.forEach(item => {
-                const ticker = item.portfolio_sequence[0];
+            portfolioCombinations.forEach(item => {
+                // Display as comma-separated list since order doesn't matter
+                const portfolioSet = item.portfolio_sequence.join(', ');
                 const pct = parseFloat(item.pct_of_converters);
                 const count = item.converter_count;
 
                 html += `
                     <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
                         <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${ticker}</span>
+                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px; flex: 1;">${portfolioSet}</span>
                         <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
+                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #2196F3, #1976D2); transition: width 0.3s;"></div>
                         </div>
                         <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
@@ -1697,7 +1708,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Full Sequences Section
         if (fullSequences.length > 0) {
             html += `
-                <div class="path-section">
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
                     <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔄 Common Paths</h4>
                     <div class="paths-list">
             `;
