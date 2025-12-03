@@ -1340,62 +1340,76 @@ class SupabaseIntegration {
 
     /**
      * Trigger copy pattern analysis via Edge Function
-     * Runs exhaustive search + logistic regression to find best portfolio and creator combinations
+     * DISABLED: Replaced by Copy Conversion Path Analysis (portfolio_copy_path_analysis + creator_copy_path_analysis)
+     * The new approach analyzes actual sequential viewing patterns instead of logistic regression on combinations
      */
     async triggerCopyAnalysis() {
-        console.log('Triggering copy pattern analysis (parallel: portfolio + creator)...');
+        console.log('⚠️ Copy pattern analysis disabled - now using Copy Conversion Path Analysis');
+        return {
+            success: true,
+            disabled: true,
+            message: 'Copy pattern analysis replaced by Copy Conversion Path Analysis'
+        };
 
-        try {
-            // Run both analyses in parallel (separate edge functions)
-            const [portfolioResult, creatorResult] = await Promise.all([
-                this.supabase.functions.invoke('analyze-copy-patterns'),
-                this.supabase.functions.invoke('analyze-creator-copy-patterns')
-            ]);
-
-            const { data: portfolioData, error: portfolioError } = portfolioResult;
-            const { data: creatorData, error: creatorError } = creatorResult;
-
-            // Handle portfolio analysis timeout/errors
-            if (portfolioError) {
-                if (portfolioError.message?.includes('Failed to send a request') || portfolioError.message?.includes('fetch')) {
-                    console.log('⏱️ Portfolio copy analysis running (browser timeout)');
-                } else {
-                    console.error('Portfolio copy analysis error:', portfolioError);
-                    throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
-                }
-            } else {
-                console.log('✅ Portfolio copy analysis completed:', portfolioData);
-            }
-
-            // Handle creator analysis timeout/errors
-            if (creatorError) {
-                if (creatorError.message?.includes('Failed to send a request') || creatorError.message?.includes('fetch')) {
-                    console.log('⏱️ Creator copy analysis running (browser timeout)');
-                } else {
-                    console.error('Creator copy analysis error:', creatorError);
-                    throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
-                }
-            } else {
-                console.log('✅ Creator copy analysis completed:', creatorData);
-            }
-
-            // Return combined results (may have timeouts)
-            const data = {
-                success: true,
-                portfolio: portfolioData || { timeout: true },
-                creator: creatorData || { timeout: true },
-                stats: {
-                    portfolio: portfolioData?.stats,
-                    creator: creatorData?.stats
-                }
-            };
-
-            console.log('✅ Copy analysis completed:', data.stats);
-            return data;
-        } catch (error) {
-            console.error('Error calling copy analysis Edge Function:', error);
-            throw error;
-        }
+        /* ====================================================================================
+         * ORIGINAL CODE - COMMENTED OUT (replaced by Copy Conversion Path Analysis)
+         * ====================================================================================
+         *
+         * console.log('Triggering copy pattern analysis (parallel: portfolio + creator)...');
+         *
+         * try {
+         *     // Run both analyses in parallel (separate edge functions)
+         *     const [portfolioResult, creatorResult] = await Promise.all([
+         *         this.supabase.functions.invoke('analyze-copy-patterns'),
+         *         this.supabase.functions.invoke('analyze-creator-copy-patterns')
+         *     ]);
+         *
+         *     const { data: portfolioData, error: portfolioError } = portfolioResult;
+         *     const { data: creatorData, error: creatorError } = creatorResult;
+         *
+         *     // Handle portfolio analysis timeout/errors
+         *     if (portfolioError) {
+         *         if (portfolioError.message?.includes('Failed to send a request') || portfolioError.message?.includes('fetch')) {
+         *             console.log('⏱️ Portfolio copy analysis running (browser timeout)');
+         *         } else {
+         *             console.error('Portfolio copy analysis error:', portfolioError);
+         *             throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
+         *         }
+         *     } else {
+         *         console.log('✅ Portfolio copy analysis completed:', portfolioData);
+         *     }
+         *
+         *     // Handle creator analysis timeout/errors
+         *     if (creatorError) {
+         *         if (creatorError.message?.includes('Failed to send a request') || creatorError.message?.includes('fetch')) {
+         *             console.log('⏱️ Creator copy analysis running (browser timeout)');
+         *         } else {
+         *             console.error('Creator copy analysis error:', creatorError);
+         *             throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
+         *         }
+         *     } else {
+         *         console.log('✅ Creator copy analysis completed:', creatorData);
+         *     }
+         *
+         *     // Return combined results (may have timeouts)
+         *     const data = {
+         *         success: true,
+         *         portfolio: portfolioData || { timeout: true },
+         *         creator: creatorData || { timeout: true },
+         *         stats: {
+         *             portfolio: portfolioData?.stats,
+         *             creator: creatorData?.stats
+         *         }
+         *     };
+         *
+         *     console.log('✅ Copy analysis completed:', data.stats);
+         *     return data;
+         * } catch (error) {
+         *     console.error('Error calling copy analysis Edge Function:', error);
+         *     throw error;
+         * }
+         *
+         * ==================================================================================== */
     }
 
     /**

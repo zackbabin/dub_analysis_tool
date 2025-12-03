@@ -2,11 +2,11 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-03-v2
-// - Split Copy Conversion Paths into 3 separate grey cards (matching metric card styling)
-// - Added section H2 header "Copy Conversion Paths" with tooltip
-// - Removed border, kept grey background on individual cards
-// - Grid layout: Entry (1fr) + Final (1fr) + Common Paths (2fr)
+// Version: 2025-12-03-v3
+// - Fixed Copy Conversion Paths layout: H2 header now outside grid container
+// - Each section (Entry, Portfolio Combinations, Common Paths) in separate grey card
+// - Grid layout: Entry (1fr) + Portfolio Combinations (1fr) + Common Paths (2fr)
+// - Added debug logging to trace data rendering issues
 
 'use strict';
 
@@ -1625,6 +1625,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      */
     generatePortfolioCopyPathsHTML(pathData) {
         if (!pathData || pathData.length === 0) {
+            console.warn('No portfolio copy path data available');
             return '';
         }
 
@@ -1633,7 +1634,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const portfolioCombinations = pathData.filter(r => r.analysis_type === 'portfolio_combinations');
         const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
 
+        console.log('Portfolio copy paths data:', {
+            total: pathData.length,
+            firstPortfolios: firstPortfolios.length,
+            portfolioCombinations: portfolioCombinations.length,
+            fullSequences: fullSequences.length,
+            analysisTypes: [...new Set(pathData.map(r => r.analysis_type))]
+        });
+
         if (firstPortfolios.length === 0 && portfolioCombinations.length === 0 && fullSequences.length === 0) {
+            console.warn('No valid analysis types found in data');
             return '';
         }
 
@@ -1649,7 +1659,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">
                     Portfolio viewing patterns that lead to successful copy conversions
                 </p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px; margin-top: 1rem;">
         `;
 
         // Entry Portfolios Section
@@ -1743,7 +1754,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         html += `
-                </div>
             </div>
         `;
 
