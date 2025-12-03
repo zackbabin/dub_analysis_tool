@@ -276,9 +276,9 @@ serve(async (req) => {
         syncMode = 'incremental'
         console.log(`Date range: ${fromDate} to ${toDate} (1 day before last sync for overlap)`)
       } else {
-        // Backfill: fetch last 30 days on first run
+        // Backfill: fetch last 7 days on first run (reduced from 30 to avoid timeout)
         console.log('📦 Mode: Backfill (first sync)')
-        const backfillDays = 30
+        const backfillDays = 7
         const startDate = new Date(now.getTime() - backfillDays * 24 * 60 * 60 * 1000)
         fromDate = startDate.toISOString().split('T')[0]
         syncMode = 'backfill'
