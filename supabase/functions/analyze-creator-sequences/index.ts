@@ -60,6 +60,52 @@ serve(async (req) => {
     console.log('✅ SQL analysis complete')
     console.log(`Mean: ${meanValue}, Median: ${medianValue}, Converters analyzed: ${converterCount}`)
 
+    // Analyze creator copy paths (ordered sequences)
+    console.log('Analyzing creator copy paths via SQL...')
+    const { data: pathData, error: pathError } = await supabase
+      .rpc('analyze_creator_copy_paths')
+
+    if (pathError) {
+      console.error('Error analyzing creator copy paths:', pathError)
+      throw pathError
+    }
+
+    console.log(`✅ Creator copy paths analyzed - ${pathData?.length || 0} results returned`)
+
+    // Clear existing path analysis and insert new results
+    if (pathData && pathData.length > 0) {
+      console.log('Updating creator_copy_path_analysis table...')
+
+      // Delete existing rows
+      const { error: deleteError } = await supabase
+        .from('creator_copy_path_analysis')
+        .delete()
+        .neq('id', 0) // Delete all rows
+
+      if (deleteError) {
+        console.error('Error clearing creator_copy_path_analysis:', deleteError)
+      }
+
+      // Insert new results
+      const { error: insertError } = await supabase
+        .from('creator_copy_path_analysis')
+        .insert(pathData.map(row => ({
+          analysis_type: row.analysis_type,
+          path_rank: row.path_rank,
+          creator_sequence: row.creator_sequence,
+          converter_count: row.converter_count,
+          pct_of_converters: row.pct_of_converters,
+          total_converters_analyzed: row.total_converters_analyzed,
+          updated_at: new Date().toISOString()
+        })))
+
+      if (insertError) {
+        console.error('Error inserting creator path analysis:', insertError)
+      } else {
+        console.log('✅ Updated creator_copy_path_analysis with 15 rows (3 analysis types × top 5)')
+      }
+    }
+
     // Update event_sequence_metrics table (which feeds into copy_engagement_summary view)
     console.log('Updating event_sequence_metrics table...')
 
