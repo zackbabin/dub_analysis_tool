@@ -19,9 +19,8 @@ serve(async (req) => {
     // 1. main_analysis
     // 2. portfolio_creator_engagement_metrics
     //
-    // Note: enriched_support_conversations, copy_engagement_summary, subscription_engagement_summary,
-    // and hidden_gems_portfolios are now regular views that auto-update when their underlying
-    // materialized views refresh
+    // Note: enriched_support_conversations, copy_engagement_summary, and hidden_gems_portfolios
+    // are now regular views that auto-update when their underlying materialized views refresh
     console.log('Calling refresh_all_materialized_views...')
     const { data: refreshResult, error: refreshError } = await supabase.rpc('refresh_all_materialized_views')
     if (refreshError) {

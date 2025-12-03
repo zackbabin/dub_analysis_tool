@@ -385,7 +385,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             console.log('');
             console.log('Auto-updating regular views:');
             console.log('  - copy_engagement_summary');
-            console.log('  - subscription_engagement_summary');
             console.log('  - hidden_gems_portfolios');
 
             try {
