@@ -121,39 +121,49 @@ BEGIN
   )
 
   -- Combine all three analyses
+  WITH combined AS (
+    SELECT
+      fp.analysis_type,
+      fp.path_rank,
+      fp.portfolio_sequence,
+      fp.converter_count,
+      fp.pct_of_converters,
+      fp.total_converters_analyzed
+    FROM first_portfolios fp
+    UNION ALL
+    SELECT
+      lp.analysis_type,
+      lp.path_rank,
+      lp.portfolio_sequence,
+      lp.converter_count,
+      lp.pct_of_converters,
+      lp.total_converters_analyzed
+    FROM last_portfolios lp
+    UNION ALL
+    SELECT
+      fs.analysis_type,
+      fs.path_rank,
+      fs.portfolio_sequence,
+      fs.converter_count,
+      fs.pct_of_converters,
+      fs.total_converters_analyzed
+    FROM full_sequences fs
+  )
   SELECT
-    fp.analysis_type,
-    fp.path_rank,
-    fp.portfolio_sequence,
-    fp.converter_count,
-    fp.pct_of_converters,
-    fp.total_converters_analyzed
-  FROM first_portfolios fp
-  UNION ALL
-  SELECT
-    lp.analysis_type,
-    lp.path_rank,
-    lp.portfolio_sequence,
-    lp.converter_count,
-    lp.pct_of_converters,
-    lp.total_converters_analyzed
-  FROM last_portfolios lp
-  UNION ALL
-  SELECT
-    fs.analysis_type,
-    fs.path_rank,
-    fs.portfolio_sequence,
-    fs.converter_count,
-    fs.pct_of_converters,
-    fs.total_converters_analyzed
-  FROM full_sequences fs
+    c.analysis_type,
+    c.path_rank,
+    c.portfolio_sequence,
+    c.converter_count,
+    c.pct_of_converters,
+    c.total_converters_analyzed
+  FROM combined c
   ORDER BY
-    CASE
-      WHEN analysis_type = 'first_portfolio' THEN 1
-      WHEN analysis_type = 'last_portfolio' THEN 2
-      WHEN analysis_type = 'full_sequence' THEN 3
+    CASE c.analysis_type
+      WHEN 'first_portfolio' THEN 1
+      WHEN 'last_portfolio' THEN 2
+      WHEN 'full_sequence' THEN 3
     END,
-    path_rank;
+    c.path_rank;
 END;
 $$;
 
