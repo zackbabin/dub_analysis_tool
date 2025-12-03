@@ -2,11 +2,12 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-03-v3
-// - Fixed Copy Conversion Paths layout: H2 header now outside grid container
-// - Each section (Entry, Portfolio Combinations, Common Paths) in separate grey card
-// - Grid layout: Entry (1fr) + Portfolio Combinations (1fr) + Common Paths (2fr)
-// - Added debug logging to trace data rendering issues
+// Version: 2025-12-03-v4
+// - Merged Copy & Creator Conversion Paths into single section with nested tabs
+// - Grid layout: First (1fr) + Combinations (2fr) + Sequences (2fr)
+// - Updated all 6 cards: standard font (0.875rem), removed emojis, reduced padding
+// - Card titles: "First Portfolio/Creator Viewed", "Portfolio/Creator Combinations", "Most Common Sequences"
+// - Fixed H2 spacing consistency across all sections (0.5rem)
 
 'use strict';
 
@@ -237,6 +238,31 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 // Add active class to clicked button and corresponding pane
                 button.classList.add('active');
                 const targetPane = portfolioContentSection.querySelector(`#${targetTab}-combinations-tab`);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
+
+        // Initialize conversion paths tab switching
+        const conversionPathsTabButtons = portfolioContentSection.querySelectorAll('.conversion-paths-tab-btn');
+        const conversionPathsTabPanes = portfolioContentSection.querySelectorAll('.conversion-paths-tab-pane');
+
+        console.log('Initializing conversion paths tabs:', conversionPathsTabButtons.length);
+
+        conversionPathsTabButtons.forEach((button) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = button.getAttribute('data-conversion-paths-tab');
+                console.log('Conversion paths tab clicked:', targetTab);
+
+                // Remove active class from all buttons and panes
+                conversionPathsTabButtons.forEach(btn => btn.classList.remove('active'));
+                conversionPathsTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to clicked button and corresponding pane
+                button.classList.add('active');
+                const targetPane = portfolioContentSection.querySelector(`#${targetTab}-conversion-paths-tab`);
                 if (targetPane) {
                     targetPane.classList.add('active');
                 }
@@ -868,7 +894,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Behavioral Drivers Section with nested tabs
             portfolioHTML += `
                 <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
+                    <h2 style="margin-bottom: 0.5rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
                 <span class="tooltip-text">
                     <strong>Top Behavioral Drivers</strong>
                     Statistical analysis showing which user behaviors best predict deposits, copies, and subscriptions.
@@ -964,6 +990,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
+
+            // Populate conversion paths tabs
+            const portfoliosConversionPathsTabPane = document.getElementById('portfolios-conversion-paths-tab');
+            const creatorsConversionPathsTabPane = document.getElementById('creators-conversion-paths-tab');
+
+            if (portfoliosConversionPathsTabPane && copyPathsHTML) {
+                portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
+            }
+            if (creatorsConversionPathsTabPane && creatorCopyPathsHTML) {
+                creatorsConversionPathsTabPane.innerHTML = creatorCopyPathsHTML;
+            }
 
             /* ====================================================================================
              * COMBINATIONS TAB POPULATION - COMMENTED OUT
@@ -1169,11 +1206,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     </span></h1>
                 </div>
                 ${metricsHTML}
-                ${copyPathsHTML}
-                ${creatorCopyPathsHTML}
-                ${hiddenGemsHTML}
             </div>
         `;
+
+        // Add Copy Conversion Paths Section with nested tabs (Portfolios & Creators)
+        if (portfolioCopyPaths || creatorCopyPaths) {
+            portfolioHTML += this.generateCopyConversionPathsHTML(portfolioCopyPaths, creatorCopyPaths);
+        }
+
+        // Add Hidden Gems section
+        portfolioHTML += `<div class="qda-result-section">${hiddenGemsHTML}</div>`;
 
         /* ====================================================================================
          * HIGH-IMPACT COMBINATIONS SECTION - COMMENTED OUT
@@ -1224,7 +1266,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Add Top Behavioral Drivers Section with nested tabs
         portfolioHTML += `
             <div class="qda-result-section" style="margin-top: 3rem;">
-                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
+                <h2 style="margin-bottom: 0.5rem;"><span class="info-tooltip">Top Behavioral Drivers<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Top Behavioral Drivers</strong>
                 Statistical analysis showing which user behaviors best predict deposits, copies, and subscriptions.
@@ -1642,7 +1684,54 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
+     * Generate Copy Conversion Paths HTML with tabs for Portfolios and Creators
+     * Merges portfolio and creator conversion path analysis into a single section
+     */
+    generateCopyConversionPathsHTML(portfolioPathData, creatorPathData) {
+        // Check if we have any data
+        if ((!portfolioPathData || portfolioPathData.length === 0) &&
+            (!creatorPathData || creatorPathData.length === 0)) {
+            return '';
+        }
+
+        // Build the section with tabs
+        let html = `
+            <div class="qda-result-section" style="margin-top: 3rem;">
+                <h2 style="margin-bottom: 0.5rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
+                    <span class="tooltip-text">
+                        <strong>Copy Conversion Paths</strong>
+                        <p><strong>Portfolio Paths:</strong> Analyzes portfolio viewing sequences that lead to copy conversions. Shows the most common entry points, portfolio combinations viewed together, and complete sequential viewing paths.</p>
+                        <p><strong>Creator Paths:</strong> Analyzes creator profile viewing patterns that lead to copy conversions. Shows the most common entry creators, creator combinations viewed together, and complete sequential viewing paths.</p>
+                    </span>
+                </span></h2>
+                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1.5rem;">
+                    Viewing patterns that lead to successful copy conversions
+                </p>
+
+                <div class="conversion-paths-tabs-container">
+                    <div class="conversion-paths-tab-navigation">
+                        <button class="conversion-paths-tab-btn active" data-conversion-paths-tab="portfolios">Portfolios</button>
+                        <button class="conversion-paths-tab-btn" data-conversion-paths-tab="creators">Creators</button>
+                    </div>
+
+                    <div class="conversion-paths-tab-content">
+                        <div id="portfolios-conversion-paths-tab" class="conversion-paths-tab-pane active">
+                            <!-- Portfolio paths content will be inserted here -->
+                        </div>
+                        <div id="creators-conversion-paths-tab" class="conversion-paths-tab-pane">
+                            <!-- Creator paths content will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /**
      * Generate Portfolio Copy Paths HTML - visualizes ordered portfolio viewing patterns
+     * Returns just the 3 cards without header (used in tab content)
      */
     generatePortfolioCopyPathsHTML(pathData) {
         if (!pathData || pathData.length === 0) {
@@ -1668,43 +1757,29 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build HTML with section header and 3 separate grey cards
-        let html = `
-            <div class="qda-result-section" style="margin-top: 3rem;">
-                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
-                    <span class="tooltip-text">
-                        <strong>Copy Conversion Paths</strong>
-                        <p>Analyzes the portfolio viewing patterns that lead to copy conversions. Shows the most common entry points, portfolio combinations viewed together, and complete sequential viewing paths.</p>
-                    </span>
-                </span></h2>
-                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">
-                    Portfolio viewing patterns that lead to successful copy conversions
-                </p>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px; margin-top: 1rem;">
-        `;
+        // Build 3 cards grid (no header - used in tab content)
+        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
 
-        // Entry Portfolios Section
+        // First Portfolio Viewed Section
         if (firstPortfolios.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Entry Portfolios</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">First Portfolio Viewed</h4>
                     <div class="portfolio-list">
             `;
 
             firstPortfolios.forEach(item => {
                 const ticker = item.portfolio_sequence[0];
                 const pct = parseFloat(item.pct_of_converters);
-                const count = item.converter_count;
 
                 html += `
-                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${ticker}</span>
-                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="font-weight: 500; min-width: 100px;">${ticker}</span>
+                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1719,24 +1794,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (portfolioCombinations.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔗 Portfolio Combinations</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Portfolio Combinations</h4>
                     <div class="portfolio-list">
             `;
 
             portfolioCombinations.forEach(item => {
-                // Display as comma-separated list since order doesn't matter
                 const portfolioSet = item.portfolio_sequence.join(', ');
                 const pct = parseFloat(item.pct_of_converters);
-                const count = item.converter_count;
 
                 html += `
-                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px; flex: 1;">${portfolioSet}</span>
-                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #2196F3, #1976D2); transition: width 0.3s;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="font-weight: 500; flex: 1;">${portfolioSet}</span>
+                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #2196F3, #1976D2); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1747,11 +1820,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Full Sequences Section
+        // Most Common Sequences Section
         if (fullSequences.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔄 Common Paths</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Sequences</h4>
                     <div class="paths-list">
             `;
 
@@ -1760,10 +1833,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div class="path-row" style="display: flex; gap: 12px; padding: 8px 0; font-family: 'Courier New', monospace;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="path" style="flex: 2; color: #495057;">${pathStr}</span>
-                        <span class="pct" style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="flex: 2; color: #495057;">${pathStr}</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1783,6 +1856,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
     /**
      * Generate Creator Copy Paths HTML - visualizes ordered creator viewing patterns
+     * Returns just the 3 cards without header (used in tab content)
      */
     generateCreatorCopyPathsHTML(pathData) {
         if (!pathData || pathData.length === 0) {
@@ -1798,26 +1872,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build HTML with section header and 3 separate grey cards
-        let html = `
-            <div class="qda-result-section" style="margin-top: 3rem;">
-                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">Creator Conversion Paths<span class="info-icon">i</span>
-                    <span class="tooltip-text">
-                        <strong>Creator Conversion Paths</strong>
-                        <p>Analyzes the creator profile viewing patterns that lead to copy conversions. Shows the most common entry creators, creator combinations viewed together, and complete sequential viewing paths.</p>
-                    </span>
-                </span></h2>
-                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1rem;">
-                    Creator profile viewing patterns that lead to successful copy conversions
-                </p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 20px;">
-        `;
+        // Build 3 cards grid (no header - used in tab content)
+        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
 
-        // Entry Creators Section
+        // First Creator Viewed Section
         if (firstCreators.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Entry Creators</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">First Creator Viewed</h4>
                     <div class="portfolio-list">
             `;
 
@@ -1826,13 +1888,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px;">${creator}</span>
-                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #9C27B0, #7B1FA2); transition: width 0.3s;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="font-weight: 500; min-width: 100px;">${creator}</span>
+                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #9C27B0, #7B1FA2); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1847,23 +1909,22 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (creatorCombinations.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔗 Creator Combinations</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Creator Combinations</h4>
                     <div class="portfolio-list">
             `;
 
             creatorCombinations.forEach(item => {
-                // Display as comma-separated list since order doesn't matter
                 const creatorSet = item.creator_sequence.join(', ');
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div class="portfolio-bar" style="display: flex; align-items: center; gap: 12px; padding: 8px 0;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="ticker" style="font-family: 'Courier New', monospace; font-weight: bold; min-width: 120px; flex: 1;">${creatorSet}</span>
-                        <div class="progress-bar" style="flex: 1; height: 20px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div class="progress-fill" style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #FF9800, #F57C00); transition: width 0.3s;"></div>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="font-weight: 500; flex: 1;">${creatorSet}</span>
+                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #FF9800, #F57C00); transition: width 0.3s;"></div>
                         </div>
-                        <span class="stats" style="min-width: 100px; text-align: right; font-weight: 500;">${pct}%</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1874,11 +1935,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Full Sequences Section
+        // Most Common Sequences Section
         if (fullSequences.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔄 Common Paths</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Sequences</h4>
                     <div class="paths-list">
             `;
 
@@ -1887,10 +1948,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div class="path-row" style="display: flex; gap: 12px; padding: 8px 0; font-family: 'Courier New', monospace;">
-                        <span class="rank" style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span class="path" style="flex: 2; color: #495057;">${pathStr}</span>
-                        <span class="pct" style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="flex: 2; color: #495057;">${pathStr}</span>
+                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1901,10 +1962,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        html += `
-                </div>
-            </div>
-        `;
+        html += `</div>`;
 
         return html;
     }

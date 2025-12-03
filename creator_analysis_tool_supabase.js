@@ -508,7 +508,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         const chartId = `subscription-price-chart-${Date.now()}`;
 
         section.innerHTML = `
-            <h2 style="margin-top: 0; margin-bottom: 0.25rem;"><span class="info-tooltip">Subscription Price Distribution<span class="info-icon">i</span>
+            <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Subscription Price Distribution<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Subscription Price Distribution</strong>
                 Distribution of subscription prices across all creator subscriptions.
@@ -1985,7 +1985,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                     creatorMap.set(username, {
                         username: username,
                         cohorts: [],
-                        totalCount: 0,
+                        totalCount: data.total_unique_subscribers || 0,  // Use total_unique_subscribers from premium_creator_metrics
                         aggregatedRetention: {}
                     });
                 }
@@ -1994,9 +1994,13 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 creator.cohorts.push({
                     cohortDate: cohortDate,
                     first: data.first || 0,
-                    counts: Array.isArray(data.counts) ? data.counts : []
+                    counts: Array.isArray(data.counts) ? data.counts : [],
+                    total_unique_subscribers: data.total_unique_subscribers || 0
                 });
-                creator.totalCount += data.first || 0;
+                // Don't sum cohort "first" values - use total_unique_subscribers which is consistent across cohorts
+                if (data.total_unique_subscribers) {
+                    creator.totalCount = data.total_unique_subscribers;
+                }
             }
         }
 

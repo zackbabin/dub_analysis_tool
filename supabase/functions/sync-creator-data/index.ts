@@ -201,7 +201,7 @@ serve(async (req) => {
           const { error: creatorMetricsError } = await supabase
             .from('premium_creator_metrics')
             .upsert(metricsToUpsert, {
-              onConflict: 'creator_id,synced_at',
+              onConflict: 'creator_id',  // Changed from 'creator_id,synced_at' to keep one row per creator
               ignoreDuplicates: false,
             })
 
