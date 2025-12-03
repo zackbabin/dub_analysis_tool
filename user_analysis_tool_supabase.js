@@ -1626,16 +1626,17 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build HTML sections
+        // Build HTML sections with all 3 charts in a single row
         let html = `
             <div class="copy-path-analysis-container" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-top: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
         `;
 
         // Entry Portfolios Section
         if (firstPortfolios.length > 0) {
             html += `
-                <div class="path-section" style="margin-bottom: 24px;">
-                    <h4 style="margin-bottom: 16px; color: #333;">🎯 Top Entry Portfolios (First Viewed)</h4>
+                <div class="path-section">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Entry Portfolios</h4>
                     <div class="portfolio-list">
             `;
 
@@ -1665,8 +1666,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Final Portfolios Section
         if (lastPortfolios.length > 0) {
             html += `
-                <div class="path-section" style="margin-bottom: 24px;">
-                    <h4 style="margin-bottom: 16px; color: #333;">🎯 Top Final Portfolios (Last Before Copy)</h4>
+                <div class="path-section">
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🎯 Final Portfolios</h4>
                     <div class="portfolio-list">
             `;
 
@@ -1697,7 +1698,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         if (fullSequences.length > 0) {
             html += `
                 <div class="path-section">
-                    <h4 style="margin-bottom: 16px; color: #333;">🔄 Top 5 Most Common Paths</h4>
+                    <h4 style="margin-bottom: 16px; color: #333; font-size: 1rem;">🔄 Common Paths</h4>
                     <div class="paths-list">
             `;
 
@@ -1721,6 +1722,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         html += `
+                </div>
             </div>
         `;
 
