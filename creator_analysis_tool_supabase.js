@@ -1747,8 +1747,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             section.appendChild(warning);
         }
 
-        const title = document.createElement('h1');
-        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem; font-size: 1.75rem;';
+        const title = document.createElement('h2');
+        title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
         title.innerHTML = `<span class="info-tooltip">Premium Creator Retention<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Premium Creator Retention</strong>
