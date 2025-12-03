@@ -177,7 +177,7 @@ class SupabaseIntegration {
                 .from('sync_logs')
                 .select('sync_completed_at')
                 .eq('source', 'support')
-                .eq('data_type', 'support_analysis')
+                .eq('tool_type', 'support_analysis')
                 .eq('sync_status', 'completed')
                 .order('sync_completed_at', { ascending: false })
                 .limit(1)
