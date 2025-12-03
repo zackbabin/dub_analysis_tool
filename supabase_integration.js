@@ -176,8 +176,8 @@ class SupabaseIntegration {
             const { data, error } = await this.supabase
                 .from('sync_logs')
                 .select('sync_completed_at')
-                .eq('source', 'support')
-                .eq('tool_type', 'support_analysis')
+                .eq('tool_type', 'support')
+                .eq('source', 'support_analysis')
                 .eq('sync_status', 'completed')
                 .order('sync_completed_at', { ascending: false })
                 .limit(1)
