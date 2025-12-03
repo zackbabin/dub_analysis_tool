@@ -7,8 +7,23 @@
 -- Solution: Convert to materialized table, refresh via Edge Function
 
 -- Drop the existing view or table (handle both cases)
-DROP VIEW IF EXISTS premium_creator_affinity_display CASCADE;
-DROP TABLE IF EXISTS premium_creator_affinity_display CASCADE;
+-- Use DO block to check object type first to avoid errors
+DO $$
+BEGIN
+  -- Try to drop as a view first
+  IF EXISTS (
+    SELECT 1 FROM pg_views WHERE viewname = 'premium_creator_affinity_display'
+  ) THEN
+    DROP VIEW premium_creator_affinity_display CASCADE;
+  END IF;
+
+  -- Then try to drop as a table
+  IF EXISTS (
+    SELECT 1 FROM pg_tables WHERE tablename = 'premium_creator_affinity_display'
+  ) THEN
+    DROP TABLE premium_creator_affinity_display CASCADE;
+  END IF;
+END $$;
 
 -- Create materialized table
 CREATE TABLE premium_creator_affinity_display (
