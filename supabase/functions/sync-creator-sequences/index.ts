@@ -538,19 +538,6 @@ serve(async (req) => {
         }
       )
     } catch (error) {
-      // Update sync status with failure
-      await supabase
-        .from('sync_status')
-        .upsert({
-          source: 'mixpanel',
-          tool_type: 'creator_sequences',
-          last_sync_status: 'failed',
-          error_message: error?.message || 'Unknown error',
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'source,tool_type'
-        })
-
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
       throw error

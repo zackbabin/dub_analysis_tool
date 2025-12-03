@@ -600,27 +600,6 @@ serve(async (req) => {
         ? `Partial sync completed - ${stats.eventsInserted} of ${stats.eventsFetched} events inserted before timeout`
         : `Event sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
 
-      // Update sync status with last sync timestamp (only if not partial)
-      if (!partialSync) {
-        await supabase
-          .from('sync_status')
-          .upsert({
-            source: 'mixpanel',
-            tool_type: 'event_sequences',
-            last_sync_timestamp: now.toISOString(),
-            last_sync_status: 'success',
-            records_synced: stats.eventsInserted,
-            error_message: null,
-            updated_at: now.toISOString(),
-          }, {
-            onConflict: 'source,tool_type'
-          })
-
-        console.log(`✓ Updated sync status: last_sync_timestamp = ${now.toISOString()}`)
-      } else {
-        console.warn('⚠️ Partial sync - not updating last_sync_timestamp (will retry full range next time)')
-      }
-
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
       console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
       console.log('')
@@ -645,19 +624,6 @@ serve(async (req) => {
         }
       )
     } catch (error) {
-      // Update sync status with failure
-      await supabase
-        .from('sync_status')
-        .upsert({
-          source: 'mixpanel',
-          tool_type: 'event_sequences',
-          last_sync_status: 'failed',
-          error_message: error?.message || 'Unknown error',
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'source,tool_type'
-        })
-
       // Update sync log with failure
       await updateSyncLogFailure(supabase, syncLogId, error)
       throw error
