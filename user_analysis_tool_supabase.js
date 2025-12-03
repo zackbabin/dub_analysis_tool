@@ -906,44 +906,51 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </div>
             `;
 
-            // Add High-Impact Combinations Section structure to portfolioHTML
-            portfolioHTML += `
-                <div class="qda-result-section" style="margin-top: 3rem;">
-                    <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
-                <span class="tooltip-text">
-                    <strong>High-Impact Combinations</strong>
-                    Portfolio and creator pairs that users view together before copying, with highest conversion lift.
-                    <ul>
-                        <li><strong>Data Sources:</strong>
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
-                            <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
-                        </li>
-                        <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (max 200 entities = ~19,900 pairs tested)</li>
-                        <li><strong>Filters:</strong> Min 3 users exposed per combination</li>
-                        <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
-                        <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
-                    </ul>
-                </span>
-            </span></h2>
-                    <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
-
-                    <div class="combinations-tabs-container">
-                        <div class="combinations-tab-navigation">
-                            <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
-                            <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
-                        </div>
-
-                        <div class="combinations-tab-content">
-                            <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
-                                <!-- Portfolio combinations content will be inserted here -->
-                            </div>
-                            <div id="creators-combinations-tab" class="combinations-tab-pane">
-                                <!-- Creator combinations content will be inserted here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
+            /* ====================================================================================
+             * HIGH-IMPACT COMBINATIONS SECTION - COMMENTED OUT
+             * Replaced by Copy Conversion Path Analysis (portfolio_copy_path_analysis + creator_copy_path_analysis)
+             * ====================================================================================
+             *
+             * // Add High-Impact Combinations Section structure to portfolioHTML
+             * portfolioHTML += `
+             *     <div class="qda-result-section" style="margin-top: 3rem;">
+             *         <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
+             *     <span class="tooltip-text">
+             *         <strong>High-Impact Combinations</strong>
+             *         Portfolio and creator pairs that users view together before copying, with highest conversion lift.
+             *         <ul>
+             *             <li><strong>Data Sources:</strong>
+             *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
+             *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
+             *             </li>
+             *             <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (max 200 entities = ~19,900 pairs tested)</li>
+             *             <li><strong>Filters:</strong> Min 3 users exposed per combination</li>
+             *             <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
+             *             <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
+             *         </ul>
+             *     </span>
+             * </span></h2>
+             *         <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
+             *
+             *         <div class="combinations-tabs-container">
+             *             <div class="combinations-tab-navigation">
+             *                 <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
+             *                 <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
+             *             </div>
+             *
+             *             <div class="combinations-tab-content">
+             *                 <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
+             *                     <!-- Portfolio combinations content will be inserted here -->
+             *                 </div>
+             *                 <div id="creators-combinations-tab" class="combinations-tab-pane">
+             *                     <!-- Creator combinations content will be inserted here -->
+             *                 </div>
+             *             </div>
+             *         </div>
+             *     </div>
+             * `;
+             *
+             * ==================================================================================== */
 
             // Insert complete HTML once
             portfolioContentSection.innerHTML = portfolioHTML;
@@ -958,16 +965,23 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
 
-            // Populate the combinations tabs (already in HTML)
-            const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
-            const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
-
-            if (portfoliosCombinationsTabPane && combinationsHTML) {
-                portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
-            }
-            if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
-                creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
-            }
+            /* ====================================================================================
+             * COMBINATIONS TAB POPULATION - COMMENTED OUT
+             * Removed since High-Impact Combinations section is hidden
+             * ====================================================================================
+             *
+             * // Populate the combinations tabs (already in HTML)
+             * const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
+             * const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
+             *
+             * if (portfoliosCombinationsTabPane && combinationsHTML) {
+             *     portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
+             * }
+             * if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
+             *     creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
+             * }
+             *
+             * ==================================================================================== */
 
             // Initialize nested tab event listeners using shared function
             this.initializePortfolioNestedTabs();
@@ -1161,44 +1175,51 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </div>
         `;
 
-        // Add High-Impact Combinations Section with tabs structure
-        portfolioHTML += `
-            <div class="qda-result-section" style="margin-top: 3rem;">
-                <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
-            <span class="tooltip-text">
-                <strong>High-Impact Combinations</strong>
-                Portfolio and creator pairs that users view together before copying, with highest conversion lift.
-                <ul>
-                    <li><strong>Data Sources:</strong>
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
-                        <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
-                    </li>
-                    <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (max 200 entities = ~19,900 pairs tested)</li>
-                    <li><strong>Filters:</strong> Min 3 users exposed per combination</li>
-                    <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
-                    <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
-                </ul>
-            </span>
-        </span></h2>
-                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
-
-                <div class="combinations-tabs-container">
-                    <div class="combinations-tab-navigation">
-                        <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
-                        <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
-                    </div>
-
-                    <div class="combinations-tab-content">
-                        <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
-                            ${combinationsHTML}
-                        </div>
-                        <div id="creators-combinations-tab" class="combinations-tab-pane">
-                            ${creatorCombinationsHTML}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        /* ====================================================================================
+         * HIGH-IMPACT COMBINATIONS SECTION - COMMENTED OUT
+         * Replaced by Copy Conversion Path Analysis (portfolio_copy_path_analysis + creator_copy_path_analysis)
+         * ====================================================================================
+         *
+         * // Add High-Impact Combinations Section with tabs structure
+         * portfolioHTML += `
+         *     <div class="qda-result-section" style="margin-top: 3rem;">
+         *         <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
+         *     <span class="tooltip-text">
+         *         <strong>High-Impact Combinations</strong>
+         *         Portfolio and creator pairs that users view together before copying, with highest conversion lift.
+         *         <ul>
+         *             <li><strong>Data Sources:</strong>
+         *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
+         *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
+         *             </li>
+         *             <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (max 200 entities = ~19,900 pairs tested)</li>
+         *             <li><strong>Filters:</strong> Min 3 users exposed per combination</li>
+         *             <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
+         *             <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
+         *         </ul>
+         *     </span>
+         * </span></h2>
+         *         <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
+         *
+         *         <div class="combinations-tabs-container">
+         *             <div class="combinations-tab-navigation">
+         *                 <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
+         *                 <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
+         *             </div>
+         *
+         *             <div class="combinations-tab-content">
+         *                 <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
+         *                     ${combinationsHTML}
+         *                 </div>
+         *                 <div id="creators-combinations-tab" class="combinations-tab-pane">
+         *                     ${creatorCombinationsHTML}
+         *                 </div>
+         *             </div>
+         *         </div>
+         *     </div>
+         * `;
+         *
+         * ==================================================================================== */
 
         // Add Top Behavioral Drivers Section with nested tabs
         portfolioHTML += `
