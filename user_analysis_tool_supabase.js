@@ -517,22 +517,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     }
                 })(),
 
-                // Copy pattern analysis
-                (async () => {
-                    console.log('→ 5e: Copy Pattern Analysis (starting in parallel)');
-                    try {
-                        const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
-                        if (copyResult?.success) {
-                            console.log('✅ 5e: Copy Pattern Analysis - Complete');
-                        } else {
-                            console.warn('⚠ 5e: Copy Pattern Analysis - Failed');
-                        }
-                        return copyResult;
-                    } catch (error) {
-                        console.warn('⚠ 5e: Copy Pattern Analysis - Failed, continuing');
-                        return { success: false, error: error.message };
-                    }
-                })()
+                // Copy pattern analysis - DISABLED (replaced by Portfolio Combinations in Copy Conversion Paths)
+                // (async () => {
+                //     console.log('→ 5e: Copy Pattern Analysis (starting in parallel)');
+                //     try {
+                //         const copyResult = await this.supabaseIntegration.triggerCopyAnalysis();
+                //         if (copyResult?.success) {
+                //             console.log('✅ 5e: Copy Pattern Analysis - Complete');
+                //         } else {
+                //             console.warn('⚠ 5e: Copy Pattern Analysis - Failed');
+                //         }
+                //         return copyResult;
+                //     } catch (error) {
+                //         console.warn('⚠ 5e: Copy Pattern Analysis - Failed, continuing');
+                //         return { success: false, error: error.message };
+                //     }
+                // })()
+                // Return resolved promise to maintain Promise.all structure
+                Promise.resolve({ success: true, skipped: true, reason: 'Replaced by Portfolio Combinations analysis' })
             ]);
 
             // Log parallel completion
