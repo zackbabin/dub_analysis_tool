@@ -189,26 +189,14 @@ BEGIN
   REFRESH MATERIALIZED VIEW portfolio_creator_engagement_metrics;
   RAISE NOTICE '  ✓ portfolio_creator_engagement_metrics refreshed';
 
-  -- 3. enriched_support_conversations (raw_support_conversations + subscribers_insights)
-  RAISE NOTICE '  → Refreshing enriched_support_conversations...';
-  -- Try concurrent first (has unique index), fall back to regular if needed
-  BEGIN
-    REFRESH MATERIALIZED VIEW CONCURRENTLY enriched_support_conversations;
-    RAISE NOTICE '  ✓ enriched_support_conversations refreshed (CONCURRENT)';
-  EXCEPTION
-    WHEN OTHERS THEN
-      RAISE NOTICE '  ⚠ Concurrent refresh failed, using regular refresh';
-      REFRESH MATERIALIZED VIEW enriched_support_conversations;
-      RAISE NOTICE '  ✓ enriched_support_conversations refreshed (REGULAR)';
-  END;
-
-  -- 4. premium_creator_affinity_display (materialized table)
+  -- 3. premium_creator_affinity_display (materialized table)
   RAISE NOTICE '  → Refreshing premium_creator_affinity_display...';
   PERFORM refresh_premium_creator_affinity();
   RAISE NOTICE '  ✓ premium_creator_affinity_display refreshed';
 
   RAISE NOTICE '';
   RAISE NOTICE '→ Level 2+: All other views are regular views and auto-update';
+  RAISE NOTICE '  ✓ enriched_support_conversations (regular view, auto-updated)';
   RAISE NOTICE '  ✓ copy_engagement_summary (regular view, auto-updated)';
   RAISE NOTICE '  ✓ subscription_engagement_summary (regular view, auto-updated)';
   RAISE NOTICE '  ✓ hidden_gems_portfolios (regular view, auto-updated)';
@@ -221,11 +209,11 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '=== Materialized View Refresh Complete ===';
   RAISE NOTICE 'Duration: %', duration;
-  RAISE NOTICE 'Refreshed: 3 materialized views + 1 materialized table';
+  RAISE NOTICE 'Refreshed: 2 materialized views + 1 materialized table';
   RAISE NOTICE 'Auto-updated: All regular views';
   RAISE NOTICE '';
 
-  result_text := format('Successfully refreshed 3 materialized views + 1 table in %s', duration);
+  result_text := format('Successfully refreshed 2 materialized views + 1 table in %s', duration);
   RETURN result_text;
 
 EXCEPTION
@@ -241,13 +229,12 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION refresh_all_materialized_views() IS
 'Centralized function to refresh all materialized views in correct dependency order.
-Refreshes 3 base materialized views + 1 materialized table:
+Refreshes 2 base materialized views + 1 materialized table:
 1. main_analysis
 2. portfolio_creator_engagement_metrics
-3. enriched_support_conversations
-4. premium_creator_affinity_display (table)
+3. premium_creator_affinity_display (table)
 
-All other views are regular views that auto-update.
+All other views (including enriched_support_conversations) are regular views that auto-update.
 Called by edge functions after data sync operations.';
 
 -- =======================

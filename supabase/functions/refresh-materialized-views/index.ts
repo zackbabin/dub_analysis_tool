@@ -18,11 +18,10 @@ serve(async (req) => {
     // Use centralized refresh function that refreshes all materialized views + tables:
     // 1. main_analysis (materialized view)
     // 2. portfolio_creator_engagement_metrics (materialized view)
-    // 3. enriched_support_conversations (materialized view)
-    // 4. premium_creator_affinity_display (materialized table)
+    // 3. premium_creator_affinity_display (materialized table)
     //
-    // Note: copy_engagement_summary, hidden_gems_portfolios, and other dependent views
-    // are regular views that auto-update when their underlying materialized views refresh
+    // Note: enriched_support_conversations, copy_engagement_summary, hidden_gems_portfolios,
+    // and other dependent views are regular views that auto-update
     console.log('Calling refresh_all_materialized_views...')
     const { data: refreshResult, error: refreshError } = await supabase.rpc('refresh_all_materialized_views')
     if (refreshError) {
@@ -37,11 +36,10 @@ serve(async (req) => {
       'Materialized views refreshed successfully',
       {
         result: refreshResult,
-        views_refreshed: 4,
+        views_refreshed: 3,
         views: [
           'main_analysis',
           'portfolio_creator_engagement_metrics',
-          'enriched_support_conversations',
           'premium_creator_affinity_display'
         ]
       }
