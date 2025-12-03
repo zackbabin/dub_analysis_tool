@@ -118,10 +118,10 @@ BEGIN
     GROUP BY us.portfolio_sequence
     ORDER BY COUNT(*) DESC
     LIMIT 5
-  )
+  ),
 
   -- Combine all three analyses
-  WITH combined AS (
+  combined AS (
     SELECT
       fp.analysis_type,
       fp.path_rank,
