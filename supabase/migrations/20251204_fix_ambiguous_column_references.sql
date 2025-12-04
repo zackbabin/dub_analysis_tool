@@ -112,7 +112,7 @@ BEGIN
     GROUP BY us.portfolio_sequence
     ORDER BY COUNT(*) DESC
     LIMIT 5
-  )
+  ),
 
   -- Combine all three analyses
   combined_results AS (
@@ -272,7 +272,7 @@ BEGIN
     GROUP BY us.creator_sequence
     ORDER BY COUNT(*) DESC
     LIMIT 5
-  )
+  ),
 
   -- Combine all three analyses
   combined_results AS (
