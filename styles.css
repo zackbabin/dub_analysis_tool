@@ -502,8 +502,8 @@ body {
 
 .info-tooltip .tooltip-text {
     visibility: hidden;
-    width: 400px;
-    max-width: 400px;
+    width: 550px;
+    max-width: 550px;
     background-color: #2d3748;
     color: #fff;
     text-align: left;
