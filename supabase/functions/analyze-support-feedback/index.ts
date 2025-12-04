@@ -25,7 +25,16 @@ interface EnrichedConversation {
   priority: string
   tags: string[] | null
   custom_fields: Record<string, any> | null
+  raw_data: Record<string, any> | null
   message_count: number
+}
+
+/**
+ * Estimate token count for a string (rough approximation: 1 token ≈ 4 characters)
+ * This is conservative - actual tokens may be slightly different
+ */
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 4)
 }
 
 /**
@@ -44,7 +53,11 @@ Platform: Investment copy-trading platform (Dub)
 Time Period: ${weekStart} to ${weekEnd}
 Total Conversations: ${totalCount}
 Data Sources: Zendesk support tickets + Instabug mobile bug reports
-Metadata: Each conversation includes tags that may contain platform info, product areas, or other categorization hints
+Metadata: Each conversation includes:
+  - tags: Platform info, product areas, or categorization hints
+  - form_type: Zendesk ticket form type from custom_fields (indicates what type of issue was submitted)
+  - ticket_type: Ticket type classification from raw_data.fields.type (e.g., question, incident, problem, task)
+  These fields provide additional context for categorizing issues accurately
 </analysis_context>
 
 <conversations>
@@ -60,7 +73,11 @@ Generate a minimum of 10 and maximum of 15 feedback items. Only create a feedbac
 - Look for recurring patterns and common root causes across conversations
 - Group similar issues together (e.g., "ACH transfer delays" not "payment issues" and "transfer problems" separately)
 - Be specific: identify the exact feature, flow, or technical problem users are experiencing
-- Consider tags in each conversation for additional context about the issue type, platform, or product area
+- Use all available metadata for categorization:
+  * tags: Contains platform info, product areas, categorization hints
+  * form_type: Indicates the Zendesk form used (e.g., "Technical Support", "Account Issues")
+  * ticket_type: Classification from Zendesk (question, incident, problem, task)
+- Consider these metadata fields alongside the title and description to accurately determine the category
 - Focus on the core underlying issue, not superficial variations in how users describe it
 - Maintain consistent terminology across analyses - use the same names for recurring issues
 
@@ -389,6 +406,25 @@ serve(async (req) => {
           zendesk_url = `https://${subdomain}.zendesk.com/agent/tickets/${conv.external_id}`
         }
 
+        // Extract non-null values from custom_fields (Zendesk form fields)
+        const customFieldsFiltered: Record<string, any> = {}
+        if (conv.custom_fields && typeof conv.custom_fields === 'object') {
+          for (const [key, value] of Object.entries(conv.custom_fields)) {
+            if (value !== null && value !== undefined && value !== '') {
+              customFieldsFiltered[key] = value
+            }
+          }
+        }
+
+        // Extract ticket_type from raw_data.fields.type
+        let ticketType = null
+        if (conv.raw_data && typeof conv.raw_data === 'object') {
+          const fields = (conv.raw_data as any).fields
+          if (fields && typeof fields === 'object' && fields.type) {
+            ticketType = fields.type.value || fields.type
+          }
+        }
+
         return {
           id: idx + 1,
           ticket_id: conv.id, // Ticket ID from source system
@@ -399,6 +435,8 @@ serve(async (req) => {
           status: conv.status,
           priority: conv.priority,
           tags: conv.tags || [],
+          form_type: Object.keys(customFieldsFiltered).length > 0 ? customFieldsFiltered : undefined,
+          ticket_type: ticketType,
           message_count: conv.message_count,
           zendesk_url: zendesk_url,
         }
@@ -406,6 +444,18 @@ serve(async (req) => {
 
       // Build Claude prompt
       const prompt = buildAnalysisPrompt(formattedConversations, weekStart, weekEnd, conversations.length)
+
+      // Estimate token count and check against Claude's limit
+      const estimatedTokens = estimateTokenCount(prompt)
+      const CLAUDE_INPUT_TOKEN_LIMIT = 200000
+
+      console.log(`Estimated input tokens: ${estimatedTokens} / ${CLAUDE_INPUT_TOKEN_LIMIT}`)
+
+      if (estimatedTokens > CLAUDE_INPUT_TOKEN_LIMIT) {
+        const overage = estimatedTokens - CLAUDE_INPUT_TOKEN_LIMIT
+        const percentOver = ((overage / CLAUDE_INPUT_TOKEN_LIMIT) * 100).toFixed(1)
+        throw new Error(`Prompt exceeds Claude's 200k token limit by ${overage} tokens (${percentOver}% over). Reduce conversation count or truncate descriptions further.`)
+      }
 
       console.log('Sending to Claude for analysis...')
 

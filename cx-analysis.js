@@ -137,7 +137,14 @@ class CXAnalysis {
                         AI-driven support ticket analysis identifying top product issues and customer feedback themes.
                         <ul>
                             <li><strong>Data Source:</strong> Zendesk support tickets (last 30 days)</li>
-                            <li><strong>AI Analysis:</strong> Claude Opus 4.5 categorizes tickets by issue type and priority</li>
+                            <li><strong>AI Analysis:</strong> Claude Opus 4.5 categorizes tickets by issue type and priority using:
+                                <ul style="margin-top: 4px;">
+                                    <li>Title and description</li>
+                                    <li>Tags (platform, product areas)</li>
+                                    <li>Form type (custom_fields - indicates Zendesk form used)</li>
+                                    <li>Ticket type (from fields object - question, incident, problem, task)</li>
+                                </ul>
+                            </li>
                             <li><strong>Categories (by priority):</strong>
                                 <ul style="margin-top: 4px;">
                                     <li>Money Movement - user cannot deposit or withdraw money</li>
