@@ -1585,7 +1585,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Build the section with tabs (using same pattern as Top Behavioral Drivers)
         let html = `
             <div class="qda-result-section" style="margin-top: 3rem;">
-                <h2 style="margin-bottom: 0.5rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
+                <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
                     <span class="tooltip-text">
                         <strong>Copy Conversion Paths</strong>
                         <p><strong>Portfolio Paths:</strong> Analyzes portfolio viewing sequences that lead to copy conversions. Shows the most common entry points, portfolio combinations viewed together, and complete sequential viewing paths.</p>
