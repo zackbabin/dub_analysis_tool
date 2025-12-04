@@ -1709,7 +1709,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         // Use UNIVERSAL resilient loading pattern
         await this.supabaseIntegration.loadAndDisplayWithFallback({
-            syncFunction: async () => await this.supabaseIntegration.fetchCreatorRetention(),
+            syncFunction: async () => await this.supabaseIntegration.syncCreatorRetention(),
             loadFunction: async () => await this.supabaseIntegration.loadCreatorRetentionFromDatabase(),
             dataLabel: 'creator retention',
             container: container,
@@ -1980,6 +1980,16 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             for (const [username, data] of Object.entries(cohortData)) {
                 // Skip $overall and undefined
                 if (username === '$overall' || username === 'undefined') continue;
+
+                // Debug: Log first creator's data to see structure
+                if (!creatorMap.has(username)) {
+                    console.log(`📊 First cohort data for ${username}:`, {
+                        cohortDate,
+                        total_unique_subscribers: data.total_unique_subscribers,
+                        first: data.first,
+                        dataKeys: Object.keys(data)
+                    });
+                }
 
                 if (!creatorMap.has(username)) {
                     creatorMap.set(username, {

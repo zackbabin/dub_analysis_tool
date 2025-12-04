@@ -6,11 +6,11 @@
  *
  * Usage: Include this script in index.html and configure with your Supabase credentials.
  *
- * Version: 2025-12-03-v3
- * - Added triggerFirstCopyUsersSync() to sync chart 86612901
- * - Updated portfolio and creator sequence syncs to use user_first_copies table
- * - Separated first copy users sync into dedicated edge function (sync-first-copy-users)
- * - Improved data flow: sync-first-copy-users → sync-portfolio-sequences + sync-creator-sequences
+ * Version: 2025-12-04-v1
+ * - Refactored Premium Creator Retention architecture
+ * - Edge function now only syncs data to DB (doesn't return data)
+ * - Frontend queries premium_creator_retention_analysis table directly
+ * - Fixed total_unique_subscribers mapping to UI Subscribers column
  */
 
 class SupabaseIntegration {
@@ -1019,11 +1019,11 @@ class SupabaseIntegration {
     }
 
     /**
-     * Fetch creator retention data from Mixpanel Retention API
-     * Returns subscription retention rates by creator cohort
+     * Sync creator retention data from Mixpanel to database
+     * Does not return data - frontend should query database after sync completes
      */
-    async fetchCreatorRetention() {
-        console.log('Fetching creator retention data from Mixpanel...');
+    async syncCreatorRetention() {
+        console.log('Syncing creator retention data from Mixpanel...');
 
         try {
             const { data, error} = await this.supabase.functions.invoke('fetch-creator-retention', {
@@ -1032,14 +1032,14 @@ class SupabaseIntegration {
 
             if (error) {
                 console.error('Edge Function error:', error);
-                throw new Error(`Creator retention fetch failed: ${error.message}`);
+                throw new Error(`Creator retention sync failed: ${error.message}`);
             }
 
             if (!data.success) {
-                throw new Error(data.error || 'Unknown error fetching creator retention');
+                throw new Error(data.error || 'Unknown error syncing creator retention');
             }
 
-            console.log('✅ Creator retention data fetched successfully');
+            console.log('✅ Creator retention data synced successfully');
             return data;
         } catch (error) {
             console.error('Error calling fetch-creator-retention Edge Function:', error);
@@ -1068,7 +1068,7 @@ class SupabaseIntegration {
 
             console.log(`✅ Loaded ${data.length} retention records from database`);
 
-            // Transform to expected format: { "cohort_date": { "username": { first, counts } } }
+            // Transform to expected format: { "cohort_date": { "username": { first, counts, total_unique_subscribers } } }
             const formattedData = {};
 
             data.forEach((row) => {
@@ -1079,7 +1079,8 @@ class SupabaseIntegration {
 
                 formattedData[cohortDate][row.creator_username] = {
                     first: row.first,
-                    counts: row.counts
+                    counts: row.counts,
+                    total_unique_subscribers: row.total_unique_subscribers
                 };
             });
 

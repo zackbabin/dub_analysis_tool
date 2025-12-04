@@ -31,20 +31,8 @@ serve(async (req) => {
     // Check if sync should be skipped (within 1-hour window)
     const skipResponse = await checkAndHandleSkipSync(supabase, 'creator_retention', 1)
     if (skipResponse) {
-      // Return cached data when skipped
-      const retentionData = await queryRetentionData(supabase)
-      // Parse the skip response and add cached data
-      const skipData = await skipResponse.json()
-      return new Response(
-        JSON.stringify({
-          ...skipData,
-          rawData: retentionData
-        }),
-        {
-          headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      )
+      // Return skip response - frontend will query DB directly
+      return skipResponse
     }
 
     // Create sync log entry
@@ -131,13 +119,11 @@ serve(async (req) => {
         })
         .eq('id', syncLogId)
 
-      // Query and return retention data
-      const retentionData = await queryRetentionData(supabase)
-
+      // Return success without querying data - frontend will query DB directly
       return new Response(
         JSON.stringify({
           success: true,
-          rawData: retentionData,
+          message: 'Creator retention data synced and stored successfully',
           stats: {
             eventsProcessed: processedEvents.length
           }
@@ -315,37 +301,4 @@ function parseCohortMonth(cohortMonth: string): string {
   return month && year ? `${year}-${month}-01` : cohortMonth
 }
 
-/**
- * Query retention data from materialized view
- * Returns data in format expected by frontend
- */
-async function queryRetentionData(supabase: any): Promise<any> {
-  const { data, error } = await supabase
-    .from('premium_creator_retention_analysis')
-    .select('*')
-    .order('creator_username', { ascending: true })
-    .order('cohort_date', { ascending: true })
-
-  if (error) {
-    console.error('Error querying retention data:', error)
-    throw error
-  }
-
-  // Transform to expected format: { "cohort_date": { "username": { first, counts } } }
-  const formattedData: any = {}
-
-  data.forEach((row: any) => {
-    const cohortDate = row.cohort_date
-    if (!formattedData[cohortDate]) {
-      formattedData[cohortDate] = {}
-    }
-
-    formattedData[cohortDate][row.creator_username] = {
-      first: row.first,
-      counts: row.counts,
-      total_unique_subscribers: row.total_unique_subscribers
-    }
-  })
-
-  return formattedData
-}
+// queryRetentionData function removed - frontend now queries DB directly
