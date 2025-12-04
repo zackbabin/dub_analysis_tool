@@ -1008,11 +1008,30 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             const portfoliosConversionPathsTabPane = document.getElementById('conversion-portfolios-tab');
             const creatorsConversionPathsTabPane = document.getElementById('conversion-creators-tab');
 
+            console.log('🔍 Debug conversion paths population:', {
+                portfoliosTabPane: !!portfoliosConversionPathsTabPane,
+                creatorsTabPane: !!creatorsConversionPathsTabPane,
+                copyPathsHTML: copyPathsHTML ? `${copyPathsHTML.length} chars` : 'empty/null',
+                creatorCopyPathsHTML: creatorCopyPathsHTML ? `${creatorCopyPathsHTML.length} chars` : 'empty/null'
+            });
+
             if (portfoliosConversionPathsTabPane && copyPathsHTML) {
                 portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
+                console.log('✅ Inserted portfolio copy paths HTML');
+            } else {
+                console.warn('❌ Could not insert portfolio copy paths:', {
+                    tabPaneFound: !!portfoliosConversionPathsTabPane,
+                    htmlExists: !!copyPathsHTML
+                });
             }
             if (creatorsConversionPathsTabPane && creatorCopyPathsHTML) {
                 creatorsConversionPathsTabPane.innerHTML = creatorCopyPathsHTML;
+                console.log('✅ Inserted creator copy paths HTML');
+            } else {
+                console.warn('❌ Could not insert creator copy paths:', {
+                    tabPaneFound: !!creatorsConversionPathsTabPane,
+                    htmlExists: !!creatorCopyPathsHTML
+                });
             }
 
             /* ====================================================================================
