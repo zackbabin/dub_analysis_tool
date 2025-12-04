@@ -1004,36 +1004,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
 
-            // Populate conversion paths tabs (using unique IDs)
-            const portfoliosConversionPathsTabPane = document.getElementById('conversion-portfolios-tab');
-            const creatorsConversionPathsTabPane = document.getElementById('conversion-creators-tab');
-
-            console.log('🔍 Debug conversion paths population:', {
-                portfoliosTabPane: !!portfoliosConversionPathsTabPane,
-                creatorsTabPane: !!creatorsConversionPathsTabPane,
-                copyPathsHTML: copyPathsHTML ? `${copyPathsHTML.length} chars` : 'empty/null',
-                creatorCopyPathsHTML: creatorCopyPathsHTML ? `${creatorCopyPathsHTML.length} chars` : 'empty/null'
-            });
-
-            if (portfoliosConversionPathsTabPane && copyPathsHTML) {
-                portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
-                console.log('✅ Inserted portfolio copy paths HTML');
-            } else {
-                console.warn('❌ Could not insert portfolio copy paths:', {
-                    tabPaneFound: !!portfoliosConversionPathsTabPane,
-                    htmlExists: !!copyPathsHTML
-                });
-            }
-            if (creatorsConversionPathsTabPane && creatorCopyPathsHTML) {
-                creatorsConversionPathsTabPane.innerHTML = creatorCopyPathsHTML;
-                console.log('✅ Inserted creator copy paths HTML');
-            } else {
-                console.warn('❌ Could not insert creator copy paths:', {
-                    tabPaneFound: !!creatorsConversionPathsTabPane,
-                    htmlExists: !!creatorCopyPathsHTML
-                });
-            }
-
             /* ====================================================================================
              * COMBINATIONS TAB POPULATION - COMMENTED OUT
              * Removed since High-Impact Combinations section is hidden
@@ -1220,11 +1190,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Build all HTML sections
         const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
-        const copyPathsHTML = this.generatePortfolioCopyPathsHTML(portfolioCopyPaths);
-        const creatorCopyPathsHTML = this.generateCreatorCopyPathsHTML(creatorCopyPaths);
         const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-        const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-        const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
 
         // Build complete HTML structure
         let portfolioHTML = `
@@ -1726,6 +1692,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
+        // Generate content HTML for each tab
+        const portfolioContentHTML = this.generatePortfolioCopyPathsHTML(portfolioPathData);
+        const creatorContentHTML = this.generateCreatorCopyPathsHTML(creatorPathData);
+
         // Build the section with tabs (using same pattern as Top Behavioral Drivers)
         let html = `
             <div class="qda-result-section" style="margin-top: 3rem;">
@@ -1746,10 +1716,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     </div>
                     <div class="conversion-paths-tab-content">
                         <div id="conversion-portfolios-tab" class="conversion-paths-tab-pane active">
-                            <!-- Portfolio paths content will be inserted here -->
+                            ${portfolioContentHTML}
                         </div>
                         <div id="conversion-creators-tab" class="conversion-paths-tab-pane">
-                            <!-- Creator paths content will be inserted here -->
+                            ${creatorContentHTML}
                         </div>
                     </div>
                 </div>
