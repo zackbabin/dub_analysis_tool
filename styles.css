@@ -404,6 +404,54 @@ body {
     display: block;
 }
 
+/* Conversion Paths Tabs (Copy Conversion Paths section - separate from behavioral tabs) */
+.conversion-paths-tabs-container {
+    margin-top: 1rem;
+}
+
+.conversion-paths-tab-navigation {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 1.5rem;
+}
+
+.conversion-paths-tab-btn {
+    background: white;
+    color: #6c757d;
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+    outline: none;
+}
+
+.conversion-paths-tab-btn:hover {
+    color: #17a2b8;
+    background: #f8f9fa;
+}
+
+.conversion-paths-tab-btn.active {
+    color: #17a2b8;
+    border-bottom-color: #17a2b8;
+    background: white;
+}
+
+.conversion-paths-tab-content {
+    width: 100%;
+}
+
+.conversion-paths-tab-pane {
+    display: none;
+}
+
+.conversion-paths-tab-pane.active {
+    display: block;
+}
+
 .tab-results-container {
     width: 100%;
     margin: 40px 0 0 0;

@@ -218,6 +218,31 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             });
         });
 
+        // Initialize conversion paths tab switching
+        const conversionPathsTabButtons = portfolioContentSection.querySelectorAll('.conversion-paths-tab-btn');
+        const conversionPathsTabPanes = portfolioContentSection.querySelectorAll('.conversion-paths-tab-pane');
+
+        console.log('Initializing conversion paths tabs:', conversionPathsTabButtons.length);
+
+        conversionPathsTabButtons.forEach((button) => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetTab = button.getAttribute('data-conversion-paths-tab');
+                console.log('Conversion paths tab clicked:', targetTab);
+
+                // Remove active class from all buttons and panes in this section only
+                conversionPathsTabButtons.forEach(btn => btn.classList.remove('active'));
+                conversionPathsTabPanes.forEach(pane => pane.classList.remove('active'));
+
+                // Add active class to clicked button and corresponding pane
+                button.classList.add('active');
+                const targetPane = portfolioContentSection.querySelector(`#conversion-${targetTab}-tab`);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
+
         // Initialize combinations tab switching
         const combinationsTabButtons = portfolioContentSection.querySelectorAll('.combinations-tab-btn');
         const combinationsTabPanes = portfolioContentSection.querySelectorAll('.combinations-tab-pane');
@@ -1004,9 +1029,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
 
-            // Populate conversion paths tabs (using unique conversion- prefixed IDs)
-            const portfoliosConversionPathsTabPane = document.getElementById('conversion-portfolios-behavioral-tab');
-            const creatorsConversionPathsTabPane = document.getElementById('conversion-creators-behavioral-tab');
+            // Populate conversion paths tabs (using unique IDs)
+            const portfoliosConversionPathsTabPane = document.getElementById('conversion-portfolios-tab');
+            const creatorsConversionPathsTabPane = document.getElementById('conversion-creators-tab');
 
             if (portfoliosConversionPathsTabPane && copyPathsHTML) {
                 portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
@@ -1720,16 +1745,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">
                     Viewing patterns that lead to successful copy conversions
                 </p>
-                <div class="behavioral-tabs-container">
-                    <div class="behavioral-tab-navigation">
-                        <button class="behavioral-tab-btn active" data-behavioral-tab="conversion-portfolios">Portfolios</button>
-                        <button class="behavioral-tab-btn" data-behavioral-tab="conversion-creators">Creators</button>
+                <div class="conversion-paths-tabs-container">
+                    <div class="conversion-paths-tab-navigation">
+                        <button class="conversion-paths-tab-btn active" data-conversion-paths-tab="portfolios">Portfolios</button>
+                        <button class="conversion-paths-tab-btn" data-conversion-paths-tab="creators">Creators</button>
                     </div>
-                    <div class="behavioral-tab-content">
-                        <div id="conversion-portfolios-behavioral-tab" class="behavioral-tab-pane active">
+                    <div class="conversion-paths-tab-content">
+                        <div id="conversion-portfolios-tab" class="conversion-paths-tab-pane active">
                             <!-- Portfolio paths content will be inserted here -->
                         </div>
-                        <div id="conversion-creators-behavioral-tab" class="behavioral-tab-pane">
+                        <div id="conversion-creators-tab" class="conversion-paths-tab-pane">
                             <!-- Creator paths content will be inserted here -->
                         </div>
                     </div>
