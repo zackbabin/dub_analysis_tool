@@ -44,6 +44,7 @@ export class ZendeskClient {
     onBatch?: (tickets: any[]) => Promise<void>
   ): Promise<any[]> {
     const tickets: any[] = []
+    // Note: per_page defaults to 1000 (max), so we don't need to specify it
     let url: string | null = `${this.baseUrl}/incremental/tickets.json?start_time=${unixTimestamp}`
 
     console.log(`Fetching Zendesk tickets since ${new Date(unixTimestamp * 1000).toISOString()}`)
@@ -117,6 +118,7 @@ export class ZendeskClient {
     console.log(`Fetching Zendesk comments since ${new Date(unixTimestamp * 1000).toISOString()}`)
 
     const comments: any[] = []
+    // Note: per_page defaults to 1000 (max), so we don't need to specify it
     let url: string | null = `${this.baseUrl}/incremental/ticket_events.json?start_time=${unixTimestamp}&include=comment_events`
 
     while (url) {

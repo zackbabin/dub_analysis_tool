@@ -812,21 +812,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Now renders to separate main tab containers instead of nested tabs
      */
     async buildCompleteHTML(results) {
-        // Clear combination cache to ensure fresh data after analysis runs
-        this.supabaseIntegration.clearCombinationCache();
-
         // Load all engagement data in parallel with base analysis
         const [
             hiddenGems,
             copyEngagementSummary,
-            topCopyCombos,
-            topCreatorCopyCombos,
             subscriptionDistribution
         ] = await Promise.all([
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
         ]);
 
@@ -876,9 +869,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Build all HTML sections first
             const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
             const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
-
-            const combinationsHTML = this.generateCopyCombinationsHTML(topCopyCombos);
-            const creatorCombinationsHTML = this.generateCreatorCopyCombinationsHTML(topCreatorCopyCombos);
 
             // Build complete HTML structure with H1 in same section as metrics
             let portfolioHTML = `
@@ -945,52 +935,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </div>
             `;
 
-            /* ====================================================================================
-             * HIGH-IMPACT COMBINATIONS SECTION - COMMENTED OUT
-             * Replaced by Copy Conversion Path Analysis (portfolio_copy_path_analysis + creator_copy_path_analysis)
-             * ====================================================================================
-             *
-             * // Add High-Impact Combinations Section structure to portfolioHTML
-             * portfolioHTML += `
-             *     <div class="qda-result-section" style="margin-top: 3rem;">
-             *         <h2 style="margin-bottom: 0.25rem;"><span class="info-tooltip">High-Impact Combinations<span class="info-icon">i</span>
-             *     <span class="tooltip-text">
-             *         <strong>High-Impact Combinations</strong>
-             *         Portfolio and creator pairs that users view together before copying, with highest conversion lift.
-             *         <ul>
-             *             <li><strong>Data Sources:</strong>
-             *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165580%22" target="_blank" style="color: #17a2b8;">Chart 85165580</a> (Copies),
-             *                 <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-85165851%22" target="_blank" style="color: #17a2b8;">Chart 85165851</a> (Views)
-             *             </li>
-             *             <li><strong>Analysis:</strong> Exhaustive pair search + Logistic Regression (max 200 entities = ~19,900 pairs tested)</li>
-             *             <li><strong>Filters:</strong> Min 3 users exposed per combination</li>
-             *             <li><strong>Ranking:</strong> By Expected Value (Lift × Total Conversions) - balances impact and reach</li>
-             *             <li><strong>Metrics:</strong> Lift, odds ratio, precision, recall, AIC</li>
-             *         </ul>
-             *     </span>
-             * </span></h2>
-             *         <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">The top portfolio or creator combinations that drive highest likelihood to copy</p>
-             *
-             *         <div class="combinations-tabs-container">
-             *             <div class="combinations-tab-navigation">
-             *                 <button class="combinations-tab-btn active" data-combinations-tab="portfolios">Portfolios</button>
-             *                 <button class="combinations-tab-btn" data-combinations-tab="creators">Creators</button>
-             *             </div>
-             *
-             *             <div class="combinations-tab-content">
-             *                 <div id="portfolios-combinations-tab" class="combinations-tab-pane active">
-             *                     <!-- Portfolio combinations content will be inserted here -->
-             *                 </div>
-             *                 <div id="creators-combinations-tab" class="combinations-tab-pane">
-             *                     <!-- Creator combinations content will be inserted here -->
-             *                 </div>
-             *             </div>
-             *         </div>
-             *     </div>
-             * `;
-             *
-             * ==================================================================================== */
-
             // Insert complete HTML once
             portfolioContentSection.innerHTML = portfolioHTML;
 
@@ -1003,24 +947,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
-
-            /* ====================================================================================
-             * COMBINATIONS TAB POPULATION - COMMENTED OUT
-             * Removed since High-Impact Combinations section is hidden
-             * ====================================================================================
-             *
-             * // Populate the combinations tabs (already in HTML)
-             * const portfoliosCombinationsTabPane = document.getElementById('portfolios-combinations-tab');
-             * const creatorsCombinationsTabPane = document.getElementById('creators-combinations-tab');
-             *
-             * if (portfoliosCombinationsTabPane && combinationsHTML) {
-             *     portfoliosCombinationsTabPane.innerHTML = combinationsHTML;
-             * }
-             * if (creatorsCombinationsTabPane && creatorCombinationsHTML) {
-             *     creatorsCombinationsTabPane.innerHTML = creatorCombinationsHTML;
-             * }
-             *
-             * ==================================================================================== */
 
             // Initialize nested tab event listeners using shared function
             this.initializePortfolioNestedTabs();
@@ -1101,9 +1027,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
      * Fetches pre-calculated summary stats from database table
      */
     async buildCompleteHTMLFromDatabase() {
-        // Clear combination cache to ensure fresh data
-        this.supabaseIntegration.clearCombinationCache();
-
         // Step 1: Fetch summary stats from database
         const { data: summaryStatsRows, error: statsError } = await this.supabaseIntegration.supabase
             .from('summary_stats')
@@ -1128,14 +1051,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         const [
             hiddenGems,
             copyEngagementSummary,
-            topCopyCombos,
-            topCreatorCopyCombos,
             subscriptionDistribution
         ] = await Promise.all([
             this.supabaseIntegration.loadHiddenGems().catch(e => { console.warn('Failed to load hidden gems:', e); return []; }),
             this.supabaseIntegration.loadCopyEngagementSummary().catch(e => { console.warn('Failed to load copy engagement summary:', e); return null; }),
-            this.supabaseIntegration.loadTopCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load copy combos:', e); return []; }),
-            this.supabaseIntegration.loadTopCreatorCopyCombinations('expected_value', 10, 3).catch(e => { console.warn('Failed to load creator copy combos:', e); return []; }),
             this.supabaseIntegration.loadSubscriptionDistribution().catch(e => { console.warn('Failed to load subscription distribution:', e); return []; })
         ]);
 
@@ -1386,39 +1305,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         return parts.join('');
     }
 
-    /**
-     * Generate Creator Copy Combinations HTML (inserted after portfolio combinations)
-     * Uses array.join() for optimal string building performance
-     */
-    generateCreatorCopyCombinationsHTML(topCombinations) {
-        if (!topCombinations || topCombinations.length === 0) {
-            return '';
-        }
-
-        const parts = [
-            this.generateCombinationsTableHTML(
-                '',  // No title needed - will be in tab
-                'Users who viewed both of these creators were significantly more likely to copy',
-                topCombinations,
-                (combo) => {
-                    const creator1 = combo.username_1 || combo.value_1;
-                    const creator2 = combo.username_2 || combo.value_2;
-                    return `${creator1}, ${creator2}`;
-                },
-                'Creators Viewed',
-                'Total Copies',
-                'Total Profile Views',
-                (combo) => {
-                    const views1 = combo.total_views_1 || 0;
-                    const views2 = combo.total_views_2 || 0;
-                    const total = views1 + views2;
-                    return total > 0 ? total.toLocaleString() : 'N/A';
-                }
-            )
-        ];
-
-        return parts.join('');
-    }
 
     /**
      * Generate Hidden Gems HTML
@@ -1740,35 +1626,35 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Group by analysis type
-        const firstPortfolios = pathData.filter(r => r.analysis_type === 'first_portfolio');
+        const topPortfolios = pathData.filter(r => r.analysis_type === 'top_portfolios_viewed');
         const portfolioCombinations = pathData.filter(r => r.analysis_type === 'portfolio_combinations');
         const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
 
         console.log('Portfolio copy paths data:', {
             total: pathData.length,
-            firstPortfolios: firstPortfolios.length,
+            topPortfolios: topPortfolios.length,
             portfolioCombinations: portfolioCombinations.length,
             fullSequences: fullSequences.length,
             analysisTypes: [...new Set(pathData.map(r => r.analysis_type))]
         });
 
-        if (firstPortfolios.length === 0 && portfolioCombinations.length === 0 && fullSequences.length === 0) {
+        if (topPortfolios.length === 0 && portfolioCombinations.length === 0 && fullSequences.length === 0) {
             console.warn('No valid analysis types found in data');
             return '';
         }
 
-        // Build 3 cards grid (no header - used in tab content)
-        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
+        // Build 3 cards grid with equal width
+        let html = `<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 1rem;">`;
 
-        // First Portfolio Viewed Section
-        if (firstPortfolios.length > 0) {
+        // Top Portfolios Viewed Section
+        if (topPortfolios.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">First Portfolio Viewed</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Portfolios Viewed</h4>
                     <div class="portfolio-list">
             `;
 
-            firstPortfolios.forEach(item => {
+            topPortfolios.forEach(item => {
                 const ticker = item.portfolio_sequence[0];
                 const pct = parseFloat(item.pct_of_converters);
 
@@ -1787,23 +1673,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Portfolio Combinations Section
+        // Top Portfolio Combinations Section
         if (portfolioCombinations.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Portfolio Combinations</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Portfolio Combinations</h4>
                     <div class="portfolio-list">
             `;
 
             portfolioCombinations.forEach(item => {
                 const portfolioSet = item.portfolio_sequence.join(', ');
-                const pct = parseFloat(item.pct_of_converters);
 
                 html += `
                     <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
                         <span style="flex: 2; color: #495057;">${portfolioSet}</span>
-                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1824,13 +1708,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             fullSequences.forEach(item => {
                 const pathStr = item.portfolio_sequence.join(' → ');
-                const pct = parseFloat(item.pct_of_converters);
 
                 html += `
                     <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
                         <span style="flex: 2; color: #495057;">${pathStr}</span>
-                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1858,26 +1740,26 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Group by analysis type
-        const firstCreators = pathData.filter(r => r.analysis_type === 'first_creator');
+        const topCreators = pathData.filter(r => r.analysis_type === 'top_creators_viewed');
         const creatorCombinations = pathData.filter(r => r.analysis_type === 'creator_combinations');
         const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
 
-        if (firstCreators.length === 0 && creatorCombinations.length === 0 && fullSequences.length === 0) {
+        if (topCreators.length === 0 && creatorCombinations.length === 0 && fullSequences.length === 0) {
             return '';
         }
 
-        // Build 3 cards grid (no header - used in tab content)
-        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
+        // Build 3 cards grid with equal width
+        let html = `<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 1rem;">`;
 
-        // First Creator Viewed Section
-        if (firstCreators.length > 0) {
+        // Top Creators Viewed Section
+        if (topCreators.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">First Creator Viewed</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Creators Viewed</h4>
                     <div class="portfolio-list">
             `;
 
-            firstCreators.forEach(item => {
+            topCreators.forEach(item => {
                 const creator = item.creator_sequence[0];
                 const pct = parseFloat(item.pct_of_converters);
 
@@ -1896,23 +1778,21 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             `;
         }
 
-        // Creator Combinations Section
+        // Top Creator Combinations Section
         if (creatorCombinations.length > 0) {
             html += `
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Creator Combinations</h4>
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Creator Combinations</h4>
                     <div class="portfolio-list">
             `;
 
             creatorCombinations.forEach(item => {
                 const creatorSet = item.creator_sequence.join(', ');
-                const pct = parseFloat(item.pct_of_converters);
 
                 html += `
                     <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
                         <span style="flex: 2; color: #495057;">${creatorSet}</span>
-                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1933,13 +1813,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             fullSequences.forEach(item => {
                 const pathStr = item.creator_sequence.join(' → ');
-                const pct = parseFloat(item.pct_of_converters);
 
                 html += `
                     <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
                         <span style="flex: 2; color: #495057;">${pathStr}</span>
-                        <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
             });
@@ -1967,35 +1845,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         return parts.join('');
     }
 
-    /**
-     * Generate Copy Combinations HTML (inserted after correlation table)
-     * Uses array.join() for optimal string building performance
-     */
-    generateCopyCombinationsHTML(topCombinations) {
-        if (!topCombinations || topCombinations.length === 0) {
-            return '';
-        }
-
-        const parts = [
-            this.generateCombinationsTableHTML(
-                '',  // No title needed - will be in tab
-                'Users who viewed both of these portfolios were significantly more likely to copy',
-                topCombinations,
-                (combo) => `${combo.value_1}, ${combo.value_2}`,
-                'Portfolios Viewed',
-                'Total Copies',
-                'Total PDP Views',
-                (combo) => {
-                    const views1 = combo.total_views_1 || 0;
-                    const views2 = combo.total_views_2 || 0;
-                    const total = views1 + views2;
-                    return total > 0 ? total.toLocaleString() : 'N/A';
-                }
-            )
-        ];
-
-        return parts.join('');
-    }
 
     /**
      * Generate Portfolio Sequences HTML

@@ -85,19 +85,6 @@ class SupabaseIntegration {
         return promise;
     }
 
-    /**
-     * Clear cached combination data
-     * Call this after running analysis to force fresh data load
-     */
-    clearCombinationCache() {
-        const keysToDelete = [];
-        for (const [key] of this.queryCache) {
-            if (key.startsWith('combinations_')) {
-                keysToDelete.push(key);
-            }
-        }
-        keysToDelete.forEach(key => this.queryCache.delete(key));
-    }
 
     /**
      * Invalidate specific cache entry or entire cache
@@ -1185,87 +1172,6 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Generic function to load top combinations for any analysis type (DRY)
-     * @param {string} analysisType - 'subscription', 'copy', or 'portfolio_sequence'
-     * @param {string} metric - 'lift', 'aic', 'precision', or 'odds_ratio'
-     * @param {number} limit - Number of results to return
-     * @param {boolean} mapUsernames - Whether to map creator IDs to usernames
-     */
-    async loadTopCombinations(analysisType, metric = 'lift', limit = 20, mapUsernames = false, minExposure = 1) {
-        // Create cache key from parameters
-        const cacheKey = `combinations_${analysisType}_${metric}_${limit}_${mapUsernames}_${minExposure}`;
-
-        return this.cachedQuery(cacheKey, async () => {
-            // Loading combination data
-
-            try {
-                let query = this.supabase
-                    .from('conversion_pattern_combinations')
-                    .select('*')
-                    .eq('analysis_type', analysisType)
-                    .gte('users_with_exposure', minExposure); // Filter: minimum 1 user exposed
-
-                // Sort by the requested metric (skip database sort for expected_value)
-                if (metric !== 'expected_value') {
-                    switch (metric) {
-                        case 'lift':
-                            query = query.order('lift', { ascending: false });
-                            break;
-                        case 'aic':
-                            query = query.order('aic', { ascending: true }); // Lower AIC is better
-                            break;
-                        case 'precision':
-                            query = query.order('precision', { ascending: false });
-                            break;
-                        case 'odds_ratio':
-                            query = query.order('odds_ratio', { ascending: false });
-                            break;
-                        default:
-                            query = query.order('combination_rank', { ascending: true });
-                    }
-                }
-
-                const { data, error } = await query;
-
-                if (error) {
-                    console.error(`Error loading ${analysisType} combinations:`, error);
-                    throw error;
-                }
-
-                // If sorting by expected_value, calculate it client-side and sort
-                // (since it's a computed column that doesn't exist in the database)
-                let sortedData = data || [];
-                if (metric === 'expected_value' && sortedData.length > 0) {
-                    sortedData = sortedData.map(combo => ({
-                        ...combo,
-                        expected_value: combo.lift * (combo.total_conversions || 0)
-                    })).sort((a, b) => b.expected_value - a.expected_value);
-                }
-
-                // Apply limit after sorting
-                sortedData = sortedData.slice(0, limit);
-
-                // Debug: show filter values if no data returned
-                if (sortedData.length === 0) {
-                    console.warn(`No ${analysisType} combinations found. Query filters:`, {
-                        analysis_type: analysisType,
-                        minExposure: minExposure,
-                        limit: limit,
-                        metric: metric
-                    });
-                }
-
-                // Usernames are now stored directly in the table by the analysis function
-                // No runtime mapping needed - username_1, username_2, username_3 columns are populated
-
-                return sortedData;
-            } catch (error) {
-                console.error(`Error loading ${analysisType} combinations:`, error);
-                throw error;
-            }
-        });
-    }
 
     /**
      * Load copy conversion analysis data
@@ -1371,79 +1277,6 @@ class SupabaseIntegration {
         });
     }
 
-    /**
-     * Trigger copy pattern analysis via Edge Function
-     * DISABLED: Replaced by Copy Conversion Path Analysis (portfolio_copy_path_analysis + creator_copy_path_analysis)
-     * The new approach analyzes actual sequential viewing patterns instead of logistic regression on combinations
-     */
-    async triggerCopyAnalysis() {
-        console.log('⚠️ Copy pattern analysis disabled - now using Copy Conversion Path Analysis');
-        return {
-            success: true,
-            disabled: true,
-            message: 'Copy pattern analysis replaced by Copy Conversion Path Analysis'
-        };
-
-        /* ====================================================================================
-         * ORIGINAL CODE - COMMENTED OUT (replaced by Copy Conversion Path Analysis)
-         * ====================================================================================
-         *
-         * console.log('Triggering copy pattern analysis (parallel: portfolio + creator)...');
-         *
-         * try {
-         *     // Run both analyses in parallel (separate edge functions)
-         *     const [portfolioResult, creatorResult] = await Promise.all([
-         *         this.supabase.functions.invoke('analyze-copy-patterns'),
-         *         this.supabase.functions.invoke('analyze-creator-copy-patterns')
-         *     ]);
-         *
-         *     const { data: portfolioData, error: portfolioError } = portfolioResult;
-         *     const { data: creatorData, error: creatorError } = creatorResult;
-         *
-         *     // Handle portfolio analysis timeout/errors
-         *     if (portfolioError) {
-         *         if (portfolioError.message?.includes('Failed to send a request') || portfolioError.message?.includes('fetch')) {
-         *             console.log('⏱️ Portfolio copy analysis running (browser timeout)');
-         *         } else {
-         *             console.error('Portfolio copy analysis error:', portfolioError);
-         *             throw new Error(`Portfolio copy analysis failed: ${portfolioError.message}`);
-         *         }
-         *     } else {
-         *         console.log('✅ Portfolio copy analysis completed:', portfolioData);
-         *     }
-         *
-         *     // Handle creator analysis timeout/errors
-         *     if (creatorError) {
-         *         if (creatorError.message?.includes('Failed to send a request') || creatorError.message?.includes('fetch')) {
-         *             console.log('⏱️ Creator copy analysis running (browser timeout)');
-         *         } else {
-         *             console.error('Creator copy analysis error:', creatorError);
-         *             throw new Error(`Creator copy analysis failed: ${creatorError.message}`);
-         *         }
-         *     } else {
-         *         console.log('✅ Creator copy analysis completed:', creatorData);
-         *     }
-         *
-         *     // Return combined results (may have timeouts)
-         *     const data = {
-         *         success: true,
-         *         portfolio: portfolioData || { timeout: true },
-         *         creator: creatorData || { timeout: true },
-         *         stats: {
-         *             portfolio: portfolioData?.stats,
-         *             creator: creatorData?.stats
-         *         }
-         *     };
-         *
-         *     console.log('✅ Copy analysis completed:', data.stats);
-         *     return data;
-         * } catch (error) {
-         *     console.error('Error calling copy analysis Edge Function:', error);
-         *     throw error;
-         * }
-         *
-         * ==================================================================================== */
-    }
 
     /**
      * Trigger Linear issues sync via Edge Function
@@ -1491,20 +1324,6 @@ class SupabaseIntegration {
         }
     }
 
-    /**
-     * Load top copy combinations (portfolio combinations that drive copies)
-     */
-    async loadTopCopyCombinations(metric = 'lift', limit = 20, minExposure = 1) {
-        return this.loadTopCombinations('copy', metric, limit, false, minExposure);
-    }
-
-    /**
-     * Load top creator copy combinations
-     * Analyzes which creator profile view combinations drive copies
-     */
-    async loadTopCreatorCopyCombinations(metric = 'lift', limit = 20, minExposure = 1) {
-        return this.loadTopCombinations('creator_copy', metric, limit, true, minExposure);
-    }
 
 
     /**
