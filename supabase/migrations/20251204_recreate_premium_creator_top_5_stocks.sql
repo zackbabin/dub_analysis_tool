@@ -87,10 +87,10 @@ COMMENT ON VIEW premium_creator_top_5_stocks IS
 
 DO $$
 BEGIN
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
   RAISE NOTICE '✅ Recreated premium_creator_top_5_stocks view';
   RAISE NOTICE '   - Dropped by CASCADE in 20251203_fix_premium_creator_metrics_single_row.sql';
   RAISE NOTICE '   - Required by creator_analysis_tool_supabase.js';
   RAISE NOTICE '   - Ranks stocks by allocation % of total copy capital';
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
 END $$;

@@ -41,9 +41,9 @@ COMMENT ON VIEW premium_creator_summary_stats IS
 
 DO $$
 BEGIN
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
   RAISE NOTICE '✅ Recreated premium_creator_summary_stats view';
   RAISE NOTICE '   - Dropped by CASCADE in 20251203_fix_premium_creator_metrics_single_row.sql';
   RAISE NOTICE '   - Required by creator_analysis_tool_supabase.js';
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
 END $$;

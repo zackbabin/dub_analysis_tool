@@ -30,10 +30,10 @@ COMMENT ON INDEX idx_retention_analysis_unique IS
 
 DO $$
 BEGIN
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
   RAISE NOTICE '✅ Added unique index to premium_creator_retention_analysis';
   RAISE NOTICE '   - Created unique index on (creator_username, cohort_date)';
   RAISE NOTICE '   - Enables REFRESH MATERIALIZED VIEW CONCURRENTLY';
   RAISE NOTICE '   - Fixes error in fetch-creator-retention edge function';
-  RAISE NOTICE '';
+  RAISE NOTICE ' ';
 END $$;
