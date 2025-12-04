@@ -84,12 +84,6 @@ serve(async (req) => {
         })
       }
 
-      // Check if response was limited/truncated
-      const seriesLength = Object.keys(series).filter(k => k !== '$overall').length
-      console.log(`⚠️ IMPORTANT: Fetched ${seriesLength} users from Insights API`)
-      console.log(`⚠️ If this is exactly 3000, the Mixpanel Insights API may be limiting results`)
-      console.log(`⚠️ Mixpanel Insights charts have a ~3000 row limit - consider using JQL API for full dataset`)
-
       // Debug: Log chart response structure
       console.log('📊 Chart response structure:', {
         hasSeriesKey: !!chartData.series,
@@ -102,6 +96,12 @@ serve(async (req) => {
       // Headers: ["$metric", "$user_id", "$time"]
       const copyRows: Array<{ user_id: string; first_copy_time: string }> = []
       const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
+
+      // Check if response was limited/truncated
+      const seriesLength = Object.keys(series).filter(k => k !== '$overall').length
+      console.log(`⚠️ IMPORTANT: Fetched ${seriesLength} users from Insights API`)
+      console.log(`⚠️ If this is exactly 3000, the Mixpanel Insights API may be limiting results`)
+      console.log(`⚠️ Mixpanel Insights charts have a ~3000 row limit - consider using JQL API for full dataset`)
 
       // Debug: Log how many user entries we're processing
       const totalUserEntries = Object.keys(series).filter(k => k !== '$overall').length
