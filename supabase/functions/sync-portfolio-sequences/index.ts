@@ -288,6 +288,7 @@ serve(async (req) => {
       // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
       console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
       let targetUserIds: string[] = []
+      let copyEventsSynced = 0
 
       try {
         const { data: firstCopyUsers, error: usersError } = await supabase
@@ -299,6 +300,7 @@ serve(async (req) => {
         }
 
         targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
+        copyEventsSynced = targetUserIds.length
         console.log(`✓ Found ${targetUserIds.length} users who copied (from user_first_copies)`)
       } catch (userError: any) {
         console.error('⚠️ Failed to fetch user_first_copies:', userError.message)
