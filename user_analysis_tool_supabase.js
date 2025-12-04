@@ -267,31 +267,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 }
             });
         });
-
-        // Initialize conversion paths tab switching
-        const conversionPathsTabButtons = portfolioContentSection.querySelectorAll('.conversion-paths-tab-btn');
-        const conversionPathsTabPanes = portfolioContentSection.querySelectorAll('.conversion-paths-tab-pane');
-
-        console.log('Initializing conversion paths tabs:', conversionPathsTabButtons.length);
-
-        conversionPathsTabButtons.forEach((button) => {
-            button.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetTab = button.getAttribute('data-conversion-paths-tab');
-                console.log('Conversion paths tab clicked:', targetTab);
-
-                // Remove active class from all buttons and panes
-                conversionPathsTabButtons.forEach(btn => btn.classList.remove('active'));
-                conversionPathsTabPanes.forEach(pane => pane.classList.remove('active'));
-
-                // Add active class to clicked button and corresponding pane
-                button.classList.add('active');
-                const targetPane = portfolioContentSection.querySelector(`#${targetTab}-conversion-paths-tab`);
-                if (targetPane) {
-                    targetPane.classList.add('active');
-                }
-            });
-        });
     }
 
     /**
