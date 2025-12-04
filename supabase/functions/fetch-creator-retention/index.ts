@@ -342,7 +342,8 @@ async function queryRetentionData(supabase: any): Promise<any> {
 
     formattedData[cohortDate][row.creator_username] = {
       first: row.first,
-      counts: row.counts
+      counts: row.counts,
+      total_unique_subscribers: row.total_unique_subscribers
     }
   })
 
