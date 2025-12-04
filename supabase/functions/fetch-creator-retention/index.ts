@@ -97,8 +97,17 @@ serve(async (req) => {
         console.log(`✅ Stored ${processedEvents.length} retention events`)
       }
 
-      // Note: Materialized view refresh moved to centralized refresh_all_materialized_views()
-      // Called by refresh-materialized-views edge function after all syncs complete
+      // Refresh the materialized view
+      console.log('Refreshing premium_creator_retention_analysis materialized view...')
+      const { error: refreshError } = await supabase.rpc('refresh_premium_creator_retention_analysis')
+
+      if (refreshError) {
+        console.error('Failed to refresh retention view:', refreshError)
+        // Don't throw - sync was successful, just view refresh failed
+        console.warn('⚠️ Retention data synced but view refresh failed')
+      } else {
+        console.log('✅ Retention view refreshed')
+      }
 
       // Update sync log with success
       const syncEndTime = new Date()
