@@ -284,7 +284,7 @@ serve(async (req) => {
         console.log(`Date range: ${fromDate} to ${toDate}`)
       }
 
-      // STEP 1: Fetch target user IDs from user_first_copies (already populated by sync-event-sequences-v2)
+      // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
       console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
       let targetUserIds: string[] = []
 

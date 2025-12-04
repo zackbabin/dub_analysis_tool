@@ -285,97 +285,23 @@ serve(async (req) => {
         console.log(`Date range: ${fromDate} to ${toDate}`)
       }
 
-      // STEP 1: Fetch first copy users from Mixpanel chart 86612901 FIRST
-      // This gives us the targeted list of ~435 users who copied in last 3 days
-      console.log('\n📊 Step 1: Fetching first copy users from Mixpanel chart 86612901...')
+      // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
+      console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
       let targetUserIds: string[] = []
-      let copyEventsSynced = 0
 
       try {
-        const projectId = MIXPANEL_CONFIG.PROJECT_ID
-        const chartId = '86612901'
-        const chartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${chartId}`
+        const { data: firstCopyUsers, error: usersError } = await supabase
+          .from('user_first_copies')
+          .select('user_id')
 
-        // Use Basic Auth (same pattern as sync-business-assumptions)
-        const authString = `${credentials.username}:${credentials.secret}`
-        const authHeader = `Basic ${btoa(authString)}`
-
-        const chartResponse = await fetch(chartUrl, {
-          headers: {
-            'Authorization': authHeader,
-            'Accept': 'application/json',
-          },
-        })
-
-        if (!chartResponse.ok) {
-          throw new Error(`Chart API failed: ${chartResponse.status}`)
+        if (usersError) {
+          throw usersError
         }
 
-        const chartData = await chartResponse.json()
-        console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
-
-        // Parse series object to extract first copy times
-        // Chart 86612901 structure: metric -> $user_id -> $time
-        // Headers: ["$metric", "$user_id", "$time"]
-        const copyRows = []
-        const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
-
-        for (const [userId, userIdData] of Object.entries(series)) {
-          // Skip $overall aggregation key
-          if (userId === '$overall') continue
-          if (!userId) continue
-
-          // Validate userIdData is an object
-          if (!userIdData || typeof userIdData !== 'object') {
-            console.warn(`Skipping user_id ${userId} - no timestamp data`)
-            continue
-          }
-
-          // Find ISO timestamp within user_id data (exclude $overall)
-          const isoTimestamps = Object.keys(userIdData).filter(k => k !== '$overall')
-          if (isoTimestamps.length === 0) {
-            console.warn(`Skipping user_id ${userId} - no timestamp in data`)
-            continue
-          }
-
-          // First ISO timestamp is the first copy time
-          const firstCopyTime = isoTimestamps[0]
-
-          // Validate it's a proper ISO timestamp
-          if (!firstCopyTime.includes('T') && !firstCopyTime.includes('-')) {
-            console.warn(`Skipping user_id ${userId} - invalid timestamp format: ${firstCopyTime}`)
-            continue
-          }
-
-          // For Export API filtering, we need to collect user_ids
-          targetUserIds.push(userId)
-
-          // Store user_id and first copy time from chart
-          copyRows.push({
-            user_id: userId,          // $user_id from chart (merged identity)
-            first_copy_time: new Date(firstCopyTime).toISOString()
-          })
-        }
-
-        console.log(`✓ Extracted ${copyRows.length} first copy events with user_ids`)
-
-        // Insert user_first_copies immediately - this provides the mapping table for event_sequences_raw
-        if (copyRows.length > 0) {
-          const { error: copyError } = await supabase
-            .from('user_first_copies')
-            .upsert(copyRows, {
-              onConflict: 'user_id'  // PRIMARY KEY is user_id
-            })
-
-          if (copyError) {
-            console.error('⚠️ Error inserting user_first_copies:', copyError)
-          } else {
-            copyEventsSynced = copyRows.length
-            console.log(`✅ Inserted/updated ${copyEventsSynced} first copy events to user_first_copies`)
-          }
-        }
-      } catch (chartError: any) {
-        console.error('⚠️ Chart fetch failed:', chartError.message)
+        targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
+        console.log(`✓ Found ${targetUserIds.length} users who copied (from user_first_copies)`)
+      } catch (userError: any) {
+        console.error('⚠️ Failed to fetch user_first_copies:', userError.message)
         console.log('   Will fetch ALL portfolio view events (no user filter)')
         // Continue without user filter - fallback to fetching all events
       }

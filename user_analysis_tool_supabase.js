@@ -2,12 +2,11 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-03-v4
-// - Merged Copy & Creator Conversion Paths into single section with nested tabs
-// - Grid layout: First (1fr) + Combinations (2fr) + Sequences (2fr)
-// - Updated all 6 cards: standard font (0.875rem), removed emojis, reduced padding
-// - Card titles: "First Portfolio/Creator Viewed", "Portfolio/Creator Combinations", "Most Common Sequences"
-// - Fixed H2 spacing consistency across all sections (0.5rem)
+// Version: 2025-12-03-v5
+// - Added sync-first-copy-users as Step 1 in Event Sequences workflow
+// - Chart 86612901 is now synced via dedicated edge function before portfolio/creator syncs
+// - Updated workflow: Sync first copies → Sync portfolio + creator (parallel) → Analyze both (parallel)
+// - Updated browser logs to show 3-step process with user counts
 
 'use strict';
 
@@ -476,19 +475,33 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         return { success: false, error: error.message };
                     }
                 })(),
-                // Event sequence workflow (Portfolio + Creator - 2 steps: Sync both → Analyze both)
+                // Event sequence workflow (Portfolio + Creator - 3 steps: Sync first copies → Sync both → Analyze both)
                 (async () => {
                     console.log('→ 5c: Event Sequences (Portfolio + Creator)');
                     try {
-                        // Step 1: Sync both portfolio and creator events in parallel
-                        console.log('  → Step 1: Syncing portfolio views + creator profile views (parallel)');
+                        // Step 1: Sync first copy users (prerequisite for portfolio & creator syncs)
+                        console.log('  → Step 1: Syncing first copy users from Mixpanel chart 86612901');
+                        let firstCopyResult = null;
+                        try {
+                            firstCopyResult = await this.supabaseIntegration.triggerFirstCopyUsersSync();
+                            if (firstCopyResult?.success) {
+                                console.log(`    ✓ First copy users: ${firstCopyResult.stats?.usersSynced || 0} users synced`);
+                            } else {
+                                console.warn('    ⚠ First copy sync failed, will use existing data');
+                            }
+                        } catch (error) {
+                            console.warn('    ⚠ First copy sync error, will use existing data:', error.message);
+                        }
+
+                        // Step 2: Sync both portfolio and creator events in parallel (after first copies)
+                        console.log('  → Step 2: Syncing portfolio views + creator profile views (parallel)');
                         const [portfolioSyncResult, creatorSyncResult] = await Promise.all([
                             this.supabaseIntegration.triggerPortfolioSequencesSync(),
                             this.supabaseIntegration.triggerCreatorSequencesSync()
                         ]);
 
                         if (portfolioSyncResult?.success) {
-                            console.log(`    ✓ Portfolio: Synced ${portfolioSyncResult.stats?.eventsInserted || 0} views, ${portfolioSyncResult.stats?.copyEventsSynced || 0} first copies`);
+                            console.log(`    ✓ Portfolio: Synced ${portfolioSyncResult.stats?.eventsInserted || 0} views`);
                         } else {
                             console.warn('    ⚠ Portfolio sync failed, using existing data');
                         }
@@ -499,8 +512,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator sync failed, using existing data');
                         }
 
-                        // Step 2: Analyze both portfolio and creator patterns in parallel (only after syncs complete)
-                        console.log('  → Step 2: Analyzing both with SQL (parallel)');
+                        // Step 3: Analyze both portfolio and creator patterns in parallel (only after syncs complete)
+                        console.log('  → Step 3: Analyzing both with SQL (parallel)');
                         const [portfolioAnalysisResult, creatorAnalysisResult] = await Promise.all([
                             this.supabaseIntegration.triggerPortfolioSequencesAnalysis('copies'),
                             this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies')

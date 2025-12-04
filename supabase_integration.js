@@ -6,11 +6,11 @@
  *
  * Usage: Include this script in index.html and configure with your Supabase credentials.
  *
- * Version: 2025-11-28-v2
- * - Added triggerCreatorSequencesSync() and triggerCreatorSequencesAnalysis()
- * - Renamed: triggerEventSequenceSyncV2() → triggerPortfolioSequencesSync()
- * - Renamed: triggerEventSequenceAnalysis() → triggerPortfolioSequencesAnalysis()
- * - Event sequences now support both portfolio views and creator profile views
+ * Version: 2025-12-03-v3
+ * - Added triggerFirstCopyUsersSync() to sync chart 86612901
+ * - Updated portfolio and creator sequence syncs to use user_first_copies table
+ * - Separated first copy users sync into dedicated edge function (sync-first-copy-users)
+ * - Improved data flow: sync-first-copy-users → sync-portfolio-sequences + sync-creator-sequences
  */
 
 class SupabaseIntegration {
@@ -880,9 +880,41 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger first copy users sync via Supabase Edge Function (Insights API)
+     * Fetches users who copied at least once from Mixpanel chart 86612901
+     * Populates user_first_copies table for use by portfolio and creator sequences
+     * Note: Always fetches all data from chart (no incremental mode)
+     */
+    async triggerFirstCopyUsersSync() {
+        console.log('Triggering first copy users sync from Mixpanel chart 86612901...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('sync-first-copy-users', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                return { success: false, error: error.message };
+            }
+
+            if (!data.success) {
+                console.error('Sync failed:', data.error);
+                return { success: false, error: data.error || 'Unknown error during first copy users sync' };
+            }
+
+            console.log('✅ First copy users sync completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling first copy users sync Edge Function:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Trigger portfolio sequence sync via Supabase Edge Function (Export API)
      * Fetches "Viewed Portfolio Details" events from Mixpanel Export API
-     * Includes first copy times from Mixpanel Insights API
+     * Uses user_first_copies table (populated by sync-first-copy-users)
      * Skips sync if data was synced within the last hour
      */
     async triggerPortfolioSequencesSync() {
