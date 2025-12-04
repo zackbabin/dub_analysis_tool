@@ -1773,12 +1773,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span style="font-weight: 500; min-width: 100px;">${ticker}</span>
-                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div>
-                        </div>
+                        <span style="flex: 2; color: #495057;">${ticker}</span>
                         <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
@@ -1803,12 +1800,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span style="font-weight: 500; flex: 1;">${portfolioSet}</span>
-                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #2196F3, #1976D2); transition: width 0.3s;"></div>
-                        </div>
+                        <span style="flex: 2; color: #495057;">${portfolioSet}</span>
                         <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
@@ -1888,12 +1882,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span style="font-weight: 500; min-width: 100px;">${creator}</span>
-                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #9C27B0, #7B1FA2); transition: width 0.3s;"></div>
-                        </div>
+                        <span style="flex: 2; color: #495057;">${creator}</span>
                         <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
@@ -1918,12 +1909,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const pct = parseFloat(item.pct_of_converters);
 
                 html += `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                         <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
-                        <span style="font-weight: 500; flex: 1;">${creatorSet}</span>
-                        <div style="flex: 1; height: 18px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
-                            <div style="height: 100%; width: ${pct}%; background: linear-gradient(90deg, #FF9800, #F57C00); transition: width 0.3s;"></div>
-                        </div>
+                        <span style="flex: 2; color: #495057;">${creatorSet}</span>
                         <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                     </div>
                 `;
