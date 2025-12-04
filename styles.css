@@ -585,6 +585,14 @@ body {
     border-color: #2d3748 transparent transparent transparent;
 }
 
+/* CX Analysis tooltip - wider and positioned lower */
+.info-tooltip-cx .tooltip-text {
+    width: 650px;
+    max-width: 650px;
+    top: 60%;
+    transform: translateY(-40%);
+}
+
 /* Anchor Link Styles */
 .anchor-link {
     position: relative;

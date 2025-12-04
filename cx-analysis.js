@@ -131,7 +131,7 @@ class CXAnalysis {
         titleSection.className = 'qda-result-section';
         titleSection.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                <h1 style="margin: 0;"><span class="info-tooltip">CX Analysis<span class="info-icon">i</span>
+                <h1 style="margin: 0;"><span class="info-tooltip info-tooltip-cx">CX Analysis<span class="info-icon">i</span>
                     <span class="tooltip-text">
                         <strong>CX Analysis</strong>
                         AI-driven support ticket analysis identifying top product issues and customer feedback themes.
