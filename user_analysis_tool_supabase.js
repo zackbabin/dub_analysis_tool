@@ -2,10 +2,11 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-04-v6
-// - Fixed Copy Conversion Paths to use same nested tab pattern as Top Behavioral Drivers
-// - Changed from custom conversion-paths classes to behavioral-tabs classes for consistency
-// - Updated tab IDs: portfolios-conversion-paths-tab → portfolios-behavioral-tab, creators-conversion-paths-tab → creators-behavioral-tab
+// Version: 2025-12-04-v7
+// - Fixed Copy Conversion Paths tab ID conflicts with Top Behavioral Drivers
+// - Copy Conversion Paths now uses unique IDs: conversion-portfolios-behavioral-tab, conversion-creators-behavioral-tab
+// - Tab data attributes: data-behavioral-tab="conversion-portfolios" and data-behavioral-tab="conversion-creators"
+// - This fixes the issue where Copy Conversion Paths data wasn't rendering (was going into wrong tabs due to duplicate IDs)
 
 'use strict';
 
@@ -1003,9 +1004,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
 
-            // Populate conversion paths tabs (using behavioral tab IDs)
-            const portfoliosConversionPathsTabPane = document.getElementById('portfolios-behavioral-tab');
-            const creatorsConversionPathsTabPane = document.getElementById('creators-behavioral-tab');
+            // Populate conversion paths tabs (using unique conversion- prefixed IDs)
+            const portfoliosConversionPathsTabPane = document.getElementById('conversion-portfolios-behavioral-tab');
+            const creatorsConversionPathsTabPane = document.getElementById('conversion-creators-behavioral-tab');
 
             if (portfoliosConversionPathsTabPane && copyPathsHTML) {
                 portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
@@ -1721,14 +1722,14 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </p>
                 <div class="behavioral-tabs-container">
                     <div class="behavioral-tab-navigation">
-                        <button class="behavioral-tab-btn active" data-behavioral-tab="portfolios">Portfolios</button>
-                        <button class="behavioral-tab-btn" data-behavioral-tab="creators">Creators</button>
+                        <button class="behavioral-tab-btn active" data-behavioral-tab="conversion-portfolios">Portfolios</button>
+                        <button class="behavioral-tab-btn" data-behavioral-tab="conversion-creators">Creators</button>
                     </div>
                     <div class="behavioral-tab-content">
-                        <div id="portfolios-behavioral-tab" class="behavioral-tab-pane active">
+                        <div id="conversion-portfolios-behavioral-tab" class="behavioral-tab-pane active">
                             <!-- Portfolio paths content will be inserted here -->
                         </div>
-                        <div id="creators-behavioral-tab" class="behavioral-tab-pane">
+                        <div id="conversion-creators-behavioral-tab" class="behavioral-tab-pane">
                             <!-- Creator paths content will be inserted here -->
                         </div>
                     </div>
