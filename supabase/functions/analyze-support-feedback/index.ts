@@ -253,25 +253,26 @@ serve(async (req) => {
 
     const anthropic = new Anthropic({ apiKey: anthropicApiKey })
 
-    // Check if analysis was already completed today
-    const today = new Date().toISOString().split('T')[0]
-    const { data: todaySync, error: todaySyncError } = await supabase
+    // Check if support conversations were synced in the past day
+    // If so, skip analysis since we already have recent data
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentConversationSync, error: conversationSyncError } = await supabase
       .from('sync_logs')
       .select('id, sync_completed_at')
-      .eq('source', 'support_analysis')
+      .eq('source', 'support_conversations')
       .eq('sync_status', 'completed')
-      .gte('sync_completed_at', today)
+      .gte('sync_completed_at', oneDayAgo)
       .order('sync_completed_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (todaySync) {
-      console.log(`✓ Support analysis already completed today at ${todaySync.sync_completed_at}`)
-      console.log('Skipping Claude API call - returning existing analysis')
+    if (!recentConversationSync) {
+      console.log('⚠️ No support conversations synced in the past 24 hours')
+      console.log('Skipping analysis - waiting for fresh conversation data')
 
-      // Fetch existing analysis results
+      // Fetch most recent analysis results to return
       const { data: existingAnalysis, error: fetchError } = await supabase
-        .from('support_feedback_analysis')
+        .from('support_analysis_results')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1)
@@ -279,18 +280,30 @@ serve(async (req) => {
 
       if (existingAnalysis) {
         return createSuccessResponse(
-          'Support analysis already completed today - using cached results',
+          'Skipping analysis - no support conversations synced in past 24 hours',
           {
             skipped: true,
-            last_analysis: todaySync.sync_completed_at,
+            reason: 'no_recent_sync',
+            last_conversation_sync: null,
+            last_analysis: existingAnalysis.created_at,
             top_issues: existingAnalysis.top_issues,
             total_issues_analyzed: existingAnalysis.top_issues?.length || 0
+          }
+        )
+      } else {
+        return createSuccessResponse(
+          'Skipping analysis - no support conversations synced in past 24 hours',
+          {
+            skipped: true,
+            reason: 'no_recent_sync',
+            last_conversation_sync: null,
           }
         )
       }
     }
 
-    console.log('No analysis completed today - proceeding with new analysis')
+    console.log(`✓ Support conversations synced at ${recentConversationSync.sync_completed_at}`)
+    console.log('Proceeding with analysis of fresh data')
 
     // Create sync log entry
     const executionStartMs = Date.now()
