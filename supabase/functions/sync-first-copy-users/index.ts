@@ -5,9 +5,13 @@
 // Data source:
 //   - Mixpanel Insights chart 86612901: "Uniques of Copied Portfolio" with $user_id and $time
 //
+// Optimizations for large datasets (13k+ users):
+//   - Batched upserts (1000 rows per batch) to avoid timeout
+//   - Streamlined validation to reduce processing time
+//   - Database upsert with onConflict handles deduplication
+//
 // Note: Insights API doesn't support date filtering
 //   - Always fetches all data from chart (date range configured in Mixpanel UI)
-//   - Database upsert with onConflict handles deduplication
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -66,7 +70,26 @@ serve(async (req) => {
       }
 
       const chartData = await chartResponse.json()
-      console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys)`)
+
+      // Debug: Log full response structure to identify any pagination/limits
+      console.log('📊 Chart API response keys:', Object.keys(chartData))
+      if (chartData.meta) {
+        console.log('📊 Response metadata:', chartData.meta)
+      }
+      if (chartData.limit || chartData.total || chartData.page) {
+        console.log('📊 Pagination info:', {
+          limit: chartData.limit,
+          total: chartData.total,
+          page: chartData.page
+        })
+      }
+
+      // Debug: Log chart response structure
+      console.log('📊 Chart response structure:', {
+        hasSeriesKey: !!chartData.series,
+        seriesKeys: Object.keys(chartData.series || {}),
+        totalKeysInSeries: Object.keys(chartData.series || {}).length
+      })
 
       // Parse series object to extract first copy times
       // Chart 86612901 structure: metric -> $user_id -> $time
@@ -74,58 +97,80 @@ serve(async (req) => {
       const copyRows: Array<{ user_id: string; first_copy_time: string }> = []
       const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
+      // Debug: Log how many user entries we're processing
+      const totalUserEntries = Object.keys(series).filter(k => k !== '$overall').length
+      console.log(`📊 Processing ${totalUserEntries} user entries from series`)
+      console.log(`✓ Fetched chart data (${Object.keys(chartData.series || {}).length} total keys in all series)`)
+
+      let skippedCount = 0
+
       for (const [userId, userIdData] of Object.entries(series)) {
-        // Skip $overall aggregation key
-        if (userId === '$overall') continue
-        if (!userId) continue
+        // Skip $overall aggregation key and empty user IDs
+        if (userId === '$overall' || !userId) continue
 
-        // Validate userIdData is an object
+        // Quick validation: userIdData should be an object
         if (!userIdData || typeof userIdData !== 'object') {
-          console.warn(`Skipping user_id ${userId} - no timestamp data`)
+          skippedCount++
           continue
         }
 
-        // Find ISO timestamp within user_id data (exclude $overall)
-        const isoTimestamps = Object.keys(userIdData as Record<string, any>).filter(k => k !== '$overall')
-        if (isoTimestamps.length === 0) {
-          console.warn(`Skipping user_id ${userId} - no timestamp in data`)
+        // Extract first timestamp (first key that isn't $overall)
+        const timestamps = Object.keys(userIdData as Record<string, any>)
+        const firstCopyTime = timestamps.find(k => k !== '$overall')
+
+        if (!firstCopyTime) {
+          skippedCount++
           continue
         }
 
-        // First ISO timestamp is the first copy time
-        const firstCopyTime = isoTimestamps[0]
+        // Optimized: Skip detailed validation, let Date constructor handle it
+        // Invalid dates will become Invalid Date and can be filtered if needed
+        try {
+          const firstCopyDate = new Date(firstCopyTime)
+          if (isNaN(firstCopyDate.getTime())) {
+            skippedCount++
+            continue
+          }
 
-        // Validate it's a proper ISO timestamp
-        if (!firstCopyTime.includes('T') && !firstCopyTime.includes('-')) {
-          console.warn(`Skipping user_id ${userId} - invalid timestamp format: ${firstCopyTime}`)
+          copyRows.push({
+            user_id: userId,
+            first_copy_time: firstCopyDate.toISOString()
+          })
+        } catch (error) {
+          skippedCount++
           continue
         }
+      }
 
-        const firstCopyDate = new Date(firstCopyTime)
-
-        // Store user_id and first copy time
-        copyRows.push({
-          user_id: userId,
-          first_copy_time: firstCopyDate.toISOString()
-        })
+      if (skippedCount > 0) {
+        console.log(`ℹ️ Skipped ${skippedCount} entries with invalid/missing data`)
       }
 
       console.log(`✓ Extracted ${copyRows.length} first copy users from chart`)
 
-      // Insert/update user_first_copies
+      // Insert/update user_first_copies in batches for better performance
       if (copyRows.length > 0) {
-        const { error: copyError } = await supabase
-          .from('user_first_copies')
-          .upsert(copyRows, {
-            onConflict: 'user_id'  // PRIMARY KEY - will update first_copy_time if changed
-          })
+        const BATCH_SIZE = 1000 // Supabase handles ~1000 rows per upsert efficiently
+        let totalUpserted = 0
 
-        if (copyError) {
-          console.error('Error upserting user_first_copies:', copyError)
-          throw copyError
+        for (let i = 0; i < copyRows.length; i += BATCH_SIZE) {
+          const batch = copyRows.slice(i, i + BATCH_SIZE)
+          const { error: copyError } = await supabase
+            .from('user_first_copies')
+            .upsert(batch, {
+              onConflict: 'user_id'  // PRIMARY KEY - will update first_copy_time if changed
+            })
+
+          if (copyError) {
+            console.error(`Error upserting batch ${i / BATCH_SIZE + 1}:`, copyError)
+            throw copyError
+          }
+
+          totalUpserted += batch.length
+          console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(copyRows.length / BATCH_SIZE)} (${totalUpserted}/${copyRows.length} rows)`)
         }
 
-        console.log(`✅ Upserted ${copyRows.length} rows to user_first_copies`)
+        console.log(`✅ Upserted ${totalUpserted} total rows to user_first_copies`)
       } else {
         console.log('ℹ️ No new first copy users to sync')
       }
