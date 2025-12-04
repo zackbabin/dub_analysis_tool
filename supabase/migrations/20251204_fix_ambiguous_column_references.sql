@@ -45,7 +45,7 @@ BEGIN
       AND ps.portfolio_ticker IS NOT NULL
   ),
 
-  -- Top 5 most viewed portfolios (total view counts)
+  -- Top 10 most viewed portfolios (total view counts)
   top_viewed_portfolios AS (
     SELECT
       'top_portfolios_viewed'::TEXT as analysis_type,
@@ -57,7 +57,7 @@ BEGIN
     FROM ordered_views
     GROUP BY portfolio_ticker
     ORDER BY COUNT(*) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
   -- Portfolio combinations: Get unique sorted sets of portfolios viewed by each user
@@ -81,10 +81,10 @@ BEGIN
     FROM user_portfolio_sets ups
     GROUP BY ups.portfolio_set
     ORDER BY COUNT(DISTINCT ups.user_id) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
-  -- Keep existing: Top 5 complete sequences (last 5 portfolios before copy, preserving order)
+  -- Keep existing: Top 10 complete sequences (last 5 portfolios before copy, preserving order)
   user_sequences AS (
     SELECT
       user_id,
@@ -111,7 +111,7 @@ BEGIN
     FROM user_sequences us
     GROUP BY us.portfolio_sequence
     ORDER BY COUNT(*) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
   -- Combine all three analyses
@@ -205,7 +205,7 @@ BEGIN
       AND cs.creator_username IS NOT NULL
   ),
 
-  -- Top 5 most viewed creators (total view counts)
+  -- Top 10 most viewed creators (total view counts)
   top_viewed_creators AS (
     SELECT
       'top_creators_viewed'::TEXT as analysis_type,
@@ -217,7 +217,7 @@ BEGIN
     FROM ordered_views
     GROUP BY creator_username
     ORDER BY COUNT(*) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
   -- Creator combinations: Get unique sorted sets of creators viewed by each user
@@ -241,10 +241,10 @@ BEGIN
     FROM user_creator_sets ucs
     GROUP BY ucs.creator_set
     ORDER BY COUNT(DISTINCT ucs.user_id) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
-  -- Keep existing: Top 5 complete sequences (last 5 creators before copy, preserving order)
+  -- Keep existing: Top 10 complete sequences (last 5 creators before copy, preserving order)
   user_sequences AS (
     SELECT
       user_id,
@@ -271,7 +271,7 @@ BEGIN
     FROM user_sequences us
     GROUP BY us.creator_sequence
     ORDER BY COUNT(*) DESC
-    LIMIT 5
+    LIMIT 10
   ),
 
   -- Combine all three analyses

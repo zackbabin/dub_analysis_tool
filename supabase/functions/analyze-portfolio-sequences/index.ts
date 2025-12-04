@@ -102,7 +102,7 @@ serve(async (req) => {
       if (insertError) {
         console.error('Error inserting path analysis:', insertError)
       } else {
-        console.log('✅ Updated portfolio_copy_path_analysis with 15 rows (3 analysis types × top 5)')
+        console.log('✅ Updated portfolio_copy_path_analysis with 30 rows (3 analysis types × top 10)')
       }
     }
 
