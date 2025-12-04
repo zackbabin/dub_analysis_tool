@@ -162,7 +162,7 @@ class SupabaseIntegration {
         try {
             const { data, error } = await this.supabase
                 .from('sync_logs')
-                .select('sync_completed_at')
+                .select('sync_completed_at, tool_type, source, sync_status')
                 .eq('tool_type', 'support')
                 .eq('source', 'support_analysis')
                 .eq('sync_status', 'completed')
@@ -170,14 +170,20 @@ class SupabaseIntegration {
                 .limit(1)
                 .maybeSingle();
 
-            if (error || !data || !data.sync_completed_at) {
-                console.warn('No support analysis sync time found:', error);
+            if (error) {
+                console.error('Error fetching support analysis sync time:', error);
                 return null;
             }
 
+            if (!data || !data.sync_completed_at) {
+                console.warn('No support analysis sync time found. Query returned:', data);
+                return null;
+            }
+
+            console.log('✅ Support analysis sync time found:', data.sync_completed_at, 'from record:', data);
             return new Date(data.sync_completed_at);
         } catch (error) {
-            console.warn('Failed to get support analysis sync time:', error);
+            console.error('Exception in getLastSupportAnalysisSyncTime:', error);
             return null;
         }
     }
