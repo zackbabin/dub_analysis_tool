@@ -115,39 +115,50 @@ BEGIN
   )
 
   -- Combine all three analyses
+  combined_results AS (
+    SELECT
+      tvp.analysis_type,
+      tvp.path_rank,
+      tvp.portfolio_sequence,
+      tvp.converter_count,
+      tvp.pct_of_converters,
+      tvp.total_converters_analyzed
+    FROM top_viewed_portfolios tvp
+    UNION ALL
+    SELECT
+      pc.analysis_type,
+      pc.path_rank,
+      pc.portfolio_sequence,
+      pc.converter_count,
+      pc.pct_of_converters,
+      pc.total_converters_analyzed
+    FROM portfolio_combinations pc
+    UNION ALL
+    SELECT
+      fs.analysis_type,
+      fs.path_rank,
+      fs.portfolio_sequence,
+      fs.converter_count,
+      fs.pct_of_converters,
+      fs.total_converters_analyzed
+    FROM full_sequences fs
+  )
+
   SELECT
-    tvp.analysis_type,
-    tvp.path_rank,
-    tvp.portfolio_sequence,
-    tvp.converter_count,
-    tvp.pct_of_converters,
-    tvp.total_converters_analyzed
-  FROM top_viewed_portfolios tvp
-  UNION ALL
-  SELECT
-    pc.analysis_type,
-    pc.path_rank,
-    pc.portfolio_sequence,
-    pc.converter_count,
-    pc.pct_of_converters,
-    pc.total_converters_analyzed
-  FROM portfolio_combinations pc
-  UNION ALL
-  SELECT
-    fs.analysis_type,
-    fs.path_rank,
-    fs.portfolio_sequence,
-    fs.converter_count,
-    fs.pct_of_converters,
-    fs.total_converters_analyzed
-  FROM full_sequences fs
+    cr.analysis_type,
+    cr.path_rank,
+    cr.portfolio_sequence,
+    cr.converter_count,
+    cr.pct_of_converters,
+    cr.total_converters_analyzed
+  FROM combined_results cr
   ORDER BY
-    CASE analysis_type
+    CASE cr.analysis_type
       WHEN 'top_portfolios_viewed' THEN 1
       WHEN 'portfolio_combinations' THEN 2
       WHEN 'full_sequence' THEN 3
     END,
-    path_rank;
+    cr.path_rank;
 END;
 $$;
 
@@ -264,39 +275,50 @@ BEGIN
   )
 
   -- Combine all three analyses
+  combined_results AS (
+    SELECT
+      tvc.analysis_type,
+      tvc.path_rank,
+      tvc.creator_sequence,
+      tvc.converter_count,
+      tvc.pct_of_converters,
+      tvc.total_converters_analyzed
+    FROM top_viewed_creators tvc
+    UNION ALL
+    SELECT
+      cc.analysis_type,
+      cc.path_rank,
+      cc.creator_sequence,
+      cc.converter_count,
+      cc.pct_of_converters,
+      cc.total_converters_analyzed
+    FROM creator_combinations cc
+    UNION ALL
+    SELECT
+      fs.analysis_type,
+      fs.path_rank,
+      fs.creator_sequence,
+      fs.converter_count,
+      fs.pct_of_converters,
+      fs.total_converters_analyzed
+    FROM full_sequences fs
+  )
+
   SELECT
-    tvc.analysis_type,
-    tvc.path_rank,
-    tvc.creator_sequence,
-    tvc.converter_count,
-    tvc.pct_of_converters,
-    tvc.total_converters_analyzed
-  FROM top_viewed_creators tvc
-  UNION ALL
-  SELECT
-    cc.analysis_type,
-    cc.path_rank,
-    cc.creator_sequence,
-    cc.converter_count,
-    cc.pct_of_converters,
-    cc.total_converters_analyzed
-  FROM creator_combinations cc
-  UNION ALL
-  SELECT
-    fs.analysis_type,
-    fs.path_rank,
-    fs.creator_sequence,
-    fs.converter_count,
-    fs.pct_of_converters,
-    fs.total_converters_analyzed
-  FROM full_sequences fs
+    cr.analysis_type,
+    cr.path_rank,
+    cr.creator_sequence,
+    cr.converter_count,
+    cr.pct_of_converters,
+    cr.total_converters_analyzed
+  FROM combined_results cr
   ORDER BY
-    CASE analysis_type
+    CASE cr.analysis_type
       WHEN 'top_creators_viewed' THEN 1
       WHEN 'creator_combinations' THEN 2
       WHEN 'full_sequence' THEN 3
     END,
-    path_rank;
+    cr.path_rank;
 END;
 $$;
 
