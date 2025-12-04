@@ -2,11 +2,10 @@
 // Extends UserAnalysisTool to use Supabase instead of GitHub Actions
 // Keeps original user_analysis_tool.js intact for backward compatibility
 //
-// Version: 2025-12-03-v5
-// - Added sync-first-copy-users as Step 1 in Event Sequences workflow
-// - Chart 86612901 is now synced via dedicated edge function before portfolio/creator syncs
-// - Updated workflow: Sync first copies → Sync portfolio + creator (parallel) → Analyze both (parallel)
-// - Updated browser logs to show 3-step process with user counts
+// Version: 2025-12-04-v6
+// - Fixed Copy Conversion Paths to use same nested tab pattern as Top Behavioral Drivers
+// - Changed from custom conversion-paths classes to behavioral-tabs classes for consistency
+// - Updated tab IDs: portfolios-conversion-paths-tab → portfolios-behavioral-tab, creators-conversion-paths-tab → creators-behavioral-tab
 
 'use strict';
 
@@ -1004,9 +1003,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Add Top Portfolio Copy Drivers Table (load from database)
             await this.displayTopCopyDrivers();
 
-            // Populate conversion paths tabs
-            const portfoliosConversionPathsTabPane = document.getElementById('portfolios-conversion-paths-tab');
-            const creatorsConversionPathsTabPane = document.getElementById('creators-conversion-paths-tab');
+            // Populate conversion paths tabs (using behavioral tab IDs)
+            const portfoliosConversionPathsTabPane = document.getElementById('portfolios-behavioral-tab');
+            const creatorsConversionPathsTabPane = document.getElementById('creators-behavioral-tab');
 
             if (portfoliosConversionPathsTabPane && copyPathsHTML) {
                 portfoliosConversionPathsTabPane.innerHTML = copyPathsHTML;
@@ -1707,7 +1706,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build the section with tabs
+        // Build the section with tabs (using same pattern as Top Behavioral Drivers)
         let html = `
             <div class="qda-result-section" style="margin-top: 3rem;">
                 <h2 style="margin-bottom: 0.5rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
@@ -1717,21 +1716,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         <p><strong>Creator Paths:</strong> Analyzes creator profile viewing patterns that lead to copy conversions. Shows the most common entry creators, creator combinations viewed together, and complete sequential viewing paths.</p>
                     </span>
                 </span></h2>
-                <p style="font-size: 0.875rem; color: #6c757d; margin-top: 0; margin-bottom: 1.5rem;">
+                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">
                     Viewing patterns that lead to successful copy conversions
                 </p>
-
-                <div class="conversion-paths-tabs-container">
-                    <div class="conversion-paths-tab-navigation">
-                        <button class="conversion-paths-tab-btn active" data-conversion-paths-tab="portfolios">Portfolios</button>
-                        <button class="conversion-paths-tab-btn" data-conversion-paths-tab="creators">Creators</button>
+                <div class="behavioral-tabs-container">
+                    <div class="behavioral-tab-navigation">
+                        <button class="behavioral-tab-btn active" data-behavioral-tab="portfolios">Portfolios</button>
+                        <button class="behavioral-tab-btn" data-behavioral-tab="creators">Creators</button>
                     </div>
-
-                    <div class="conversion-paths-tab-content">
-                        <div id="portfolios-conversion-paths-tab" class="conversion-paths-tab-pane active">
+                    <div class="behavioral-tab-content">
+                        <div id="portfolios-behavioral-tab" class="behavioral-tab-pane active">
                             <!-- Portfolio paths content will be inserted here -->
                         </div>
-                        <div id="creators-conversion-paths-tab" class="conversion-paths-tab-pane">
+                        <div id="creators-behavioral-tab" class="behavioral-tab-pane">
                             <!-- Creator paths content will be inserted here -->
                         </div>
                     </div>
