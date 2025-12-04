@@ -115,11 +115,32 @@ BEGIN
   )
 
   -- Combine all three analyses
-  SELECT * FROM top_viewed_portfolios
+  SELECT
+    tvp.analysis_type,
+    tvp.path_rank,
+    tvp.portfolio_sequence,
+    tvp.converter_count,
+    tvp.pct_of_converters,
+    tvp.total_converters_analyzed
+  FROM top_viewed_portfolios tvp
   UNION ALL
-  SELECT * FROM portfolio_combinations
+  SELECT
+    pc.analysis_type,
+    pc.path_rank,
+    pc.portfolio_sequence,
+    pc.converter_count,
+    pc.pct_of_converters,
+    pc.total_converters_analyzed
+  FROM portfolio_combinations pc
   UNION ALL
-  SELECT * FROM full_sequences
+  SELECT
+    fs.analysis_type,
+    fs.path_rank,
+    fs.portfolio_sequence,
+    fs.converter_count,
+    fs.pct_of_converters,
+    fs.total_converters_analyzed
+  FROM full_sequences fs
   ORDER BY
     CASE analysis_type
       WHEN 'top_portfolios_viewed' THEN 1
@@ -243,11 +264,32 @@ BEGIN
   )
 
   -- Combine all three analyses
-  SELECT * FROM top_viewed_creators
+  SELECT
+    tvc.analysis_type,
+    tvc.path_rank,
+    tvc.creator_sequence,
+    tvc.converter_count,
+    tvc.pct_of_converters,
+    tvc.total_converters_analyzed
+  FROM top_viewed_creators tvc
   UNION ALL
-  SELECT * FROM creator_combinations
+  SELECT
+    cc.analysis_type,
+    cc.path_rank,
+    cc.creator_sequence,
+    cc.converter_count,
+    cc.pct_of_converters,
+    cc.total_converters_analyzed
+  FROM creator_combinations cc
   UNION ALL
-  SELECT * FROM full_sequences
+  SELECT
+    fs.analysis_type,
+    fs.path_rank,
+    fs.creator_sequence,
+    fs.converter_count,
+    fs.pct_of_converters,
+    fs.total_converters_analyzed
+  FROM full_sequences fs
   ORDER BY
     CASE analysis_type
       WHEN 'top_creators_viewed' THEN 1
