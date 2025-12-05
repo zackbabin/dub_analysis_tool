@@ -295,7 +295,8 @@ async function backfillPortfolioSequences(
   }
 
   // Batch user IDs to avoid URL length limits
-  const MAX_USER_IDS_PER_REQUEST = 500
+  // Reduced from 500 to 200 - with 18-char user IDs, 500 was exceeding ~8KB URL limit
+  const MAX_USER_IDS_PER_REQUEST = 200
   let totalEventsFetched = 0
 
   if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {
@@ -389,8 +390,9 @@ async function backfillCreatorSequences(
     console.log(`  ✓ Inserted ${rawEventRows.length} creator events (${totalInserted} total)`)
   }
 
-  // Batch user IDs
-  const MAX_USER_IDS_PER_REQUEST = 500
+  // Batch user IDs to avoid URL length limits
+  // Reduced from 500 to 200 - with 18-char user IDs, 500 was exceeding ~8KB URL limit
+  const MAX_USER_IDS_PER_REQUEST = 200
   let totalEventsFetched = 0
 
   if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {

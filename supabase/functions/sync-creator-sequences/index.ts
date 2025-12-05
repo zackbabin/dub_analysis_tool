@@ -425,8 +425,8 @@ serve(async (req) => {
 
         // If we have many user IDs, batch them to avoid 414 URI Too Long errors
         // Mixpanel Export API has URL length limits (~8KB), so we batch user IDs
-        // Using 500 per batch to balance URL length vs API rate limits (60/hour, 3/sec)
-        const MAX_USER_IDS_PER_REQUEST = 500
+        // Reduced from 500 to 200 - with 18-char user IDs, 500 was exceeding ~8KB URL limit
+        const MAX_USER_IDS_PER_REQUEST = 200
         let totalEventsFetched = 0
 
         if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {
