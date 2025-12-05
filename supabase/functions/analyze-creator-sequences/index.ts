@@ -1,12 +1,12 @@
 // Supabase Edge Function: analyze-creator-sequences
 // SIMPLIFIED: Analyzes raw "Viewed Creator Profile" events to find conversion patterns
-// Claude calculates average unique creator profile views before first copy
+// Calculates average unique creator profile views between KYC approval and first copy
 //
 // Data sources:
-//   - creator_sequences: View joining creator_sequences_raw + user_first_copies (complete event history)
-//   - user_first_copies: 250 most recent users who copied at least once
+//   - creator_sequences_raw: Raw creator view events
+//   - user_first_copies: Users with both kyc_approved_time and first_copy_time
 //
-// No pre-aggregation - Claude analyzes raw events directly
+// Analysis filters events between kyc_approved_time and first_copy_time for each user
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -56,9 +56,12 @@ serve(async (req) => {
     const meanValue = result.mean_unique_creators || null
     const medianValue = result.median_unique_creators || null
     const converterCount = result.converter_count || 0
+    const convertersWithViews = result.converters_with_views || 0
+    const convertersWithoutViews = result.converters_without_views || 0
 
     console.log('✅ SQL analysis complete')
-    console.log(`Mean: ${meanValue}, Median: ${medianValue}, Converters analyzed: ${converterCount}`)
+    console.log(`Mean: ${meanValue}, Median: ${medianValue}`)
+    console.log(`Total converters: ${converterCount} (${convertersWithViews} with views, ${convertersWithoutViews} without)`)
 
     // Analyze creator copy paths (ordered sequences)
     console.log('Analyzing creator copy paths via SQL...')

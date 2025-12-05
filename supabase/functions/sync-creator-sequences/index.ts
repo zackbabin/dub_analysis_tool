@@ -258,6 +258,8 @@ serve(async (req) => {
       const now = new Date()
 
       // Calculate date range based on sync mode
+      // Note: Date range is for Mixpanel Export API. Analysis will filter events
+      // per-user based on their kyc_approved_time to first_copy_time range
       let fromDate: string
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
@@ -285,20 +287,23 @@ serve(async (req) => {
       }
 
       // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
+      // Only include users with both kyc_approved_time and first_copy_time
       console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
       let targetUserIds: string[] = []
 
       try {
         const { data: firstCopyUsers, error: usersError } = await supabase
           .from('user_first_copies')
-          .select('user_id')
+          .select('user_id, kyc_approved_time, first_copy_time')
+          .not('kyc_approved_time', 'is', null)
+          .not('first_copy_time', 'is', null)
 
         if (usersError) {
           throw usersError
         }
 
         targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
-        console.log(`✓ Found ${targetUserIds.length} users who copied (from user_first_copies)`)
+        console.log(`✓ Found ${targetUserIds.length} users with both KYC approved and first copy times`)
       } catch (usersError: any) {
         console.error('⚠️ Failed to fetch user_first_copies:', usersError.message)
         console.log('   Will fetch ALL creator profile view events (no user filter)')
@@ -309,7 +314,7 @@ serve(async (req) => {
       const eventNames = ['Viewed Creator Profile']
 
       if (targetUserIds.length > 0) {
-        console.log(`\n📊 Step 2: Fetching creator profile views for ${targetUserIds.length} targeted users`)
+        console.log(`\n📊 Step 2: Fetching creator profile views for ${targetUserIds.length} targeted users (with KYC and first copy timestamps)`)
       } else {
         console.log(`\n📊 Step 2: Fetching ALL creator profile views (no user filter available)`)
       }
@@ -323,6 +328,8 @@ serve(async (req) => {
 
       // Process events in streaming batches to avoid CPU timeout
       let totalInserted = 0
+      let skippedNoUserId = 0
+      let skippedNoCreator = 0
 
       const processBatch = async (events: MixpanelExportEvent[]) => {
         // Check if we should stop syncing and move to analysis
@@ -344,9 +351,9 @@ serve(async (req) => {
           // Extract user_id from Export API (merged identity)
           const userId = event.properties.$user_id
 
-          // Skip events without user_id
+          // Skip events without user_id (silently track count)
           if (!userId) {
-            console.warn(`Skipping event without $user_id: ${event.event}`)
+            skippedNoUserId++
             continue
           }
 
@@ -355,6 +362,7 @@ serve(async (req) => {
 
           // Skip events without creatorUsername - not useful for analysis
           if (!creatorUsername) {
+            skippedNoCreator++
             continue
           }
 
@@ -504,6 +512,11 @@ serve(async (req) => {
       }
 
       console.log(`✅ Inserted ${totalInserted} raw events to creator_sequences_raw`)
+
+      // Log skipped events summary
+      if (skippedNoUserId > 0 || skippedNoCreator > 0) {
+        console.log(`ℹ️ Skipped events: ${skippedNoUserId} without user_id, ${skippedNoCreator} without creator_username`)
+      }
 
       // Update sync log with success IMMEDIATELY after storing data (even if partial)
       // This ensures the log is marked as completed even if function times out after this point

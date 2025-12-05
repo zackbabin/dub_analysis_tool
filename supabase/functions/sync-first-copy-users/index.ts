@@ -154,13 +154,88 @@ serve(async (req) => {
 
       console.log(`✓ Extracted ${copyRows.length} first copy users from chart`)
 
+      // Fetch chart 87036512 for KYC approved events
+      const kycChartId = '87036512'
+      const kycChartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${kycChartId}`
+
+      console.log(`Fetching Mixpanel chart ${kycChartId} for KYC approved events...`)
+
+      const kycChartResponse = await fetch(kycChartUrl, {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json',
+        },
+      })
+
+      if (!kycChartResponse.ok) {
+        throw new Error(`KYC Chart API failed: ${kycChartResponse.status} ${kycChartResponse.statusText}`)
+      }
+
+      const kycChartData = await kycChartResponse.json()
+
+      console.log('📊 KYC Chart API response keys:', Object.keys(kycChartData))
+
+      // Parse KYC approved times - same structure as first copy chart
+      const kycApprovedMap = new Map<string, string>()
+      const kycSeries = kycChartData.series?.['Uniques of Approved KYC'] || {}
+
+      let kycSkippedCount = 0
+
+      for (const [userId, userIdData] of Object.entries(kycSeries)) {
+        // Skip $overall aggregation key and empty user IDs
+        if (userId === '$overall' || !userId) continue
+
+        // Quick validation: userIdData should be an object
+        if (!userIdData || typeof userIdData !== 'object') {
+          kycSkippedCount++
+          continue
+        }
+
+        // Extract first timestamp (first key that isn't $overall)
+        const timestamps = Object.keys(userIdData as Record<string, any>)
+        const kycApprovedTime = timestamps.find(k => k !== '$overall')
+
+        if (!kycApprovedTime) {
+          kycSkippedCount++
+          continue
+        }
+
+        try {
+          const kycApprovedDate = new Date(kycApprovedTime)
+          if (isNaN(kycApprovedDate.getTime())) {
+            kycSkippedCount++
+            continue
+          }
+
+          kycApprovedMap.set(userId, kycApprovedDate.toISOString())
+        } catch (error) {
+          kycSkippedCount++
+          continue
+        }
+      }
+
+      if (kycSkippedCount > 0) {
+        console.log(`ℹ️ Skipped ${kycSkippedCount} KYC entries with invalid/missing data`)
+      }
+
+      console.log(`✓ Extracted ${kycApprovedMap.size} KYC approved times from chart`)
+
+      // Map KYC approved times to copy rows
+      const copyRowsWithKyc = copyRows.map(row => ({
+        ...row,
+        kyc_approved_time: kycApprovedMap.get(row.user_id) || null
+      }))
+
+      const rowsWithBothTimestamps = copyRowsWithKyc.filter(row => row.kyc_approved_time !== null).length
+      console.log(`✓ ${rowsWithBothTimestamps} users have both first_copy_time and kyc_approved_time`)
+
       // Insert/update user_first_copies in batches for better performance
-      if (copyRows.length > 0) {
+      if (copyRowsWithKyc.length > 0) {
         const BATCH_SIZE = 1000 // Supabase handles ~1000 rows per upsert efficiently
         let totalUpserted = 0
 
-        for (let i = 0; i < copyRows.length; i += BATCH_SIZE) {
-          const batch = copyRows.slice(i, i + BATCH_SIZE)
+        for (let i = 0; i < copyRowsWithKyc.length; i += BATCH_SIZE) {
+          const batch = copyRowsWithKyc.slice(i, i + BATCH_SIZE)
           const { error: copyError } = await supabase
             .from('user_first_copies')
             .upsert(batch, {
@@ -173,7 +248,7 @@ serve(async (req) => {
           }
 
           totalUpserted += batch.length
-          console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(copyRows.length / BATCH_SIZE)} (${totalUpserted}/${copyRows.length} rows)`)
+          console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(copyRowsWithKyc.length / BATCH_SIZE)} (${totalUpserted}/${copyRowsWithKyc.length} rows)`)
         }
 
         console.log(`✅ Upserted ${totalUpserted} total rows to user_first_copies`)
@@ -183,16 +258,19 @@ serve(async (req) => {
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: copyRows.length,
+        total_records_inserted: copyRowsWithKyc.length,
         metadata: {
-          chartId: '86612901'
+          firstCopyChartId: '86612901',
+          kycApprovedChartId: '87036512',
+          usersWithBothTimestamps: rowsWithBothTimestamps
         }
       })
 
       return createSuccessResponse({
         message: 'First copy users synced successfully',
         stats: {
-          usersSynced: copyRows.length
+          usersSynced: copyRowsWithKyc.length,
+          usersWithKycApproved: rowsWithBothTimestamps
         }
       })
     } catch (error: any) {
