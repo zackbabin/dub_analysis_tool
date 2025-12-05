@@ -1643,8 +1643,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build 3 cards grid with equal width
-        let html = `<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 1rem;">`;
+        // Build 3 cards grid (first card narrower, 2nd and 3rd equal width)
+        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
 
         // Top Portfolios Viewed Section
         if (topPortfolios.length > 0) {
@@ -1748,8 +1748,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return '';
         }
 
-        // Build 3 cards grid with equal width
-        let html = `<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 1rem;">`;
+        // Build 3 cards grid (first card narrower, 2nd and 3rd equal width)
+        let html = `<div style="display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;">`;
 
         // Top Creators Viewed Section
         if (topCreators.length > 0) {
