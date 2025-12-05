@@ -1,12 +1,16 @@
 // Supabase Edge Function: backfill-sequences-historical
-// ONE-TIME BACKFILL: Fetches historical events from 2025-08-27 to 2025-10-28
+// HISTORICAL BACKFILL: Fetches events for all users with KYC/first copy timestamps
+//
+// Dynamically calculates date range from user_first_copies:
+// - fromDate: earliest kyc_approved_time (with 1 day buffer)
+// - toDate: latest first_copy_time (or today)
 //
 // Safe to run alongside live syncs:
 // - Uses same upsert logic with deduplication via unique constraints
-// - Fetches both portfolio and creator events in parallel
-// - Can be deleted after backfill completes
+// - Only fetches for users with both kyc_approved_time and first_copy_time
+// - Batches requests to avoid timeouts and rate limits
 //
-// Usage: POST with body { "type": "both" | "portfolio" | "creator" }
+// Usage: POST (no body needed - always syncs both portfolio and creator events)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -32,9 +36,7 @@ interface MixpanelExportEvent {
   }
 }
 
-interface BackfillRequest {
-  type?: 'both' | 'portfolio' | 'creator'
-}
+// No request interface needed - always syncs both types
 
 /**
  * Fetch events from Mixpanel Export API with streaming processing
@@ -356,64 +358,72 @@ serve(async (req) => {
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
-    console.log('🔄 Starting historical backfill (2025-08-27 to 2025-10-28)...')
+    console.log('🔄 Starting historical backfill (portfolio + creator events)...')
 
-    // Parse request body
-    const body: BackfillRequest = await req.json().catch(() => ({ type: 'both' }))
-    const backfillType = body.type || 'both'
-
-    // Fixed date range for historical backfill
-    const fromDate = '2025-08-27'
-    const toDate = '2025-10-28'
-
-    console.log(`Backfill type: ${backfillType}`)
-    console.log(`Date range: ${fromDate} to ${toDate}`)
-
-    // Get target user IDs from user_first_copies
-    console.log('\n📊 Fetching target user IDs from user_first_copies...')
+    // Get target user IDs AND date range from user_first_copies
+    console.log('\n📊 Fetching users and calculating date range from user_first_copies...')
     const { data: firstCopyUsers, error: usersError } = await supabase
       .from('user_first_copies')
-      .select('user_id')
+      .select('user_id, kyc_approved_time, first_copy_time')
+      .not('kyc_approved_time', 'is', null)
+      .not('first_copy_time', 'is', null)
 
     if (usersError) {
       console.error('Error fetching user_first_copies:', usersError)
       throw usersError
     }
 
-    const targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
-    console.log(`✓ Found ${targetUserIds.length} users who copied`)
-
-    if (targetUserIds.length === 0) {
-      throw new Error('No users found in user_first_copies - cannot proceed with backfill')
+    if (!firstCopyUsers || firstCopyUsers.length === 0) {
+      throw new Error('No users found with both kyc_approved_time and first_copy_time')
     }
 
-    const results: any = {
+    const targetUserIds = firstCopyUsers.map(u => u.user_id)
+    console.log(`✓ Found ${targetUserIds.length} users with both timestamps`)
+
+    // Calculate date range from actual user data
+    const kycTimes = firstCopyUsers.map(u => new Date(u.kyc_approved_time).getTime())
+    const copyTimes = firstCopyUsers.map(u => new Date(u.first_copy_time).getTime())
+
+    const earliestKyc = new Date(Math.min(...kycTimes))
+    const latestFirstCopy = new Date(Math.max(...copyTimes))
+    const today = new Date()
+
+    // Add 1 day buffer before earliest KYC
+    const bufferStart = new Date(earliestKyc.getTime() - 24 * 60 * 60 * 1000)
+    const fromDate = bufferStart.toISOString().split('T')[0]
+
+    // Use today or latest first copy, whichever is later
+    const endDate = latestFirstCopy > today ? latestFirstCopy : today
+    const toDate = endDate.toISOString().split('T')[0]
+
+    const daysDiff = Math.ceil((endDate.getTime() - bufferStart.getTime()) / (24 * 60 * 60 * 1000))
+    console.log(`Date range: ${fromDate} to ${toDate} (${daysDiff} days)`)
+    console.log(`   Earliest KYC: ${earliestKyc.toISOString().split('T')[0]}`)
+    console.log(`   Latest first copy: ${latestFirstCopy.toISOString().split('T')[0]}`)
+
+    // Execute both backfills
+    const portfolioStats = await backfillPortfolioSequences(
+      supabase,
+      credentials,
+      fromDate,
+      toDate,
+      targetUserIds
+    )
+
+    const creatorStats = await backfillCreatorSequences(
+      supabase,
+      credentials,
+      fromDate,
+      toDate,
+      targetUserIds
+    )
+
+    const results = {
       fromDate,
       toDate,
       targetUsers: targetUserIds.length,
-    }
-
-    // Execute backfills based on type
-    if (backfillType === 'both' || backfillType === 'portfolio') {
-      const portfolioStats = await backfillPortfolioSequences(
-        supabase,
-        credentials,
-        fromDate,
-        toDate,
-        targetUserIds
-      )
-      results.portfolio = portfolioStats
-    }
-
-    if (backfillType === 'both' || backfillType === 'creator') {
-      const creatorStats = await backfillCreatorSequences(
-        supabase,
-        credentials,
-        fromDate,
-        toDate,
-        targetUserIds
-      )
-      results.creator = creatorStats
+      portfolio: portfolioStats,
+      creator: creatorStats,
     }
 
     console.log('\n✅ Historical backfill completed successfully!')
