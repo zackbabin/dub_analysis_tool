@@ -3,7 +3,10 @@
 // Populates user_first_copies table for use by sync-portfolio-sequences and sync-creator-sequences
 //
 // Data source:
-//   - Mixpanel Insights chart 86612901: "Uniques of Copied Portfolio" with $user_id and $time
+//   - Mixpanel Insights chart 86612901: "Uniques of Copied Portfolio" with $user_id, $time, and $ae_first_app_open_date
+//
+// Chart structure:
+//   - user_id → $time (first_copy_time) → $ae_first_app_open_date (first_app_open_time) → count
 //
 // Optimizations for large datasets (13k+ users):
 //   - Batched upserts (1000 rows per batch) to avoid timeout
@@ -91,10 +94,9 @@ serve(async (req) => {
         totalKeysInSeries: Object.keys(chartData.series || {}).length
       })
 
-      // Parse series object to extract first copy times
-      // Chart 86612901 structure: metric -> $user_id -> $time
-      // Headers: ["$metric", "$user_id", "$time"]
-      const copyRows: Array<{ user_id: string; first_copy_time: string }> = []
+      // Parse series object to extract first copy times and first app open times
+      // Chart 86612901 structure: metric -> $user_id -> $time (first_copy_time) -> $ae_first_app_open_date (first_app_open_time)
+      const copyRows: Array<{ user_id: string; first_copy_time: string; first_app_open_time: string | null }> = []
       const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
       // Check if response was limited/truncated
@@ -120,126 +122,73 @@ serve(async (req) => {
           continue
         }
 
-        // Extract first timestamp (first key that isn't $overall)
-        const timestamps = Object.keys(userIdData as Record<string, any>)
-        const firstCopyTime = timestamps.find(k => k !== '$overall')
+        // Extract first copy time (first timestamp key that isn't $overall)
+        const firstCopyTimestamps = Object.keys(userIdData as Record<string, any>)
+        const firstCopyTime = firstCopyTimestamps.find(k => k !== '$overall')
 
         if (!firstCopyTime) {
           skippedCount++
           continue
         }
 
-        // Optimized: Skip detailed validation, let Date constructor handle it
-        // Invalid dates will become Invalid Date and can be filtered if needed
+        // Parse first copy time
+        let firstCopyDate: Date
         try {
-          const firstCopyDate = new Date(firstCopyTime)
+          firstCopyDate = new Date(firstCopyTime)
           if (isNaN(firstCopyDate.getTime())) {
             skippedCount++
             continue
           }
-
-          copyRows.push({
-            user_id: userId,
-            first_copy_time: firstCopyDate.toISOString()
-          })
         } catch (error) {
           skippedCount++
           continue
         }
+
+        // Extract first app open time (nested under first copy time)
+        let firstAppOpenTime: string | null = null
+        const firstCopyData = (userIdData as Record<string, any>)[firstCopyTime]
+
+        if (firstCopyData && typeof firstCopyData === 'object') {
+          const appOpenTimestamps = Object.keys(firstCopyData).filter(k => k !== '$overall')
+          if (appOpenTimestamps.length > 0) {
+            const appOpenTimeStr = appOpenTimestamps[0]
+            try {
+              const appOpenDate = new Date(appOpenTimeStr)
+              if (!isNaN(appOpenDate.getTime())) {
+                firstAppOpenTime = appOpenDate.toISOString()
+              }
+            } catch (error) {
+              // Keep as null if invalid
+            }
+          }
+        }
+
+        copyRows.push({
+          user_id: userId,
+          first_copy_time: firstCopyDate.toISOString(),
+          first_app_open_time: firstAppOpenTime
+        })
       }
 
       if (skippedCount > 0) {
         console.log(`ℹ️ Skipped ${skippedCount} entries with invalid/missing data`)
       }
 
+      const rowsWithBothTimestamps = copyRows.filter(row => row.first_app_open_time !== null).length
       console.log(`✓ Extracted ${copyRows.length} first copy users from chart`)
-
-      // Fetch chart 87036512 for KYC approved events
-      const kycChartId = '87036512'
-      const kycChartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=${kycChartId}`
-
-      console.log(`Fetching Mixpanel chart ${kycChartId} for KYC approved events...`)
-
-      const kycChartResponse = await fetch(kycChartUrl, {
-        headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/json',
-        },
-      })
-
-      if (!kycChartResponse.ok) {
-        throw new Error(`KYC Chart API failed: ${kycChartResponse.status} ${kycChartResponse.statusText}`)
-      }
-
-      const kycChartData = await kycChartResponse.json()
-
-      console.log('📊 KYC Chart API response keys:', Object.keys(kycChartData))
-
-      // Parse KYC approved times - same structure as first copy chart
-      const kycApprovedMap = new Map<string, string>()
-      const kycSeries = kycChartData.series?.['Uniques of Approved KYC'] || {}
-
-      let kycSkippedCount = 0
-
-      for (const [userId, userIdData] of Object.entries(kycSeries)) {
-        // Skip $overall aggregation key and empty user IDs
-        if (userId === '$overall' || !userId) continue
-
-        // Quick validation: userIdData should be an object
-        if (!userIdData || typeof userIdData !== 'object') {
-          kycSkippedCount++
-          continue
-        }
-
-        // Extract first timestamp (first key that isn't $overall)
-        const timestamps = Object.keys(userIdData as Record<string, any>)
-        const kycApprovedTime = timestamps.find(k => k !== '$overall')
-
-        if (!kycApprovedTime) {
-          kycSkippedCount++
-          continue
-        }
-
-        try {
-          const kycApprovedDate = new Date(kycApprovedTime)
-          if (isNaN(kycApprovedDate.getTime())) {
-            kycSkippedCount++
-            continue
-          }
-
-          kycApprovedMap.set(userId, kycApprovedDate.toISOString())
-        } catch (error) {
-          kycSkippedCount++
-          continue
-        }
-      }
-
-      if (kycSkippedCount > 0) {
-        console.log(`ℹ️ Skipped ${kycSkippedCount} KYC entries with invalid/missing data`)
-      }
-
-      console.log(`✓ Extracted ${kycApprovedMap.size} KYC approved times from chart`)
-
-      // Map KYC approved times to copy rows
-      const copyRowsWithKyc = copyRows.map(row => ({
-        ...row,
-        kyc_approved_time: kycApprovedMap.get(row.user_id) || null
-      }))
-
-      const rowsWithBothTimestamps = copyRowsWithKyc.filter(row => row.kyc_approved_time !== null).length
-      console.log(`✓ ${rowsWithBothTimestamps} users have both first_copy_time and kyc_approved_time`)
+      console.log(`✓ ${rowsWithBothTimestamps} users have both first_copy_time and first_app_open_time`)
 
       // Insert/update user_first_copies in batches for better performance
-      if (copyRowsWithKyc.length > 0) {
+      if (copyRows.length > 0) {
         const BATCH_SIZE = 1000 // Supabase handles ~1000 rows per upsert efficiently
         let totalUpserted = 0
 
-        for (let i = 0; i < copyRowsWithKyc.length; i += BATCH_SIZE) {
-          const batch = copyRowsWithKyc.slice(i, i + BATCH_SIZE)
+        for (let i = 0; i < copyRows.length; i += BATCH_SIZE) {
+          const batch = copyRows.slice(i, i + BATCH_SIZE)
           const { error: copyError } = await supabase
             .from('user_first_copies')
             .upsert(batch, {
-              onConflict: 'user_id'  // PRIMARY KEY - will update first_copy_time if changed
+              onConflict: 'user_id'  // PRIMARY KEY - will update timestamps if changed
             })
 
           if (copyError) {
@@ -248,7 +197,7 @@ serve(async (req) => {
           }
 
           totalUpserted += batch.length
-          console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(copyRowsWithKyc.length / BATCH_SIZE)} (${totalUpserted}/${copyRowsWithKyc.length} rows)`)
+          console.log(`✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(copyRows.length / BATCH_SIZE)} (${totalUpserted}/${copyRows.length} rows)`)
         }
 
         console.log(`✅ Upserted ${totalUpserted} total rows to user_first_copies`)
@@ -258,10 +207,9 @@ serve(async (req) => {
 
       // Update sync log with success
       await updateSyncLogSuccess(supabase, syncLogId, {
-        total_records_inserted: copyRowsWithKyc.length,
+        total_records_inserted: copyRows.length,
         metadata: {
-          firstCopyChartId: '86612901',
-          kycApprovedChartId: '87036512',
+          chartId: '86612901',
           usersWithBothTimestamps: rowsWithBothTimestamps
         }
       })
@@ -269,8 +217,8 @@ serve(async (req) => {
       return createSuccessResponse({
         message: 'First copy users synced successfully',
         stats: {
-          usersSynced: copyRowsWithKyc.length,
-          usersWithKycApproved: rowsWithBothTimestamps
+          usersSynced: copyRows.length,
+          usersWithBothTimestamps: rowsWithBothTimestamps
         }
       })
     } catch (error: any) {

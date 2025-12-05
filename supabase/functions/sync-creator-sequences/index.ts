@@ -259,7 +259,7 @@ serve(async (req) => {
 
       // Calculate date range based on sync mode
       // Note: Date range is for Mixpanel Export API. Analysis will filter events
-      // per-user based on their kyc_approved_time to first_copy_time range
+      // per-user based on their first_app_open_time to first_copy_time range
       let fromDate: string
       let toDate: string
       let syncMode: 'backfill' | 'incremental'
@@ -287,15 +287,15 @@ serve(async (req) => {
       }
 
       // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
-      // Only include users with both kyc_approved_time and first_copy_time
+      // Only include users with both first_app_open_time and first_copy_time
       console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
       let targetUserIds: string[] = []
 
       try {
         const { data: firstCopyUsers, error: usersError } = await supabase
           .from('user_first_copies')
-          .select('user_id, kyc_approved_time, first_copy_time')
-          .not('kyc_approved_time', 'is', null)
+          .select('user_id, first_app_open_time, first_copy_time')
+          .not('first_app_open_time', 'is', null)
           .not('first_copy_time', 'is', null)
 
         if (usersError) {
@@ -303,7 +303,7 @@ serve(async (req) => {
         }
 
         targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
-        console.log(`✓ Found ${targetUserIds.length} users with both KYC approved and first copy times`)
+        console.log(`✓ Found ${targetUserIds.length} users with both first_app_open_time and first_copy_time`)
       } catch (usersError: any) {
         console.error('⚠️ Failed to fetch user_first_copies:', usersError.message)
         console.log('   Will fetch ALL creator profile view events (no user filter)')
@@ -314,7 +314,7 @@ serve(async (req) => {
       const eventNames = ['Viewed Creator Profile']
 
       if (targetUserIds.length > 0) {
-        console.log(`\n📊 Step 2: Fetching creator profile views for ${targetUserIds.length} targeted users (with KYC and first copy timestamps)`)
+        console.log(`\n📊 Step 2: Fetching creator profile views for ${targetUserIds.length} targeted users (with both timestamps)`)
       } else {
         console.log(`\n📊 Step 2: Fetching ALL creator profile views (no user filter available)`)
       }

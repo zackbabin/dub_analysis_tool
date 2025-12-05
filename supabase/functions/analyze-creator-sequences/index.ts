@@ -1,12 +1,12 @@
 // Supabase Edge Function: analyze-creator-sequences
 // SIMPLIFIED: Analyzes raw "Viewed Creator Profile" events to find conversion patterns
-// Calculates average unique creator profile views between KYC approval and first copy
+// Calculates average unique creator profile views between first app open and first copy
 //
 // Data sources:
 //   - creator_sequences_raw: Raw creator view events
-//   - user_first_copies: Users with both kyc_approved_time and first_copy_time
+//   - user_first_copies: Users with both first_app_open_time and first_copy_time
 //
-// Analysis filters events between kyc_approved_time and first_copy_time for each user
+// Analysis filters events between first_app_open_time and first_copy_time for each user
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
