@@ -438,7 +438,13 @@ serve(async (req) => {
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
+    // Parse request body for optional parameters
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    const batchNumber = body.batch_number || 1  // Which batch to process (1-based)
+    const batchSize = body.batch_size || 2000   // How many users per batch
+
     console.log('🔄 Starting historical backfill...')
+    console.log(`   Batch ${batchNumber} (processing ${batchSize} users)`)
     console.log('Step 1: Fetch first copy + first app open times by month')
     console.log('Step 2: Fetch portfolio + creator view events')
 
@@ -576,8 +582,28 @@ serve(async (req) => {
       })
     }
 
-    const targetUserIds = usersWithBothTimestamps.map(u => u.user_id)
-    console.log(`✓ Found ${targetUserIds.length} users with both timestamps`)
+    const allUserIds = usersWithBothTimestamps.map(u => u.user_id)
+    console.log(`✓ Found ${allUserIds.length} total users with both timestamps`)
+
+    // Slice users based on batch parameters to avoid timeout
+    const startIdx = (batchNumber - 1) * batchSize
+    const endIdx = Math.min(startIdx + batchSize, allUserIds.length)
+    const targetUserIds = allUserIds.slice(startIdx, endIdx)
+
+    const totalBatches = Math.ceil(allUserIds.length / batchSize)
+    console.log(`   Processing batch ${batchNumber}/${totalBatches}: users ${startIdx + 1}-${endIdx} (${targetUserIds.length} users)`)
+
+    if (targetUserIds.length === 0) {
+      console.log('⚠️ No users in this batch - all batches completed')
+      return createSuccessResponse('Batch completed - no more users to process', {
+        batchNumber,
+        totalBatches,
+        allUsers: allUserIds.length
+      })
+    }
+
+    // Filter usersWithBothTimestamps to only include users in this batch
+    usersWithBothTimestamps = usersWithBothTimestamps.filter(u => targetUserIds.includes(u.user_id))
 
     // Calculate date range for event fetching
     const appOpenTimes = usersWithBothTimestamps.map(u => new Date(u.first_app_open_time).getTime())
@@ -612,9 +638,17 @@ serve(async (req) => {
     )
 
     const results = {
+      batch_info: {
+        batchNumber,
+        totalBatches,
+        batchSize,
+        usersInBatch: targetUserIds.length,
+        totalUsers: allUserIds.length,
+        nextBatch: batchNumber < totalBatches ? batchNumber + 1 : null
+      },
       step1_users: {
         totalUpserted: totalUpserted,
-        usersWithBothTimestamps: targetUserIds.length
+        usersWithBothTimestamps: allUserIds.length
       },
       step2_events: {
         dateRange: { from: fromDate, to: toDate, days: daysDiff },
@@ -623,11 +657,19 @@ serve(async (req) => {
       }
     }
 
-    console.log('\n✅ Historical backfill completed successfully!')
+    console.log('\n✅ Historical backfill batch completed successfully!')
+    console.log(`   Batch ${batchNumber}/${totalBatches} complete`)
+    if (batchNumber < totalBatches) {
+      console.log(`   ⏭️  Run batch ${batchNumber + 1} next: POST with { "batch_number": ${batchNumber + 1} }`)
+    } else {
+      console.log(`   🎉 All batches complete!`)
+    }
     console.log('Results:', JSON.stringify(results, null, 2))
 
     return createSuccessResponse(
-      'Historical backfill completed',
+      batchNumber < totalBatches
+        ? `Batch ${batchNumber}/${totalBatches} completed - run batch ${batchNumber + 1} next`
+        : `All ${totalBatches} batches completed!`,
       results
     )
   } catch (error) {
