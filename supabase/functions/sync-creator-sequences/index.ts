@@ -292,19 +292,38 @@ serve(async (req) => {
       let targetUserIds: string[] = []
 
       try {
-        const { data: firstCopyUsers, error: usersError } = await supabase
-          .from('user_first_copies')
-          .select('user_id, first_app_open_time, first_copy_time')
-          .not('first_app_open_time', 'is', null)
-          .not('first_copy_time', 'is', null)
-          .limit(20000)  // Override default 1000 row limit
+        // Fetch all users with pagination to avoid 1000 row limit
+        let firstCopyUsers: any[] = []
+        let page = 0
+        const PAGE_SIZE = 1000
 
-        if (usersError) {
-          throw usersError
+        while (true) {
+          const { data: pageData, error: usersError } = await supabase
+            .from('user_first_copies')
+            .select('user_id, first_app_open_time, first_copy_time')
+            .not('first_app_open_time', 'is', null)
+            .not('first_copy_time', 'is', null)
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+          if (usersError) {
+            throw usersError
+          }
+
+          if (!pageData || pageData.length === 0) {
+            break
+          }
+
+          firstCopyUsers = firstCopyUsers.concat(pageData)
+
+          if (pageData.length < PAGE_SIZE) {
+            break  // Last page
+          }
+
+          page++
         }
 
-        targetUserIds = firstCopyUsers?.map(u => u.user_id) || []
-        console.log(`✓ Found ${targetUserIds.length} users with both first_app_open_time and first_copy_time`)
+        targetUserIds = firstCopyUsers.map(u => u.user_id)
+        console.log(`✓ Found ${targetUserIds.length} users with both first_app_open_time and first_copy_time (fetched in ${page + 1} page(s))`)
       } catch (usersError: any) {
         console.error('⚠️ Failed to fetch user_first_copies:', usersError.message)
         console.log('   Will fetch ALL creator profile view events (no user filter)')
