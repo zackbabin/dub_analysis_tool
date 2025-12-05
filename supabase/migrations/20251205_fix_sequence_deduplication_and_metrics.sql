@@ -25,13 +25,13 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH converters_with_timestamps AS (
-    -- All users with both kyc_approved_time and first_copy_time
+    -- All users with both first_app_open_time and first_copy_time
     SELECT
       ufc.user_id,
-      ufc.kyc_approved_time,
+      ufc.first_app_open_time,
       ufc.first_copy_time
     FROM user_first_copies ufc
-    WHERE ufc.kyc_approved_time IS NOT NULL
+    WHERE ufc.first_app_open_time IS NOT NULL
       AND ufc.first_copy_time IS NOT NULL
   ),
 
@@ -44,7 +44,7 @@ BEGIN
     FROM converters_with_timestamps c
     LEFT JOIN portfolio_sequences_raw ps
       ON ps.user_id = c.user_id
-      AND ps.event_time >= c.kyc_approved_time
+      AND ps.event_time >= c.first_app_open_time
       AND ps.event_time < c.first_copy_time
       AND ps.portfolio_ticker IS NOT NULL
     GROUP BY c.user_id
@@ -80,13 +80,13 @@ AS $$
 BEGIN
   RETURN QUERY
   WITH converters_with_timestamps AS (
-    -- All users with both kyc_approved_time and first_copy_time
+    -- All users with both first_app_open_time and first_copy_time
     SELECT
       ufc.user_id,
-      ufc.kyc_approved_time,
+      ufc.first_app_open_time,
       ufc.first_copy_time
     FROM user_first_copies ufc
-    WHERE ufc.kyc_approved_time IS NOT NULL
+    WHERE ufc.first_app_open_time IS NOT NULL
       AND ufc.first_copy_time IS NOT NULL
   ),
 
@@ -99,7 +99,7 @@ BEGIN
     FROM converters_with_timestamps c
     LEFT JOIN creator_sequences_raw cs
       ON cs.user_id = c.user_id
-      AND cs.event_time >= c.kyc_approved_time
+      AND cs.event_time >= c.first_app_open_time
       AND cs.event_time < c.first_copy_time
       AND cs.creator_username IS NOT NULL
     GROUP BY c.user_id
@@ -136,14 +136,14 @@ BEGIN
   -- Get total converter count (only users with both timestamps)
   SELECT COUNT(DISTINCT user_id) INTO total_converters
   FROM user_first_copies
-  WHERE kyc_approved_time IS NOT NULL
+  WHERE first_app_open_time IS NOT NULL
     AND first_copy_time IS NOT NULL;
 
   RETURN QUERY
   WITH all_converters AS (
-    SELECT user_id, kyc_approved_time, first_copy_time
+    SELECT user_id, first_app_open_time, first_copy_time
     FROM user_first_copies
-    WHERE kyc_approved_time IS NOT NULL
+    WHERE first_app_open_time IS NOT NULL
       AND first_copy_time IS NOT NULL
   ),
 
@@ -157,7 +157,7 @@ BEGIN
       LAG(ps.portfolio_ticker) OVER (PARTITION BY ps.user_id ORDER BY ps.event_time ASC) as prev_portfolio
     FROM portfolio_sequences_raw ps
     INNER JOIN all_converters ac ON ps.user_id = ac.user_id
-    WHERE ps.event_time >= ac.kyc_approved_time
+    WHERE ps.event_time >= ac.first_app_open_time
       AND ps.event_time < ac.first_copy_time
       AND ps.portfolio_ticker IS NOT NULL
   ),
@@ -308,14 +308,14 @@ BEGIN
   -- Get total converter count (only users with both timestamps)
   SELECT COUNT(DISTINCT user_id) INTO total_converters
   FROM user_first_copies
-  WHERE kyc_approved_time IS NOT NULL
+  WHERE first_app_open_time IS NOT NULL
     AND first_copy_time IS NOT NULL;
 
   RETURN QUERY
   WITH all_converters AS (
-    SELECT user_id, kyc_approved_time, first_copy_time
+    SELECT user_id, first_app_open_time, first_copy_time
     FROM user_first_copies
-    WHERE kyc_approved_time IS NOT NULL
+    WHERE first_app_open_time IS NOT NULL
       AND first_copy_time IS NOT NULL
   ),
 
@@ -329,7 +329,7 @@ BEGIN
       LAG(cs.creator_username) OVER (PARTITION BY cs.user_id ORDER BY cs.event_time ASC) as prev_creator
     FROM creator_sequences_raw cs
     INNER JOIN all_converters ac ON cs.user_id = ac.user_id
-    WHERE cs.event_time >= ac.kyc_approved_time
+    WHERE cs.event_time >= ac.first_app_open_time
       AND cs.event_time < ac.first_copy_time
       AND cs.creator_username IS NOT NULL
   ),
