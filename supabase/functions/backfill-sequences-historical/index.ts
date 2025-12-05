@@ -527,13 +527,15 @@ serve(async (req) => {
       }
     }
 
-    const uniqueUsers = Array.from(userMap.entries()).map(([user_id, timestamps]) => ({
-      user_id,
-      first_copy_time: timestamps.first_copy_time,
-      kyc_approved_time: timestamps.kyc_approved_time
-    }))
+    const uniqueUsers = Array.from(userMap.entries())
+      .map(([user_id, timestamps]) => ({
+        user_id,
+        first_copy_time: timestamps.first_copy_time,
+        kyc_approved_time: timestamps.kyc_approved_time
+      }))
+      .filter(u => u.first_copy_time !== null) // Only keep users with first_copy_time (required by table constraint)
 
-    console.log(`✓ Deduped to ${uniqueUsers.length} unique users`)
+    console.log(`✓ Deduped to ${uniqueUsers.length} unique users (filtered to only users with first_copy_time)`)
 
     // Upsert to user_first_copies
     const BATCH_SIZE = 1000
