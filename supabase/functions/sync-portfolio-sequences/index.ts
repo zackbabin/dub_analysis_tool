@@ -299,6 +299,7 @@ serve(async (req) => {
           .select('user_id, first_app_open_time, first_copy_time')
           .not('first_app_open_time', 'is', null)
           .not('first_copy_time', 'is', null)
+          .limit(20000)  // Override default 1000 row limit
 
         if (usersError) {
           throw usersError
