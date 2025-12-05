@@ -537,15 +537,35 @@ serve(async (req) => {
     // STEP 2: Fetch events for users with both timestamps
     console.log('\n📊 Step 2: Fetching view events for users with both timestamps...')
 
-    const { data: usersWithBothTimestamps, error: usersError } = await supabase
-      .from('user_first_copies')
-      .select('user_id, first_app_open_time, first_copy_time')
-      .not('first_app_open_time', 'is', null)
-      .not('first_copy_time', 'is', null)
-      .limit(20000)  // Override default 1000 row limit
+    // Fetch all users with pagination to avoid 1000 row limit
+    let usersWithBothTimestamps: any[] = []
+    let page = 0
+    const PAGE_SIZE = 1000
 
-    if (usersError) {
-      throw usersError
+    while (true) {
+      const { data: pageData, error: usersError } = await supabase
+        .from('user_first_copies')
+        .select('user_id, first_app_open_time, first_copy_time')
+        .not('first_app_open_time', 'is', null)
+        .not('first_copy_time', 'is', null)
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+      if (usersError) {
+        throw usersError
+      }
+
+      if (!pageData || pageData.length === 0) {
+        break
+      }
+
+      usersWithBothTimestamps = usersWithBothTimestamps.concat(pageData)
+      console.log(`  Fetched page ${page + 1}: ${pageData.length} users (${usersWithBothTimestamps.length} total)`)
+
+      if (pageData.length < PAGE_SIZE) {
+        break  // Last page
+      }
+
+      page++
     }
 
     if (!usersWithBothTimestamps || usersWithBothTimestamps.length === 0) {
