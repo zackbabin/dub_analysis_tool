@@ -9,7 +9,7 @@
 CREATE OR REPLACE FUNCTION analyze_portfolio_copy_paths()
 RETURNS TABLE(
   analysis_type TEXT,
-  path_rank INT,
+  path_rank BIGINT,
   portfolio_sequence TEXT[],
   converter_count INT,
   pct_of_converters NUMERIC,
@@ -169,7 +169,7 @@ $$;
 CREATE OR REPLACE FUNCTION analyze_creator_copy_paths()
 RETURNS TABLE(
   analysis_type TEXT,
-  path_rank INT,
+  path_rank BIGINT,
   creator_sequence TEXT[],
   converter_count INT,
   pct_of_converters NUMERIC,
