@@ -3,10 +3,10 @@
 // Populates user_first_copies table for use by sync-portfolio-sequences and sync-creator-sequences
 //
 // Data source:
-//   - Mixpanel Insights chart 86612901: "Uniques of Copied Portfolio" with $user_id, $time, and $ae_first_app_open_date
+//   - Mixpanel Insights chart 86612901: "Uniques of Copied Portfolio" with $user_id, $time, and $mp_first_event_time
 //
 // Chart structure:
-//   - user_id → $time (first_copy_time) → $ae_first_app_open_date (first_app_open_time) → count
+//   - user_id → $time (first_copy_time) → $mp_first_event_time (first_app_open_time) → count
 //
 // Optimizations for large datasets (13k+ users):
 //   - Batched upserts (1000 rows per batch) to avoid timeout
@@ -95,7 +95,7 @@ serve(async (req) => {
       })
 
       // Parse series object to extract first copy times and first app open times
-      // Chart 86612901 structure: metric -> $user_id -> $time (first_copy_time) -> $ae_first_app_open_date (first_app_open_time)
+      // Chart 86612901 structure: metric -> $user_id -> $time (first_copy_time) -> $mp_first_event_time (first_app_open_time)
       const copyRows: Array<{ user_id: string; first_copy_time: string; first_app_open_time: string | null }> = []
       const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 

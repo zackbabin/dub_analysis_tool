@@ -3,7 +3,7 @@
 //
 // Process:
 // 1. Fetch first copy times and first app open times from chart 86612901 (by month to avoid 3k limit)
-//    - Chart structure: user_id → $time (first_copy_time) → $ae_first_app_open_date (first_app_open_time)
+//    - Chart structure: user_id → $time (first_copy_time) → $mp_first_event_time (first_app_open_time)
 // 2. Upsert to user_first_copies with both timestamps
 // 3. Fetch portfolio and creator view events for those users
 //
@@ -68,7 +68,7 @@ async function fetchUserTimestampsForDateRange(
   const chartData = await chartResponse.json()
   const series = chartData.series?.['Uniques of Copied Portfolio'] || {}
 
-  // Parse nested structure: user_id → $time (first_copy_time) → $ae_first_app_open_date (first_app_open_time)
+  // Parse nested structure: user_id → $time (first_copy_time) → $mp_first_event_time (first_app_open_time)
   const users: { user_id: string; first_copy_time: string | null; first_app_open_time: string | null }[] = []
 
   for (const [userId, userIdData] of Object.entries(series)) {
