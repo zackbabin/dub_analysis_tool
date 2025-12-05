@@ -1,16 +1,18 @@
 // Supabase Edge Function: backfill-sequences-historical
-// HISTORICAL BACKFILL: Fetches events for all users with KYC/first copy timestamps
+// HISTORICAL BACKFILL: Fetches first copy + KYC times, then events
 //
-// Dynamically calculates date range from user_first_copies:
-// - fromDate: earliest kyc_approved_time (with 1 day buffer)
-// - toDate: latest first_copy_time (or today)
+// Process:
+// 1. Fetch first copy times from chart 86612901 (by month to avoid 3k limit)
+// 2. Fetch KYC approved times from chart 87036512 (by month to avoid 3k limit)
+// 3. Upsert to user_first_copies with both timestamps
+// 4. Fetch portfolio and creator view events for those users
 //
-// Safe to run alongside live syncs:
-// - Uses same upsert logic with deduplication via unique constraints
-// - Only fetches for users with both kyc_approved_time and first_copy_time
-// - Batches requests to avoid timeouts and rate limits
+// Date range splitting:
+// - Splits July 1 - today into monthly chunks
+// - Each month fetches separately to avoid Mixpanel segmentation limits
+// - Uses upsert with deduplication for all operations
 //
-// Usage: POST (no body needed - always syncs both portfolio and creator events)
+// Usage: POST (no body needed - always syncs everything)
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import {
@@ -37,6 +39,106 @@ interface MixpanelExportEvent {
 }
 
 // No request interface needed - always syncs both types
+
+/**
+ * Fetch first copy and KYC times from Insights API for a specific date range
+ * Returns users with their timestamps
+ */
+async function fetchUserTimestampsForDateRange(
+  credentials: { username: string; secret: string },
+  fromDate: string,
+  toDate: string,
+  projectId: string
+): Promise<{ user_id: string; first_copy_time: string | null; kyc_approved_time: string | null }[]> {
+  const authString = `${credentials.username}:${credentials.secret}`
+  const authHeader = `Basic ${btoa(authString)}`
+
+  console.log(`  Fetching timestamps for ${fromDate} to ${toDate}...`)
+
+  // Fetch first copy chart (86612901)
+  const firstCopyChartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=86612901&from_date=${fromDate}&to_date=${toDate}`
+  const firstCopyResponse = await fetch(firstCopyChartUrl, {
+    headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+  })
+
+  if (!firstCopyResponse.ok) {
+    throw new Error(`First copy chart API failed: ${firstCopyResponse.status}`)
+  }
+
+  const firstCopyData = await firstCopyResponse.json()
+  const firstCopySeries = firstCopyData.series?.['Uniques of Copied Portfolio'] || {}
+
+  // Fetch KYC approved chart (87036512)
+  const kycChartUrl = `https://mixpanel.com/api/query/insights?project_id=${projectId}&bookmark_id=87036512&from_date=${fromDate}&to_date=${toDate}`
+  const kycResponse = await fetch(kycChartUrl, {
+    headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+  })
+
+  if (!kycResponse.ok) {
+    throw new Error(`KYC chart API failed: ${kycResponse.status}`)
+  }
+
+  const kycData = await kycResponse.json()
+  const kycSeries = kycData.series?.['Uniques of Approved KYC'] || {}
+
+  // Build a map of user_id -> timestamps
+  const userMap = new Map<string, { first_copy_time: string | null; kyc_approved_time: string | null }>()
+
+  // Parse first copy times
+  for (const [userId, userIdData] of Object.entries(firstCopySeries)) {
+    if (userId === '$overall' || !userId) continue
+    if (!userIdData || typeof userIdData !== 'object') continue
+
+    const timestamps = Object.keys(userIdData as Record<string, any>)
+    const firstCopyTime = timestamps.find(k => k !== '$overall')
+
+    if (firstCopyTime) {
+      try {
+        const date = new Date(firstCopyTime)
+        if (!isNaN(date.getTime())) {
+          userMap.set(userId, { first_copy_time: date.toISOString(), kyc_approved_time: null })
+        }
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+  }
+
+  // Parse KYC approved times
+  for (const [userId, userIdData] of Object.entries(kycSeries)) {
+    if (userId === '$overall' || !userId) continue
+    if (!userIdData || typeof userIdData !== 'object') continue
+
+    const timestamps = Object.keys(userIdData as Record<string, any>)
+    const kycApprovedTime = timestamps.find(k => k !== '$overall')
+
+    if (kycApprovedTime) {
+      try {
+        const date = new Date(kycApprovedTime)
+        if (!isNaN(date.getTime())) {
+          const existing = userMap.get(userId)
+          if (existing) {
+            existing.kyc_approved_time = date.toISOString()
+          } else {
+            userMap.set(userId, { first_copy_time: null, kyc_approved_time: date.toISOString() })
+          }
+        }
+      } catch (e) {
+        // Skip invalid dates
+      }
+    }
+  }
+
+  const users = Array.from(userMap.entries()).map(([user_id, timestamps]) => ({
+    user_id,
+    first_copy_time: timestamps.first_copy_time,
+    kyc_approved_time: timestamps.kyc_approved_time
+  }))
+
+  console.log(`  ✓ Found ${users.length} users (first_copy: ${Object.keys(firstCopySeries).length - 1}, kyc: ${Object.keys(kycSeries).length - 1})`)
+
+  return users
+}
 
 /**
  * Fetch events from Mixpanel Export API with streaming processing
@@ -358,48 +460,140 @@ serve(async (req) => {
     const credentials = initializeMixpanelCredentials()
     const supabase = initializeSupabaseClient()
 
-    console.log('🔄 Starting historical backfill (portfolio + creator events)...')
+    console.log('🔄 Starting historical backfill...')
+    console.log('Step 1: Fetch first copy + KYC times by month')
+    console.log('Step 2: Fetch portfolio + creator view events')
 
-    // Get target user IDs AND date range from user_first_copies
-    console.log('\n📊 Fetching users and calculating date range from user_first_copies...')
-    const { data: firstCopyUsers, error: usersError } = await supabase
+    const projectId = MIXPANEL_CONFIG.PROJECT_ID
+
+    // STEP 1: Fetch user timestamps by month (to avoid 3k segmentation limit)
+    console.log('\n📊 Step 1: Fetching user timestamps (split by month)...')
+
+    // Generate monthly date ranges from July 1, 2025 to today
+    const startDate = new Date('2025-07-01')
+    const today = new Date()
+    const monthRanges: { from: string; to: string }[] = []
+
+    let currentDate = new Date(startDate)
+    while (currentDate <= today) {
+      const monthStart = new Date(currentDate)
+      const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0) // Last day of month
+
+      // Don't go past today
+      const rangeEnd = monthEnd > today ? today : monthEnd
+
+      monthRanges.push({
+        from: monthStart.toISOString().split('T')[0],
+        to: rangeEnd.toISOString().split('T')[0]
+      })
+
+      // Move to next month
+      currentDate.setMonth(currentDate.getMonth() + 1)
+      currentDate.setDate(1)
+    }
+
+    console.log(`Split into ${monthRanges.length} monthly ranges`)
+
+    // Fetch timestamps for each month
+    let allUserTimestamps: { user_id: string; first_copy_time: string | null; kyc_approved_time: string | null }[] = []
+
+    for (const range of monthRanges) {
+      console.log(`Fetching ${range.from} to ${range.to}...`)
+      const users = await fetchUserTimestampsForDateRange(credentials, range.from, range.to, projectId)
+      allUserTimestamps = allUserTimestamps.concat(users)
+
+      // Rate limit: wait 500ms between requests
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+
+    console.log(`✓ Fetched ${allUserTimestamps.length} total user timestamp records`)
+
+    // Deduplicate users (keep the record with most complete data)
+    const userMap = new Map<string, { first_copy_time: string | null; kyc_approved_time: string | null }>()
+
+    for (const user of allUserTimestamps) {
+      const existing = userMap.get(user.user_id)
+      if (!existing) {
+        userMap.set(user.user_id, {
+          first_copy_time: user.first_copy_time,
+          kyc_approved_time: user.kyc_approved_time
+        })
+      } else {
+        // Merge: keep non-null values
+        userMap.set(user.user_id, {
+          first_copy_time: user.first_copy_time || existing.first_copy_time,
+          kyc_approved_time: user.kyc_approved_time || existing.kyc_approved_time
+        })
+      }
+    }
+
+    const uniqueUsers = Array.from(userMap.entries()).map(([user_id, timestamps]) => ({
+      user_id,
+      first_copy_time: timestamps.first_copy_time,
+      kyc_approved_time: timestamps.kyc_approved_time
+    }))
+
+    console.log(`✓ Deduped to ${uniqueUsers.length} unique users`)
+
+    // Upsert to user_first_copies
+    const BATCH_SIZE = 1000
+    let totalUpserted = 0
+
+    for (let i = 0; i < uniqueUsers.length; i += BATCH_SIZE) {
+      const batch = uniqueUsers.slice(i, i + BATCH_SIZE)
+      const { error: upsertError } = await supabase
+        .from('user_first_copies')
+        .upsert(batch, { onConflict: 'user_id' })
+
+      if (upsertError) {
+        console.error(`Error upserting batch ${i / BATCH_SIZE + 1}:`, upsertError)
+        throw upsertError
+      }
+
+      totalUpserted += batch.length
+      console.log(`  ✓ Upserted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(uniqueUsers.length / BATCH_SIZE)} (${totalUpserted}/${uniqueUsers.length})`)
+    }
+
+    console.log(`✅ Upserted ${totalUpserted} users to user_first_copies`)
+
+    // STEP 2: Fetch events for users with both timestamps
+    console.log('\n📊 Step 2: Fetching view events for users with both timestamps...')
+
+    const { data: usersWithBothTimestamps, error: usersError } = await supabase
       .from('user_first_copies')
       .select('user_id, kyc_approved_time, first_copy_time')
       .not('kyc_approved_time', 'is', null)
       .not('first_copy_time', 'is', null)
 
     if (usersError) {
-      console.error('Error fetching user_first_copies:', usersError)
       throw usersError
     }
 
-    if (!firstCopyUsers || firstCopyUsers.length === 0) {
-      throw new Error('No users found with both kyc_approved_time and first_copy_time')
+    if (!usersWithBothTimestamps || usersWithBothTimestamps.length === 0) {
+      console.log('⚠️ No users found with both timestamps - skipping event fetch')
+      return createSuccessResponse('Backfill completed - no users with both timestamps', {
+        usersUpserted: totalUpserted,
+        usersWithBothTimestamps: 0
+      })
     }
 
-    const targetUserIds = firstCopyUsers.map(u => u.user_id)
+    const targetUserIds = usersWithBothTimestamps.map(u => u.user_id)
     console.log(`✓ Found ${targetUserIds.length} users with both timestamps`)
 
-    // Calculate date range from actual user data
-    const kycTimes = firstCopyUsers.map(u => new Date(u.kyc_approved_time).getTime())
-    const copyTimes = firstCopyUsers.map(u => new Date(u.first_copy_time).getTime())
+    // Calculate date range for event fetching
+    const kycTimes = usersWithBothTimestamps.map(u => new Date(u.kyc_approved_time).getTime())
+    const copyTimes = usersWithBothTimestamps.map(u => new Date(u.first_copy_time).getTime())
 
     const earliestKyc = new Date(Math.min(...kycTimes))
     const latestFirstCopy = new Date(Math.max(...copyTimes))
-    const today = new Date()
 
-    // Add 1 day buffer before earliest KYC
     const bufferStart = new Date(earliestKyc.getTime() - 24 * 60 * 60 * 1000)
     const fromDate = bufferStart.toISOString().split('T')[0]
-
-    // Use today or latest first copy, whichever is later
     const endDate = latestFirstCopy > today ? latestFirstCopy : today
     const toDate = endDate.toISOString().split('T')[0]
 
     const daysDiff = Math.ceil((endDate.getTime() - bufferStart.getTime()) / (24 * 60 * 60 * 1000))
-    console.log(`Date range: ${fromDate} to ${toDate} (${daysDiff} days)`)
-    console.log(`   Earliest KYC: ${earliestKyc.toISOString().split('T')[0]}`)
-    console.log(`   Latest first copy: ${latestFirstCopy.toISOString().split('T')[0]}`)
+    console.log(`Event date range: ${fromDate} to ${toDate} (${daysDiff} days)`)
 
     // Execute both backfills
     const portfolioStats = await backfillPortfolioSequences(
@@ -419,11 +613,15 @@ serve(async (req) => {
     )
 
     const results = {
-      fromDate,
-      toDate,
-      targetUsers: targetUserIds.length,
-      portfolio: portfolioStats,
-      creator: creatorStats,
+      step1_users: {
+        totalUpserted: totalUpserted,
+        usersWithBothTimestamps: targetUserIds.length
+      },
+      step2_events: {
+        dateRange: { from: fromDate, to: toDate, days: daysDiff },
+        portfolio: portfolioStats,
+        creator: creatorStats
+      }
     }
 
     console.log('\n✅ Historical backfill completed successfully!')
