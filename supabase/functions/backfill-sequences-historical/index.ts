@@ -318,10 +318,7 @@ async function backfillPortfolioSequences(
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-      // Rate limit delay
-      if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
+      // No delay needed - batching is for URL length, not rate limiting
     }
   } else {
     const result = await fetchAndProcessEventsStreaming(
@@ -414,10 +411,7 @@ async function backfillCreatorSequences(
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-      // Rate limit delay
-      if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
-        await new Promise(resolve => setTimeout(resolve, 500))
-      }
+      // No delay needed - batching is for URL length, not rate limiting
     }
   } else {
     const result = await fetchAndProcessEventsStreaming(
@@ -485,9 +479,7 @@ serve(async (req) => {
       console.log(`Fetching ${range.from} to ${range.to}...`)
       const users = await fetchUserTimestampsForDateRange(credentials, range.from, range.to, projectId)
       allUserTimestamps = allUserTimestamps.concat(users)
-
-      // Rate limit: wait 500ms between requests
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // No delay - Insights API doesn't have strict rate limits for backfill
     }
 
     console.log(`✓ Fetched ${allUserTimestamps.length} total user timestamp records`)
