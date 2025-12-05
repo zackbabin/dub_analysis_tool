@@ -177,6 +177,8 @@ serve(async (req) => {
         mean_unique_creators: meanValue,
         median_unique_creators: medianValue,
         creator_converter_count: converterCount,
+        creator_converters_with_views: convertersWithViews,
+        creator_converters_without_views: convertersWithoutViews,
         updated_at: new Date().toISOString()
       })
       .eq('id', 1)

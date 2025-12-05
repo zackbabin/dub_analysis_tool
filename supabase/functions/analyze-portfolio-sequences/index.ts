@@ -177,6 +177,8 @@ serve(async (req) => {
         mean_unique_portfolios: meanValue,
         median_unique_portfolios: medianValue,
         portfolio_converter_count: converterCount,
+        portfolio_converters_with_views: convertersWithViews,
+        portfolio_converters_without_views: convertersWithoutViews,
         updated_at: new Date().toISOString()
       })
       .eq('id', 1)
