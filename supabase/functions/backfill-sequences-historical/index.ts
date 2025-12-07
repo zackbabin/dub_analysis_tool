@@ -625,13 +625,17 @@ serve(async (req) => {
     const earliestAppOpen = new Date(Math.min(...appOpenTimes))
     const latestFirstCopy = new Date(Math.max(...copyTimes))
 
+    // Hard cutoff: Never go back before July 1, 2025
+    const hardCutoff = new Date('2025-07-01')
     const bufferStart = new Date(earliestAppOpen.getTime() - 24 * 60 * 60 * 1000)
-    const fromDate = bufferStart.toISOString().split('T')[0]
+    const effectiveStartDate = bufferStart > hardCutoff ? bufferStart : hardCutoff
+
+    const fromDate = effectiveStartDate.toISOString().split('T')[0]
     const endDate = latestFirstCopy > today ? latestFirstCopy : today
     const toDate = endDate.toISOString().split('T')[0]
 
-    const daysDiff = Math.ceil((endDate.getTime() - bufferStart.getTime()) / (24 * 60 * 60 * 1000))
-    console.log(`Event date range: ${fromDate} to ${toDate} (${daysDiff} days)`)
+    const daysDiff = Math.ceil((endDate.getTime() - effectiveStartDate.getTime()) / (24 * 60 * 60 * 1000))
+    console.log(`Event date range: ${fromDate} to ${toDate} (${daysDiff} days, enforcing 2025-07-01 cutoff)`)
 
     // Execute both backfills sequentially to respect Mixpanel rate limits
     // (5 concurrent API calls max, running in parallel can create 10+ concurrent calls)
