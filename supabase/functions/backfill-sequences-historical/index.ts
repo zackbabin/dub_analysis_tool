@@ -318,7 +318,11 @@ async function backfillPortfolioSequences(
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-      // No delay needed - batching is for URL length, not rate limiting
+      // Add 15s delay between batches to respect Mixpanel rate limits (60 calls/hour = 1/min avg)
+      // With 3 calls per sequence, need significant delays to stay under 1 call/min average
+      if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 15000))
+      }
     }
   } else {
     const result = await fetchAndProcessEventsStreaming(
@@ -411,7 +415,11 @@ async function backfillCreatorSequences(
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-      // No delay needed - batching is for URL length, not rate limiting
+      // Add 15s delay between batches to respect Mixpanel rate limits (60 calls/hour = 1/min avg)
+      // With 3 calls per sequence, need significant delays to stay under 1 call/min average
+      if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
+        await new Promise(resolve => setTimeout(resolve, 15000))
+      }
     }
   } else {
     const result = await fetchAndProcessEventsStreaming(
@@ -441,7 +449,7 @@ serve(async (req) => {
     // Parse request body for optional parameters
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
     const batchNumber = body.batch_number || 1  // Which batch to process (1-based)
-    const batchSize = body.batch_size || 1000   // How many users per batch (reduced from 2000 to avoid timeout)
+    const batchSize = body.batch_size || 200   // How many users per batch (reduced to 200: 1 API call per type = 2 total)
 
     console.log('🔄 Starting historical backfill...')
     console.log(`   Batch ${batchNumber} (processing ${batchSize} users)`)
@@ -634,6 +642,11 @@ serve(async (req) => {
       toDate,
       targetUserIds
     )
+
+    // Add 30s delay between portfolio and creator backfills to respect rate limits
+    // With 60 calls/hour limit (1/min avg), need significant pause between sequence types
+    console.log('⏸️  Waiting 30s before starting creator backfill...')
+    await new Promise(resolve => setTimeout(resolve, 30000))
 
     const creatorStats = await backfillCreatorSequences(
       supabase,

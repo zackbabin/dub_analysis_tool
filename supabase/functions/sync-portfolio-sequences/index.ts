@@ -288,49 +288,61 @@ serve(async (req) => {
       }
 
       // STEP 1: Fetch target user IDs from user_first_copies (populated by sync-first-copy-users)
-      // Only include users with both first_app_open_time and first_copy_time
-      console.log('\n📊 Step 1: Fetching target user IDs from user_first_copies...')
+      // Only use user filtering for initial backfill to avoid rate limits on incremental syncs
+      console.log('\n📊 Step 1: Determining sync strategy...')
       let targetUserIds: string[] = []
       let copyEventsSynced = 0
 
-      try {
-        // Fetch all users with pagination to avoid 1000 row limit
-        let firstCopyUsers: any[] = []
-        let page = 0
-        const PAGE_SIZE = 1000
+      // For incremental syncs, skip user filtering to avoid rate limits
+      // (1-2 days of events without filtering is much faster than 80+ API calls with user filtering)
+      if (syncMode === 'incremental') {
+        console.log('✓ Incremental sync: fetching ALL events in date range (no user filter)')
+        console.log('   This avoids rate limits since we only fetch 1-2 days of recent events')
+        targetUserIds = []  // Empty array means no user filtering
+      } else {
+        // For initial backfill (7 days), use user filtering but expect it to be slow
+        console.log('📦 Initial backfill: fetching events for specific users (will use rate-limited batching)')
 
-        while (true) {
-          const { data: pageData, error: usersError } = await supabase
-            .from('user_first_copies')
-            .select('user_id, first_app_open_time, first_copy_time')
-            .not('first_app_open_time', 'is', null)
-            .not('first_copy_time', 'is', null)
-            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        try {
+          // Fetch all users with pagination to avoid 1000 row limit
+          let firstCopyUsers: any[] = []
+          let page = 0
+          const PAGE_SIZE = 1000
 
-          if (usersError) {
-            throw usersError
+          while (true) {
+            const { data: pageData, error: usersError } = await supabase
+              .from('user_first_copies')
+              .select('user_id, first_app_open_time, first_copy_time')
+              .not('first_app_open_time', 'is', null)
+              .not('first_copy_time', 'is', null)
+              .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+
+            if (usersError) {
+              throw usersError
+            }
+
+            if (!pageData || pageData.length === 0) {
+              break
+            }
+
+            firstCopyUsers = firstCopyUsers.concat(pageData)
+
+            if (pageData.length < PAGE_SIZE) {
+              break  // Last page
+            }
+
+            page++
           }
 
-          if (!pageData || pageData.length === 0) {
-            break
-          }
-
-          firstCopyUsers = firstCopyUsers.concat(pageData)
-
-          if (pageData.length < PAGE_SIZE) {
-            break  // Last page
-          }
-
-          page++
+          targetUserIds = firstCopyUsers.map(u => u.user_id)
+          copyEventsSynced = targetUserIds.length
+          console.log(`✓ Found ${targetUserIds.length} users - will batch into ${Math.ceil(targetUserIds.length / 200)} API calls`)
+          console.log(`⚠️  This will take ~${Math.ceil(targetUserIds.length / 200)} minutes due to rate limiting`)
+        } catch (userError: any) {
+          console.error('⚠️ Failed to fetch user_first_copies:', userError.message)
+          console.log('   Will fetch ALL portfolio view events (no user filter)')
+          targetUserIds = []
         }
-
-        targetUserIds = firstCopyUsers.map(u => u.user_id)
-        copyEventsSynced = targetUserIds.length
-        console.log(`✓ Found ${targetUserIds.length} users with both first_app_open_time and first_copy_time (fetched in ${page + 1} page(s))`)
-      } catch (userError: any) {
-        console.error('⚠️ Failed to fetch user_first_copies:', userError.message)
-        console.log('   Will fetch ALL portfolio view events (no user filter)')
-        // Continue without user filter - fallback to fetching all events
       }
 
       // STEP 2: Fetch portfolio view events - FILTERED to target users if available
@@ -480,10 +492,11 @@ serve(async (req) => {
             totalEventsFetched += result.totalEvents
             console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-            // Add 2s delay between batches to respect Mixpanel rate limits (5 concurrent, 60/hour)
-            // Increased from 500ms to prevent rate limit when sync-creator-sequences runs concurrently
+            // Add delay between batches to respect Mixpanel rate limits (60 calls/hour)
+            // Use 60s for backfill mode (only happens once) to stay under rate limit
             if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
-              await new Promise(resolve => setTimeout(resolve, 2000))
+              console.log('   ⏸️  Waiting 60s between batches to respect rate limits...')
+              await new Promise(resolve => setTimeout(resolve, 60000))
             }
           }
 
