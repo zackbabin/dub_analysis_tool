@@ -142,9 +142,15 @@ async function fetchAndProcessEventsStreaming(
 
   let whereParam = ''
   if (userIds && userIds.length > 0) {
-    const idsArray = JSON.stringify(userIds)
+    // Escape special characters in user IDs and build array
+    const escapedIds = userIds.map(id => JSON.stringify(id))
+    const idsArray = `[${escapedIds.join(',')}]`
     const whereClause = `properties["$user_id"] in ${idsArray}`
     whereParam = `&where=${encodeURIComponent(whereClause)}`
+
+    // Log URL length to help debug
+    const urlLength = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}${whereParam}`.length
+    console.log(`URL length: ${urlLength} bytes`)
   }
 
   const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}${whereParam}`
@@ -295,8 +301,9 @@ async function backfillPortfolioSequences(
   }
 
   // Batch user IDs to avoid URL length limits
-  // Reduced from 500 to 200 - with 18-char user IDs, 500 was exceeding ~8KB URL limit
-  const MAX_USER_IDS_PER_REQUEST = 200
+  // Reduced from 500 to 200, then to 100 to prevent URL malformed errors
+  // With special characters and URL encoding, safer to use smaller batches
+  const MAX_USER_IDS_PER_REQUEST = 100
   let totalEventsFetched = 0
 
   if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {
@@ -392,8 +399,9 @@ async function backfillCreatorSequences(
   }
 
   // Batch user IDs to avoid URL length limits
-  // Reduced from 500 to 200 - with 18-char user IDs, 500 was exceeding ~8KB URL limit
-  const MAX_USER_IDS_PER_REQUEST = 200
+  // Reduced from 500 to 200, then to 100 to prevent URL malformed errors
+  // With special characters and URL encoding, safer to use smaller batches
+  const MAX_USER_IDS_PER_REQUEST = 100
   let totalEventsFetched = 0
 
   if (targetUserIds.length > MAX_USER_IDS_PER_REQUEST) {
