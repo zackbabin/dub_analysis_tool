@@ -137,29 +137,35 @@ async function fetchAndProcessEventsStreaming(
   const { username, secret } = credentials
   const projectId = MIXPANEL_CONFIG.PROJECT_ID
 
-  const eventArray = JSON.stringify(eventNames)
-  const eventParam = `event=${encodeURIComponent(eventArray)}`
+  // Use URLSearchParams for proper encoding
+  const params = new URLSearchParams()
+  params.append('project_id', projectId)
+  params.append('from_date', fromDate)
+  params.append('to_date', toDate)
+  params.append('event', JSON.stringify(eventNames))
 
-  let whereParam = ''
   if (userIds && userIds.length > 0) {
-    // Escape special characters in user IDs and build array
-    const escapedIds = userIds.map(id => JSON.stringify(id))
-    const idsArray = `[${escapedIds.join(',')}]`
-    const whereClause = `properties["$user_id"] in ${idsArray}`
-    whereParam = `&where=${encodeURIComponent(whereClause)}`
+    // Filter out any null/undefined/empty user IDs
+    const validUserIds = userIds.filter(id => id && typeof id === 'string' && id.trim().length > 0)
 
-    // Log URL length to help debug
-    const urlLength = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}${whereParam}`.length
-    console.log(`URL length: ${urlLength} bytes`)
+    if (validUserIds.length === 0) {
+      console.warn('No valid user IDs after filtering')
+    } else {
+      // Build where clause with properly escaped IDs
+      const idsArray = JSON.stringify(validUserIds)
+      const whereClause = `properties["$user_id"] in ${idsArray}`
+      params.append('where', whereClause)
+
+      console.log(`User filter: ${validUserIds.length} user_ids`)
+      console.log(`Sample user IDs: ${validUserIds.slice(0, 3).join(', ')}`)
+    }
   }
 
-  const url = `https://data.mixpanel.com/api/2.0/export?project_id=${projectId}&from_date=${fromDate}&to_date=${toDate}&${eventParam}${whereParam}`
+  const url = `https://data.mixpanel.com/api/2.0/export?${params.toString()}`
+  console.log(`URL length: ${url.length} bytes`)
 
   console.log(`Fetching from Export API: ${fromDate} to ${toDate}`)
   console.log(`Events: ${eventNames.join(', ')}`)
-  if (userIds && userIds.length > 0) {
-    console.log(`User filter: ${userIds.length} user_ids`)
-  }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout for backfill
@@ -179,6 +185,7 @@ async function fetchAndProcessEventsStreaming(
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`Mixpanel Export API error (${response.status}):`, errorText)
+      console.error(`Failed URL: ${url.substring(0, 500)}...`) // Log first 500 chars of URL
       throw new Error(`Mixpanel Export API failed: ${response.status}`)
     }
 
