@@ -24,11 +24,16 @@ AS $$
 DECLARE
   total_converters INT;
 BEGIN
-  -- Get total converter count (only users with both timestamps)
-  SELECT COUNT(DISTINCT user_id) INTO total_converters
-  FROM user_first_copies
-  WHERE first_app_open_time IS NOT NULL
-    AND first_copy_time IS NOT NULL;
+  -- Get total converter count - ONLY users who have portfolio views in the time window
+  SELECT COUNT(DISTINCT ps.user_id) INTO total_converters
+  FROM user_first_copies ufc
+  INNER JOIN portfolio_sequences_raw ps
+    ON ps.user_id = ufc.user_id
+    AND ps.event_time >= ufc.first_app_open_time
+    AND ps.event_time < ufc.first_copy_time
+    AND ps.portfolio_ticker IS NOT NULL
+  WHERE ufc.first_app_open_time IS NOT NULL
+    AND ufc.first_copy_time IS NOT NULL;
 
   RETURN QUERY
   WITH all_converters AS (
@@ -189,11 +194,16 @@ AS $$
 DECLARE
   total_converters INT;
 BEGIN
-  -- Get total converter count (only users with both timestamps)
-  SELECT COUNT(DISTINCT user_id) INTO total_converters
-  FROM user_first_copies
-  WHERE first_app_open_time IS NOT NULL
-    AND first_copy_time IS NOT NULL;
+  -- Get total converter count - ONLY users who have creator views in the time window
+  SELECT COUNT(DISTINCT cs.user_id) INTO total_converters
+  FROM user_first_copies ufc
+  INNER JOIN creator_sequences_raw cs
+    ON cs.user_id = ufc.user_id
+    AND cs.event_time >= ufc.first_app_open_time
+    AND cs.event_time < ufc.first_copy_time
+    AND cs.creator_username IS NOT NULL
+  WHERE ufc.first_app_open_time IS NOT NULL
+    AND ufc.first_copy_time IS NOT NULL;
 
   RETURN QUERY
   WITH all_converters AS (
@@ -348,5 +358,10 @@ BEGIN
   RAISE NOTICE '   - Keeps only occurrence_num = 1 for each ticker/creator per user';
   RAISE NOTICE '   - Example 1: [$BRETTSIMBA, $BRETTSIMBA, $PELOSI] → [$BRETTSIMBA, $PELOSI]';
   RAISE NOTICE '   - Example 2: [$BRETTSIMBA, $PELOSI, $BRETTSIMBA] → [$BRETTSIMBA, $PELOSI]';
+  RAISE NOTICE '';
+  RAISE NOTICE '✅ Fixed total_converters to only count users with views';
+  RAISE NOTICE '   - Portfolio: Counts only users with portfolio views in time window';
+  RAISE NOTICE '   - Creator: Counts only users with creator views in time window';
+  RAISE NOTICE '   - Percentages now accurately reflect share of engaged users';
   RAISE NOTICE '';
 END $$;
