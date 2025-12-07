@@ -476,9 +476,10 @@ serve(async (req) => {
             totalEventsFetched += result.totalEvents
             console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
 
-            // Add 500ms delay between batches to respect Mixpanel rate limits (3 req/sec)
+            // Add 2s delay between batches to respect Mixpanel rate limits (5 concurrent, 60/hour)
+            // Increased from 500ms to prevent rate limit when sync-portfolio-sequences runs concurrently
             if (i + MAX_USER_IDS_PER_REQUEST < targetUserIds.length) {
-              await new Promise(resolve => setTimeout(resolve, 500))
+              await new Promise(resolve => setTimeout(resolve, 2000))
             }
           }
 

@@ -313,7 +313,7 @@ async function backfillPortfolioSequences(
         eventNames,
         batchUserIds,
         processBatch,
-        2500
+        5000  // Increased from 2500 to reduce number of DB writes
       )
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
@@ -328,7 +328,7 @@ async function backfillPortfolioSequences(
       eventNames,
       targetUserIds,
       processBatch,
-      2500
+      5000  // Increased from 2500 to reduce number of DB writes
     )
     totalEventsFetched = result.totalEvents
   }
@@ -406,7 +406,7 @@ async function backfillCreatorSequences(
         eventNames,
         batchUserIds,
         processBatch,
-        2500
+        5000  // Increased from 2500 to reduce number of DB writes
       )
       totalEventsFetched += result.totalEvents
       console.log(`  ✓ Batch fetched ${result.totalEvents} events`)
@@ -421,7 +421,7 @@ async function backfillCreatorSequences(
       eventNames,
       targetUserIds,
       processBatch,
-      2500
+      5000  // Increased from 2500 to reduce number of DB writes
     )
     totalEventsFetched = result.totalEvents
   }
@@ -441,16 +441,17 @@ serve(async (req) => {
     // Parse request body for optional parameters
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
     const batchNumber = body.batch_number || 1  // Which batch to process (1-based)
-    const batchSize = body.batch_size || 2000   // How many users per batch
+    const batchSize = body.batch_size || 1000   // How many users per batch (reduced from 2000 to avoid timeout)
 
     console.log('🔄 Starting historical backfill...')
     console.log(`   Batch ${batchNumber} (processing ${batchSize} users)`)
-    console.log('Step 1: Fetch first copy + first app open times by month')
-    console.log('Step 2: Fetch portfolio + creator view events')
+    console.log('Fetching portfolio + creator view events for existing users')
 
     const projectId = MIXPANEL_CONFIG.PROJECT_ID
 
-    // STEP 1: Fetch user timestamps by month (to avoid 3k segmentation limit)
+    // STEP 1: SKIPPED - User timestamps already exist in user_first_copies table
+    // Commenting out to save ~10 seconds per batch
+    /*
     console.log('\n📊 Step 1: Fetching user timestamps from chart 86612901 (split by month)...')
 
     // Generate monthly date ranges from July 1, 2025 to today
@@ -539,6 +540,10 @@ serve(async (req) => {
     }
 
     console.log(`✅ Upserted ${totalUpserted} users to user_first_copies`)
+    */
+
+    const today = new Date()
+    const totalUpserted = 0 // Set to 0 since we're skipping Step 1
 
     // STEP 2: Fetch events for users with both timestamps
     console.log('\n📊 Step 2: Fetching view events for users with both timestamps...')
@@ -620,7 +625,8 @@ serve(async (req) => {
     const daysDiff = Math.ceil((endDate.getTime() - bufferStart.getTime()) / (24 * 60 * 60 * 1000))
     console.log(`Event date range: ${fromDate} to ${toDate} (${daysDiff} days)`)
 
-    // Execute both backfills
+    // Execute both backfills sequentially to respect Mixpanel rate limits
+    // (5 concurrent API calls max, running in parallel can create 10+ concurrent calls)
     const portfolioStats = await backfillPortfolioSequences(
       supabase,
       credentials,
