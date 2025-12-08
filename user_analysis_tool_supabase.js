@@ -3125,7 +3125,7 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
 /**
  * Display Subscription Conversion Paths
  * Shows combined creator and portfolio viewing patterns before subscription
- * Displays 2 sections: Top Combinations and Most Common Paths
+ * Queries subscription_conversion_paths view (DB combines data)
  */
 UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async function() {
     try {
@@ -3140,66 +3140,25 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
             return;
         }
 
-        // Fetch creator and portfolio subscription path data
-        const [creatorData, portfolioData] = await Promise.all([
-            this.supabaseIntegration.supabase
-                .from('creator_subscription_path_analysis')
-                .select('*')
-                .order('path_rank', { ascending: true }),
-            this.supabaseIntegration.supabase
-                .from('portfolio_subscription_path_analysis')
-                .select('*')
-                .order('path_rank', { ascending: true })
-        ]);
+        // Fetch combined subscription path data from view
+        const { data, error } = await this.supabaseIntegration.supabase
+            .from('subscription_conversion_paths')
+            .select('*')
+            .order('converter_count', { ascending: false });
 
-        if (creatorData.error) {
-            console.error('Error fetching creator subscription paths:', creatorData.error);
+        if (error) {
+            console.error('Error fetching subscription conversion paths:', error);
+            return;
         }
 
-        if (portfolioData.error) {
-            console.error('Error fetching portfolio subscription paths:', portfolioData.error);
-        }
+        console.log(`📊 Fetched ${data?.length || 0} subscription conversion paths from view`);
 
-        const creators = creatorData.data || [];
-        const portfolios = portfolioData.data || [];
-
-        console.log(`📊 Fetched subscription path data:`, {
-            creators: creators.length,
-            portfolios: portfolios.length
-        });
-
-        // Filter data by analysis type
-        const creatorCombinations = creators.filter(r => r.analysis_type === 'creator_combinations');
-        const portfolioCombinations = portfolios.filter(r => r.analysis_type === 'portfolio_combinations');
-        const creatorSequences = creators.filter(r => r.analysis_type === 'full_sequence');
-        const portfolioSequences = portfolios.filter(r => r.analysis_type === 'full_sequence');
-
-        // Combine and merge both creators and portfolios
-        const allCombinations = [
-            ...creatorCombinations.map(c => ({
-                ...c,
-                sequence: c.creator_sequence,
-                type: 'creator'
-            })),
-            ...portfolioCombinations.map(p => ({
-                ...p,
-                sequence: p.portfolio_sequence,
-                type: 'portfolio'
-            }))
-        ].sort((a, b) => b.converter_count - a.converter_count);
-
-        const allSequences = [
-            ...creatorSequences.map(c => ({
-                ...c,
-                sequence: c.creator_sequence,
-                type: 'creator'
-            })),
-            ...portfolioSequences.map(p => ({
-                ...p,
-                sequence: p.portfolio_sequence,
-                type: 'portfolio'
-            }))
-        ].sort((a, b) => b.converter_count - a.converter_count);
+        // Filter by analysis type
+        const combinations = data.filter(r =>
+            r.analysis_type === 'creator_combinations' ||
+            r.analysis_type === 'portfolio_combinations'
+        );
+        const sequences = data.filter(r => r.analysis_type === 'full_sequence');
 
         // Build HTML for the section
         let html = `
@@ -3211,7 +3170,7 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
         `;
 
         // Check if we have any data
-        if (allCombinations.length === 0 && allSequences.length === 0) {
+        if (combinations.length === 0 && sequences.length === 0) {
             html += `
                 <p style="color: #6c757d; padding: 20px; background: #f8f9fa; border-radius: 8px;">
                     No subscription conversion path data available. Run the subscription sequence analysis to generate this data.
@@ -3221,23 +3180,21 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
             // Build 2-column grid layout (equal width)
             html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">`;
 
-            // Top Combinations Section (combined creators + portfolios)
-            if (allCombinations.length > 0) {
+            // Top Creator/Portfolio Combinations Section
+            if (combinations.length > 0) {
                 html += `
                     <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Combinations</h4>
+                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Creator/Portfolio Combinations</h4>
                         <div class="combinations-list">
                 `;
 
-                allCombinations.slice(0, 10).forEach((item, index) => {
+                combinations.slice(0, 10).forEach((item, index) => {
                     const itemSet = item.sequence.join(', ');
-                    const typeLabel = item.type === 'creator' ? '👤' : '📊';
                     const pct = parseFloat(item.pct_of_converters);
 
                     html += `
                         <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                             <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
-                            <span style="min-width: 20px;">${typeLabel}</span>
                             <span style="flex: 2; color: #495057;">${itemSet}</span>
                             <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                         </div>
@@ -3250,23 +3207,21 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
                 `;
             }
 
-            // Most Common Paths Section (combined creators + portfolios)
-            if (allSequences.length > 0) {
+            // Most Common Sequences Section
+            if (sequences.length > 0) {
                 html += `
                     <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Paths</h4>
+                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Sequences</h4>
                         <div class="paths-list">
                 `;
 
-                allSequences.slice(0, 10).forEach((item, index) => {
+                sequences.slice(0, 10).forEach((item, index) => {
                     const pathStr = item.sequence.join(' → ');
-                    const typeLabel = item.type === 'creator' ? '👤' : '📊';
                     const pct = parseFloat(item.pct_of_converters);
 
                     html += `
                         <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
                             <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
-                            <span style="min-width: 20px;">${typeLabel}</span>
                             <span style="flex: 2; color: #495057;">${pathStr}</span>
                             <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
                         </div>
