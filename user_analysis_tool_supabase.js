@@ -3023,6 +3023,7 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
                 <th style="text-align: right;">Correlation</th>
                 <th style="text-align: right;">T-Statistic</th>
                 <th style="text-align: right;">Predictive Strength</th>
+                <th style="text-align: right;">Tipping Point</th>
             </tr>
         `;
         table.appendChild(thead);
@@ -3066,6 +3067,12 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
             strengthSpan.textContent = result.strength;
             strengthCell.appendChild(strengthSpan);
             tr.appendChild(strengthCell);
+
+            // Tipping Point cell
+            const tpCell = document.createElement('td');
+            tpCell.style.textAlign = 'right';
+            tpCell.textContent = row.tipping_point || 'N/A';
+            tr.appendChild(tpCell);
 
             tbody.appendChild(tr);
         });
