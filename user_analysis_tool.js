@@ -956,10 +956,10 @@ function displaySummaryStatsInline(stats) {
 
     const metrics = [
         ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px', null, null],
-        ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to linked bank within 7 days'],
-        ['Deposit Rate', stats.depositRate != null ? `${stats.depositRate.toFixed(1)}%` : 'N/A', '18px', stats.depositRateComparison != null ? `(vs. ${stats.depositRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to deposit funds within 7 days'],
-        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to first copy within 7 days'],
-        ['Subscription Rate', stats.subscriptionRate != null ? `${stats.subscriptionRate.toFixed(1)}%` : 'N/A', '18px', stats.subscriptionRateComparison != null ? `(vs. ${stats.subscriptionRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to premium subscription within 30 days']
+        ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to linked bank within 7 days (last 14 days)'],
+        ['Deposit Rate', stats.depositRate != null ? `${stats.depositRate.toFixed(1)}%` : 'N/A', '18px', stats.depositRateComparison != null ? `(vs. ${stats.depositRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to deposit funds within 7 days (last 14 days)'],
+        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to first copy within 7 days (last 14 days)'],
+        ['Subscription Rate', stats.subscriptionRate != null ? `${stats.subscriptionRate.toFixed(1)}%` : 'N/A', '18px', stats.subscriptionRateComparison != null ? `(vs. ${stats.subscriptionRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to premium subscription within 30 days (last 14 days)']
     ];
 
     metrics.forEach(([title, content, size, subtitle, tooltip]) => {
