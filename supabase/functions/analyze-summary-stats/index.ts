@@ -3,7 +3,8 @@
 // Stores results in summary_stats table
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
-import { fetchInsightsData } from '../_shared/mixpanel-api.ts'
+import { fetchInsightsData, type MixpanelCredentials } from '../_shared/mixpanel-api.ts'
+import { initializeMixpanelCredentials } from '../_shared/sync-helpers.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -341,7 +342,7 @@ function processComprehensiveData(data: MainAnalysisRow[]): CleanedUser[] {
   }))
 }
 
-async function fetchLinkBankRateFromMixpanel(credentials: {projectId: string, username: string, password: string}): Promise<{rate: number, comparison: number}> {
+async function fetchLinkBankRateFromMixpanel(credentials: MixpanelCredentials): Promise<{rate: number, comparison: number}> {
   console.log('→ Fetching Link Bank Rate from Mixpanel chart 84800603...')
 
   try {
@@ -387,7 +388,7 @@ async function fetchLinkBankRateFromMixpanel(credentials: {projectId: string, us
   }
 }
 
-async function fetchDepositRateFromMixpanel(credentials: {projectId: string, username: string, password: string}): Promise<{rate: number, comparison: number}> {
+async function fetchDepositRateFromMixpanel(credentials: MixpanelCredentials): Promise<{rate: number, comparison: number}> {
   console.log('→ Fetching Deposit Rate from Mixpanel chart 84590385...')
 
   try {
@@ -433,7 +434,7 @@ async function fetchDepositRateFromMixpanel(credentials: {projectId: string, use
   }
 }
 
-async function fetchCopyRateFromMixpanel(credentials: {projectId: string, username: string, password: string}): Promise<{rate: number, comparison: number}> {
+async function fetchCopyRateFromMixpanel(credentials: MixpanelCredentials): Promise<{rate: number, comparison: number}> {
   console.log('→ Fetching Copy Rate from Mixpanel chart 85419313...')
 
   try {
@@ -550,11 +551,7 @@ Deno.serve(async (req) => {
     console.log(`   - Core persona: ${summaryStats.personaStats.core.count} (${summaryStats.personaStats.core.percentage.toFixed(2)}%)`)
 
     // Step 3.5: Fetch all conversion rate metrics from Mixpanel funnel charts
-    const mixpanelCredentials = {
-      projectId: Deno.env.get('MIXPANEL_PROJECT_ID') ?? '',
-      username: Deno.env.get('MIXPANEL_SERVICE_ACCOUNT_USERNAME') ?? '',
-      password: Deno.env.get('MIXPANEL_SERVICE_ACCOUNT_SECRET') ?? ''
-    }
+    const mixpanelCredentials = initializeMixpanelCredentials()
 
     // Fetch all three metrics in parallel
     const [linkBankMetrics, depositMetrics, copyMetrics] = await Promise.all([
