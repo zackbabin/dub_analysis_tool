@@ -70,6 +70,9 @@ class CXAnalysis {
             this.supabaseIntegration.invalidateCache();
         }
 
+        // Clear cached timestamp so it gets re-fetched from sync_logs
+        localStorage.removeItem('cxAnalysisLastUpdated');
+
         this.container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6c757d;">Loading...</div>';
         await this.loadAndDisplayResults();
     }
@@ -91,21 +94,28 @@ class CXAnalysis {
         this.container.appendChild(resultsDiv);
 
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Use created_at from the analysis result itself (matches pattern from other tabs)
-        const createdAt = data.created_at ? new Date(data.created_at) : null;
+        // Use sync_logs table to get actual support analysis sync time (consistent with other tabs)
+        // Try to load from cache first for performance
+        let formattedTimestamp = localStorage.getItem('cxAnalysisLastUpdated');
 
-        let formattedTimestamp;
-        if (createdAt) {
-            formattedTimestamp = createdAt.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-        } else {
-            formattedTimestamp = 'Unknown';
+        if (!formattedTimestamp) {
+            // If not cached, fetch from sync_logs
+            const supportSyncTime = await this.supabaseIntegration.getLastSupportAnalysisSyncTime();
+
+            if (supportSyncTime) {
+                formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
+                    month: 'numeric',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+                // Cache the timestamp for future page loads
+                localStorage.setItem('cxAnalysisLastUpdated', formattedTimestamp);
+            } else {
+                formattedTimestamp = 'Never synced';
+            }
         }
 
         // Add timestamp (top right)
