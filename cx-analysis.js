@@ -93,15 +93,20 @@ class CXAnalysis {
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
         // Use sync_logs table to get actual support analysis sync time (consistent with other tabs)
         const supportSyncTime = await this.supabaseIntegration.getLastSupportAnalysisSyncTime();
-        const displayTime = supportSyncTime || new Date(); // Fallback to current time if no sync found
-        const formattedTimestamp = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+
+        let formattedTimestamp;
+        if (supportSyncTime) {
+            formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        } else {
+            formattedTimestamp = 'Never synced';
+        }
 
         // Add timestamp (top right)
         const timestamp = document.createElement('div');
