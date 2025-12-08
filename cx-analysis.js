@@ -91,12 +91,12 @@ class CXAnalysis {
         this.container.appendChild(resultsDiv);
 
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Use sync_logs table to get actual support analysis sync time (consistent with other tabs)
-        const supportSyncTime = await this.supabaseIntegration.getLastSupportAnalysisSyncTime();
+        // Use created_at from the analysis result itself (matches pattern from other tabs)
+        const createdAt = data.created_at ? new Date(data.created_at) : null;
 
         let formattedTimestamp;
-        if (supportSyncTime) {
-            formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
+        if (createdAt) {
+            formattedTimestamp = createdAt.toLocaleString('en-US', {
                 month: 'numeric',
                 day: 'numeric',
                 year: 'numeric',
@@ -105,7 +105,7 @@ class CXAnalysis {
                 hour12: true
             });
         } else {
-            formattedTimestamp = 'Never synced';
+            formattedTimestamp = 'Unknown';
         }
 
         // Add timestamp (top right)
