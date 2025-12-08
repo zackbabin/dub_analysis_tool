@@ -173,7 +173,7 @@ body {
 
 .qda-metric-summary {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-top: 1.5rem;
     margin-bottom: 2rem;
@@ -637,7 +637,7 @@ body {
     }
 
     .qda-metric-summary {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 10px;
     }
 

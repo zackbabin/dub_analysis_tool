@@ -820,13 +820,19 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
 }
 
 // Display helper functions
-function createMetricCard(title, content, size = null, subtitle = null) {
+function createMetricCard(title, content, size = null, subtitle = null, tooltip = null) {
     const card = document.createElement('div');
     card.style.cssText = 'background-color: #f8f9fa; padding: 1rem; border-radius: 8px;';
 
     const titleEl = document.createElement('div');
     titleEl.style.cssText = 'font-size: 0.875rem; color: #2563eb; font-weight: 600; margin-bottom: 0.5rem;';
-    titleEl.textContent = title;
+
+    // Add tooltip if provided
+    if (tooltip) {
+        titleEl.innerHTML = `<span class="info-tooltip">${title}<span class="tooltip-text">${tooltip}</span></span>`;
+    } else {
+        titleEl.textContent = title;
+    }
     card.appendChild(titleEl);
 
     const contentEl = document.createElement('div');
@@ -949,15 +955,15 @@ function displaySummaryStatsInline(stats) {
     metricSummary.className = 'qda-metric-summary';
 
     const metrics = [
-        ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px', null],
-        ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null],
-        ['Deposit Rate', stats.depositRate != null ? `${stats.depositRate.toFixed(1)}%` : 'N/A', '18px', stats.depositRateComparison != null ? `(vs. ${stats.depositRateComparison.toFixed(1)}% prev 4w)` : null],
-        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null],
-        ['Subscription Rate', stats.subscriptionRate != null ? `${stats.subscriptionRate.toFixed(1)}%` : 'N/A', '18px', stats.subscriptionRateComparison != null ? `(vs. ${stats.subscriptionRateComparison.toFixed(1)}% prev 4w)` : null]
+        ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px', null, null],
+        ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to linked bank within 7 days'],
+        ['Deposit Rate', stats.depositRate != null ? `${stats.depositRate.toFixed(1)}%` : 'N/A', '18px', stats.depositRateComparison != null ? `(vs. ${stats.depositRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to deposit funds within 7 days'],
+        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to first copy within 7 days'],
+        ['Subscription Rate', stats.subscriptionRate != null ? `${stats.subscriptionRate.toFixed(1)}%` : 'N/A', '18px', stats.subscriptionRateComparison != null ? `(vs. ${stats.subscriptionRateComparison.toFixed(1)}% prev 4w)` : null, 'Conversion rate from KYC approved to premium subscription within 30 days']
     ];
 
-    metrics.forEach(([title, content, size, subtitle]) => {
-        metricSummary.appendChild(createMetricCard(title, content, size, subtitle));
+    metrics.forEach(([title, content, size, subtitle, tooltip]) => {
+        metricSummary.appendChild(createMetricCard(title, content, size, subtitle, tooltip));
     });
 
     resultSection.appendChild(metricSummary);
