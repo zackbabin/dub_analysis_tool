@@ -1282,6 +1282,56 @@ class SupabaseIntegration {
         });
     }
 
+    /**
+     * Load portfolio subscription conversion paths from database
+     */
+    async loadPortfolioSubscriptionPaths() {
+        return this.cachedQuery('portfolio_subscription_path_analysis', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .from('portfolio_subscription_path_analysis')
+                    .select('*')
+                    .order('analysis_type', { ascending: true })
+                    .order('path_rank', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading portfolio subscription paths:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading portfolio subscription paths:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
+     * Load creator subscription conversion paths from database
+     */
+    async loadCreatorSubscriptionPaths() {
+        return this.cachedQuery('creator_subscription_path_analysis', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .from('creator_subscription_path_analysis')
+                    .select('*')
+                    .order('analysis_type', { ascending: true })
+                    .order('path_rank', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading creator subscription paths:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading creator subscription paths:', error);
+                throw error;
+            }
+        });
+    }
+
 
     /**
      * Trigger Linear issues sync via Edge Function
