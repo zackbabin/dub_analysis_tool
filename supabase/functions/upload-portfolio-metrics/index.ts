@@ -311,8 +311,8 @@ function parsePortfolioMetricsCSV(csvContent: string): any[] {
     const dailyReturnsVal = cols[dailyReturnsValIdx]
     const totalPosition = cols[totalPositionIdx]
 
-    if (!strategyTicker) {
-      console.warn(`Row ${i}: missing strategyTicker, skipping`)
+    if (!strategyTicker || strategyTicker.trim() === '') {
+      console.warn(`Row ${i + 1}: empty strategyticker value, skipping`)
       continue
     }
 
@@ -390,13 +390,13 @@ function parsePortfolioHoldingsCSV(csvContent: string): any[] {
     const minPrice = minPriceIdx !== -1 ? cols[minPriceIdx] : null
     const maxPrice = maxPriceIdx !== -1 ? cols[maxPriceIdx] : null
 
-    if (!strategyTicker) {
-      console.warn(`Row ${i}: missing strategyTicker, skipping`)
+    if (!strategyTicker || strategyTicker.trim() === '') {
+      console.warn(`Row ${i + 1}: empty strategyticker value, skipping`)
       continue
     }
 
-    if (!apexTicker) {
-      console.warn(`Row ${i}: missing apexTicker, skipping`)
+    if (!apexTicker || apexTicker.trim() === '') {
+      console.warn(`Row ${i + 1}: empty apexticker value, skipping`)
       continue
     }
 

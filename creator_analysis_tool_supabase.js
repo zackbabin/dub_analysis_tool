@@ -1175,15 +1175,18 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Loading premium portfolio breakdown
 
             // Query the view - single query with all data pre-joined
+            console.log('Querying portfolio_breakdown_with_metrics view...');
             const { data: portfolioData, error } = await this.supabaseIntegration.supabase
                 .from('portfolio_breakdown_with_metrics')
                 .select('*')
                 .order('total_copies', { ascending: false });
 
             if (error) {
-                console.error('Error loading portfolio breakdown:', error);
+                console.error('❌ Error loading portfolio breakdown view:', error);
+                console.error('Error details:', JSON.stringify(error, null, 2));
                 return;
             }
+            console.log(`✅ Loaded ${portfolioData?.length || 0} records from view`);
 
             // Transform to match expected format
             const formattedData = portfolioData?.map(p => ({
@@ -1201,13 +1204,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
             // Also query portfolio_performance_metrics directly to include uploaded data
             // that doesn't have engagement data yet
-            console.log('Loading additional portfolios from portfolio_performance_metrics...');
+            console.log('Querying portfolio_performance_metrics table...');
             const { data: metricsData, error: metricsError } = await this.supabaseIntegration.supabase
                 .from('portfolio_performance_metrics')
                 .select('*');
 
             if (metricsError) {
-                console.warn('Error loading portfolio_performance_metrics:', metricsError);
+                console.error('❌ Error loading portfolio_performance_metrics:', metricsError);
+                console.error('Error details:', JSON.stringify(metricsError, null, 2));
                 // Continue with just the view data
             } else if (metricsData && metricsData.length > 0) {
                 console.log(`✅ Loaded ${metricsData.length} records from portfolio_performance_metrics`);
@@ -1242,13 +1246,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             this.portfolioBreakdownData = formattedData;
 
             // Fetch all premium creators for the filter dropdown
+            console.log('Querying premium_creators table...');
             const { data: allCreators, error: creatorsError } = await this.supabaseIntegration.supabase
                 .from('premium_creators')
                 .select('creator_username')
                 .order('creator_username', { ascending: true });
 
             if (creatorsError) {
-                console.error('Error loading premium creators:', creatorsError);
+                console.error('❌ Error loading premium creators:', creatorsError);
+                console.error('Error details:', JSON.stringify(creatorsError, null, 2));
                 // Fall back to creators from portfolio data
                 this.allPremiumCreators = [...new Set(formattedData.map(p => p.creator_username))].sort();
             } else {
@@ -1257,9 +1263,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 console.log(`✅ Loaded ${this.allPremiumCreators.length} premium creators for filter`);
             }
 
+            console.log('Calling displayPremiumPortfolioBreakdown with', formattedData.length, 'portfolios...');
             this.displayPremiumPortfolioBreakdown(formattedData);
+            console.log('✅ Portfolio breakdown display complete');
         } catch (error) {
-            console.error('Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
+            console.error('❌ Error in loadAndDisplayPremiumPortfolioBreakdown:', error);
+            console.error('Error stack:', error.stack);
         }
     }
 
@@ -1267,6 +1276,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Display premium portfolio breakdown table with creator filter
      */
     displayPremiumPortfolioBreakdown(portfolioData) {
+        console.log('displayPremiumPortfolioBreakdown called with', portfolioData?.length || 0, 'portfolios');
         const container = document.getElementById('premiumPortfolioBreakdownInline');
         if (!container) {
             console.error('❌ Container premiumPortfolioBreakdownInline not found!');
@@ -1274,9 +1284,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         if (!portfolioData || portfolioData.length === 0) {
+            console.warn('No portfolio data to display');
             container.innerHTML = '';
             return;
         }
+        console.log('✅ Container found, rendering table...');
 
         // Store full data for filtering
         this.portfolioBreakdownData = portfolioData;
