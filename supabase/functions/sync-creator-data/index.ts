@@ -217,6 +217,59 @@ serve(async (req) => {
         } else {
           console.log(`✅ All ${creatorMetricsRows.length} creator metrics unchanged (skipped upsert)`)
         }
+
+        // BACKFILL: Ensure ALL creators from premium_creators have rows in premium_creator_metrics
+        // This handles creators that don't appear in the Mixpanel chart data
+        console.log('Checking for missing creators in premium_creator_metrics...')
+
+        try {
+          // Get all creator_ids from premium_creators that we just upserted
+          const allPremiumCreatorIds = premiumCreatorRows.map(r => r.creator_id)
+
+          // Query which creators already have rows in premium_creator_metrics
+          const { data: existingCreators, error: checkError } = await supabase
+            .from('premium_creator_metrics')
+            .select('creator_id')
+            .in('creator_id', allPremiumCreatorIds)
+
+          if (checkError) {
+            console.warn(`⚠️ Could not check for missing creators:`, checkError.message)
+          } else {
+            const existingCreatorIds = new Set(existingCreators?.map(r => r.creator_id) || [])
+            const missingCreators = premiumCreatorRows.filter(pc => !existingCreatorIds.has(pc.creator_id))
+
+            if (missingCreators.length > 0) {
+              console.log(`📊 Found ${missingCreators.length} creators missing from premium_creator_metrics, inserting with zero values...`)
+
+              // Create rows with zero values for missing creators
+              const backfillRows = missingCreators.map(pc => ({
+                creator_id: pc.creator_id,
+                creator_username: pc.creator_username,
+                total_subscriptions: 0,
+                total_paywall_views: 0,
+                total_stripe_modal_views: 0,
+                total_cancellations: 0,
+                synced_at: syncStartTime.toISOString(),
+              }))
+
+              const { error: backfillError } = await supabase
+                .from('premium_creator_metrics')
+                .insert(backfillRows)
+
+              if (backfillError) {
+                console.error('❌ Error backfilling missing creators:', backfillError)
+                // Don't throw - this is not critical enough to fail the whole sync
+              } else {
+                console.log(`✅ Backfilled ${backfillRows.length} missing creators with zero values`)
+              }
+            } else {
+              console.log(`✅ All ${allPremiumCreatorIds.length} premium creators already present in premium_creator_metrics`)
+            }
+          }
+        } catch (backfillError) {
+          console.warn(`⚠️ Backfill check failed:`, backfillError)
+          // Don't throw - continue with sync
+        }
       }
 
       // Process and upsert portfolio-creator copy metrics with change detection
