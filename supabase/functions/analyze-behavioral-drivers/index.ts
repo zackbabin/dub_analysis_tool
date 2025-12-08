@@ -193,14 +193,44 @@ function calculateTippingPoint(
     groups[value].converted += converted
   })
 
+  const totalGroups = Object.keys(groups).length
+
   // Filter groups (min 10 users, >10% conversion rate)
   const validGroups = Object.entries(groups)
     .filter(([_, stats]) => stats.total >= 10 && (stats.converted / stats.total) > 0.10)
     .map(([value, stats]) => ({
       value: Number(value),
-      rate: stats.converted / stats.total
+      rate: stats.converted / stats.total,
+      total: stats.total,
+      converted: stats.converted
     }))
     .sort((a, b) => a.value - b.value)
+
+  // Log diagnostic info for null tipping points (subscriptions only, to reduce noise)
+  if (validGroups.length < 2 && outcomeField === 'total_subscriptions') {
+    console.log(`   ⚠️ ${variable}: No tipping point (${totalGroups} total groups, ${validGroups.length} valid)`)
+    if (validGroups.length === 1) {
+      console.log(`      Only valid group: value=${validGroups[0].value}, rate=${(validGroups[0].rate * 100).toFixed(1)}%, n=${validGroups[0].total}`)
+    } else if (totalGroups > 0) {
+      // Show why groups were filtered out
+      const allGroupStats = Object.entries(groups)
+        .map(([value, stats]) => ({
+          value: Number(value),
+          total: stats.total,
+          converted: stats.converted,
+          rate: stats.converted / stats.total,
+          passSize: stats.total >= 10,
+          passRate: (stats.converted / stats.total) > 0.10
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 3) // Show top 3 groups by size
+
+      console.log(`      Top groups (by size):`)
+      allGroupStats.forEach(g => {
+        console.log(`        value=${g.value}: n=${g.total} (${g.passSize ? '✓' : '✗'}), rate=${(g.rate * 100).toFixed(1)}% (${g.passRate ? '✓' : '✗'}), converted=${g.converted}`)
+      })
+    }
+  }
 
   if (validGroups.length < 2) return null
 
@@ -214,6 +244,11 @@ function calculateTippingPoint(
       maxJump = jump
       tippingPoint = validGroups[i].value
     }
+  }
+
+  // Log successful tipping points for subscriptions
+  if (tippingPoint !== null && outcomeField === 'total_subscriptions') {
+    console.log(`   ✓ ${variable}: Tipping point at ${tippingPoint} (${validGroups.length} valid groups, max jump=${(maxJump * 100).toFixed(1)}%)`)
   }
 
   return tippingPoint !== null ? tippingPoint.toFixed(1) : null
@@ -332,6 +367,17 @@ Deno.serve(async (req) => {
       INCLUSIONS.total_subscriptions
     )
     console.log(`✓ Calculated ${subscriptionDrivers.length} subscription drivers`)
+
+    // Summary stats for tipping points
+    const tippingPointStats = {
+      total: subscriptionDrivers.length,
+      withTippingPoint: subscriptionDrivers.filter(d => d.tipping_point !== null).length,
+      nullTippingPoint: subscriptionDrivers.filter(d => d.tipping_point === null).length
+    }
+    console.log(`   Tipping Point Summary: ${tippingPointStats.withTippingPoint}/${tippingPointStats.total} have tipping points (${((tippingPointStats.withTippingPoint / tippingPointStats.total) * 100).toFixed(1)}%)`)
+    if (tippingPointStats.nullTippingPoint > 0) {
+      console.log(`   Variables without tipping points: ${subscriptionDrivers.filter(d => d.tipping_point === null).map(d => d.variable_name).join(', ')}`)
+    }
 
     // Clear existing data and insert new results
     const syncedAt = new Date().toISOString()

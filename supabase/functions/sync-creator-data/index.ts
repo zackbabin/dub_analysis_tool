@@ -700,10 +700,12 @@ function processPremiumCreatorsData(data: any): any[] {
  * Extracts creator-level subscription metrics grouped by creatorUsername -> creatorId
  *
  * Data structure:
+ * series -> metric -> creatorUsername -> $overall -> {"all": value}
  * series -> metric -> creatorUsername -> creatorId -> {"all": value}
  *
  * Example:
- * series["A. Total Subscriptions"]["@brettsimba"]["339489349854568448"]["all"] = 121
+ * series["Total Subscriptions (net refunds)"]["@brettsimba"]["$overall"]["all"] = 332
+ * series["A. Total Paywall Views"]["@brettsimba"]["339489349854568448"]["all"] = 5863
  *
  * NOTE: Subscriptions are at the creator USERNAME level, not creator_id level.
  * When a creator has duplicate entries (e.g., @dubAdvisors with both 18-digit ID and non-numeric key),
@@ -736,12 +738,12 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
   console.log('Available metrics:', Object.keys(data.series))
 
   // Extract subscription-level metrics
-  // Updated format uses "Total Subscriptions (net refunds)" for primary metric
+  // Updated format: A. Total Paywall Views, B. Total Stripe Modal Views, Total Subscriptions (net refunds), D. Total Cancellations
   const metrics = {
     subscriptions: data.series['Total Subscriptions (net refunds)'] || data.series['A. Total Subscriptions'] || {},
-    paywallViews: data.series['C. Total Paywall Views'] || data.series['B. Total Paywall Views'] || {},
-    stripeModalViews: data.series['D. Total Stripe Modal Views'] || data.series['C. Total Stripe Modal Views'] || {},
-    cancellations: data.series['E. Total Cancellations'] || data.series['D. Total Cancellations'] || {},
+    paywallViews: data.series['A. Total Paywall Views'] || data.series['C. Total Paywall Views'] || data.series['B. Total Paywall Views'] || {},
+    stripeModalViews: data.series['B. Total Stripe Modal Views'] || data.series['D. Total Stripe Modal Views'] || data.series['C. Total Stripe Modal Views'] || {},
+    cancellations: data.series['D. Total Cancellations'] || data.series['E. Total Cancellations'] || {},
   }
 
   // Use subscriptions as the primary metric to iterate
