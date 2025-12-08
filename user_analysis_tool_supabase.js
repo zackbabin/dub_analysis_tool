@@ -3124,8 +3124,8 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
 
 /**
  * Display Subscription Conversion Paths
- * Shows combined creator and portfolio viewing patterns before subscription
- * Queries subscription_conversion_paths view (DB combines data)
+ * Shows UNIFIED creator + portfolio viewing patterns before subscription
+ * Queries subscription_path_analysis table (DB combines creator & portfolio views by timestamp)
  */
 UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async function() {
     try {
@@ -3140,24 +3140,21 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
             return;
         }
 
-        // Fetch combined subscription path data from view
+        // Fetch unified subscription path data
         const { data, error } = await this.supabaseIntegration.supabase
-            .from('subscription_conversion_paths')
+            .from('subscription_path_analysis')
             .select('*')
             .order('converter_count', { ascending: false });
 
         if (error) {
-            console.error('Error fetching subscription conversion paths:', error);
+            console.error('Error fetching subscription paths:', error);
             return;
         }
 
-        console.log(`📊 Fetched ${data?.length || 0} subscription conversion paths from view`);
+        console.log(`📊 Fetched ${data?.length || 0} unified subscription paths`);
 
         // Filter by analysis type
-        const combinations = data.filter(r =>
-            r.analysis_type === 'creator_combinations' ||
-            r.analysis_type === 'portfolio_combinations'
-        );
+        const combinations = data.filter(r => r.analysis_type === 'combinations');
         const sequences = data.filter(r => r.analysis_type === 'full_sequence');
 
         // Build HTML for the section
@@ -3165,7 +3162,7 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
             <div style="margin-top: 2rem;">
                 <h3 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">Subscription Conversion Paths</h3>
                 <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">
-                    Creator and portfolio viewing patterns before first subscription
+                    Combined creator and portfolio viewing patterns before first subscription
                 </p>
         `;
 
@@ -3188,8 +3185,8 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
                         <div class="combinations-list">
                 `;
 
-                combinations.slice(0, 10).forEach((item, index) => {
-                    const itemSet = item.sequence.join(', ');
+                combinations.forEach((item, index) => {
+                    const itemSet = item.view_sequence.join(', ');
                     const pct = parseFloat(item.pct_of_converters);
 
                     html += `
@@ -3215,8 +3212,8 @@ UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async fu
                         <div class="paths-list">
                 `;
 
-                sequences.slice(0, 10).forEach((item, index) => {
-                    const pathStr = item.sequence.join(' → ');
+                sequences.forEach((item, index) => {
+                    const pathStr = item.view_sequence.join(' → ');
                     const pct = parseFloat(item.pct_of_converters);
 
                     html += `
