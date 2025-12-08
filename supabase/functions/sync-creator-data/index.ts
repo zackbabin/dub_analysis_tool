@@ -777,7 +777,8 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
   // Create username -> creator_id lookup from premium creators list
   const usernameToCreatorId = new Map<string, string>()
   for (const creator of premiumCreators) {
-    if (creator.creator_username && creator.creator_id && creator.creator_id.length >= 18) {
+    // Accept creator_ids of any length (some are 17 digits like @yt: 75713444877340672)
+    if (creator.creator_username && creator.creator_id) {
       usernameToCreatorId.set(creator.creator_username, creator.creator_id)
     }
   }
