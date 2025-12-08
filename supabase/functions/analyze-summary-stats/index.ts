@@ -3,6 +3,7 @@
 // Stores results in summary_stats table
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
+import { fetchInsightsData } from '../_shared/mixpanel-api.ts'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -59,6 +60,8 @@ interface MainAnalysisRow {
 interface SummaryStats {
   totalUsers: number
   linkBankConversion: number
+  linkBankRate: number // NEW: Average of most recent 2 weeks from Mixpanel funnel chart
+  linkBankRateComparison: number // NEW: Average of previous 4 weeks for comparison
   firstCopyConversion: number
   depositConversion: number
   subscriptionConversion: number
@@ -334,6 +337,52 @@ function processComprehensiveData(data: MainAnalysisRow[]): CleanedUser[] {
   }))
 }
 
+async function fetchLinkBankRateFromMixpanel(credentials: {projectId: string, username: string, password: string}): Promise<{rate: number, comparison: number}> {
+  console.log('→ Fetching Link Bank Rate from Mixpanel chart 84800603...')
+
+  try {
+    // Fetch funnel data from Mixpanel Insights API
+    const chartData = await fetchInsightsData(credentials, '84800603', 'Link Bank Funnel')
+
+    // Parse the response to get weekly conversion rates
+    const series = chartData?.series?.['KYC Approved -> Linked Bank']
+
+    if (!series) {
+      console.warn('⚠ No series data found in Mixpanel response, using fallback value')
+      return { rate: 0, comparison: 0 }
+    }
+
+    // Convert series object to sorted array of [date, rate] pairs
+    const dataPoints: [string, number][] = Object.entries(series)
+      .map(([date, rate]) => [date, rate as number])
+      .sort((a, b) => a[0].localeCompare(b[0])) // Sort by date ascending
+
+    if (dataPoints.length < 6) {
+      console.warn('⚠ Not enough data points for Link Bank Rate calculation')
+      return { rate: 0, comparison: 0 }
+    }
+
+    // Get most recent 2 weeks (last 2 data points)
+    const recent2Weeks = dataPoints.slice(-2)
+    const recent2Average = recent2Weeks.reduce((sum, [_, rate]) => sum + rate, 0) / recent2Weeks.length
+
+    // Get previous 4 weeks (data points at indices -6 to -3, i.e., 4 weeks before the most recent 2)
+    const previous4Weeks = dataPoints.slice(-6, -2)
+    const previous4Average = previous4Weeks.reduce((sum, [_, rate]) => sum + rate, 0) / previous4Weeks.length
+
+    console.log(`✅ Link Bank Rate: ${(recent2Average * 100).toFixed(1)}% (vs. ${(previous4Average * 100).toFixed(1)}% prev 4w)`)
+
+    return {
+      rate: recent2Average * 100, // Convert to percentage
+      comparison: previous4Average * 100 // Convert to percentage
+    }
+  } catch (error) {
+    console.error('❌ Failed to fetch Link Bank Rate from Mixpanel:', error)
+    console.warn('Using fallback value of 0 for Link Bank Rate')
+    return { rate: 0, comparison: 0 }
+  }
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -403,6 +452,18 @@ Deno.serve(async (req) => {
     console.log(`   - Subscription conversion: ${summaryStats.subscriptionConversion.toFixed(2)}%`)
     console.log(`   - Premium persona: ${summaryStats.personaStats.premium.count} (${summaryStats.personaStats.premium.percentage.toFixed(2)}%)`)
     console.log(`   - Core persona: ${summaryStats.personaStats.core.count} (${summaryStats.personaStats.core.percentage.toFixed(2)}%)`)
+
+    // Step 3.5: Fetch Link Bank Rate from Mixpanel funnel chart
+    const mixpanelCredentials = {
+      projectId: Deno.env.get('MIXPANEL_PROJECT_ID') ?? '',
+      username: Deno.env.get('MIXPANEL_SERVICE_ACCOUNT_USERNAME') ?? '',
+      password: Deno.env.get('MIXPANEL_SERVICE_ACCOUNT_SECRET') ?? ''
+    }
+    const linkBankMetrics = await fetchLinkBankRateFromMixpanel(mixpanelCredentials)
+
+    // Add Link Bank Rate metrics to summary stats
+    summaryStats.linkBankRate = linkBankMetrics.rate
+    summaryStats.linkBankRateComparison = linkBankMetrics.comparison
 
     // Step 4: Store results in summary_stats table
     console.log('→ Storing results in summary_stats table...')

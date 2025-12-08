@@ -820,7 +820,7 @@ function performQuantitativeAnalysis(jsonData, portfolioData = null, creatorData
 }
 
 // Display helper functions
-function createMetricCard(title, content, size = null) {
+function createMetricCard(title, content, size = null, subtitle = null) {
     const card = document.createElement('div');
     card.style.cssText = 'background-color: #f8f9fa; padding: 1rem; border-radius: 8px;';
 
@@ -833,6 +833,14 @@ function createMetricCard(title, content, size = null) {
     contentEl.style.cssText = 'font-size: 1.5rem; font-weight: bold;';
     contentEl.textContent = content;
     card.appendChild(contentEl);
+
+    // Add optional subtitle (for comparison text, etc.)
+    if (subtitle) {
+        const subtitleEl = document.createElement('div');
+        subtitleEl.style.cssText = 'font-size: 0.75rem; color: #6c757d; margin-top: 0.25rem;';
+        subtitleEl.textContent = subtitle;
+        card.appendChild(subtitleEl);
+    }
 
     return card;
 }
@@ -941,14 +949,14 @@ function displaySummaryStatsInline(stats) {
     metricSummary.className = 'qda-metric-summary';
 
     const metrics = [
-        ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px'],
-        ['Link Bank Rate', stats.linkBankConversion != null ? `${stats.linkBankConversion.toFixed(1)}%` : 'N/A', '18px'],
-        ['Deposit Rate', stats.depositConversion != null ? `${stats.depositConversion.toFixed(1)}%` : 'N/A', '18px'],
-        ['Copy Rate', stats.firstCopyConversion != null ? `${stats.firstCopyConversion.toFixed(1)}%` : 'N/A', '18px']
+        ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px', null],
+        ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null],
+        ['Deposit Rate', stats.depositConversion != null ? `${stats.depositConversion.toFixed(1)}%` : 'N/A', '18px', null],
+        ['Copy Rate', stats.firstCopyConversion != null ? `${stats.firstCopyConversion.toFixed(1)}%` : 'N/A', '18px', null]
     ];
 
-    metrics.forEach(([title, content, size]) => {
-        metricSummary.appendChild(createMetricCard(title, content, size));
+    metrics.forEach(([title, content, size, subtitle]) => {
+        metricSummary.appendChild(createMetricCard(title, content, size, subtitle));
     });
 
     resultSection.appendChild(metricSummary);
