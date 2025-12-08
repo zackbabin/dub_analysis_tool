@@ -123,14 +123,36 @@ serve(async (req) => {
           continue
         }
 
+        // Extract first app open time (nested under first subscription time)
+        let firstAppOpenTime: string | null = null
+        const firstSubscriptionData = (userIdData as Record<string, any>)[firstSubscriptionTime]
+
+        if (firstSubscriptionData && typeof firstSubscriptionData === 'object') {
+          const appOpenTimestamps = Object.keys(firstSubscriptionData).filter(k => k !== '$overall')
+          if (appOpenTimestamps.length > 0) {
+            const appOpenTimeStr = appOpenTimestamps[0]
+            try {
+              const appOpenDate = new Date(appOpenTimeStr)
+              if (!isNaN(appOpenDate.getTime())) {
+                firstAppOpenTime = appOpenDate.toISOString()
+              }
+            } catch (error) {
+              // Keep as null if invalid
+            }
+          }
+        }
+
         subscriptionRows.push({
           user_id: userId,
           first_subscription_time: subscriptionDate.toISOString(),
+          first_app_open_time: firstAppOpenTime
         })
         processedCount++
       }
 
+      const rowsWithBothTimestamps = subscriptionRows.filter(row => row.first_app_open_time !== null).length
       console.log(`✅ Processed ${processedCount} subscription records (${skippedCount} skipped)`)
+      console.log(`✓ ${rowsWithBothTimestamps} users have both first_subscription_time and first_app_open_time`)
 
       if (subscriptionRows.length === 0) {
         throw new Error('No valid subscription records found in chart data')
