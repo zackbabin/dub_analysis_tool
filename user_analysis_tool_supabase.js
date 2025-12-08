@@ -475,23 +475,42 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         return { success: false, error: error.message };
                     }
                 })(),
-                // Event sequence workflow (Portfolio + Creator - 3 steps: Sync first copies → Sync both → Analyze both)
+                // Event sequence workflow (Portfolio + Creator + Subscriptions - 3 steps: Sync first events → Sync sequences → Analyze sequences)
                 (async () => {
-                    console.log('→ 5c: Event Sequences (Portfolio + Creator)');
+                    console.log('→ 5c: Event Sequences (Portfolio + Creator + Subscriptions)');
                     try {
-                        // Step 1: Sync first copy users (prerequisite for portfolio & creator syncs)
-                        console.log('  → Step 1: Syncing first copy users from Mixpanel chart 86612901');
-                        let firstCopyResult = null;
-                        try {
-                            firstCopyResult = await this.supabaseIntegration.triggerFirstCopyUsersSync();
-                            if (firstCopyResult?.success) {
-                                console.log(`    ✓ First copy users: ${firstCopyResult.stats?.usersSynced || 0} users synced`);
-                            } else {
-                                console.warn('    ⚠ First copy sync failed, will use existing data');
-                            }
-                        } catch (error) {
-                            console.warn('    ⚠ First copy sync error, will use existing data:', error.message);
-                        }
+                        // Step 1: Sync first copy users AND first subscription users in parallel
+                        console.log('  → Step 1: Syncing first copy users + first subscription users (parallel)');
+                        const [firstCopyResult, firstSubscriptionResult] = await Promise.all([
+                            (async () => {
+                                try {
+                                    const result = await this.supabaseIntegration.triggerFirstCopyUsersSync();
+                                    if (result?.success) {
+                                        console.log(`    ✓ First copy users: ${result.stats?.usersSynced || 0} users synced`);
+                                    } else {
+                                        console.warn('    ⚠ First copy sync failed, will use existing data');
+                                    }
+                                    return result;
+                                } catch (error) {
+                                    console.warn('    ⚠ First copy sync error, will use existing data:', error.message);
+                                    return { success: false, error: error.message };
+                                }
+                            })(),
+                            (async () => {
+                                try {
+                                    const result = await this.supabaseIntegration.triggerFirstSubscriptionUsersSync();
+                                    if (result?.success) {
+                                        console.log(`    ✓ First subscription users: ${result.stats?.total_users || 0} users synced`);
+                                    } else {
+                                        console.warn('    ⚠ First subscription sync failed, will use existing data');
+                                    }
+                                    return result;
+                                } catch (error) {
+                                    console.warn('    ⚠ First subscription sync error, will use existing data:', error.message);
+                                    return { success: false, error: error.message };
+                                }
+                            })()
+                        ]);
 
                         // Step 2: Sync both portfolio and creator events in parallel (after first copies)
                         console.log('  → Step 2: Syncing portfolio views + creator profile views (parallel)');
@@ -512,11 +531,25 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator sync failed, using existing data');
                         }
 
-                        // Step 3: Analyze both portfolio and creator patterns in parallel (only after syncs complete)
-                        console.log('  → Step 3: Analyzing both with SQL (parallel)');
-                        const [portfolioAnalysisResult, creatorAnalysisResult] = await Promise.all([
+                        // Step 3: Analyze portfolio, creator, and subscription patterns in parallel (only after syncs complete)
+                        console.log('  → Step 3: Analyzing portfolio + creator + subscription patterns with SQL (parallel)');
+                        const [portfolioAnalysisResult, creatorAnalysisResult, subscriptionAnalysisResult] = await Promise.all([
                             this.supabaseIntegration.triggerPortfolioSequencesAnalysis('copies'),
-                            this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies')
+                            this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies'),
+                            (async () => {
+                                try {
+                                    const result = await this.supabaseIntegration.triggerSubscriptionSequencesAnalysis();
+                                    if (result?.success) {
+                                        console.log('    ✓ Subscription analysis complete');
+                                    } else {
+                                        console.warn('    ⚠ Subscription analysis failed');
+                                    }
+                                    return result;
+                                } catch (error) {
+                                    console.warn('    ⚠ Subscription analysis error:', error.message);
+                                    return { success: false, error: error.message };
+                                }
+                            })()
                         ]);
 
                         if (portfolioAnalysisResult?.success) {
@@ -531,7 +564,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator analysis failed');
                         }
 
-                        console.log('✅ 5c: Event Sequences (Portfolio + Creator) - Complete');
+                        console.log('✅ 5c: Event Sequences (Portfolio + Creator + Subscriptions) - Complete');
                         return { success: true };
                     } catch (error) {
                         console.warn('⚠ 5c: Event Sequences - Failed, continuing');

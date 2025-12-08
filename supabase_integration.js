@@ -1177,6 +1177,66 @@ class SupabaseIntegration {
         }
     }
 
+    /**
+     * Trigger first subscription users sync via Supabase Edge Function
+     * Fetches subscription events from Mixpanel chart 87078016
+     * Populates user_first_subscriptions table
+     */
+    async triggerFirstSubscriptionUsersSync() {
+        console.log('Triggering first subscription users sync from Mixpanel chart 87078016...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('sync-first-subscription-users', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                return { success: false, error: error.message };
+            }
+
+            if (!data.success) {
+                console.error('Sync failed:', data.error);
+                return { success: false, error: data.error || 'Unknown error during first subscription users sync' };
+            }
+
+            console.log('✅ First subscription users sync completed successfully:', data.stats);
+            return data;
+        } catch (error) {
+            console.error('Error calling first subscription users sync Edge Function:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Trigger subscription sequence analysis via Supabase Edge Function
+     * Analyzes creator and portfolio viewing patterns before first subscription
+     */
+    async triggerSubscriptionSequencesAnalysis() {
+        console.log('Triggering subscription sequences analysis...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('analyze-subscription-sequences', {
+                body: {}
+            });
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Subscription sequences analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during subscription sequences analysis');
+            }
+
+            console.log('✅ Subscription sequences analysis completed:', data);
+            return data;
+        } catch (error) {
+            console.error('Error calling subscription sequences analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
 
     /**
      * Load copy conversion analysis data
