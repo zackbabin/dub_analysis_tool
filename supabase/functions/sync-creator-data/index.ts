@@ -21,9 +21,9 @@ import {
 
 // Mixpanel Chart IDs
 const CHART_IDS = {
-  premiumCreators: '85725073',  // Premium Creators list (creators with subscription products)
-  premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations)
+  premiumCreatorSubscriptionMetrics: '85821646',  // Premium Creator Subscription Metrics (creator-level: subscriptions, paywall views, stripe modal views, cancellations) - also source of premium_creators list
   portfolioCreatorCopyMetrics: '86055000',  // Portfolio-Creator Copy/Liquidation aggregates (not user-level)
+  // Note: Chart 85725073 (old Premium Creators list) is no longer used - was incomplete, now extract from chart 85821646
   // Note: Chart 85810770 (Portfolio Metrics) is no longer used - all portfolio metrics aggregated from user_portfolio_creator_engagement
   // Note: Chart 85130412 (Creator User Profiles) is no longer used - creators_insights table was removed due to timeouts and unused data
 }
@@ -57,20 +57,20 @@ serve(async (req) => {
     const syncLogId = syncLog.id
 
     try {
-      let premiumCreatorsData, userProfileData, subscriptionMetricsData, portfolioCreatorCopyMetricsData
+      let subscriptionMetricsData, portfolioCreatorCopyMetricsData
 
       try {
-        // Fetch premium creators list from Mixpanel
-        console.log(`Fetching premium creators from Mixpanel chart ${CHART_IDS.premiumCreators}...`)
-        premiumCreatorsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreators, 'Premium Creators')
+        // Note: Premium creators list is now extracted from subscription metrics chart (85821646)
+        // Chart 85725073 (old premium creators list) was incomplete and missing creators
 
         // User profile data is no longer fetched - creators_insights table was removed
-        userProfileData = null
+        // userProfileData = null
 
         // Note: Portfolio metrics (PDP views, copies, liquidations) are now aggregated from user-level data
         // No need to fetch chart 85810770 - premium_creator_portfolio_metrics table is deprecated
 
         // Fetch premium creator subscription metrics from Mixpanel (creator-level)
+        // This is the source of truth for BOTH premium_creators and premium_creator_metrics
         console.log(`Fetching premium creator subscription metrics from Mixpanel chart ${CHART_IDS.premiumCreatorSubscriptionMetrics}...`)
         subscriptionMetricsData = await fetchInsightsData(credentials, CHART_IDS.premiumCreatorSubscriptionMetrics, 'Premium Creator Subscription Metrics')
 
@@ -103,10 +103,11 @@ serve(async (req) => {
         premiumPortfolioMetricsCount: 0, // Deprecated but keeping for backwards compatibility
       }
 
-      // Process premium creators data
-      const premiumCreatorRows = processPremiumCreatorsData(premiumCreatorsData)
+      // Extract premium creators list from subscription metrics chart
+      // This is the source of truth - if a creator has subscription metrics, they're a premium creator
+      const premiumCreatorRows = extractPremiumCreatorsFromSubscriptionMetrics(subscriptionMetricsData)
       stats.premiumCreatorsCount = premiumCreatorRows.length
-      console.log(`Processed ${premiumCreatorRows.length} premium creators`)
+      console.log(`Extracted ${premiumCreatorRows.length} premium creators from subscription metrics`)
 
       // Store premium creators in database
       if (premiumCreatorRows.length > 0) {
@@ -587,8 +588,110 @@ function parseValue(val: string): number | null {
 }
 
 /**
- * Process premium creators data from Mixpanel
- * Extracts creator_id and creator_username from the nested chart response
+ * Extract premium creators list from subscription metrics chart (85821646)
+ * This is now the source of truth - if a creator appears in subscription metrics, they're a premium creator
+ * Handles username normalization (e.g., "@ MyTechCEO" -> "@MyTechCEO") and multiple creator_ids per username
+ */
+function extractPremiumCreatorsFromSubscriptionMetrics(data: any): any[] {
+  if (!data || !data.series) {
+    console.log('No subscription metrics data')
+    return []
+  }
+
+  const rows: any[] = []
+  const now = new Date().toISOString()
+
+  console.log('Extracting premium creators from subscription metrics chart...')
+
+  // Extract subscription-level metrics
+  const metrics = {
+    subscriptions: data.series['Total Subscriptions (net refunds)'] || data.series['A. Total Subscriptions'] || {},
+    paywallViews: data.series['A. Total Paywall Views'] || data.series['C. Total Paywall Views'] || data.series['B. Total Paywall Views'] || {},
+    stripeModalViews: data.series['B. Total Stripe Modal Views'] || data.series['D. Total Stripe Modal Views'] || data.series['C. Total Stripe Modal Views'] || {},
+    cancellations: data.series['D. Total Cancellations'] || data.series['E. Total Cancellations'] || {},
+  }
+
+  // Collect all unique creator usernames from ALL metrics
+  // Normalize usernames by trimming spaces (e.g., "@ MyTechCEO" -> "@MyTechCEO")
+  const normalizedToOriginalKeys = new Map<string, string[]>()
+  const allCreatorUsernames = new Set<string>()
+
+  for (const metricData of Object.values(metrics)) {
+    for (const username of Object.keys(metricData)) {
+      if (username !== '$overall') {
+        // Normalize: trim spaces and remove any extra whitespace
+        const normalizedUsername = username.trim().replace(/\s+/g, '')
+        allCreatorUsernames.add(normalizedUsername)
+
+        // Track original keys for this normalized username (for merging)
+        if (!normalizedToOriginalKeys.has(normalizedUsername)) {
+          normalizedToOriginalKeys.set(normalizedUsername, [])
+        }
+        if (!normalizedToOriginalKeys.get(normalizedUsername)!.includes(username)) {
+          normalizedToOriginalKeys.get(normalizedUsername)!.push(username)
+        }
+      }
+    }
+  }
+
+  console.log(`Found ${allCreatorUsernames.size} unique creators in subscription metrics (after normalization)`)
+
+  // Log any usernames that had variants merged
+  for (const [normalized, originals] of normalizedToOriginalKeys.entries()) {
+    if (originals.length > 1) {
+      console.log(`ℹ️ Merged username variants for ${normalized}: [${originals.join(', ')}]`)
+    }
+  }
+
+  // For each normalized username, extract creator_id(s)
+  for (const normalizedUsername of allCreatorUsernames) {
+    const originalVariants = normalizedToOriginalKeys.get(normalizedUsername) || [normalizedUsername]
+    const creatorIds: string[] = []
+
+    // Extract creator_ids from all metrics and all username variants
+    for (const variant of originalVariants) {
+      for (const metricData of Object.values(metrics)) {
+        const variantData = metricData[variant]
+        if (!variantData || typeof variantData !== 'object') continue
+
+        for (const key of Object.keys(variantData)) {
+          // Extract numeric creator_ids (17+ digits)
+          if (key !== '$overall' && /^\d{17,}$/.test(key) && !creatorIds.includes(key)) {
+            creatorIds.push(key)
+          }
+        }
+      }
+    }
+
+    if (creatorIds.length === 0) {
+      console.warn(`⚠️ Skipping ${normalizedUsername} - no valid creator_id found in chart data`)
+      continue
+    }
+
+    // Select single creator_id (prefer longer IDs)
+    const selectedCreatorId = creatorIds.reduce((longest, current) =>
+      current.length > longest.length ? current : longest
+    )
+
+    rows.push({
+      creator_id: selectedCreatorId,
+      creator_username: normalizedUsername,
+      synced_at: now,
+    })
+
+    if (creatorIds.length > 1) {
+      console.log(`ℹ️ Creator ${normalizedUsername} has ${creatorIds.length} creator_ids [${creatorIds.join(', ')}] - using ${selectedCreatorId}`)
+    }
+  }
+
+  console.log(`Extracted ${rows.length} premium creators from subscription metrics`)
+  return rows
+}
+
+/**
+ * DEPRECATED: Process premium creators data from Mixpanel chart 85725073
+ * Now using extractPremiumCreatorsFromSubscriptionMetrics() instead
+ * Keeping this function for reference but it's no longer called
  */
 function processPremiumCreatorsData(data: any): any[] {
   if (!data || !data.series) {
@@ -801,16 +904,37 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
   }
 
   // Collect all unique creator usernames from ALL metrics (not just subscriptions)
+  // Normalize usernames by trimming spaces (e.g., "@ MyTechCEO" -> "@MyTechCEO")
+  // Build mapping from normalized username -> array of original keys (for merging variants)
+  const normalizedToOriginalKeys = new Map<string, string[]>()
   const allCreatorUsernames = new Set<string>()
+
   for (const metricData of Object.values(metrics)) {
     for (const username of Object.keys(metricData)) {
       if (username !== '$overall') {
-        allCreatorUsernames.add(username)
+        // Normalize: trim spaces and remove any extra whitespace
+        const normalizedUsername = username.trim().replace(/\s+/g, '')
+        allCreatorUsernames.add(normalizedUsername)
+
+        // Track original keys for this normalized username (for merging)
+        if (!normalizedToOriginalKeys.has(normalizedUsername)) {
+          normalizedToOriginalKeys.set(normalizedUsername, [])
+        }
+        if (!normalizedToOriginalKeys.get(normalizedUsername)!.includes(username)) {
+          normalizedToOriginalKeys.get(normalizedUsername)!.push(username)
+        }
       }
     }
   }
 
-  console.log(`Found ${allCreatorUsernames.size} unique creator usernames across all metrics`)
+  console.log(`Found ${allCreatorUsernames.size} unique creator usernames across all metrics (after normalization)`)
+
+  // Log any usernames that had variants merged
+  for (const [normalized, originals] of normalizedToOriginalKeys.entries()) {
+    if (originals.length > 1) {
+      console.log(`ℹ️ Merged username variants for ${normalized}: [${originals.join(', ')}]`)
+    }
+  }
 
   // First pass: aggregate metrics at username level
   const usernameMetrics = new Map<string, {
@@ -822,9 +946,9 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
   }>()
 
   // Iterate through all creator usernames found in any metric
-  for (const creatorUsername of allCreatorUsernames) {
-    // Get username data from subscriptions metric (if exists) to extract creator_ids
-    const usernameData = metrics.subscriptions[creatorUsername]
+  for (const normalizedUsername of allCreatorUsernames) {
+    // Get all original username variants for this normalized username (for merging)
+    const originalVariants = normalizedToOriginalKeys.get(normalizedUsername) || [normalizedUsername]
 
     const creatorIds: string[] = []
     const nonNumericKeys: string[] = []
@@ -833,29 +957,41 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
     let totalStripeModalViews = 0
     let totalCancellations = 0
 
-    // Extract metrics helper function
+    // Extract metrics helper function that sums across all username variants
     const getMetricValue = (metricData: any, creatorId: string): number => {
       try {
-        const value = metricData?.[creatorUsername]?.[creatorId]
-        if (!value) return 0
-
-        // Handle both object format {"all": 123} and direct number format
-        if (typeof value === 'object' && value !== null && 'all' in value) {
-          return parseInt(String(value.all)) || 0
+        let sum = 0
+        // Sum metrics across all original username variants
+        for (const variant of originalVariants) {
+          const value = metricData?.[variant]?.[creatorId]
+          if (value) {
+            // Handle both object format {"all": 123} and direct number format
+            if (typeof value === 'object' && value !== null && 'all' in value) {
+              sum += parseInt(String(value.all)) || 0
+            } else {
+              sum += parseInt(String(value)) || 0
+            }
+          }
         }
-
-        return parseInt(String(value)) || 0
+        return sum
       } catch {
         return 0
       }
     }
 
-    // Check if there's an $overall value in ANY metric for this username (preferred approach)
-    const hasOverall =
-      metrics.subscriptions[creatorUsername]?.['$overall'] ||
-      metrics.paywallViews[creatorUsername]?.['$overall'] ||
-      metrics.stripeModalViews[creatorUsername]?.['$overall'] ||
-      metrics.cancellations[creatorUsername]?.['$overall']
+    // Check if there's an $overall value in ANY metric for ANY username variant (preferred approach)
+    let hasOverall = false
+    for (const variant of originalVariants) {
+      if (
+        metrics.subscriptions[variant]?.['$overall'] ||
+        metrics.paywallViews[variant]?.['$overall'] ||
+        metrics.stripeModalViews[variant]?.['$overall'] ||
+        metrics.cancellations[variant]?.['$overall']
+      ) {
+        hasOverall = true
+        break
+      }
+    }
 
     if (hasOverall) {
       // Use $overall values directly - this is the correct total for each metric
@@ -864,66 +1000,87 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       totalStripeModalViews = getMetricValue(metrics.stripeModalViews, '$overall')
       totalCancellations = getMetricValue(metrics.cancellations, '$overall')
 
-      // Find creator_ids from any metric that has data for this username
-      const dataSourcesForIds = [usernameData, metrics.paywallViews[creatorUsername], metrics.stripeModalViews[creatorUsername], metrics.cancellations[creatorUsername]]
+      // Find creator_ids from any metric that has data for ANY username variant
+      const dataSourcesForIds: any[] = []
+      for (const variant of originalVariants) {
+        dataSourcesForIds.push(
+          metrics.subscriptions[variant],
+          metrics.paywallViews[variant],
+          metrics.stripeModalViews[variant],
+          metrics.cancellations[variant]
+        )
+      }
+
       for (const dataSource of dataSourcesForIds) {
         if (!dataSource || typeof dataSource !== 'object') continue
         for (const [creatorId, creatorIdData] of Object.entries(dataSource)) {
           if (creatorId === '$overall') continue
-          if (/^\d{18}$/.test(creatorId) && !creatorIds.includes(creatorId)) {
+          if (/^\d{17,}$/.test(creatorId) && !creatorIds.includes(creatorId)) {
             creatorIds.push(creatorId)
           } else if (creatorId !== '$overall' && !nonNumericKeys.includes(creatorId)) {
             nonNumericKeys.push(creatorId)
           }
         }
       }
-    } else if (usernameData && typeof usernameData === 'object') {
+    } else {
       // Fallback: sum individual creator_ids if no $overall exists (old data format)
-      for (const [creatorId, creatorIdData] of Object.entries(usernameData)) {
-        if (creatorId === '$overall') continue
-        if (typeof creatorIdData !== 'object') continue
+      // Check all username variants
+      for (const variant of originalVariants) {
+        const variantData = metrics.subscriptions[variant]
+        if (!variantData || typeof variantData !== 'object') continue
 
-        // Check if this is a valid 18-digit creator_id
-        if (/^\d{18}$/.test(creatorId)) {
-          creatorIds.push(creatorId)
+        for (const [creatorId, creatorIdData] of Object.entries(variantData)) {
+          if (creatorId === '$overall') continue
+          if (typeof creatorIdData !== 'object') continue
 
-          // Sum metrics across all creator_ids (combine duplicates like @dubAdvisors)
-          totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
-          totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
-          totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
-          totalCancellations += getMetricValue(metrics.cancellations, creatorId)
-        } else {
-          // Track non-numeric keys - might still have metrics
-          nonNumericKeys.push(creatorId)
+          // Check if this is a valid creator_id (17+ digits)
+          if (/^\d{17,}$/.test(creatorId)) {
+            if (!creatorIds.includes(creatorId)) {
+              creatorIds.push(creatorId)
+            }
 
-          // Sum metrics even from non-numeric keys (combine duplicates)
-          totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
-          totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
-          totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
-          totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+            // Sum metrics across all creator_ids (combine duplicates like @dubAdvisors)
+            totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+            totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+            totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+            totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+          } else {
+            // Track non-numeric keys - might still have metrics
+            if (!nonNumericKeys.includes(creatorId)) {
+              nonNumericKeys.push(creatorId)
+            }
+
+            // Sum metrics even from non-numeric keys (combine duplicates)
+            totalSubscriptions += getMetricValue(metrics.subscriptions, creatorId)
+            totalPaywallViews += getMetricValue(metrics.paywallViews, creatorId)
+            totalStripeModalViews += getMetricValue(metrics.stripeModalViews, creatorId)
+            totalCancellations += getMetricValue(metrics.cancellations, creatorId)
+          }
         }
       }
     }
 
-    // If no valid 18-digit creator_ids found in chart data, look up from premium creators list
+    // If no valid creator_ids found in chart data, look up from premium creators list
     // Note: Check for ANY metrics (not just subscriptions) to ensure we include creators with only paywall views
     if (creatorIds.length === 0 && (totalSubscriptions > 0 || totalPaywallViews > 0 || totalStripeModalViews > 0 || totalCancellations > 0)) {
-      const lookupId = usernameToCreatorId.get(creatorUsername)
+      const lookupId = usernameToCreatorId.get(normalizedUsername)
       if (lookupId) {
         creatorIds.push(lookupId)
         const keyInfo = nonNumericKeys.length > 0 ? ` (found metrics under keys: ${nonNumericKeys.join(', ')})` : ''
-        console.log(`ℹ️ Creator ${creatorUsername} has no valid 18-digit creator_id in chart data${keyInfo} - using ${lookupId} from premium creators list`)
+        const variantInfo = originalVariants.length > 1 ? ` (merged variants: ${originalVariants.join(', ')})` : ''
+        console.log(`ℹ️ Creator ${normalizedUsername}${variantInfo} has no valid creator_id in chart data${keyInfo} - using ${lookupId} from premium creators list`)
       } else {
-        console.warn(`⚠️ Skipping creator ${creatorUsername} - has metrics (${totalSubscriptions} subscriptions) but no valid creator_id found in chart data or premium creators list`)
+        console.warn(`⚠️ Skipping creator ${normalizedUsername} - has metrics (${totalSubscriptions} subscriptions, ${totalPaywallViews} paywall views) but no valid creator_id found in chart data or premium creators list`)
       }
     }
 
     if (creatorIds.length > 0) {
-      // Select single creator_id (prefer 18-digit IDs)
-      const selected18DigitId = creatorIds.find(id => id.length >= 18)
-      const selectedCreatorId = selected18DigitId || creatorIds[0]
+      // Select single creator_id (prefer longer IDs)
+      const selectedCreatorId = creatorIds.reduce((longest, current) =>
+        current.length > longest.length ? current : longest
+      )
 
-      usernameMetrics.set(creatorUsername, {
+      usernameMetrics.set(normalizedUsername, {
         creator_id: selectedCreatorId,
         total_subscriptions: totalSubscriptions,
         total_paywall_views: totalPaywallViews,
@@ -932,16 +1089,17 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       })
 
       if (creatorIds.length > 1) {
-        console.log(`⚠️ Creator ${creatorUsername} has ${creatorIds.length} creator_ids [${creatorIds.join(', ')}] - combining metrics (${totalSubscriptions} total subscriptions) and using ${selectedCreatorId}`)
+        console.log(`⚠️ Creator ${normalizedUsername} has ${creatorIds.length} creator_ids [${creatorIds.join(', ')}] - combining metrics (${totalSubscriptions} total subscriptions) and using ${selectedCreatorId}`)
       }
     }
   }
 
-  // Second pass: create one row per username with the aggregated metrics and selected creator_id
-  for (const [creatorUsername, metrics] of usernameMetrics.entries()) {
+  // Second pass: create one row per normalized username with the aggregated metrics and selected creator_id
+  // Note: No longer filtering by premium_creators since we extract premium_creators from the same chart
+  for (const [normalizedUsername, metrics] of usernameMetrics.entries()) {
     rows.push({
       creator_id: String(metrics.creator_id),
-      creator_username: String(creatorUsername),
+      creator_username: String(normalizedUsername),
       total_subscriptions: metrics.total_subscriptions,
       total_paywall_views: metrics.total_paywall_views,
       total_stripe_modal_views: metrics.total_stripe_modal_views,
