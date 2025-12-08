@@ -952,7 +952,8 @@ function displaySummaryStatsInline(stats) {
         ['Total Users', stats.totalUsers?.toLocaleString() || '0', '18px', null],
         ['Link Bank Rate', stats.linkBankRate != null ? `${stats.linkBankRate.toFixed(1)}%` : 'N/A', '18px', stats.linkBankRateComparison != null ? `(vs. ${stats.linkBankRateComparison.toFixed(1)}% prev 4w)` : null],
         ['Deposit Rate', stats.depositRate != null ? `${stats.depositRate.toFixed(1)}%` : 'N/A', '18px', stats.depositRateComparison != null ? `(vs. ${stats.depositRateComparison.toFixed(1)}% prev 4w)` : null],
-        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null]
+        ['Copy Rate', stats.copyRate != null ? `${stats.copyRate.toFixed(1)}%` : 'N/A', '18px', stats.copyRateComparison != null ? `(vs. ${stats.copyRateComparison.toFixed(1)}% prev 4w)` : null],
+        ['Subscription Rate', stats.subscriptionRate != null ? `${stats.subscriptionRate.toFixed(1)}%` : 'N/A', '18px', stats.subscriptionRateComparison != null ? `(vs. ${stats.subscriptionRateComparison.toFixed(1)}% prev 4w)` : null]
     ];
 
     metrics.forEach(([title, content, size, subtitle]) => {

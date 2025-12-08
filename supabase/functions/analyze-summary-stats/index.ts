@@ -67,6 +67,8 @@ interface SummaryStats {
   depositRateComparison: number // Average of previous 4 weeks for comparison
   copyRate: number // Average of most recent 2 weeks from Mixpanel funnel chart
   copyRateComparison: number // Average of previous 4 weeks for comparison
+  subscriptionRate: number // Average of most recent 2 weeks from Mixpanel funnel chart
+  subscriptionRateComparison: number // Average of previous 4 weeks for comparison
   firstCopyConversion: number
   depositConversion: number
   subscriptionConversion: number
@@ -480,6 +482,52 @@ async function fetchCopyRateFromMixpanel(credentials: MixpanelCredentials): Prom
   }
 }
 
+async function fetchSubscriptionRateFromMixpanel(credentials: MixpanelCredentials): Promise<{rate: number, comparison: number}> {
+  console.log('→ Fetching Subscription Rate from Mixpanel chart 84782977...')
+
+  try {
+    // Fetch funnel data from Mixpanel Insights API
+    const chartData = await fetchInsightsData(credentials, '84782977', 'Subscription Funnel')
+
+    // Parse the response to get weekly conversion rates
+    const series = chartData?.series?.['KYC Approved -> Subscribed to Creator']
+
+    if (!series) {
+      console.warn('⚠ No series data found in Mixpanel response, using fallback value')
+      return { rate: 0, comparison: 0 }
+    }
+
+    // Convert series object to sorted array of [date, rate] pairs
+    const dataPoints: [string, number][] = Object.entries(series)
+      .map(([date, rate]) => [date, rate as number])
+      .sort((a, b) => a[0].localeCompare(b[0])) // Sort by date ascending
+
+    if (dataPoints.length < 6) {
+      console.warn('⚠ Not enough data points for Subscription Rate calculation')
+      return { rate: 0, comparison: 0 }
+    }
+
+    // Get most recent 2 weeks (last 2 data points)
+    const recent2Weeks = dataPoints.slice(-2)
+    const recent2Average = recent2Weeks.reduce((sum, [_, rate]) => sum + rate, 0) / recent2Weeks.length
+
+    // Get previous 4 weeks (data points at indices -6 to -3, i.e., 4 weeks before the most recent 2)
+    const previous4Weeks = dataPoints.slice(-6, -2)
+    const previous4Average = previous4Weeks.reduce((sum, [_, rate]) => sum + rate, 0) / previous4Weeks.length
+
+    console.log(`✅ Subscription Rate: ${(recent2Average * 100).toFixed(1)}% (vs. ${(previous4Average * 100).toFixed(1)}% prev 4w)`)
+
+    return {
+      rate: recent2Average * 100, // Convert to percentage
+      comparison: previous4Average * 100 // Convert to percentage
+    }
+  } catch (error) {
+    console.error('❌ Failed to fetch Subscription Rate from Mixpanel:', error)
+    console.warn('Using fallback value of 0 for Subscription Rate')
+    return { rate: 0, comparison: 0 }
+  }
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -553,11 +601,12 @@ Deno.serve(async (req) => {
     // Step 3.5: Fetch all conversion rate metrics from Mixpanel funnel charts
     const mixpanelCredentials = initializeMixpanelCredentials()
 
-    // Fetch all three metrics in parallel
-    const [linkBankMetrics, depositMetrics, copyMetrics] = await Promise.all([
+    // Fetch all four metrics in parallel
+    const [linkBankMetrics, depositMetrics, copyMetrics, subscriptionMetrics] = await Promise.all([
       fetchLinkBankRateFromMixpanel(mixpanelCredentials),
       fetchDepositRateFromMixpanel(mixpanelCredentials),
-      fetchCopyRateFromMixpanel(mixpanelCredentials)
+      fetchCopyRateFromMixpanel(mixpanelCredentials),
+      fetchSubscriptionRateFromMixpanel(mixpanelCredentials)
     ])
 
     // Add all conversion rate metrics to summary stats
@@ -567,6 +616,8 @@ Deno.serve(async (req) => {
     summaryStats.depositRateComparison = depositMetrics.comparison
     summaryStats.copyRate = copyMetrics.rate
     summaryStats.copyRateComparison = copyMetrics.comparison
+    summaryStats.subscriptionRate = subscriptionMetrics.rate
+    summaryStats.subscriptionRateComparison = subscriptionMetrics.comparison
 
     // Step 4: Store results in summary_stats table
     console.log('→ Storing results in summary_stats table...')
