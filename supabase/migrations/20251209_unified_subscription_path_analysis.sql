@@ -1,12 +1,16 @@
 -- Replace separate creator/portfolio subscription path analysis with unified analysis
 -- This analyzes the combined sequence of creator AND portfolio views before subscription
 
--- Drop old functions and tables
+-- Drop old view first (depends on tables)
+DROP VIEW IF EXISTS subscription_conversion_paths;
+
+-- Drop old functions
 DROP FUNCTION IF EXISTS analyze_creator_subscription_paths();
 DROP FUNCTION IF EXISTS analyze_portfolio_subscription_paths();
-DROP TABLE IF EXISTS creator_subscription_path_analysis;
-DROP TABLE IF EXISTS portfolio_subscription_path_analysis;
-DROP VIEW IF EXISTS subscription_conversion_paths;
+
+-- Drop old tables
+DROP TABLE IF EXISTS creator_subscription_path_analysis CASCADE;
+DROP TABLE IF EXISTS portfolio_subscription_path_analysis CASCADE;
 
 -- ============================================================================
 -- UNIFIED SUBSCRIPTION PATH ANALYSIS TABLE
