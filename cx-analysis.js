@@ -70,9 +70,6 @@ class CXAnalysis {
             this.supabaseIntegration.invalidateCache();
         }
 
-        // Clear cached timestamp so it gets re-fetched from sync_logs
-        localStorage.removeItem('cxAnalysisLastUpdated');
-
         this.container.innerHTML = '<div style="padding: 40px; text-align: center; color: #6c757d;">Loading...</div>';
         await this.loadAndDisplayResults();
     }
@@ -94,29 +91,18 @@ class CXAnalysis {
         this.container.appendChild(resultsDiv);
 
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Use sync_logs table to get actual support analysis sync time (consistent with other tabs)
-        // Try to load from cache first for performance
-        let formattedTimestamp = localStorage.getItem('cxAnalysisLastUpdated');
+        // Get the actual support analysis sync time from sync_logs (same pattern as other tabs)
+        const supportSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('support_analysis');
+        const displayTime = supportSyncTime || new Date(); // Fallback to current time if no sync found
 
-        if (!formattedTimestamp) {
-            // If not cached, fetch from sync_logs (same pattern as other tabs)
-            const supportSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('support_analysis');
-
-            if (supportSyncTime) {
-                formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
-                    month: 'numeric',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                });
-                // Cache the timestamp for future page loads
-                localStorage.setItem('cxAnalysisLastUpdated', formattedTimestamp);
-            } else {
-                formattedTimestamp = 'Never synced';
-            }
-        }
+        const formattedTimestamp = displayTime.toLocaleString('en-US', {
+            month: 'numeric',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
 
         // Add timestamp (top right)
         const timestamp = document.createElement('div');
