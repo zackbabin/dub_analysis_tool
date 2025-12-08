@@ -99,8 +99,8 @@ class CXAnalysis {
         let formattedTimestamp = localStorage.getItem('cxAnalysisLastUpdated');
 
         if (!formattedTimestamp) {
-            // If not cached, fetch from sync_logs
-            const supportSyncTime = await this.supabaseIntegration.getLastSupportAnalysisSyncTime();
+            // If not cached, fetch from sync_logs (same pattern as other tabs)
+            const supportSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('support_analysis');
 
             if (supportSyncTime) {
                 formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
