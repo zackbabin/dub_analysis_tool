@@ -746,22 +746,31 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
     cancellations: data.series['D. Total Cancellations'] || data.series['E. Total Cancellations'] || {},
   }
 
-  // Use subscriptions as the primary metric to iterate
-  const primaryMetric = metrics.subscriptions
+  // Collect all unique creator usernames from ALL metrics (not just subscriptions)
+  const allCreatorUsernames = new Set<string>()
+  for (const metricData of Object.values(metrics)) {
+    for (const username of Object.keys(metricData)) {
+      if (username !== '$overall') {
+        allCreatorUsernames.add(username)
+      }
+    }
+  }
 
-  // First pass: aggregate metrics at username level (take max across creator_ids)
+  console.log(`Found ${allCreatorUsernames.size} unique creator usernames across all metrics`)
+
+  // First pass: aggregate metrics at username level
   const usernameMetrics = new Map<string, {
-    creator_ids: string[],
+    creator_id: string,
     total_subscriptions: number,
     total_paywall_views: number,
     total_stripe_modal_views: number,
     total_cancellations: number
   }>()
 
-  // Iterate through creator usernames
-  for (const [creatorUsername, usernameData] of Object.entries(primaryMetric)) {
-    if (creatorUsername === '$overall') continue
-    if (typeof usernameData !== 'object') continue
+  // Iterate through all creator usernames found in any metric
+  for (const creatorUsername of allCreatorUsernames) {
+    // Get username data from subscriptions metric (if exists) to extract creator_ids
+    const usernameData = metrics.subscriptions[creatorUsername]
 
     const creatorIds: string[] = []
     const nonNumericKeys: string[] = []
@@ -787,27 +796,36 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
       }
     }
 
-    // Check if there's an $overall value at username level (preferred)
-    const overallData = (usernameData as any)['$overall']
-    if (overallData && typeof overallData === 'object') {
-      // Use $overall values directly - this is the correct total
+    // Check if there's an $overall value in ANY metric for this username (preferred approach)
+    const hasOverall =
+      metrics.subscriptions[creatorUsername]?.['$overall'] ||
+      metrics.paywallViews[creatorUsername]?.['$overall'] ||
+      metrics.stripeModalViews[creatorUsername]?.['$overall'] ||
+      metrics.cancellations[creatorUsername]?.['$overall']
+
+    if (hasOverall) {
+      // Use $overall values directly - this is the correct total for each metric
       totalSubscriptions = getMetricValue(metrics.subscriptions, '$overall')
       totalPaywallViews = getMetricValue(metrics.paywallViews, '$overall')
       totalStripeModalViews = getMetricValue(metrics.stripeModalViews, '$overall')
       totalCancellations = getMetricValue(metrics.cancellations, '$overall')
 
-      // Still need to find creator_ids for the record
-      for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
-        if (creatorId === '$overall') continue
-        if (/^\d{18}$/.test(creatorId)) {
-          creatorIds.push(creatorId)
-        } else {
-          nonNumericKeys.push(creatorId)
+      // Find creator_ids from any metric that has data for this username
+      const dataSourcesForIds = [usernameData, metrics.paywallViews[creatorUsername], metrics.stripeModalViews[creatorUsername], metrics.cancellations[creatorUsername]]
+      for (const dataSource of dataSourcesForIds) {
+        if (!dataSource || typeof dataSource !== 'object') continue
+        for (const [creatorId, creatorIdData] of Object.entries(dataSource)) {
+          if (creatorId === '$overall') continue
+          if (/^\d{18}$/.test(creatorId) && !creatorIds.includes(creatorId)) {
+            creatorIds.push(creatorId)
+          } else if (creatorId !== '$overall' && !nonNumericKeys.includes(creatorId)) {
+            nonNumericKeys.push(creatorId)
+          }
         }
       }
-    } else {
-      // Fallback: sum individual creator_ids if no $overall exists
-      for (const [creatorId, creatorIdData] of Object.entries(usernameData as any)) {
+    } else if (usernameData && typeof usernameData === 'object') {
+      // Fallback: sum individual creator_ids if no $overall exists (old data format)
+      for (const [creatorId, creatorIdData] of Object.entries(usernameData)) {
         if (creatorId === '$overall') continue
         if (typeof creatorIdData !== 'object') continue
 
@@ -834,7 +852,8 @@ function processSubscriptionMetrics(data: any, premiumCreators: any[] = []): any
     }
 
     // If no valid 18-digit creator_ids found in chart data, look up from premium creators list
-    if (creatorIds.length === 0 && totalSubscriptions > 0) {
+    // Note: Check for ANY metrics (not just subscriptions) to ensure we include creators with only paywall views
+    if (creatorIds.length === 0 && (totalSubscriptions > 0 || totalPaywallViews > 0 || totalStripeModalViews > 0 || totalCancellations > 0)) {
       const lookupId = usernameToCreatorId.get(creatorUsername)
       if (lookupId) {
         creatorIds.push(lookupId)
