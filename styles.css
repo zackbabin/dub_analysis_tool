@@ -3,6 +3,7 @@ body {
     margin: 0;
     padding: 0;
     background: #f5f5f5;
+    overflow-x: hidden;
 }
 
 /* Main wrapper to constrain all content - responsive approach */
@@ -12,6 +13,7 @@ body {
     padding: 20px;
     width: 100%;
     box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 /* Force all direct children to respect parent width */
@@ -295,10 +297,13 @@ body {
 /* Tab Content Styles */
 .tab-pane {
     display: none;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 .tab-pane.active {
     display: block;
+    overflow-x: hidden;
 }
 
 .tab-container {
