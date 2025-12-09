@@ -1042,17 +1042,11 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
         });
 
-        // Create 3-card grid layout (matching copy conversion design)
+        // Create 2-card grid layout
         const gridContainer = document.createElement('div');
-        gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;';
+        gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 1rem;';
 
-        // Card 1: Top Viewed (calculate from all sequences)
-        const topViewedCard = this.generateTopViewedCard(subscriptionPaths);
-        if (topViewedCard) {
-            gridContainer.appendChild(topViewedCard);
-        }
-
-        // Card 2: Top Combinations
+        // Card 1: Top Combinations
         if (groupedPaths.combinations.length > 0) {
             const combinationsCard = this.generateSubscriptionPathCard(
                 'Top Combinations',
@@ -1062,7 +1056,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             gridContainer.appendChild(combinationsCard);
         }
 
-        // Card 3: Most Common Sequences
+        // Card 2: Most Common Sequences
         if (groupedPaths.full_sequence.length > 0) {
             const sequencesCard = this.generateSubscriptionPathCard(
                 'Most Common Sequences',
@@ -1086,64 +1080,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             return '$' + item.substring(11); // Remove "Portfolio: " and add $
         }
         return item; // fallback
-    }
-
-    /**
-     * Generate Top Viewed card - calculates most frequently viewed creators/portfolios
-     */
-    generateTopViewedCard(subscriptionPaths) {
-        // Count frequency of each view item across all paths
-        const viewCounts = {};
-        let totalViews = 0;
-
-        subscriptionPaths.forEach(path => {
-            if (path.view_sequence && Array.isArray(path.view_sequence)) {
-                path.view_sequence.forEach(item => {
-                    viewCounts[item] = (viewCounts[item] || 0) + path.converter_count;
-                    totalViews += path.converter_count;
-                });
-            }
-        });
-
-        // Sort by count and take top 10
-        const sortedViews = Object.entries(viewCounts)
-            .map(([item, count]) => ({
-                item: this.formatViewItem(item),
-                count: count,
-                pct: (count / totalViews * 100).toFixed(2)
-            }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10);
-
-        if (sortedViews.length === 0) {
-            return null;
-        }
-
-        // Create card
-        const card = document.createElement('div');
-        card.style.cssText = 'background: #f8f9fa; padding: 1rem; border-radius: 8px;';
-
-        const title = document.createElement('h4');
-        title.style.cssText = 'margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;';
-        title.textContent = 'Top Viewed';
-        card.appendChild(title);
-
-        const list = document.createElement('div');
-        list.className = 'portfolio-list';
-
-        sortedViews.forEach((view, index) => {
-            const itemDiv = document.createElement('div');
-            itemDiv.style.cssText = 'display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;';
-            itemDiv.innerHTML = `
-                <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
-                <span style="flex: 2; color: #495057;">${view.item}</span>
-                <span style="min-width: 60px; text-align: right; font-weight: 500;">${view.pct}%</span>
-            `;
-            list.appendChild(itemDiv);
-        });
-
-        card.appendChild(list);
-        return card;
     }
 
     /**
