@@ -359,15 +359,23 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             // Check if support_analysis was already completed in the past 24 hours
             // If so, skip entire workflow (sync, analysis, and mapping)
             const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            console.log(`Checking for recent support_analysis since: ${oneDayAgo}`);
+
             const { data: recentAnalysis, error: analysisCheckError } = await this.supabaseIntegration.supabase
                 .from('sync_logs')
-                .select('id, sync_completed_at')
+                .select('id, sync_completed_at, sync_status, source')
                 .eq('source', 'support_analysis')
                 .eq('sync_status', 'completed')
                 .gte('sync_completed_at', oneDayAgo)
                 .order('sync_completed_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
+
+            if (analysisCheckError) {
+                console.warn('⚠ Error checking for recent analysis:', analysisCheckError);
+            }
+
+            console.log('Recent analysis query result:', recentAnalysis);
 
             if (recentAnalysis) {
                 console.log(`✓ Support analysis already completed in past 24 hours at ${recentAnalysis.sync_completed_at}`);
