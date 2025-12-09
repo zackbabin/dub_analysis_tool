@@ -111,10 +111,21 @@ serve(async (req) => {
 
       // Store premium creators in database
       if (premiumCreatorRows.length > 0) {
-        console.log('Upserting premium creators...')
+        // Deduplicate by creator_id before upserting (keep first occurrence)
+        const seenCreatorIds = new Set<string>()
+        const dedupedPremiumCreators = premiumCreatorRows.filter(row => {
+          if (seenCreatorIds.has(row.creator_id)) {
+            console.log(`⚠️ Removing duplicate creator_id ${row.creator_id} (${row.creator_username}) from batch`)
+            return false
+          }
+          seenCreatorIds.add(row.creator_id)
+          return true
+        })
+
+        console.log(`Upserting premium creators (${dedupedPremiumCreators.length} after dedup from ${premiumCreatorRows.length})...`)
         const { error: premiumError } = await supabase
           .from('premium_creators')
-          .upsert(premiumCreatorRows, {
+          .upsert(dedupedPremiumCreators, {
             onConflict: 'creator_id',
             ignoreDuplicates: false,
           })
@@ -123,7 +134,7 @@ serve(async (req) => {
           console.error('Error upserting premium creators:', premiumError)
           throw premiumError
         }
-        console.log(`✅ Upserted ${premiumCreatorRows.length} premium creators`)
+        console.log(`✅ Upserted ${dedupedPremiumCreators.length} premium creators`)
       }
 
       // Portfolio metrics are now aggregated from user_portfolio_creator_engagement
@@ -199,9 +210,21 @@ serve(async (req) => {
 
         // Upsert only creators with changed metrics
         if (metricsToUpsert.length > 0) {
+          // Deduplicate by creator_id before upserting (keep first occurrence)
+          const seenMetricsCreatorIds = new Set<string>()
+          const dedupedMetrics = metricsToUpsert.filter(row => {
+            if (seenMetricsCreatorIds.has(row.creator_id)) {
+              console.log(`⚠️ Removing duplicate creator_id ${row.creator_id} (${row.creator_username}) from metrics batch`)
+              return false
+            }
+            seenMetricsCreatorIds.add(row.creator_id)
+            return true
+          })
+
+          console.log(`Upserting metrics (${dedupedMetrics.length} after dedup from ${metricsToUpsert.length})...`)
           const { error: creatorMetricsError } = await supabase
             .from('premium_creator_metrics')
-            .upsert(metricsToUpsert, {
+            .upsert(dedupedMetrics, {
               onConflict: 'creator_id',  // Changed from 'creator_id,synced_at' to keep one row per creator
               ignoreDuplicates: false,
             })
@@ -214,7 +237,7 @@ serve(async (req) => {
           const efficiency = skippedUnchanged > 0
             ? ` (${Math.round((skippedUnchanged / creatorMetricsRows.length) * 100)}% unchanged)`
             : ''
-          console.log(`✅ Upserted ${metricsToUpsert.length} creator-level metrics rows${efficiency}`)
+          console.log(`✅ Upserted ${dedupedMetrics.length} creator-level metrics rows${efficiency}`)
         } else {
           console.log(`✅ All ${creatorMetricsRows.length} creator metrics unchanged (skipped upsert)`)
         }
