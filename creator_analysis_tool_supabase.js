@@ -1042,75 +1042,145 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             }
         });
 
-        // Display combinations section
+        // Create 3-card grid layout (matching copy conversion design)
+        const gridContainer = document.createElement('div');
+        gridContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr 2fr; gap: 20px; margin-top: 1rem;';
+
+        // Card 1: Top Viewed (calculate from all sequences)
+        const topViewedCard = this.generateTopViewedCard(subscriptionPaths);
+        if (topViewedCard) {
+            gridContainer.appendChild(topViewedCard);
+        }
+
+        // Card 2: Top Combinations
         if (groupedPaths.combinations.length > 0) {
-            const combinationsSection = this.renderUnifiedPathSection(
-                'Most Common View Combinations (Unordered)',
-                groupedPaths.combinations
+            const combinationsCard = this.generateSubscriptionPathCard(
+                'Top Combinations',
+                groupedPaths.combinations,
+                false // no arrows, just comma-separated
             );
-            section.appendChild(combinationsSection);
+            gridContainer.appendChild(combinationsCard);
         }
 
-        // Display full sequences section
+        // Card 3: Most Common Sequences
         if (groupedPaths.full_sequence.length > 0) {
-            const sequencesSection = this.renderUnifiedPathSection(
-                'Most Common Full Sequences (Ordered)',
-                groupedPaths.full_sequence
+            const sequencesCard = this.generateSubscriptionPathCard(
+                'Most Common Sequences',
+                groupedPaths.full_sequence,
+                true // with arrows
             );
-            section.appendChild(sequencesSection);
+            gridContainer.appendChild(sequencesCard);
         }
 
+        section.appendChild(gridContainer);
         container.appendChild(section);
     }
 
     /**
-     * Helper function to render unified path analysis section
+     * Helper: Format view item from "Creator: username" or "Portfolio: ticker" to "@username" or "$ticker"
      */
-    renderUnifiedPathSection(sectionTitle, pathsData) {
-        const container = document.createElement('div');
-        container.style.marginTop = '2rem';
+    formatViewItem(item) {
+        if (item.startsWith('Creator: ')) {
+            return '@' + item.substring(9); // Remove "Creator: " and add @
+        } else if (item.startsWith('Portfolio: ')) {
+            return '$' + item.substring(11); // Remove "Portfolio: " and add $
+        }
+        return item; // fallback
+    }
 
-        // Section title
-        const title = document.createElement('h3');
-        title.style.cssText = 'font-size: 1rem; font-weight: 600; margin-bottom: 1rem;';
-        title.textContent = sectionTitle;
-        container.appendChild(title);
+    /**
+     * Generate Top Viewed card - calculates most frequently viewed creators/portfolios
+     */
+    generateTopViewedCard(subscriptionPaths) {
+        // Count frequency of each view item across all paths
+        const viewCounts = {};
+        let totalViews = 0;
 
-        // Create table
-        const table = document.createElement('table');
-        table.className = 'qda-regression-table';
-        table.style.width = '100%';
-
-        const thead = document.createElement('thead');
-        thead.innerHTML = `
-            <tr>
-                <th style="text-align: left; width: 10%;">Rank</th>
-                <th style="text-align: left; width: 55%;">View Sequence</th>
-                <th style="text-align: right; width: 20%;">Subscribers</th>
-                <th style="text-align: right; width: 15%;">% of Total</th>
-            </tr>
-        `;
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        pathsData.forEach(path => {
-            const tr = document.createElement('tr');
-
-            // view_sequence contains items like "Creator: username" or "Portfolio: ticker"
-            const sequenceDisplay = path.view_sequence ? path.view_sequence.join(' → ') : 'N/A';
-
-            tr.innerHTML = `
-                <td style="text-align: left;">#${path.path_rank}</td>
-                <td style="text-align: left; font-family: monospace; font-size: 0.85rem;">${sequenceDisplay}</td>
-                <td style="text-align: right;">${path.converter_count.toLocaleString()}</td>
-                <td style="text-align: right;">${path.pct_of_converters.toFixed(2)}%</td>
-            `;
-            tbody.appendChild(tr);
+        subscriptionPaths.forEach(path => {
+            if (path.view_sequence && Array.isArray(path.view_sequence)) {
+                path.view_sequence.forEach(item => {
+                    viewCounts[item] = (viewCounts[item] || 0) + path.converter_count;
+                    totalViews += path.converter_count;
+                });
+            }
         });
-        table.appendChild(tbody);
-        container.appendChild(table);
 
-        return container;
+        // Sort by count and take top 10
+        const sortedViews = Object.entries(viewCounts)
+            .map(([item, count]) => ({
+                item: this.formatViewItem(item),
+                count: count,
+                pct: (count / totalViews * 100).toFixed(2)
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        if (sortedViews.length === 0) {
+            return null;
+        }
+
+        // Create card
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #f8f9fa; padding: 1rem; border-radius: 8px;';
+
+        const title = document.createElement('h4');
+        title.style.cssText = 'margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;';
+        title.textContent = 'Top Viewed';
+        card.appendChild(title);
+
+        const list = document.createElement('div');
+        list.className = 'portfolio-list';
+
+        sortedViews.forEach((view, index) => {
+            const itemDiv = document.createElement('div');
+            itemDiv.style.cssText = 'display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;';
+            itemDiv.innerHTML = `
+                <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
+                <span style="flex: 2; color: #495057;">${view.item}</span>
+                <span style="min-width: 60px; text-align: right; font-weight: 500;">${view.pct}%</span>
+            `;
+            list.appendChild(itemDiv);
+        });
+
+        card.appendChild(list);
+        return card;
+    }
+
+    /**
+     * Generate subscription path card (for combinations or sequences)
+     */
+    generateSubscriptionPathCard(cardTitle, pathsData, useArrows) {
+        const card = document.createElement('div');
+        card.style.cssText = 'background: #f8f9fa; padding: 1rem; border-radius: 8px;';
+
+        const title = document.createElement('h4');
+        title.style.cssText = 'margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;';
+        title.textContent = cardTitle;
+        card.appendChild(title);
+
+        const list = document.createElement('div');
+        list.className = 'paths-list';
+
+        pathsData.forEach(path => {
+            // Format view_sequence items from "Creator: username" to "@username"
+            const formattedSequence = path.view_sequence.map(item => this.formatViewItem(item));
+
+            // Join with arrow or comma based on useArrows flag
+            const sequenceDisplay = useArrows
+                ? formattedSequence.join(' → ')
+                : formattedSequence.join(', ');
+
+            const itemDiv = document.createElement('div');
+            itemDiv.style.cssText = 'display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;';
+            itemDiv.innerHTML = `
+                <span style="min-width: 20px; color: #6c757d;">${path.path_rank}.</span>
+                <span style="flex: 2; color: #495057;">${sequenceDisplay}</span>
+            `;
+            list.appendChild(itemDiv);
+        });
+
+        card.appendChild(list);
+        return card;
     }
 
     /**
