@@ -40,48 +40,94 @@ CREATE INDEX idx_retention_events_cohort ON premium_creator_retention_events(coh
 CREATE INDEX idx_retention_events_creator_cohort ON premium_creator_retention_events(creator_username, cohort_date);
 
 -- Create materialized view for retention analysis
+-- Includes both new structure and backward-compatible columns for frontend
 CREATE MATERIALIZED VIEW premium_creator_retention_analysis AS
+WITH cohort_counts AS (
+    SELECT
+        creator_username,
+        cohort_month,
+        cohort_date,
+        COUNT(*) FILTER (WHERE subscribed) as cohort_size,
+        COUNT(*) FILTER (WHERE month_1_renewed) as month_1_retained,
+        COUNT(*) FILTER (WHERE month_2_renewed) as month_2_retained,
+        COUNT(*) FILTER (WHERE month_3_renewed) as month_3_retained,
+        COUNT(*) FILTER (WHERE month_4_renewed) as month_4_retained,
+        COUNT(*) FILTER (WHERE month_5_renewed) as month_5_retained,
+        COUNT(*) FILTER (WHERE month_6_renewed) as month_6_retained,
+        COUNT(*) FILTER (WHERE month_7_renewed) as month_7_retained,
+        COUNT(*) FILTER (WHERE month_8_renewed) as month_8_retained,
+        COUNT(*) FILTER (WHERE month_9_renewed) as month_9_retained,
+        COUNT(*) FILTER (WHERE month_10_renewed) as month_10_retained,
+        COUNT(*) FILTER (WHERE month_11_renewed) as month_11_retained,
+        COUNT(*) FILTER (WHERE month_12_renewed) as month_12_retained
+    FROM premium_creator_retention_events
+    GROUP BY creator_username, cohort_month, cohort_date
+),
+creator_totals AS (
+    SELECT
+        creator_username,
+        SUM(cohort_size) as total_unique_subscribers
+    FROM cohort_counts
+    GROUP BY creator_username
+)
 SELECT
-    creator_username,
-    cohort_month,
-    cohort_date,
-    COUNT(*) FILTER (WHERE subscribed) as cohort_size,
-    COUNT(*) FILTER (WHERE month_1_renewed) as month_1_retained,
-    COUNT(*) FILTER (WHERE month_2_renewed) as month_2_retained,
-    COUNT(*) FILTER (WHERE month_3_renewed) as month_3_retained,
-    COUNT(*) FILTER (WHERE month_4_renewed) as month_4_retained,
-    COUNT(*) FILTER (WHERE month_5_renewed) as month_5_retained,
-    COUNT(*) FILTER (WHERE month_6_renewed) as month_6_retained,
-    COUNT(*) FILTER (WHERE month_7_renewed) as month_7_retained,
-    COUNT(*) FILTER (WHERE month_8_renewed) as month_8_retained,
-    COUNT(*) FILTER (WHERE month_9_renewed) as month_9_retained,
-    COUNT(*) FILTER (WHERE month_10_renewed) as month_10_retained,
-    COUNT(*) FILTER (WHERE month_11_renewed) as month_11_retained,
-    COUNT(*) FILTER (WHERE month_12_renewed) as month_12_retained,
+    cc.creator_username,
+    cc.cohort_month,
+    cc.cohort_date,
+    cc.cohort_size,
+    -- Backward compatibility: "first" column (alias for cohort_size)
+    cc.cohort_size as first,
+    -- Backward compatibility: "counts" array for month 0-6 retention
+    -- Note: Frontend expects [month_0, month_1, ..., month_6]
+    -- We don't track "month 0" (same month renewals), so use 0 as placeholder
+    ARRAY[
+        0,  -- Month 0 placeholder (same-month renewals not tracked in new structure)
+        cc.month_1_retained,
+        cc.month_2_retained,
+        cc.month_3_retained,
+        cc.month_4_retained,
+        cc.month_5_retained,
+        cc.month_6_retained
+    ] as counts,
+    -- Total subscribers across all cohorts for this creator
+    ct.total_unique_subscribers,
+    -- Individual month columns
+    cc.month_1_retained,
+    cc.month_2_retained,
+    cc.month_3_retained,
+    cc.month_4_retained,
+    cc.month_5_retained,
+    cc.month_6_retained,
+    cc.month_7_retained,
+    cc.month_8_retained,
+    cc.month_9_retained,
+    cc.month_10_retained,
+    cc.month_11_retained,
+    cc.month_12_retained,
     -- Calculate retention percentages
-    CASE WHEN COUNT(*) FILTER (WHERE subscribed) > 0
-        THEN ROUND(100.0 * COUNT(*) FILTER (WHERE month_1_renewed) / COUNT(*) FILTER (WHERE subscribed), 1)
+    CASE WHEN cc.cohort_size > 0
+        THEN ROUND(100.0 * cc.month_1_retained / cc.cohort_size, 1)
         ELSE 0
     END as month_1_retention_pct,
-    CASE WHEN COUNT(*) FILTER (WHERE subscribed) > 0
-        THEN ROUND(100.0 * COUNT(*) FILTER (WHERE month_2_renewed) / COUNT(*) FILTER (WHERE subscribed), 1)
+    CASE WHEN cc.cohort_size > 0
+        THEN ROUND(100.0 * cc.month_2_retained / cc.cohort_size, 1)
         ELSE 0
     END as month_2_retention_pct,
-    CASE WHEN COUNT(*) FILTER (WHERE subscribed) > 0
-        THEN ROUND(100.0 * COUNT(*) FILTER (WHERE month_3_renewed) / COUNT(*) FILTER (WHERE subscribed), 1)
+    CASE WHEN cc.cohort_size > 0
+        THEN ROUND(100.0 * cc.month_3_retained / cc.cohort_size, 1)
         ELSE 0
     END as month_3_retention_pct,
-    CASE WHEN COUNT(*) FILTER (WHERE subscribed) > 0
-        THEN ROUND(100.0 * COUNT(*) FILTER (WHERE month_6_renewed) / COUNT(*) FILTER (WHERE subscribed), 1)
+    CASE WHEN cc.cohort_size > 0
+        THEN ROUND(100.0 * cc.month_6_retained / cc.cohort_size, 1)
         ELSE 0
     END as month_6_retention_pct,
-    CASE WHEN COUNT(*) FILTER (WHERE subscribed) > 0
-        THEN ROUND(100.0 * COUNT(*) FILTER (WHERE month_12_renewed) / COUNT(*) FILTER (WHERE subscribed), 1)
+    CASE WHEN cc.cohort_size > 0
+        THEN ROUND(100.0 * cc.month_12_retained / cc.cohort_size, 1)
         ELSE 0
     END as month_12_retention_pct
-FROM premium_creator_retention_events
-GROUP BY creator_username, cohort_month, cohort_date
-ORDER BY creator_username, cohort_date;
+FROM cohort_counts cc
+LEFT JOIN creator_totals ct ON cc.creator_username = ct.creator_username
+ORDER BY cc.creator_username, cc.cohort_date;
 
 -- Create index on materialized view
 CREATE INDEX idx_retention_analysis_creator ON premium_creator_retention_analysis(creator_username);
