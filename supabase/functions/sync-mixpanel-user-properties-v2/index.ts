@@ -335,6 +335,7 @@ async function updateUserPropertiesBatch(
               active_copied_portfolios: user.active_copied_portfolios,
               lifetime_copied_portfolios: user.lifetime_copied_portfolios,
               total_deposits: user.total_deposits,
+              age_years: user.age_years,
             }
           })
           .filter(record => record !== null)
