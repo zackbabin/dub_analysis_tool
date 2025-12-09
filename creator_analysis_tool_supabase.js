@@ -1074,10 +1074,21 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
      * Helper: Format view item from "Creator: username" or "Portfolio: ticker" to "@username" or "$ticker"
      */
     formatViewItem(item) {
+        // Handle "Creator: username" format
         if (item.startsWith('Creator: ')) {
-            return '@' + item.substring(9); // Remove "Creator: " and add @
-        } else if (item.startsWith('Portfolio: ')) {
-            return '$' + item.substring(11); // Remove "Portfolio: " and add $
+            const username = item.substring(9); // Remove "Creator: "
+            // Check if username already has @ prefix
+            return username.startsWith('@') ? username : '@' + username;
+        }
+        // Handle "Portfolio: ticker" format
+        else if (item.startsWith('Portfolio: ')) {
+            const ticker = item.substring(11); // Remove "Portfolio: "
+            // Check if ticker already has $ prefix
+            return ticker.startsWith('$') ? ticker : '$' + ticker;
+        }
+        // Already formatted (starts with @ or $)
+        else if (item.startsWith('@') || item.startsWith('$')) {
+            return item;
         }
         return item; // fallback
     }
