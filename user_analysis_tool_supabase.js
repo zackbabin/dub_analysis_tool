@@ -1178,6 +1178,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             return null;
         });
 
+        // Load unified copy path analysis (combines creator + portfolio views)
+        const unifiedCopyPaths = await this.supabaseIntegration.loadUnifiedCopyPaths().catch(e => {
+            console.warn('Failed to load unified copy paths:', e);
+            return null;
+        });
+
         // Build all HTML sections
         const metricsHTML = this.generateCopyMetricsHTML(copyEngagementSummary);
         const hiddenGemsHTML = this.generateHiddenGemsHTML(hiddenGemsSummary, hiddenGems);
@@ -1197,9 +1203,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             </div>
         `;
 
-        // Add Copy Conversion Paths Section with nested tabs (Portfolios & Creators)
-        if (portfolioCopyPaths || creatorCopyPaths) {
-            portfolioHTML += this.generateCopyConversionPathsHTML(portfolioCopyPaths, creatorCopyPaths);
+        // Add Copy Conversion Paths Section with nested tabs (Overall, Portfolios & Creators)
+        if (portfolioCopyPaths || creatorCopyPaths || unifiedCopyPaths) {
+            portfolioHTML += this.generateCopyConversionPathsHTML(portfolioCopyPaths, creatorCopyPaths, unifiedCopyPaths);
         }
 
         // Add Hidden Gems section
@@ -1639,17 +1645,19 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
     }
 
     /**
-     * Generate Copy Conversion Paths HTML with tabs for Portfolios and Creators
-     * Merges portfolio and creator conversion path analysis into a single section
+     * Generate Copy Conversion Paths HTML with tabs for Overall, Portfolios, and Creators
+     * Merges unified, portfolio, and creator conversion path analysis into a single section
      */
-    generateCopyConversionPathsHTML(portfolioPathData, creatorPathData) {
+    generateCopyConversionPathsHTML(portfolioPathData, creatorPathData, unifiedPathData) {
         // Check if we have any data
         if ((!portfolioPathData || portfolioPathData.length === 0) &&
-            (!creatorPathData || creatorPathData.length === 0)) {
+            (!creatorPathData || creatorPathData.length === 0) &&
+            (!unifiedPathData || unifiedPathData.length === 0)) {
             return '';
         }
 
         // Generate content HTML for each tab
+        const overallContentHTML = this.generateUnifiedCopyPathsHTML(unifiedPathData);
         const portfolioContentHTML = this.generatePortfolioCopyPathsHTML(portfolioPathData);
         const creatorContentHTML = this.generateCreatorCopyPathsHTML(creatorPathData);
 
@@ -1659,6 +1667,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 <h2 style="margin-top: 0; margin-bottom: 0.5rem;"><span class="info-tooltip">Copy Conversion Paths<span class="info-icon">i</span>
                     <span class="tooltip-text">
                         <strong>Copy Conversion Paths</strong>
+                        <p><strong>Overall:</strong> Analyzes combined creator + portfolio viewing sequences that lead to copy conversions. Shows the most common combinations and complete sequential viewing paths intermingling both types of views.</p>
                         <p><strong>Portfolio Paths:</strong> Analyzes portfolio viewing sequences that lead to copy conversions. Shows the most common entry points, portfolio combinations viewed together, and complete sequential viewing paths.</p>
                         <p><strong>Creator Paths:</strong> Analyzes creator profile viewing patterns that lead to copy conversions. Shows the most common entry creators, creator combinations viewed together, and complete sequential viewing paths.</p>
                     </span>
@@ -1668,11 +1677,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 </p>
                 <div class="conversion-paths-tabs-container">
                     <div class="conversion-paths-tab-navigation">
-                        <button class="conversion-paths-tab-btn active" data-conversion-paths-tab="portfolios">Portfolios</button>
+                        <button class="conversion-paths-tab-btn active" data-conversion-paths-tab="overall">Overall</button>
+                        <button class="conversion-paths-tab-btn" data-conversion-paths-tab="portfolios">Portfolios</button>
                         <button class="conversion-paths-tab-btn" data-conversion-paths-tab="creators">Creators</button>
                     </div>
                     <div class="conversion-paths-tab-content">
-                        <div id="conversion-portfolios-tab" class="conversion-paths-tab-pane active">
+                        <div id="conversion-overall-tab" class="conversion-paths-tab-pane active">
+                            ${overallContentHTML}
+                        </div>
+                        <div id="conversion-portfolios-tab" class="conversion-paths-tab-pane">
                             ${portfolioContentHTML}
                         </div>
                         <div id="conversion-creators-tab" class="conversion-paths-tab-pane">
@@ -1884,6 +1897,97 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             fullSequences.forEach(item => {
                 const pathStr = item.creator_sequence.join(' → ');
+
+                html += `
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="flex: 2; color: #495057;">${pathStr}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+
+        return html;
+    }
+
+    /**
+     * Generate Unified Copy Paths HTML - combines creator + portfolio views
+     * Returns 2-card layout: Top Combinations and Most Common Sequences
+     */
+    generateUnifiedCopyPathsHTML(pathData) {
+        if (!pathData || pathData.length === 0) {
+            return '';
+        }
+
+        // Group by analysis type
+        const combinations = pathData.filter(r => r.analysis_type === 'combinations');
+        const fullSequences = pathData.filter(r => r.analysis_type === 'full_sequence');
+
+        if (combinations.length === 0 && fullSequences.length === 0) {
+            return '';
+        }
+
+        // Helper function to format view items from "Creator: username" or "Portfolio: ticker" to "@username" or "$ticker"
+        const formatViewItem = (item) => {
+            if (item.startsWith('Creator: ')) {
+                const username = item.substring(9);
+                return username.startsWith('@') ? username : '@' + username;
+            } else if (item.startsWith('Portfolio: ')) {
+                const ticker = item.substring(11);
+                return ticker.startsWith('$') ? ticker : '$' + ticker;
+            } else if (item.startsWith('@') || item.startsWith('$')) {
+                return item;
+            }
+            return item;
+        };
+
+        // Build 2 cards grid (equal width)
+        let html = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 1rem;">`;
+
+        // Card 1: Top Combinations
+        if (combinations.length > 0) {
+            html += `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Combinations</h4>
+                    <div class="portfolio-list">
+            `;
+
+            combinations.forEach(item => {
+                const formattedItems = item.view_sequence.map(v => formatViewItem(v));
+                const combinationStr = formattedItems.join(', ');
+
+                html += `
+                    <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
+                        <span style="min-width: 20px; color: #6c757d;">${item.path_rank}.</span>
+                        <span style="flex: 2; color: #495057;">${combinationStr}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+
+        // Card 2: Most Common Sequences
+        if (fullSequences.length > 0) {
+            html += `
+                <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
+                    <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Sequences</h4>
+                    <div class="paths-list">
+            `;
+
+            fullSequences.forEach(item => {
+                const formattedItems = item.view_sequence.map(v => formatViewItem(v));
+                const pathStr = formattedItems.join(' → ');
 
                 html += `
                     <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">

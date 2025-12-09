@@ -1343,6 +1343,32 @@ class SupabaseIntegration {
     }
 
     /**
+     * Load unified copy path analysis data
+     * Returns combined creator + portfolio viewing patterns before first copy
+     */
+    async loadUnifiedCopyPaths() {
+        return this.cachedQuery('unified_copy_path_analysis', async () => {
+            try {
+                const { data, error } = await this.supabase
+                    .from('unified_copy_path_analysis')
+                    .select('*')
+                    .order('analysis_type', { ascending: true })
+                    .order('path_rank', { ascending: true });
+
+                if (error) {
+                    console.error('Error loading unified copy paths:', error);
+                    throw error;
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Error loading unified copy paths:', error);
+                throw error;
+            }
+        });
+    }
+
+    /**
      * Load unified subscription conversion paths from database
      * Combines creator and portfolio viewing patterns before first subscription
      */
