@@ -984,9 +984,9 @@ function displayDemographicBreakdownInline(stats) {
     title.textContent = 'Demographic Breakdown';
     resultSection.appendChild(title);
 
-    // Metric cards grid: 4 cards showing key demographic percentages
+    // Metric cards grid: 5 cards showing key demographic percentages
     const metricsGrid = document.createElement('div');
-    metricsGrid.style.cssText = 'display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 1rem; margin-bottom: 1.5rem;';
+    metricsGrid.style.cssText = 'display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 1rem; margin-bottom: 1.5rem;';
 
     // Calculate metric percentages
     const incomeBreakdown = stats.incomeBreakdown || {};
@@ -999,25 +999,29 @@ function displayDemographicBreakdownInline(stats) {
     const experienceTotalResponses = stats.investingExperienceYearsTotalResponses || 0;
     const usersWithDepositData = stats.usersWithDepositData || 0;
 
-    // 1. <$100k Income: <25k, 25k–50k, 50k–100k (DB format: en-dash, no $, no spaces)
+    // 1. Average Age
+    const averageAge = stats.averageAge || 0;
+
+    // 2. <$100k Income: <25k, 25k–50k, 50k–100k (DB format: en-dash, no $, no spaces)
     const lowIncomeCount = (incomeBreakdown['<25k'] || 0) +
                           (incomeBreakdown['25k–50k'] || 0) +
                           (incomeBreakdown['50k–100k'] || 0);
     const lowIncomePercent = incomeTotalResponses > 0 ? ((lowIncomeCount / incomeTotalResponses) * 100).toFixed(1) : '0.0';
 
-    // 2. <$100k Net Worth (DB format: <100k - no $, no space)
+    // 3. <$100k Net Worth (DB format: <100k - no $, no space)
     const lowNetWorthCount = netWorthBreakdown['<100k'] || 0;
     const lowNetWorthPercent = netWorthTotalResponses > 0 ? ((lowNetWorthCount / netWorthTotalResponses) * 100).toFixed(1) : '0.0';
 
-    // 3. <1 Years Investing: "0" or "<1" (DB format: no space after <)
+    // 4. <1 Years Investing: "0" or "<1" (DB format: no space after <)
     const newInvestorCount = (experienceBreakdown['0'] || 0) + (experienceBreakdown['<1'] || 0);
     const newInvestorPercent = experienceTotalResponses > 0 ? ((newInvestorCount / experienceTotalResponses) * 100).toFixed(1) : '0.0';
 
-    // 4. <$1k Total Deposits: use users with non-null deposit data as denominator
+    // 5. <$1k Total Deposits: use users with non-null deposit data as denominator
     const lowDepositsCount = stats.usersWithLowDeposits || 0;
     const lowDepositsPercent = usersWithDepositData > 0 ? ((lowDepositsCount / usersWithDepositData) * 100).toFixed(1) : '0.0';
 
-    // Create metric cards
+    // Create metric cards - Average Age first
+    metricsGrid.appendChild(createMetricCard('Average Age', `${averageAge} yrs`));
     metricsGrid.appendChild(createMetricCard('<$100k Income', `${lowIncomePercent}%`));
     metricsGrid.appendChild(createMetricCard('<$100k Net Worth', `${lowNetWorthPercent}%`));
     metricsGrid.appendChild(createMetricCard('<1 Years Investing', `${newInvestorPercent}%`));

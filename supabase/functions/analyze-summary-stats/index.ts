@@ -22,6 +22,7 @@ interface MainAnalysisRow {
   investing_objective?: string
   investment_type?: string
   acquisition_survey?: string
+  age_years?: number
   // Financial/account fields
   total_bank_links?: number
   total_deposits?: number
@@ -74,6 +75,7 @@ interface SummaryStats {
   subscriptionConversion: number
   usersWithDepositData: number
   usersWithLowDeposits: number
+  averageAge: number // Average age in years across all users with age data
   // Demographics breakdowns
   incomeBreakdown: Record<string, number>
   incomeTotalResponses: number
@@ -136,6 +138,7 @@ interface CleanedUser {
   investingObjective: string
   investmentType: string
   acquisitionSurvey: string
+  age_years?: number
   subscribedWithin7Days?: number
   [key: string]: any
 }
@@ -249,6 +252,12 @@ function calculateSummaryStats(data: CleanedUser[]): SummaryStats {
   // Calculate count of users with low deposits for demographic cards (<$1k means strictly less than 1000)
   const usersWithLowDeposits = data.filter(d => d.totalDeposits !== null && d.totalDeposits < 1000).length
 
+  // Calculate average age (only from users with age_years data)
+  const usersWithAge = data.filter(d => d.age_years !== null && d.age_years !== undefined && d.age_years > 0)
+  const averageAge = usersWithAge.length > 0
+    ? usersWithAge.reduce((sum, d) => sum + (d.age_years || 0), 0) / usersWithAge.length
+    : 0
+
   const personaCounts: Record<string, number> = {
     premium: 0, core: 0, activationTargets: 0, nonActivated: 0, unclassified: 0
   }
@@ -280,11 +289,20 @@ function calculateSummaryStats(data: CleanedUser[]): SummaryStats {
   return {
     totalUsers: totalUsers,
     linkBankConversion: (usersWithLinkedBank / totalUsers) * 100,
+    linkBankRate: 0, // Will be overwritten by Mixpanel data
+    linkBankRateComparison: 0, // Will be overwritten by Mixpanel data
+    depositRate: 0, // Will be overwritten by Mixpanel data
+    depositRateComparison: 0, // Will be overwritten by Mixpanel data
+    copyRate: 0, // Will be overwritten by Mixpanel data
+    copyRateComparison: 0, // Will be overwritten by Mixpanel data
+    subscriptionRate: 0, // Will be overwritten by Mixpanel data
+    subscriptionRateComparison: 0, // Will be overwritten by Mixpanel data
     firstCopyConversion: (usersWithCopies / totalUsers) * 100,
     depositConversion: (usersWithDeposits / totalUsers) * 100,
     subscriptionConversion: (usersWithSubscriptions / totalUsers) * 100,
     usersWithDepositData: usersWithDepositData,
     usersWithLowDeposits: usersWithLowDeposits,
+    averageAge: Math.round(averageAge), // Round to nearest integer
     ...demographics,
     personaStats
   }
@@ -340,7 +358,8 @@ function processComprehensiveData(data: MainAnalysisRow[]): CleanedUser[] {
     investingActivity: row.investing_activity || '',
     investingObjective: row.investing_objective || '',
     investmentType: row.investment_type || '',
-    acquisitionSurvey: row.acquisition_survey || ''
+    acquisitionSurvey: row.acquisition_survey || '',
+    age_years: row.age_years
   }))
 }
 

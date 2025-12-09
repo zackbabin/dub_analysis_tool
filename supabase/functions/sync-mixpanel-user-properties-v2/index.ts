@@ -41,6 +41,7 @@ const OUTPUT_PROPERTIES = [
   'activeCopiedPortfolios',
   'lifetimeCopiedPortfolios',
   'totalDeposits',
+  'Birth Year',
 ]
 
 interface UserPropertyRow {
@@ -59,6 +60,7 @@ interface UserPropertyRow {
   active_copied_portfolios?: number
   lifetime_copied_portfolios?: number
   total_deposits?: number
+  age_years?: number
 }
 
 /**
@@ -79,6 +81,7 @@ const PROPERTY_MAP: Record<string, string> = {
   'activeCopiedPortfolios': 'active_copied_portfolios',
   'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'totalDeposits': 'total_deposits',
+  'Birth Year': 'age_years',  // Will be transformed: current_year - birth_year
 }
 
 /**
@@ -126,7 +129,16 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
         }
 
         // Handle different field types
-        if (
+        if (dbColumn === 'age_years') {
+          // Special handling: Transform Birth Year to age_years
+          const currentYear = new Date().getFullYear()
+          const birthYear = typeof value === 'number' ? value : Number(value)
+
+          if (!isNaN(birthYear) && birthYear > 1900 && birthYear <= currentYear) {
+            (row as any)[dbColumn] = currentYear - birthYear
+          }
+          // Skip if invalid birth year (don't set the field)
+        } else if (
           // Explicitly defined string fields (text in DB)
           dbColumn === 'income' ||
           dbColumn === 'net_worth' ||
@@ -195,6 +207,7 @@ function hasUserPropertiesChanged(existing: any, incoming: UserPropertyRow): boo
     'active_copied_portfolios',
     'lifetime_copied_portfolios',
     'total_deposits',
+    'age_years',
   ]
 
   // Check each field - if ANY field differs, return true (needs update)
