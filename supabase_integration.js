@@ -1178,6 +1178,34 @@ class SupabaseIntegration {
     }
 
     /**
+     * Trigger unified copy sequence analysis via Supabase Edge Function
+     * Analyzes combined creator + portfolio views for copy conversions
+     * Populates unified_copy_path_analysis table
+     */
+    async triggerCopySequencesAnalysis() {
+        console.log('Triggering unified copy sequence analysis...');
+
+        try {
+            const { data, error } = await this.supabase.functions.invoke('analyze-copy-sequences');
+
+            if (error) {
+                console.error('Edge Function error:', error);
+                throw new Error(`Copy sequence analysis failed: ${error.message}`);
+            }
+
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error during copy sequence analysis');
+            }
+
+            console.log('✅ Unified copy sequence analysis completed:', data);
+            return data;
+        } catch (error) {
+            console.error('Error calling copy sequence analysis Edge Function:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Trigger first subscription users sync via Supabase Edge Function
      * Fetches subscription events from Mixpanel chart 87078016
      * Populates user_first_subscriptions table

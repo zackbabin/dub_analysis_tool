@@ -41,7 +41,7 @@ const OUTPUT_PROPERTIES = [
   'activeCopiedPortfolios',
   'lifetimeCopiedPortfolios',
   'totalDeposits',
-  'Birth Year',
+  'KYC Date of Birth',
 ]
 
 interface UserPropertyRow {
@@ -81,7 +81,7 @@ const PROPERTY_MAP: Record<string, string> = {
   'activeCopiedPortfolios': 'active_copied_portfolios',
   'lifetimeCopiedPortfolios': 'lifetime_copied_portfolios',
   'totalDeposits': 'total_deposits',
-  'Birth Year': 'age_years',  // Will be transformed: current_year - birth_year
+  'KYC Date of Birth': 'age_years',  // Will be transformed: age calculated from timestamp
 }
 
 /**
@@ -130,14 +130,23 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
 
         // Handle different field types
         if (dbColumn === 'age_years') {
-          // Special handling: Transform Birth Year to age_years
-          const currentYear = new Date().getFullYear()
-          const birthYear = typeof value === 'number' ? value : Number(value)
+          // Special handling: Transform KYC Date of Birth timestamp to age_years
+          try {
+            // Parse timestamp string like "1982-02-27T03:00:00"
+            const birthDate = new Date(value)
+            const currentDate = new Date()
 
-          if (!isNaN(birthYear) && birthYear > 1900 && birthYear <= currentYear) {
-            (row as any)[dbColumn] = currentYear - birthYear
+            // Validate the date is reasonable
+            if (!isNaN(birthDate.getTime()) && birthDate < currentDate && birthDate > new Date('1900-01-01')) {
+              // Calculate age in years
+              const ageMs = currentDate.getTime() - birthDate.getTime()
+              const ageYears = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000))
+              (row as any)[dbColumn] = ageYears
+            }
+            // Skip if invalid date (don't set the field)
+          } catch (error) {
+            console.warn(`Failed to parse KYC Date of Birth for ${distinctId}:`, error.message)
           }
-          // Skip if invalid birth year (don't set the field)
         } else if (
           // Explicitly defined string fields (text in DB)
           dbColumn === 'income' ||

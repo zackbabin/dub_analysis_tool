@@ -569,9 +569,9 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator sync failed, using existing data');
                         }
 
-                        // Step 3: Analyze portfolio, creator, and subscription patterns in parallel (only after syncs complete)
-                        console.log('  → Step 3: Analyzing portfolio + creator + subscription patterns with SQL (parallel)');
-                        const [portfolioAnalysisResult, creatorAnalysisResult, subscriptionAnalysisResult] = await Promise.all([
+                        // Step 3: Analyze portfolio, creator, subscription, and unified copy patterns in parallel (only after syncs complete)
+                        console.log('  → Step 3: Analyzing portfolio + creator + subscription + unified copy patterns with SQL (parallel)');
+                        const [portfolioAnalysisResult, creatorAnalysisResult, subscriptionAnalysisResult, copyAnalysisResult] = await Promise.all([
                             this.supabaseIntegration.triggerPortfolioSequencesAnalysis('copies'),
                             this.supabaseIntegration.triggerCreatorSequencesAnalysis('copies'),
                             (async () => {
@@ -585,6 +585,20 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                                     return result;
                                 } catch (error) {
                                     console.warn('    ⚠ Subscription analysis error:', error.message);
+                                    return { success: false, error: error.message };
+                                }
+                            })(),
+                            (async () => {
+                                try {
+                                    const result = await this.supabaseIntegration.triggerCopySequencesAnalysis();
+                                    if (result?.success) {
+                                        console.log('    ✓ Unified copy analysis complete');
+                                    } else {
+                                        console.warn('    ⚠ Unified copy analysis failed');
+                                    }
+                                    return result;
+                                } catch (error) {
+                                    console.warn('    ⚠ Unified copy analysis error:', error.message);
                                     return { success: false, error: error.message };
                                 }
                             })()
@@ -602,7 +616,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                             console.warn('    ⚠ Creator analysis failed');
                         }
 
-                        console.log('✅ 5c: Event Sequences (Portfolio + Creator + Subscriptions) - Complete');
+                        if (copyAnalysisResult?.success) {
+                            console.log('    ✓ Unified copy analysis complete');
+                        } else {
+                            console.warn('    ⚠ Unified copy analysis failed');
+                        }
+
+                        console.log('✅ 5c: Event Sequences (Portfolio + Creator + Subscriptions + Unified Copy) - Complete');
                         return { success: true };
                     } catch (error) {
                         console.warn('⚠ 5c: Event Sequences - Failed, continuing');
