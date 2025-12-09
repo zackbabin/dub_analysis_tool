@@ -1,7 +1,9 @@
 // Supabase Edge Function: fetch-creator-retention
-// Fetches creator subscription retention data from Mixpanel Insights Chart 85857452
-// Stores subscription and renewal events by user, creator, and time cohort
-// Calculates retention metrics by querying stored data
+// Fetches creator subscription retention data from TWO Mixpanel Insights Charts:
+//   - Chart 85857452: Subscription cohorts (first subscription date per user+creator)
+//   - Chart 86188712: Renewal events (renewal occurrence dates)
+// Calculates which renewal month (1-12) each renewal occurred relative to cohort
+// Stores one row per user+creator with cohort and boolean flags for each renewal month
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
@@ -85,7 +87,7 @@ serve(async (req) => {
         const { error: upsertError } = await supabase
           .from('premium_creator_retention_events')
           .upsert(processedEvents, {
-            onConflict: 'user_id,creator_username,cohort_month',
+            onConflict: 'user_id,creator_username',
             ignoreDuplicates: false
           })
 
@@ -167,24 +169,24 @@ serve(async (req) => {
 /**
  * Process TWO Mixpanel Insights Charts into retention event records
  *
- * Input:
- * - subscribedChartData: Chart 85857452 with series["Total Subscriptions (net refunds)"] - uses $user_id
- * - renewedChartData: Chart 86188712 with series["Renewed Subscription"] - uses $user_id
+ * Chart 85857452 provides COHORTS (first subscription date per user+creator)
+ * Chart 86188712 provides RENEWALS (renewal event dates)
+ * We calculate which renewal month (1, 2, 3...) based on time since cohort
  *
- * Structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
- * Note: Charts return $user_id, which maps to user_id column in DB
+ * Input:
+ * - subscribedChartData: Chart 85857452 - structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
+ *   - Time dimension: first subscription date (COHORT)
+ * - renewedChartData: Chart 86188712 - structure: series[metric][$user_id][creatorUsername]["Month Year"] = { all: count }
+ *   - Time dimension: renewal event date
+ *
+ * Output: Array of records with one row per user+creator with their cohort and renewal flags
  */
 function processRetentionChartData(subscribedChartData: any, renewedChartData: any): any[] {
-  const events: any[] = []
-  const eventMap = new Map<string, any>()
-
-  // Validate subscribed data
+  // Validate data
   if (!subscribedChartData.series) {
     console.warn('No series data in subscribed chart response')
     return []
   }
-
-  // Validate renewed data
   if (!renewedChartData.series) {
     console.warn('No series data in renewed chart response')
     return []
@@ -197,18 +199,127 @@ function processRetentionChartData(subscribedChartData: any, renewedChartData: a
   console.log(`Subscribed data has ${Object.keys(subscribedData).length} user_ids`)
   console.log(`Renewed data has ${Object.keys(renewedData).length} user_ids`)
 
-  // Process subscribed events
-  processMetric(subscribedData, eventMap, 'subscribed')
+  // STEP 1: Build cohort map from subscribed chart
+  // Key: `${userId}|${creatorUsername}`, Value: { cohortMonth, cohortDate }
+  const cohortMap = new Map<string, { cohortMonth: string; cohortDate: Date }>()
 
-  // Process renewed events
-  processMetric(renewedData, eventMap, 'renewed')
+  console.log('Step 1: Building cohort map from subscription data...')
+  let subscribedCount = 0
+
+  for (const [userId, userIdData] of Object.entries(subscribedData)) {
+    if (userId === '$overall' || !userId || typeof userIdData !== 'object') continue
+
+    for (const [creatorUsername, creatorData] of Object.entries(userIdData as Record<string, any>)) {
+      if (creatorUsername === '$overall' || typeof creatorData !== 'object') continue
+
+      for (const [cohortMonth, monthData] of Object.entries(creatorData as Record<string, any>)) {
+        if (cohortMonth === '$overall' || typeof monthData !== 'object') continue
+
+        const count = (monthData as any).all || 0
+        if (count === 0) continue
+
+        const key = `${userId}|${creatorUsername}`
+        const cohortDate = parseCohortMonthToDate(cohortMonth)
+
+        // Store the cohort (first subscription date)
+        if (!cohortMap.has(key)) {
+          cohortMap.set(key, { cohortMonth, cohortDate })
+          subscribedCount++
+        } else {
+          // If multiple subscription records exist, use the earliest
+          const existing = cohortMap.get(key)!
+          if (cohortDate < existing.cohortDate) {
+            cohortMap.set(key, { cohortMonth, cohortDate })
+          }
+        }
+      }
+    }
+  }
+
+  console.log(`  Found ${subscribedCount} unique user+creator subscriptions`)
+
+  // STEP 2: Process renewals and calculate month number from cohort
+  console.log('Step 2: Processing renewal data and calculating renewal months...')
+
+  // Build event records: Map<userId|creatorUsername, eventRecord>
+  const eventMap = new Map<string, any>()
+
+  // Initialize all cohorts with subscribed=true
+  for (const [key, cohort] of cohortMap.entries()) {
+    const [userId, creatorUsername] = key.split('|')
+    eventMap.set(key, {
+      user_id: userId,
+      creator_username: creatorUsername,
+      cohort_month: cohort.cohortMonth,
+      cohort_date: formatDateForDB(cohort.cohortDate),
+      subscribed: true,
+      month_1_renewed: false,
+      month_2_renewed: false,
+      month_3_renewed: false,
+      month_4_renewed: false,
+      month_5_renewed: false,
+      month_6_renewed: false,
+      month_7_renewed: false,
+      month_8_renewed: false,
+      month_9_renewed: false,
+      month_10_renewed: false,
+      month_11_renewed: false,
+      month_12_renewed: false,
+    })
+  }
+
+  let renewalsProcessed = 0
+  let renewalsOutOfRange = 0
+  let renewalsNoCohort = 0
+
+  // Process renewals
+  for (const [userId, userIdData] of Object.entries(renewedData)) {
+    if (userId === '$overall' || !userId || typeof userIdData !== 'object') continue
+
+    for (const [creatorUsername, creatorData] of Object.entries(userIdData as Record<string, any>)) {
+      if (creatorUsername === '$overall' || typeof creatorData !== 'object') continue
+
+      const key = `${userId}|${creatorUsername}`
+      const cohort = cohortMap.get(key)
+
+      if (!cohort) {
+        // User has renewals but no subscription cohort - skip
+        renewalsNoCohort++
+        continue
+      }
+
+      const event = eventMap.get(key)!
+
+      for (const [renewalMonth, monthData] of Object.entries(creatorData as Record<string, any>)) {
+        if (renewalMonth === '$overall' || typeof monthData !== 'object') continue
+
+        const count = (monthData as any).all || 0
+        if (count === 0) continue
+
+        const renewalDate = parseCohortMonthToDate(renewalMonth)
+
+        // Calculate month number: how many months after cohort
+        const monthNumber = calculateMonthsBetween(cohort.cohortDate, renewalDate)
+
+        if (monthNumber >= 1 && monthNumber <= 12) {
+          // Set the appropriate month flag
+          const monthKey = `month_${monthNumber}_renewed` as keyof typeof event
+          event[monthKey] = true
+          renewalsProcessed++
+        } else if (monthNumber > 12) {
+          renewalsOutOfRange++
+        }
+        // monthNumber < 1 means renewal before subscription (shouldn't happen, ignore)
+      }
+    }
+  }
+
+  console.log(`  Processed ${renewalsProcessed} renewals (${renewalsOutOfRange} beyond month 12, ${renewalsNoCohort} without cohort)`)
 
   // Convert map to array
-  eventMap.forEach((value) => {
-    events.push(value)
-  })
+  const events = Array.from(eventMap.values())
 
-  console.log(`Processed ${events.length} events from ${eventMap.size} unique combinations`)
+  console.log(`Final: ${events.length} retention records`)
   if (events.length > 0) {
     console.log(`Sample event:`, JSON.stringify(events[0]))
   }
@@ -216,90 +327,55 @@ function processRetentionChartData(subscribedChartData: any, renewedChartData: a
   return events
 }
 
-function processMetric(metricData: any, eventMap: Map<string, any>, metricType: 'subscribed' | 'renewed') {
-  let totalProcessed = 0
-  let skippedZero = 0
-  let skippedOverall = 0
-
-  for (const [userId, userIdData] of Object.entries(metricData)) {
-    if (userId === '$overall') {
-      skippedOverall++
-      continue
-    }
-
-    // userId is the $user_id from Mixpanel
-    if (!userId) continue
-
-    if (typeof userIdData !== 'object') continue
-
-    for (const [creatorUsername, creatorData] of Object.entries(userIdData as Record<string, any>)) {
-      if (creatorUsername === '$overall') {
-        skippedOverall++
-        continue
-      }
-      if (typeof creatorData !== 'object') continue
-
-      for (const [cohortMonth, monthData] of Object.entries(creatorData as Record<string, any>)) {
-        if (cohortMonth === '$overall') {
-          skippedOverall++
-          continue
-        }
-        if (typeof monthData !== 'object') continue
-
-        const count = (monthData as any).all || 0
-        if (count === 0) {
-          skippedZero++
-          continue
-        }
-
-        // Create unique key
-        const key = `${userId}|${creatorUsername}|${cohortMonth}`
-        const cohortDate = parseCohortMonth(cohortMonth)
-
-        if (!eventMap.has(key)) {
-          eventMap.set(key, {
-            user_id: userId,  // Mixpanel $user_id
-            creator_username: creatorUsername,
-            cohort_month: cohortMonth,
-            cohort_date: cohortDate,  // Already parsed and validated
-            subscribed_count: 0,
-            renewed_count: 0
-          })
-        }
-
-        const event = eventMap.get(key)
-        if (metricType === 'subscribed') {
-          event.subscribed_count += count
-        } else {
-          event.renewed_count += count
-        }
-        totalProcessed++
-      }
-    }
-  }
-
-  console.log(`  ${metricType}: processed ${totalProcessed} records, skipped ${skippedZero} zero-count, ${skippedOverall} $overall`)
-}
-
 /**
- * Parse cohort month string to date
- * Input: "Aug 2025", "Sep 2025"
- * Output: "2025-08-01", "2025-09-01"
+ * Parse cohort month string to Date object
+ * Input: "Nov 2025", "Dec 2025"
+ * Output: Date object (2025-11-01, 2025-12-01)
  */
-function parseCohortMonth(cohortMonth: string): string {
-  const monthMap: Record<string, string> = {
-    'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-    'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-    'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+function parseCohortMonthToDate(cohortMonth: string): Date {
+  const monthMap: Record<string, number> = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3,
+    'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7,
+    'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
   }
 
   const parts = cohortMonth.split(' ')
-  if (parts.length !== 2) return cohortMonth
+  if (parts.length !== 2) {
+    console.warn(`Invalid cohort month format: ${cohortMonth}`)
+    return new Date()
+  }
 
   const month = monthMap[parts[0]]
-  const year = parts[1]
+  const year = parseInt(parts[1])
 
-  return month && year ? `${year}-${month}-01` : cohortMonth
+  if (month === undefined || isNaN(year)) {
+    console.warn(`Could not parse cohort month: ${cohortMonth}`)
+    return new Date()
+  }
+
+  return new Date(year, month, 1)
+}
+
+/**
+ * Format Date object for database storage
+ * Input: Date object
+ * Output: "YYYY-MM-DD"
+ */
+function formatDateForDB(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Calculate the number of months between two dates
+ * Returns: positive integer representing months after cohortDate
+ */
+function calculateMonthsBetween(cohortDate: Date, renewalDate: Date): number {
+  const yearDiff = renewalDate.getFullYear() - cohortDate.getFullYear()
+  const monthDiff = renewalDate.getMonth() - cohortDate.getMonth()
+  return yearDiff * 12 + monthDiff
 }
 
 // queryRetentionData function removed - frontend now queries DB directly
