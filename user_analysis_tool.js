@@ -980,13 +980,13 @@ function displayDemographicBreakdownInline(stats) {
 
     const title = document.createElement('h2');
     title.style.marginTop = '1.5rem';
-    title.style.marginBottom = '0.25rem';
+    title.style.marginBottom = '0.5rem';
     title.textContent = 'Demographic Breakdown';
     resultSection.appendChild(title);
 
     // Metric cards grid: 5 cards showing key demographic percentages
     const metricsGrid = document.createElement('div');
-    metricsGrid.style.cssText = 'display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 1rem; margin-bottom: 1.5rem;';
+    metricsGrid.style.cssText = 'display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-top: 1.5rem; margin-bottom: 1.5rem;';
 
     // Calculate metric percentages
     const incomeBreakdown = stats.incomeBreakdown || {};
