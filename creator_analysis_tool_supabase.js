@@ -1112,10 +1112,15 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Format view_sequence items from "Creator: username" to "@username"
             const formattedSequence = path.view_sequence.map(item => this.formatViewItem(item));
 
+            // Deduplicate for combinations (preserves order for first occurrence)
+            const displaySequence = useArrows
+                ? formattedSequence  // Keep sequences as-is to show actual path
+                : [...new Set(formattedSequence)];  // Dedupe combinations
+
             // Join with arrow or comma based on useArrows flag
             const sequenceDisplay = useArrows
-                ? formattedSequence.join(' → ')
-                : formattedSequence.join(', ');
+                ? displaySequence.join(' → ')
+                : displaySequence.join(', ');
 
             const itemDiv = document.createElement('div');
             itemDiv.style.cssText = 'display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;';
