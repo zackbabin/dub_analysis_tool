@@ -152,6 +152,17 @@ body {
     font-weight: bold;
 }
 
+.qda-result-section h2 {
+    margin-bottom: 0.5rem;
+}
+
+.qda-result-section h2 + p {
+    margin-top: 0 !important;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
 /* Spacing handled by individual sections */
 #qdaDemographicBreakdownInline,
 #qdaPersonaBreakdownInline,
