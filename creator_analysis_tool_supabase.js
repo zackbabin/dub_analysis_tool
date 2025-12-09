@@ -969,7 +969,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
     /**
      * Load and display subscription conversion path analysis
-     * Shows viewing patterns before first subscription
+     * Shows unified viewing patterns (creators + portfolios) before first subscription
      */
     async loadAndDisplaySubscriptionConversionAnalysis() {
         try {
@@ -978,22 +978,19 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return;
             }
 
-            // Load creator and portfolio subscription paths in parallel
-            const [creatorPaths, portfolioPaths] = await Promise.all([
-                this.supabaseIntegration.loadCreatorSubscriptionPaths(),
-                this.supabaseIntegration.loadPortfolioSubscriptionPaths()
-            ]);
+            // Load unified subscription paths
+            const subscriptionPaths = await this.supabaseIntegration.loadSubscriptionPaths();
 
-            this.displaySubscriptionConversionAnalysis(creatorPaths, portfolioPaths);
+            this.displaySubscriptionConversionAnalysis(subscriptionPaths);
         } catch (error) {
             console.error('Error loading subscription conversion analysis:', error);
         }
     }
 
     /**
-     * Display subscription conversion path analysis
+     * Display subscription conversion path analysis (unified creator + portfolio paths)
      */
-    displaySubscriptionConversionAnalysis(creatorPaths, portfolioPaths) {
+    displaySubscriptionConversionAnalysis(subscriptionPaths) {
         const container = document.getElementById('subscriptionConversionAnalysisInline');
         if (!container) {
             console.error('❌ Container subscriptionConversionAnalysisInline not found!');
@@ -1001,7 +998,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         }
 
         // Only display if we have data
-        if ((!creatorPaths || creatorPaths.length === 0) && (!portfolioPaths || portfolioPaths.length === 0)) {
+        if (!subscriptionPaths || subscriptionPaths.length === 0) {
             container.innerHTML = '';
             return;
         }
@@ -1015,14 +1012,14 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.innerHTML = `<span class="info-tooltip">Subscription Conversion Analysis<span class="info-icon">i</span>
             <span class="tooltip-text">
                 <strong>Subscription Conversion Analysis</strong>
-                Analyzes creator profile and portfolio viewing patterns before users subscribe to premium creators.
+                Analyzes combined creator profile and portfolio viewing patterns before users subscribe to premium creators.
                 <ul>
                     <li><strong>Data Sources:</strong>
                         <a href="https://mixpanel.com/project/2599235/view/3138115/app/boards#id=10576025&editor-card-id=%22report-87078016%22" target="_blank" style="color: #17a2b8;">Chart 87078016</a> (Subscription Events),
-                        creator_sequences_raw and portfolio_sequences_raw tables (viewing patterns)
+                        creator_sequences_raw and portfolio_sequences_raw tables (unified viewing patterns)
                     </li>
-                    <li><strong>Analyzes:</strong> First viewed creator/portfolio, most common combinations, full conversion sequences</li>
-                    <li><strong>Use Case:</strong> Understand which creators and portfolios drive premium subscriptions</li>
+                    <li><strong>Analyzes:</strong> Most common combinations and full conversion sequences combining creator AND portfolio views</li>
+                    <li><strong>Use Case:</strong> Understand which viewing patterns drive premium subscriptions</li>
                 </ul>
             </span>
         </span>`;
@@ -1030,36 +1027,46 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
 
         const description = document.createElement('p');
         description.style.cssText = 'font-size: 0.875rem; color: #6c757d; margin-top: 0.5rem; margin-bottom: 1.5rem;';
-        description.textContent = 'Most common viewing patterns before premium subscription';
+        description.textContent = 'Most common viewing patterns (creators + portfolios) before premium subscription';
         section.appendChild(description);
 
-        // Display creator paths
-        if (creatorPaths && creatorPaths.length > 0) {
-            const creatorSection = this.renderPathAnalysisSection(
-                'Creator Profile Views',
-                creatorPaths,
-                'creator'
+        // Group paths by analysis type
+        const groupedPaths = {
+            combinations: [],
+            full_sequence: []
+        };
+
+        subscriptionPaths.forEach(path => {
+            if (groupedPaths[path.analysis_type]) {
+                groupedPaths[path.analysis_type].push(path);
+            }
+        });
+
+        // Display combinations section
+        if (groupedPaths.combinations.length > 0) {
+            const combinationsSection = this.renderUnifiedPathSection(
+                'Most Common View Combinations (Unordered)',
+                groupedPaths.combinations
             );
-            section.appendChild(creatorSection);
+            section.appendChild(combinationsSection);
         }
 
-        // Display portfolio paths
-        if (portfolioPaths && portfolioPaths.length > 0) {
-            const portfolioSection = this.renderPathAnalysisSection(
-                'Portfolio Detail Views',
-                portfolioPaths,
-                'portfolio'
+        // Display full sequences section
+        if (groupedPaths.full_sequence.length > 0) {
+            const sequencesSection = this.renderUnifiedPathSection(
+                'Most Common Full Sequences (Ordered)',
+                groupedPaths.full_sequence
             );
-            section.appendChild(portfolioSection);
+            section.appendChild(sequencesSection);
         }
 
         container.appendChild(section);
     }
 
     /**
-     * Helper function to render path analysis section (creator or portfolio)
+     * Helper function to render unified path analysis section
      */
-    renderPathAnalysisSection(sectionTitle, pathsData, type) {
+    renderUnifiedPathSection(sectionTitle, pathsData) {
         const container = document.createElement('div');
         container.style.marginTop = '2rem';
 
@@ -1069,78 +1076,39 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         title.textContent = sectionTitle;
         container.appendChild(title);
 
-        // Group paths by analysis type
-        const groupedPaths = {
-            first_creator: [],
-            first_portfolio: [],
-            creator_combinations: [],
-            portfolio_combinations: [],
-            full_sequence: []
-        };
+        // Create table
+        const table = document.createElement('table');
+        table.className = 'qda-regression-table';
+        table.style.width = '100%';
 
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th style="text-align: left; width: 10%;">Rank</th>
+                <th style="text-align: left; width: 55%;">View Sequence</th>
+                <th style="text-align: right; width: 20%;">Subscribers</th>
+                <th style="text-align: right; width: 15%;">% of Total</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
         pathsData.forEach(path => {
-            if (groupedPaths[path.analysis_type]) {
-                groupedPaths[path.analysis_type].push(path);
-            }
-        });
+            const tr = document.createElement('tr');
 
-        // Display each analysis type
-        const typeLabels = {
-            first_creator: 'First Creator Viewed (Entry Point)',
-            first_portfolio: 'First Portfolio Viewed (Entry Point)',
-            creator_combinations: 'Most Common Creator Combinations',
-            portfolio_combinations: 'Most Common Portfolio Combinations',
-            full_sequence: 'Most Common Full Sequences'
-        };
+            // view_sequence contains items like "Creator: username" or "Portfolio: ticker"
+            const sequenceDisplay = path.view_sequence ? path.view_sequence.join(' → ') : 'N/A';
 
-        Object.entries(groupedPaths).forEach(([analysisType, paths]) => {
-            if (paths.length === 0) return;
-
-            const typeSection = document.createElement('div');
-            typeSection.style.marginTop = '1.5rem';
-
-            const typeTitle = document.createElement('h4');
-            typeTitle.style.cssText = 'font-size: 0.9rem; font-weight: 600; color: #495057; margin-bottom: 0.5rem;';
-            typeTitle.textContent = typeLabels[analysisType] || analysisType;
-            typeSection.appendChild(typeTitle);
-
-            // Create table
-            const table = document.createElement('table');
-            table.className = 'qda-regression-table';
-            table.style.width = '100%';
-
-            const thead = document.createElement('thead');
-            const sequenceLabel = type === 'creator' ? 'Creator Sequence' : 'Portfolio Sequence';
-            thead.innerHTML = `
-                <tr>
-                    <th style="text-align: left; width: 10%;">Rank</th>
-                    <th style="text-align: left; width: 55%;">${sequenceLabel}</th>
-                    <th style="text-align: right; width: 20%;">Subscribers</th>
-                    <th style="text-align: right; width: 15%;">% of Total</th>
-                </tr>
+            tr.innerHTML = `
+                <td style="text-align: left;">#${path.path_rank}</td>
+                <td style="text-align: left; font-family: monospace; font-size: 0.85rem;">${sequenceDisplay}</td>
+                <td style="text-align: right;">${path.converter_count.toLocaleString()}</td>
+                <td style="text-align: right;">${path.pct_of_converters.toFixed(2)}%</td>
             `;
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            paths.forEach(path => {
-                const tr = document.createElement('tr');
-
-                const sequence = type === 'creator' ? path.creator_sequence : path.portfolio_sequence;
-                const sequenceDisplay = sequence ? sequence.join(' → ') : 'N/A';
-
-                tr.innerHTML = `
-                    <td style="text-align: left;">#${path.path_rank}</td>
-                    <td style="text-align: left; font-family: monospace; font-size: 0.85rem;">${sequenceDisplay}</td>
-                    <td style="text-align: right;">${path.converter_count.toLocaleString()}</td>
-                    <td style="text-align: right;">${path.pct_of_converters.toFixed(2)}%</td>
-                `;
-                tbody.appendChild(tr);
-            });
-            table.appendChild(tbody);
-
-            typeSection.appendChild(table);
-            container.appendChild(typeSection);
+            tbody.appendChild(tr);
         });
+        table.appendChild(tbody);
+        container.appendChild(table);
 
         return container;
     }
