@@ -132,17 +132,26 @@ function parseEngageProfiles(profiles: any[]): UserPropertyRow[] {
         if (dbColumn === 'age_years') {
           // Special handling: Transform KYC Date of Birth timestamp to age_years
           // Parse timestamp string like "1982-02-27T03:00:00"
-          const birthDate = new Date(value)
-          const currentDate = new Date()
+          try {
+            const birthDate = new Date(value)
+            const currentDate = new Date()
 
-          // Validate the date is reasonable
-          if (!isNaN(birthDate.getTime()) && birthDate < currentDate && birthDate > new Date('1900-01-01')) {
-            // Calculate age in years
-            const ageMs = currentDate.getTime() - birthDate.getTime()
-            const ageYears = Math.floor(ageMs / (365.25 * 24 * 60 * 60 * 1000))
-            (row as any)[dbColumn] = ageYears
+            // Validate the date is reasonable
+            if (!isNaN(birthDate.getTime()) && birthDate < currentDate && birthDate > new Date('1900-01-01')) {
+              // Calculate age in years
+              const ageMs = currentDate.getTime() - birthDate.getTime()
+              const msPerYear = 365.25 * 24 * 60 * 60 * 1000
+              const ageYears = Math.floor(ageMs / msPerYear)
+
+              // Validate age is reasonable (0-120)
+              if (ageYears >= 0 && ageYears <= 120) {
+                (row as any)[dbColumn] = ageYears
+              }
+            }
+          } catch (e) {
+            // Skip if date parsing fails - don't set the field
+            continue
           }
-          // Skip if invalid date (don't set the field)
         } else if (
           // Explicitly defined string fields (text in DB)
           dbColumn === 'income' ||
