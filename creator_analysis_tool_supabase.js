@@ -1922,14 +1922,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         section.className = 'qda-result-section';
         section.style.marginTop = '3rem';
 
-        // Show warning banner if sync failed but we're showing cached data
-        if (syncFailed) {
-            const warning = this.supabaseIntegration.createStaleDataWarning(
-                'Unable to refresh retention data from Mixpanel (rate limit or API error). Showing cached data from database.'
-            );
-            section.appendChild(warning);
-        }
-
         const title = document.createElement('h2');
         title.style.cssText = 'margin-top: 0; margin-bottom: 0.5rem;';
         title.innerHTML = `<span class="info-tooltip">Premium Creator Retention<span class="info-icon">i</span>
