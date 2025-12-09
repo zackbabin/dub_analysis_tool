@@ -353,52 +353,82 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             }
 
             // Step 3: Support analysis workflow (Zendesk + Linear) - starts at 50%, completes at 65%
-            this.updateProgress(50, 'Step 3/5: Syncing support data...');
+            this.updateProgress(50, 'Step 3/5: Checking support data...');
             console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
-            try {
-                const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
-                console.log('✅ Support Data Sync: Complete');
 
-                // Step 3a: Analyze support feedback
-                console.log('→ 3a: Analyzing support feedback with Claude AI');
-                let analysisSucceeded = false;
-                try {
-                    const analysisResult = await this.supabaseIntegration.supabase.functions.invoke('analyze-support-feedback', { body: {} });
+            // Check if support_analysis was already completed in the past 24 hours
+            // If so, skip entire workflow (sync, analysis, and mapping)
+            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const { data: recentAnalysis, error: analysisCheckError } = await this.supabaseIntegration.supabase
+                .from('sync_logs')
+                .select('id, sync_completed_at')
+                .eq('source', 'support_analysis')
+                .eq('sync_status', 'completed')
+                .gte('sync_completed_at', oneDayAgo)
+                .order('sync_completed_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-                    if (analysisResult.error) {
-                        console.warn('  ⚠ 3a: Analysis failed, continuing');
-                    } else {
-                        console.log('  ✓ 3a: Analysis complete');
-                        analysisSucceeded = analysisResult.data?.success !== false;
-                    }
-                } catch (analysisError) {
-                    console.warn('  ⚠ 3a: Network error, will attempt Linear mapping');
-                    analysisSucceeded = true;
-                }
+            if (recentAnalysis) {
+                console.log(`✓ Support analysis already completed in past 24 hours at ${recentAnalysis.sync_completed_at}`);
+                console.log('Skipping entire Step 3 workflow (sync + analysis + mapping)');
 
-                // Step 3b: Map Linear issues to feedback
-                console.log('→ 3b: Mapping Linear issues to feedback');
-                try {
-                    const mappingResult = await this.supabaseIntegration.supabase.functions.invoke('map-linear-to-feedback', { body: {} });
-                    if (mappingResult.error) {
-                        console.warn('  ⚠ 3b: Linear mapping failed');
-                    } else {
-                        console.log('  ✓ 3b: Linear mapping complete');
-                    }
-                } catch (mappingError) {
-                    console.warn('  ⚠ 3b: Linear mapping exception');
-                }
-
-                // Step 3c: Refresh CX Analysis UI
-                console.log('→ 3c: Refreshing CX Analysis table');
+                // Refresh CX Analysis UI with existing data
+                console.log('→ Refreshing CX Analysis table with existing data');
                 if (window.cxAnalysis) {
                     await window.cxAnalysis.refresh();
-                    console.log('  ✓ 3c: CX Analysis refreshed');
+                    console.log('  ✓ CX Analysis refreshed');
                 }
-                this.updateProgress(65, 'Step 3/5: Complete');
-            } catch (error) {
-                console.warn('⚠ Support Analysis: Workflow failed, continuing');
-                this.updateProgress(65, 'Step 3/5: Complete (with errors)');
+                this.updateProgress(65, 'Step 3/5: Skipped (recent data exists)');
+            } else {
+                console.log('No recent analysis found - running full workflow');
+                this.updateProgress(50, 'Step 3/5: Syncing support data...');
+
+                try {
+                    const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
+                    console.log('✅ Support Data Sync: Complete');
+
+                    // Step 3a: Analyze support feedback
+                    console.log('→ 3a: Analyzing support feedback with Claude AI');
+                    let analysisSucceeded = false;
+                    try {
+                        const analysisResult = await this.supabaseIntegration.supabase.functions.invoke('analyze-support-feedback', { body: {} });
+
+                        if (analysisResult.error) {
+                            console.warn('  ⚠ 3a: Analysis failed, continuing');
+                        } else {
+                            console.log('  ✓ 3a: Analysis complete');
+                            analysisSucceeded = analysisResult.data?.success !== false;
+                        }
+                    } catch (analysisError) {
+                        console.warn('  ⚠ 3a: Network error, will attempt Linear mapping');
+                        analysisSucceeded = true;
+                    }
+
+                    // Step 3b: Map Linear issues to feedback
+                    console.log('→ 3b: Mapping Linear issues to feedback');
+                    try {
+                        const mappingResult = await this.supabaseIntegration.supabase.functions.invoke('map-linear-to-feedback', { body: {} });
+                        if (mappingResult.error) {
+                            console.warn('  ⚠ 3b: Linear mapping failed');
+                        } else {
+                            console.log('  ✓ 3b: Linear mapping complete');
+                        }
+                    } catch (mappingError) {
+                        console.warn('  ⚠ 3b: Linear mapping exception');
+                    }
+
+                    // Step 3c: Refresh CX Analysis UI
+                    console.log('→ 3c: Refreshing CX Analysis table');
+                    if (window.cxAnalysis) {
+                        await window.cxAnalysis.refresh();
+                        console.log('  ✓ 3c: CX Analysis refreshed');
+                    }
+                    this.updateProgress(65, 'Step 3/5: Complete');
+                } catch (error) {
+                    console.warn('⚠ Support Analysis: Workflow failed, continuing');
+                    this.updateProgress(65, 'Step 3/5: Complete (with errors)');
+                }
             }
 
             // Step 4: Refresh materialized views - starts at 65%, completes at 75%
