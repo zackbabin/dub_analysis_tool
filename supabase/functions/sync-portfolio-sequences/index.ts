@@ -36,7 +36,8 @@ interface MixpanelExportEvent {
     $distinct_id_before_identity?: string
     $insert_id: string
     $email?: string
-    portfolioTicker?: string    // From "Viewed Portfolio Details"
+    portfolioTicker?: string    // From "Viewed Portfolio Details" and "Tapped Portfolio Card"
+    categoryName?: string       // From "Tapped Portfolio Card"
     creatorUsername?: string    // From "Viewed Creator Profile"
     [key: string]: any
   }
@@ -240,6 +241,7 @@ serve(async (req) => {
     const supabase = initializeSupabaseClient()
 
     console.log('Starting portfolio sequences sync (Export API)...')
+    console.log('Fetching: "Viewed Portfolio Details" and "Tapped Portfolio Card" events')
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_portfolio_sequences')
@@ -345,13 +347,14 @@ serve(async (req) => {
         }
       }
 
-      // STEP 2: Fetch portfolio view events - FILTERED to target users if available
-      const eventNames = ['Viewed Portfolio Details']
+      // STEP 2: Fetch portfolio events - FILTERED to target users if available
+      // Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events
+      const eventNames = ['Viewed Portfolio Details', 'Tapped Portfolio Card']
 
       if (targetUserIds.length > 0) {
-        console.log(`\n📊 Step 2: Fetching portfolio views for ${targetUserIds.length} targeted users (with both timestamps)`)
+        console.log(`\n📊 Step 2: Fetching portfolio events for ${targetUserIds.length} targeted users (with both timestamps)`)
       } else {
-        console.log(`\n📊 Step 2: Fetching ALL portfolio views (no user filter available)`)
+        console.log(`\n📊 Step 2: Fetching ALL portfolio events (no user filter available)`)
       }
 
       const fetchStartMs = Date.now()
@@ -402,17 +405,23 @@ serve(async (req) => {
             continue
           }
 
+          // Extract category_name from "Tapped Portfolio Card" events only
+          const categoryName = event.event === 'Tapped Portfolio Card'
+            ? event.properties.categoryName || null
+            : null
+
           // Store raw event data with user_id from Export API
           rawEventRows.push({
             user_id: userId,          // Export API $user_id (merged identity)
             event_name: event.event,
             event_time: eventTime,
-            portfolio_ticker: portfolioTicker
+            portfolio_ticker: portfolioTicker,
+            category_name: categoryName  // NULL for "Viewed Portfolio Details", populated for "Tapped Portfolio Card"
           })
         }
 
         // Insert batch to database - PostgreSQL handles deduplication via unique constraint
-        // Unique index: idx_portfolio_sequences_raw_unique (user_id, event_time, portfolio_ticker)
+        // Unique index: idx_portfolio_sequences_raw_unique (user_id, event_name, event_time, portfolio_ticker)
         try {
           if (rawEventRows.length === 0) {
             console.log(`  ✓ No events in batch`)
@@ -422,7 +431,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('portfolio_sequences_raw')
             .upsert(rawEventRows, {
-              onConflict: 'user_id,event_time,portfolio_ticker',
+              onConflict: 'user_id,event_name,event_time,portfolio_ticker',
               ignoreDuplicates: true
             })
 
@@ -550,7 +559,8 @@ serve(async (req) => {
         )
       }
 
-      console.log(`✅ Inserted ${totalInserted} raw events to portfolio_sequences_raw`)
+      console.log(`✅ Inserted ${totalInserted} portfolio events to portfolio_sequences_raw`)
+      console.log(`   (Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events)`)
 
       // Log skipped events summary
       if (skippedNoUserId > 0 || skippedNoTicker > 0) {
@@ -576,7 +586,7 @@ serve(async (req) => {
         : `Event sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
-      console.log(`Portfolio views: ${stats.eventsInserted}, First copies: ${stats.copyEventsSynced}`)
+      console.log(`Portfolio events: ${stats.eventsInserted} (views + card taps), First copies: ${stats.copyEventsSynced}`)
       console.log('')
       console.log('📊 Next step: Call analyze-event-sequences separately to analyze conversion patterns')
       console.log(`   Synced ${stats.copyEventsSynced} converters - ${stats.copyEventsSynced >= 50 ? 'ready for analysis' : 'need 50+ for meaningful analysis'}`)
