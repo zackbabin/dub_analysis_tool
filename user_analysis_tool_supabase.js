@@ -100,7 +100,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 24; // Updated progress bar percentages: Steps 0-30-40-60-70-90-100
+    static CACHE_VERSION = 25; // Progress bar shows target % immediately: 30-40-60-70-90-100
 
     constructor() {
         super();
@@ -333,27 +333,24 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         console.log('🔄 Sync Live Data: Starting workflow...');
 
         try {
-            // Step 1: Sync user data (Mixpanel) - starts at 0%, completes at 30%
-            this.updateProgress(0, 'Step 1/5: Syncing user data...');
+            // Step 1: Sync user data (Mixpanel) - 30%
+            this.updateProgress(30, 'Step 1/5: Syncing user data...');
             console.log('\n═══ Step 1: User Data (Mixpanel) ═══');
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
-            this.updateProgress(30, 'Step 1/5: Complete');
 
-            // Step 2: Sync creator data - starts at 30%, completes at 40%
-            this.updateProgress(30, 'Step 2/5: Syncing creator data...');
+            // Step 2: Sync creator data - 40%
+            this.updateProgress(40, 'Step 2/5: Syncing creator data...');
             console.log('\n═══ Step 2: Creator Data ═══');
             let creatorResult = null;
             try {
                 creatorResult = await this.supabaseIntegration.triggerCreatorSync();
                 console.log('✅ Creator Sync: Complete');
-                this.updateProgress(40, 'Step 2/5: Complete');
             } catch (error) {
                 console.warn('⚠ Creator Sync: Failed, continuing with existing data');
-                this.updateProgress(40, 'Step 2/5: Complete (with errors)');
             }
 
-            // Step 3: Support analysis workflow (Zendesk + Linear) - starts at 40%, completes at 60%
-            this.updateProgress(40, 'Step 3/5: Checking support data...');
+            // Step 3: Support analysis workflow (Zendesk + Linear) - 60%
+            this.updateProgress(60, 'Step 3/5: Checking support data...');
             console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
 
             // Check if support_analysis was already completed in the past 24 hours
@@ -380,10 +377,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             if (recentAnalysis) {
                 console.log(`✓ Support analysis already completed in past 24 hours at ${recentAnalysis.sync_completed_at}`);
                 console.log('Skipping Step 3 workflow (recent data exists)');
-                this.updateProgress(60, 'Step 3/5: Skipped (recent data exists)');
             } else {
                 console.log('No recent analysis found - running full workflow');
-                this.updateProgress(40, 'Step 3/5: Syncing support data...');
 
                 try {
                     const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
@@ -420,15 +415,13 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                     }
 
                     console.log('✅ Support Analysis: Complete');
-                    this.updateProgress(60, 'Step 3/5: Complete');
                 } catch (error) {
                     console.warn('⚠ Support Analysis: Workflow failed, continuing');
-                    this.updateProgress(60, 'Step 3/5: Complete (with errors)');
                 }
             }
 
-            // Step 4: Refresh materialized views - starts at 60%, completes at 70%
-            this.updateProgress(60, 'Step 4/5: Refreshing views...');
+            // Step 4: Refresh materialized views - 70%
+            this.updateProgress(70, 'Step 4/5: Refreshing views...');
             console.log('\n═══ Step 4: Refresh Materialized Views ═══');
             console.log('Refreshing:');
             console.log('  1. main_analysis');
@@ -443,18 +436,15 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
                 if (refreshResult?.success) {
                     console.log('✅ All materialized views refreshed');
-                    this.updateProgress(70, 'Step 4/5: Complete');
                 } else {
                     console.warn('⚠ Materialized views refresh failed, continuing');
-                    this.updateProgress(70, 'Step 4/5: Complete (with errors)');
                 }
             } catch (error) {
                 console.warn('⚠ Materialized views refresh failed, continuing');
-                this.updateProgress(70, 'Step 4/5: Complete (with errors)');
             }
 
-            // Step 5: Run analysis workflows in parallel - starts at 70%, completes at 90%
-            this.updateProgress(70, 'Step 5/5: Running analysis...');
+            // Step 5: Run analysis workflows in parallel - 90%
+            this.updateProgress(90, 'Step 5/5: Running analysis...');
             console.log('\n═══ Step 5: Analysis Workflows (Parallel) ═══');
 
             await Promise.allSettled([
@@ -657,10 +647,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Log parallel completion
             console.log('\n✅ All analysis workflows completed');
-            this.updateProgress(90, 'Step 5/5: Complete');
         } catch (error) {
             console.error('❌ Workflow failed:', error);
-            this.updateProgress(90, 'Step 5/5: Complete (with errors)');
             throw error;
         }
 
