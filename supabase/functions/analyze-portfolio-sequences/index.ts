@@ -1,12 +1,14 @@
 // Supabase Edge Function: analyze-portfolio-sequences
-// SIMPLIFIED: Analyzes raw "Viewed Portfolio Details" events to find conversion patterns
+// SIMPLIFIED: Analyzes portfolio events to find conversion patterns
+// Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events
 // Calculates average unique portfolio views between first app open and first copy
 //
 // Data sources:
-//   - portfolio_sequences_raw: Raw portfolio view events
+//   - portfolio_sequences_raw: Raw portfolio events (views + taps)
 //   - user_first_copies: Users with both first_app_open_time and first_copy_time
 //
 // Analysis filters events between first_app_open_time and first_copy_time for each user
+// Tapped Portfolio Card events are distinguished with "(C)" suffix in sequences
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
