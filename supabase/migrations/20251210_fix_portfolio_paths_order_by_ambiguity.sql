@@ -54,7 +54,7 @@ BEGIN
   first_portfolios AS (
     SELECT
       'first_portfolio'::TEXT as analysis_type,
-      ROW_NUMBER() OVER (ORDER BY COUNT(DISTINCT user_id) DESC) as path_rank,
+      ROW_NUMBER() OVER (ORDER BY COUNT(DISTINCT user_id) DESC)::INT as path_rank,
       ARRAY[portfolio_display] as portfolio_sequence,
       COUNT(DISTINCT user_id)::INT as converter_count,
       ROUND((COUNT(DISTINCT user_id)::NUMERIC / total_converters * 100), 2) as pct_of_converters,
@@ -70,7 +70,7 @@ BEGIN
   last_portfolios AS (
     SELECT
       'last_portfolio'::TEXT as analysis_type,
-      ROW_NUMBER() OVER (ORDER BY COUNT(DISTINCT user_id) DESC) as path_rank,
+      ROW_NUMBER() OVER (ORDER BY COUNT(DISTINCT user_id) DESC)::INT as path_rank,
       ARRAY[portfolio_display] as portfolio_sequence,
       COUNT(DISTINCT user_id)::INT as converter_count,
       ROUND((COUNT(DISTINCT user_id)::NUMERIC / total_converters * 100), 2) as pct_of_converters,
@@ -101,7 +101,7 @@ BEGIN
   full_sequences AS (
     SELECT
       'full_sequence'::TEXT as analysis_type,
-      ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as path_rank,
+      ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC)::INT as path_rank,
       us.portfolio_sequence,
       COUNT(*)::INT as converter_count,
       ROUND((COUNT(*)::NUMERIC / total_converters * 100), 2) as pct_of_converters,
