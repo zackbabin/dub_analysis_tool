@@ -778,9 +778,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Step 2: Build complete HTML with data from database (modifies DOM directly)
         await this.buildCompleteHTMLFromDatabase();
 
-        // Step 2.5: Refresh subscription drivers display from database
-        await this.displayTopSubscriptionDrivers();
-
         // Step 3: Cache complete rendered HTML for all tabs
         try {
             // Get existing cache to preserve timestamp
@@ -845,10 +842,6 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
         // Step 2: Build complete HTML with fresh data (modifies DOM directly)
         await this.buildCompleteHTML(results);
-
-        // Step 2.5: Refresh subscription drivers display from database
-        // (Data is calculated and saved during Step 2 of sync workflow via analyze-behavioral-drivers edge function)
-        await this.displayTopSubscriptionDrivers();
 
         // Step 3: Cache complete rendered HTML for all tabs (user analysis only)
         try {
