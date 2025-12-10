@@ -420,9 +420,16 @@ serve(async (req) => {
       })
       console.log('✓ Materialized view refresh triggered')
 
-      // Note: Premium creator affinity is now computed via database views
-      // See: premium_creator_affinity_display view
-      console.log('✅ Premium creator affinity available via views')
+      // Refresh premium creator affinity table (expensive query, only done when creator data changes)
+      console.log('Refreshing premium creator affinity table (async)...')
+      supabase.rpc('refresh_premium_creator_affinity').then(({ error: affinityError }) => {
+        if (affinityError) {
+          console.error('⚠️ Error refreshing premium creator affinity:', affinityError.message)
+        } else {
+          console.log('✅ Premium creator affinity refreshed in background')
+        }
+      })
+      console.log('✓ Premium creator affinity refresh triggered')
 
       return createSuccessResponse(
         'Creator enrichment sync completed successfully',
