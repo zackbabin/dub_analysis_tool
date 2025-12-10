@@ -1,7 +1,7 @@
 -- Migration: Update analyze_unified_copy_paths to include card tap events
 -- Created: 2025-12-10
--- Purpose: Include "Tapped Portfolio Card" and "Viewed Creator Card" events in unified analysis
---          Portfolio cards: append "(category_name)" - e.g., "Portfolio: AAPL(Top Performing)"
+-- Purpose: Include "Tapped Portfolio Tile" and "Tapped Creator Card" events in unified analysis
+--          Portfolio tiles: append "(category_name)" - e.g., "Portfolio: AAPL(Top Performing)"
 --          Creator cards: append "(C)" - e.g., "Creator: @johndoe(C)"
 
 -- Drop existing function first
@@ -38,12 +38,12 @@ BEGIN
 
   -- UNION creator and portfolio views into one timeline
   unified_views AS (
-    -- Creator views (both "Viewed Creator Profile" and "Viewed Creator Card")
+    -- Creator views (both "Viewed Creator Profile" and "Tapped Creator Card")
     -- Append "(C)" to creator cards
     SELECT
       cs.user_id,
       CASE
-        WHEN cs.event_name = 'Viewed Creator Card'
+        WHEN cs.event_name = 'Tapped Creator Card'
           THEN 'Creator: ' || cs.creator_username || '(C)'
         ELSE 'Creator: ' || cs.creator_username
       END as view_item,
@@ -53,16 +53,16 @@ BEGIN
     WHERE cs.event_time >= ac.first_app_open_time
       AND cs.event_time < ac.first_copy_time
       AND cs.creator_username IS NOT NULL
-      AND cs.event_name IN ('Viewed Creator Profile', 'Viewed Creator Card')
+      AND cs.event_name IN ('Viewed Creator Profile', 'Tapped Creator Card')
 
     UNION ALL
 
-    -- Portfolio views (both "Viewed Portfolio Details" and "Tapped Portfolio Card")
-    -- Append "(category_name)" to portfolio cards
+    -- Portfolio views (both "Viewed Portfolio Details" and "Tapped Portfolio Tile")
+    -- Append "(category_name)" to portfolio tiles
     SELECT
       ps.user_id,
       CASE
-        WHEN ps.event_name = 'Tapped Portfolio Card' AND ps.category_name IS NOT NULL
+        WHEN ps.event_name = 'Tapped Portfolio Tile' AND ps.category_name IS NOT NULL
           THEN 'Portfolio: ' || ps.portfolio_ticker || '(' || ps.category_name || ')'
         ELSE 'Portfolio: ' || ps.portfolio_ticker
       END as view_item,
@@ -72,7 +72,7 @@ BEGIN
     WHERE ps.event_time >= ac.first_app_open_time
       AND ps.event_time < ac.first_copy_time
       AND ps.portfolio_ticker IS NOT NULL
-      AND ps.event_name IN ('Viewed Portfolio Details', 'Tapped Portfolio Card')
+      AND ps.event_name IN ('Viewed Portfolio Details', 'Tapped Portfolio Tile')
   ),
 
   -- Order by time and deduplicate consecutive identical views
@@ -164,10 +164,10 @@ $$;
 
 COMMENT ON FUNCTION analyze_unified_copy_paths IS
   'Analyzes combined creator + portfolio viewing sequences before first copy.
-   Includes both profile views and card taps:
-   - Portfolio cards show category: "Portfolio: AAPL(Top Performing)"
+   Includes both profile views and card/tile taps:
+   - Portfolio tiles show category: "Portfolio: AAPL(Top Performing)"
    - Creator cards show (C): "Creator: @johndoe(C)"
-   - Profile views show plain: "Portfolio: AAPL" or "Creator: @johndoe"
+   - Profile/details views show plain: "Portfolio: AAPL" or "Creator: @johndoe"
    Uses first_app_open_time as start time for analysis window.
    Deduplicates ALL occurrences (keeps only first occurrence of each item).
    Returns top combinations (unordered sets) and full sequences (ordered paths).';
@@ -176,13 +176,13 @@ COMMENT ON FUNCTION analyze_unified_copy_paths IS
 DO $$
 BEGIN
   RAISE NOTICE '';
-  RAISE NOTICE '✅ Updated analyze_unified_copy_paths to include card tap events';
-  RAISE NOTICE '   - Portfolio cards: append actual category name';
+  RAISE NOTICE '✅ Updated analyze_unified_copy_paths to include card/tile tap events';
+  RAISE NOTICE '   - Portfolio tiles: append actual category name';
   RAISE NOTICE '   - Creator cards: append "(C)" suffix';
   RAISE NOTICE '   - Examples:';
-  RAISE NOTICE '     * "Portfolio: AAPL(Top Performing)" = Tapped from category';
+  RAISE NOTICE '     * "Portfolio: AAPL(Top Performing)" = Tapped tile from category';
   RAISE NOTICE '     * "Portfolio: AAPL" = Viewed portfolio details';
-  RAISE NOTICE '     * "Creator: @johndoe(C)" = Viewed creator card';
+  RAISE NOTICE '     * "Creator: @johndoe(C)" = Tapped creator card';
   RAISE NOTICE '     * "Creator: @johndoe" = Viewed creator profile';
   RAISE NOTICE '';
 END $$;

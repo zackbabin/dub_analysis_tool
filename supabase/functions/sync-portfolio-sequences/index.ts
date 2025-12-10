@@ -36,8 +36,8 @@ interface MixpanelExportEvent {
     $distinct_id_before_identity?: string
     $insert_id: string
     $email?: string
-    portfolioTicker?: string    // From "Viewed Portfolio Details" and "Tapped Portfolio Card"
-    categoryName?: string       // From "Tapped Portfolio Card"
+    portfolioTicker?: string    // From "Viewed Portfolio Details" and "Tapped Portfolio Tile"
+    categoryName?: string       // From "Tapped Portfolio Tile"
     creatorUsername?: string    // From "Viewed Creator Profile"
     [key: string]: any
   }
@@ -241,7 +241,7 @@ serve(async (req) => {
     const supabase = initializeSupabaseClient()
 
     console.log('Starting portfolio sequences sync (Export API)...')
-    console.log('Fetching: "Viewed Portfolio Details" and "Tapped Portfolio Card" events')
+    console.log('Fetching: "Viewed Portfolio Details" and "Tapped Portfolio Tile" events')
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_portfolio_sequences')
@@ -348,8 +348,8 @@ serve(async (req) => {
       }
 
       // STEP 2: Fetch portfolio events - FILTERED to target users if available
-      // Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events
-      const eventNames = ['Viewed Portfolio Details', 'Tapped Portfolio Card']
+      // Includes both "Viewed Portfolio Details" and "Tapped Portfolio Tile" events
+      const eventNames = ['Viewed Portfolio Details', 'Tapped Portfolio Tile']
 
       if (targetUserIds.length > 0) {
         console.log(`\n📊 Step 2: Fetching portfolio events for ${targetUserIds.length} targeted users (with both timestamps)`)
@@ -405,8 +405,8 @@ serve(async (req) => {
             continue
           }
 
-          // Extract category_name from "Tapped Portfolio Card" events only
-          const categoryName = event.event === 'Tapped Portfolio Card'
+          // Extract category_name from "Tapped Portfolio Tile" events only
+          const categoryName = event.event === 'Tapped Portfolio Tile'
             ? event.properties.categoryName || null
             : null
 
@@ -560,7 +560,7 @@ serve(async (req) => {
       }
 
       console.log(`✅ Inserted ${totalInserted} portfolio events to portfolio_sequences_raw`)
-      console.log(`   (Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events)`)
+      console.log(`   (Includes both "Viewed Portfolio Details" and "Tapped Portfolio Tile" events)`)
 
       // Log skipped events summary
       if (skippedNoUserId > 0 || skippedNoTicker > 0) {

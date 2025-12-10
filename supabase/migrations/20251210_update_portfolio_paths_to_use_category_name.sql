@@ -1,7 +1,7 @@
 -- Migration: Update analyze_portfolio_copy_paths to display actual category names
 -- Created: 2025-12-10
 -- Purpose: Show actual category name instead of generic "(C)" suffix
---          Example: "AAPL(Top Performing)" instead of "AAPL(C)"
+--          Example: "AAPL(Top Performing)" for tapped tiles
 
 -- Drop existing function first
 DROP FUNCTION IF EXISTS analyze_portfolio_copy_paths();
@@ -33,12 +33,12 @@ BEGIN
 
   ordered_views AS (
     -- Get all pre-copy portfolio events with position markers
-    -- Include both "Viewed Portfolio Details" and "Tapped Portfolio Card"
+    -- Include both "Viewed Portfolio Details" and "Tapped Portfolio Tile"
     -- Append category name for tapped events (e.g., "AAPL(Top Performing)")
     SELECT
       ps.user_id,
       CASE
-        WHEN ps.event_name = 'Tapped Portfolio Card' AND ps.category_name IS NOT NULL
+        WHEN ps.event_name = 'Tapped Portfolio Tile' AND ps.category_name IS NOT NULL
           THEN ps.portfolio_ticker || '(' || ps.category_name || ')'
         ELSE ps.portfolio_ticker
       END as portfolio_display,
@@ -49,7 +49,7 @@ BEGIN
     INNER JOIN all_converters ac ON ps.user_id = ac.user_id
     WHERE ps.event_time < ac.first_copy_time
       AND ps.portfolio_ticker IS NOT NULL
-      AND ps.event_name IN ('Viewed Portfolio Details', 'Tapped Portfolio Card')
+      AND ps.event_name IN ('Viewed Portfolio Details', 'Tapped Portfolio Tile')
   ),
 
   -- Top 5 first portfolios (entry points)
@@ -132,7 +132,7 @@ $$;
 
 COMMENT ON FUNCTION analyze_portfolio_copy_paths IS
 'Analyzes ordered portfolio viewing patterns before first copy.
-Includes both "Viewed Portfolio Details" and "Tapped Portfolio Card" events.
+Includes both "Viewed Portfolio Details" and "Tapped Portfolio Tile" events.
 Tapped events show actual category name (e.g., "AAPL(Top Performing)").
 Returns 3 analysis types with top 5 results each:
 - first_portfolio: Most common entry portfolios (1st viewed)
@@ -145,7 +145,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '✅ Updated analyze_portfolio_copy_paths to show category names';
-  RAISE NOTICE '   - Tapped events now show actual category name';
-  RAISE NOTICE '   - Example: "AAPL" = Viewed, "AAPL(Top Performing)" = Tapped from Top Performing category';
+  RAISE NOTICE '   - Tapped tile events now show actual category name';
+  RAISE NOTICE '   - Example: "AAPL" = Viewed Details, "AAPL(Top Performing)" = Tapped Tile from category';
   RAISE NOTICE '';
 END $$;
