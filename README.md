@@ -4,10 +4,10 @@ Comprehensive analytics platform for analyzing user behavior, creator performanc
 
 ## System Architecture
 
-**Frontend**: Static HTML/CSS/JS hosted on GitHub Pages
-**Backend**: Supabase (PostgreSQL + Edge Functions)
-**Data Sources**: Mixpanel Analytics API, Zendesk Support API, Linear API
-**AI Analysis**: Claude Opus 4.5 (Anthropic)
+- **Frontend**: Static HTML/CSS/JS hosted on GitHub Pages
+- **Backend**: Supabase (PostgreSQL + Edge Functions)
+- **Data Sources**: Mixpanel Analytics API, Zendesk Support API, Linear API
+- **AI Analysis**: Claude Opus 4.5 (Anthropic)
 
 ## Key Features
 
@@ -34,6 +34,10 @@ High-level platform metrics for marketing and executive reporting.
 
 **Demographic Breakdown**
 - Objective: Visualize user distribution by income, net worth, and investing activity segments
+
+**Persona Breakdown**
+- Objective: Segment users by engagement and subscription status
+- Four personas: Premium (≥1 subscription), Core (≥1 copy), Activation Targets (high engagement, no conversion), Non-activated (minimal engagement)
 
 ---
 
@@ -83,9 +87,9 @@ AI-powered customer experience analysis categorizing support feedback and mappin
 
 ### Data Sources
 
-**Zendesk**: Last 30 days of support tickets
-**Linear API**: All issues from "dub 3.0" team
-**Claude Opus 4.5 (Anthropic)**: AI categorization and semantic matching
+- **Zendesk**: Last 30 days of support tickets
+- **Linear API**: All issues from "dub 3.0" team
+- **Claude Opus 4.5 (Anthropic)**: AI categorization and semantic matching
 
 ### Sections
 
