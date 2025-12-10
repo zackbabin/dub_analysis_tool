@@ -7,7 +7,7 @@ Comprehensive analytics platform for analyzing user behavior, creator performanc
 **Frontend**: Static HTML/CSS/JS hosted on GitHub Pages
 **Backend**: Supabase (PostgreSQL + Edge Functions)
 **Data Sources**: Mixpanel Analytics API, Zendesk Support API, Linear API
-**AI Analysis**: Claude Sonnet 4 (Anthropic)
+**AI Analysis**: Claude Opus 4.5 (Anthropic)
 
 ## Key Features
 
@@ -24,9 +24,7 @@ High-level platform metrics for marketing and executive reporting.
 
 ### Data Sources
 
-**Mixpanel Insights API** (manual fetch, on-demand):
-- Pre-aggregated marketing metrics from saved charts
-- Snapshot data, not synced to database
+**Mixpanel Insights API**: Pre-aggregated marketing metrics from saved charts
 
 ### Sections
 
@@ -45,20 +43,13 @@ Identifies behavioral patterns and conversion drivers through statistical correl
 
 ### Data Sources
 
-**Mixpanel** (automated daily sync):
+**Mixpanel**:
 - **Event Metrics**: 17 pre-aggregated behavioral metrics (copies, bank links, app sessions, tab views, creator/portfolio views, subscriptions)
 - **User Properties**: 15 demographic and engagement properties (income, net worth, buying power, portfolios created/copied, deposits)
 - **Engagement Events**: Granular user-portfolio-creator interactions (profile views, PDP views, copies, subscriptions)
 - **Event Sequences**: "Viewed Portfolio Details", "Tapped Portfolio Card", "Viewed Creator Profile", "Tapped Creator Card" events
 
-**Data Scope**: All active users with complete behavioral history
-
 ### Sections
-
-**Top Behavioral Drivers**
-- Objective: Identify variables with strongest statistical correlation to conversions (deposits, copies, subscriptions)
-- Uses correlation coefficients and t-statistics across 17+ behavioral variables
-- Separate analysis for each conversion type with tabbed interface
 
 **Copy Conversion Analysis**
 - Objective: Display conversion rates and engagement thresholds for portfolio copying
@@ -79,6 +70,11 @@ Identifies behavioral patterns and conversion drivers through statistical correl
 - Objective: Identify high-engagement portfolios with low conversion rates
 - Highlights optimization opportunities for improving portfolio discovery
 
+**Top Behavioral Drivers**
+- Objective: Identify variables with strongest statistical correlation to conversions (deposits, copies, subscriptions)
+- Uses correlation coefficients and t-statistics across 17+ behavioral variables
+- Separate analysis for each conversion type with tabbed interface
+
 ---
 
 ## CX Analysis
@@ -87,27 +83,18 @@ AI-powered customer experience analysis categorizing support feedback and mappin
 
 ### Data Sources
 
-**Zendesk + Instabug** (automated sync when triggered):
-- Last 30 days of support tickets and bug reports
-- Enriched with user demographics and engagement metrics
-
-**Linear API**:
-- All issues from "dub 3.0" team
-- Status tracking and URL references
-
-**Data Scope**: 300 most recent support conversations analyzed per sync
+**Zendesk**: Last 30 days of support tickets
+**Linear API**: All issues from "dub 3.0" team
+**Claude Opus 4.5 (Anthropic)**: AI categorization and semantic matching
 
 ### Sections
 
 **Top 10 Product Issues**
 - Objective: Prioritize customer feedback by impact and severity using AI categorization
-- **Powered by Claude Sonnet 4**: Analyzes ~300 conversations, categorizes into themes, ranks by composite priority score
+- **Powered by Claude Opus 4.5**: Analyzes ~300 conversations, categorizes into themes, ranks by composite priority score
 - Priority formula combines category weight (money movement, trading, app functionality, feedback), percentage affected, and weekly volume
 - For each issue: summary, weekly volume, representative examples, mapped Linear issues
 - **PII Protection**: All sensitive data automatically redacted before AI analysis
-
-**Data Scope Indicator**
-- Shows date range and conversation count for current analysis
 
 ---
 
@@ -117,7 +104,7 @@ Tracks premium creator performance, subscription retention, and copy behavior pa
 
 ### Data Sources
 
-**Mixpanel** (automated daily sync):
+**Mixpanel**:
 - Creator engagement metrics (profile views, PDP views, paywall views)
 - Subscription events (new subscriptions, cancellations, revenue)
 - Copy behavior (copies, liquidations, copy capital)
@@ -126,13 +113,10 @@ Tracks premium creator performance, subscription retention, and copy behavior pa
 - Portfolio performance metrics (returns, positions, inception dates)
 - Portfolio stock holdings (ticker, quantity, position count)
 
-**Data Scope**: All premium creators with historical performance data
-
 ### Sections
 
 **Subscription Conversion Analysis**
 - Objective: Identify viewing patterns before first subscription
-- **Powered by Claude Sonnet 4**: Analyzes combined creator profile and portfolio viewing sequences
 - Shows top combinations and sequential paths leading to subscriptions
 
 **Premium Creator Breakdown**
@@ -157,10 +141,3 @@ Tracks premium creator performance, subscription retention, and copy behavior pa
 - Objective: Display most common stocks across premium creator portfolios
 - Shows top holdings by frequency and total position size
 
----
-
-## Notes
-
-- All timestamps show "Data as of: [last sync time]" for transparency
-- Progress bar tracks 5-step sync workflow: user data → creator data → support workflow → refresh views → run analysis
-- Cache management ensures consistent data display across page refreshes
