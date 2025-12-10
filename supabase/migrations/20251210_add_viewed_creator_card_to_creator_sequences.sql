@@ -1,6 +1,6 @@
--- Migration: Add support for "Viewed Creator Card" events in creator_sequences_raw
+-- Migration: Add support for "Tapped Creator Card" events in creator_sequences_raw
 -- Created: 2025-12-10
--- Purpose: Track both "Viewed Creator Profile" and "Viewed Creator Card" events
+-- Purpose: Track both "Viewed Creator Profile" and "Tapped Creator Card" events
 --          Update unique constraint to allow both event types for same user/time/creator
 
 -- Drop old unique index (doesn't include event_name)
@@ -30,7 +30,7 @@ COMMENT ON INDEX idx_creator_sequences_raw_unique IS
 'Ensures uniqueness for creator events on (user_id, event_name, event_time, creator_username). Includes event_name to allow both Viewed Profile and Viewed Card events for same creator/time.';
 
 COMMENT ON VIEW creator_sequences IS
-'Creator view events joined with first_copy_time. Includes both "Viewed Creator Profile" and "Viewed Creator Card" events.
+'Creator view events joined with first_copy_time. Includes both "Viewed Creator Profile" and "Tapped Creator Card" events.
 Filter pre-copy events: WHERE event_time < first_copy_time';
 
 -- Log migration
@@ -38,7 +38,7 @@ DO $$
 BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '✅ Updated creator_sequences_raw unique constraint to include event_name';
-  RAISE NOTICE '   - Allows both "Viewed Creator Profile" and "Viewed Creator Card"';
+  RAISE NOTICE '   - Allows both "Viewed Creator Profile" and "Tapped Creator Card"';
   RAISE NOTICE '   - Same user can view same creator at same time via different paths';
   RAISE NOTICE '✅ Recreated creator_sequences view';
   RAISE NOTICE '';

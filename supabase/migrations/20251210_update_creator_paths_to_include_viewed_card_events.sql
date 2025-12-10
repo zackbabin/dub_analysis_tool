@@ -1,6 +1,6 @@
--- Migration: Update analyze_creator_copy_paths to include Viewed Creator Card events
+-- Migration: Update analyze_creator_copy_paths to include Tapped Creator Card events
 -- Created: 2025-12-10
--- Purpose: Include both "Viewed Creator Profile" and "Viewed Creator Card" events in path analysis
+-- Purpose: Include both "Viewed Creator Profile" and "Tapped Creator Card" events in path analysis
 --          Distinguish card events with "(C)" suffix (e.g., "@johndoe(C)")
 
 -- Drop existing function first (required when changing logic)
@@ -33,12 +33,12 @@ BEGIN
 
   ordered_views AS (
     -- Get all pre-copy creator events with position markers
-    -- Include both "Viewed Creator Profile" and "Viewed Creator Card"
+    -- Include both "Viewed Creator Profile" and "Tapped Creator Card"
     -- Append "(C)" to card events for distinction
     SELECT
       cs.user_id,
       CASE
-        WHEN cs.event_name = 'Viewed Creator Card' THEN cs.creator_username || '(C)'
+        WHEN cs.event_name = 'Tapped Creator Card' THEN cs.creator_username || '(C)'
         ELSE cs.creator_username
       END as creator_display,
       cs.event_time,
@@ -48,7 +48,7 @@ BEGIN
     INNER JOIN all_converters ac ON cs.user_id = ac.user_id
     WHERE cs.event_time < ac.first_copy_time
       AND cs.creator_username IS NOT NULL
-      AND cs.event_name IN ('Viewed Creator Profile', 'Viewed Creator Card')
+      AND cs.event_name IN ('Viewed Creator Profile', 'Tapped Creator Card')
   ),
 
   -- Top 10 most viewed creators (total view counts)
@@ -170,7 +170,7 @@ $$;
 
 COMMENT ON FUNCTION analyze_creator_copy_paths IS
 'Analyzes ordered creator viewing patterns before first copy.
-Includes both "Viewed Creator Profile" and "Viewed Creator Card" events.
+Includes both "Viewed Creator Profile" and "Tapped Creator Card" events.
 Card events are distinguished with "(C)" suffix (e.g., "@johndoe(C)").
 Returns 3 analysis types with top 10 results each:
 - top_creators_viewed: Most viewed creators
@@ -182,7 +182,7 @@ Called by analyze-creator-sequences edge function.';
 DO $$
 BEGIN
   RAISE NOTICE '';
-  RAISE NOTICE '✅ Updated analyze_creator_copy_paths to include Viewed Creator Card events';
+  RAISE NOTICE '✅ Updated analyze_creator_copy_paths to include Tapped Creator Card events';
   RAISE NOTICE '   - Both event types now included in analysis';
   RAISE NOTICE '   - Card events distinguished with "(C)" suffix';
   RAISE NOTICE '   - Example: "@johndoe" = Profile view, "@johndoe(C)" = Card tap';

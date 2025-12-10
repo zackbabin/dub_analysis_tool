@@ -1,5 +1,5 @@
 // Supabase Edge Function: sync-creator-sequences
-// Fetches "Viewed Creator Profile" and "Viewed Creator Card" events for users who copied at least once
+// Fetches "Viewed Creator Profile" and "Tapped Creator Card" events for users who copied at least once
 //
 // Step 1: Uses existing user_first_copies table (populated by sync-event-sequences-v2)
 // Step 2: Stream creator events for those users (last 30 days), processing in 2500-event chunks
@@ -239,7 +239,7 @@ serve(async (req) => {
     const supabase = initializeSupabaseClient()
 
     console.log('Starting creator sequences sync (Export API)...')
-    console.log('Fetching: "Viewed Creator Profile" and "Viewed Creator Card" events')
+    console.log('Fetching: "Viewed Creator Profile" and "Tapped Creator Card" events')
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_creator_sequences')
@@ -344,8 +344,8 @@ serve(async (req) => {
       }
 
       // STEP 2: Fetch creator events - FILTERED to target users if available
-      // Includes both "Viewed Creator Profile" and "Viewed Creator Card" events
-      const eventNames = ['Viewed Creator Profile', 'Viewed Creator Card']
+      // Includes both "Viewed Creator Profile" and "Tapped Creator Card" events
+      const eventNames = ['Viewed Creator Profile', 'Tapped Creator Card']
 
       if (targetUserIds.length > 0) {
         console.log(`\n📊 Step 2: Fetching creator events for ${targetUserIds.length} targeted users (with both timestamps)`)
@@ -548,7 +548,7 @@ serve(async (req) => {
       }
 
       console.log(`✅ Inserted ${totalInserted} creator events to creator_sequences_raw`)
-      console.log(`   (Includes both "Viewed Creator Profile" and "Viewed Creator Card" events)`)
+      console.log(`   (Includes both "Viewed Creator Profile" and "Tapped Creator Card" events)`)
 
       // Log skipped events summary
       if (skippedNoUserId > 0 || skippedNoCreator > 0) {
