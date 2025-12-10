@@ -333,27 +333,27 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         console.log('🔄 Sync Live Data: Starting workflow...');
 
         try {
-            // Step 1: Sync user data (Mixpanel) - starts at 20%, completes at 35%
-            this.updateProgress(20, 'Step 1/5: Syncing user data...');
+            // Step 1: Sync user data (Mixpanel) - starts at 15%, completes at 25%
+            this.updateProgress(15, 'Step 1/5: Syncing user data...');
             console.log('\n═══ Step 1: User Data (Mixpanel) ═══');
             const userResult = await this.supabaseIntegration.triggerMixpanelSync();
-            this.updateProgress(35, 'Step 1/5: Complete');
+            this.updateProgress(25, 'Step 1/5: Complete');
 
-            // Step 2: Sync creator data - starts at 35%, completes at 50%
-            this.updateProgress(35, 'Step 2/5: Syncing creator data...');
+            // Step 2: Sync creator data - starts at 25%, completes at 35%
+            this.updateProgress(25, 'Step 2/5: Syncing creator data...');
             console.log('\n═══ Step 2: Creator Data ═══');
             let creatorResult = null;
             try {
                 creatorResult = await this.supabaseIntegration.triggerCreatorSync();
                 console.log('✅ Creator Sync: Complete');
-                this.updateProgress(50, 'Step 2/5: Complete');
+                this.updateProgress(35, 'Step 2/5: Complete');
             } catch (error) {
                 console.warn('⚠ Creator Sync: Failed, continuing with existing data');
-                this.updateProgress(50, 'Step 2/5: Complete (with errors)');
+                this.updateProgress(35, 'Step 2/5: Complete (with errors)');
             }
 
-            // Step 3: Support analysis workflow (Zendesk + Linear) - starts at 50%, completes at 65%
-            this.updateProgress(50, 'Step 3/5: Checking support data...');
+            // Step 3: Support analysis workflow (Zendesk + Linear) - starts at 35%, completes at 50%
+            this.updateProgress(35, 'Step 3/5: Checking support data...');
             console.log('\n═══ Step 3: Support Analysis (Zendesk + Linear) ═══');
 
             // Check if support_analysis was already completed in the past 24 hours
@@ -379,18 +379,11 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             if (recentAnalysis) {
                 console.log(`✓ Support analysis already completed in past 24 hours at ${recentAnalysis.sync_completed_at}`);
-                console.log('Skipping entire Step 3 workflow (sync + analysis + mapping)');
-
-                // Refresh CX Analysis UI with existing data
-                console.log('→ Refreshing CX Analysis table with existing data');
-                if (window.cxAnalysis) {
-                    await window.cxAnalysis.refresh();
-                    console.log('  ✓ CX Analysis refreshed');
-                }
-                this.updateProgress(65, 'Step 3/5: Skipped (recent data exists)');
+                console.log('Skipping Step 3 workflow (recent data exists)');
+                this.updateProgress(50, 'Step 3/5: Skipped (recent data exists)');
             } else {
                 console.log('No recent analysis found - running full workflow');
-                this.updateProgress(50, 'Step 3/5: Syncing support data...');
+                this.updateProgress(35, 'Step 3/5: Syncing support data...');
 
                 try {
                     const supportResult = await this.supabaseIntegration.triggerSupportAnalysis();
@@ -426,21 +419,16 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                         console.warn('  ⚠ 3b: Linear mapping exception');
                     }
 
-                    // Step 3c: Refresh CX Analysis UI
-                    console.log('→ 3c: Refreshing CX Analysis table');
-                    if (window.cxAnalysis) {
-                        await window.cxAnalysis.refresh();
-                        console.log('  ✓ 3c: CX Analysis refreshed');
-                    }
-                    this.updateProgress(65, 'Step 3/5: Complete');
+                    console.log('✅ Support Analysis: Complete');
+                    this.updateProgress(50, 'Step 3/5: Complete');
                 } catch (error) {
                     console.warn('⚠ Support Analysis: Workflow failed, continuing');
-                    this.updateProgress(65, 'Step 3/5: Complete (with errors)');
+                    this.updateProgress(50, 'Step 3/5: Complete (with errors)');
                 }
             }
 
-            // Step 4: Refresh materialized views - starts at 65%, completes at 75%
-            this.updateProgress(65, 'Step 4/5: Refreshing views...');
+            // Step 4: Refresh materialized views - starts at 50%, completes at 60%
+            this.updateProgress(50, 'Step 4/5: Refreshing views...');
             console.log('\n═══ Step 4: Refresh Materialized Views ═══');
             console.log('Refreshing:');
             console.log('  1. main_analysis');
@@ -455,18 +443,18 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
                 const refreshResult = await this.supabaseIntegration.triggerMaterializedViewsRefresh();
                 if (refreshResult?.success) {
                     console.log('✅ All materialized views refreshed');
-                    this.updateProgress(75, 'Step 4/5: Complete');
+                    this.updateProgress(60, 'Step 4/5: Complete');
                 } else {
                     console.warn('⚠ Materialized views refresh failed, continuing');
-                    this.updateProgress(75, 'Step 4/5: Complete (with errors)');
+                    this.updateProgress(60, 'Step 4/5: Complete (with errors)');
                 }
             } catch (error) {
                 console.warn('⚠ Materialized views refresh failed, continuing');
-                this.updateProgress(75, 'Step 4/5: Complete (with errors)');
+                this.updateProgress(60, 'Step 4/5: Complete (with errors)');
             }
 
-            // Step 5: Run analysis workflows in parallel - starts at 75%, completes at 100%
-            this.updateProgress(75, 'Step 5/5: Running analysis...');
+            // Step 5: Run analysis workflows in parallel - starts at 60%, completes at 80%
+            this.updateProgress(60, 'Step 5/5: Running analysis...');
             console.log('\n═══ Step 5: Analysis Workflows (Parallel) ═══');
 
             await Promise.allSettled([
@@ -669,11 +657,10 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
             // Log parallel completion
             console.log('\n✅ All analysis workflows completed');
-            this.updateProgress(100, 'Complete!');
-            console.log('\n✅ Sync Live Data: Workflow complete\n');
+            this.updateProgress(80, 'Step 5/5: Complete');
         } catch (error) {
             console.error('❌ Workflow failed:', error);
-            this.updateProgress(100, 'Complete (with errors)');
+            this.updateProgress(80, 'Step 5/5: Complete (with errors)');
             throw error;
         }
 
@@ -743,6 +730,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
 
     /**
      * Override: Run the GitHub workflow using Supabase
+     * Syncs all data but does NOT refresh UI (UI refresh handled separately)
      */
     async runGitHubWorkflow() {
         // Trigger the sync workflow (progress updates happen inside triggerGitHubWorkflow)
@@ -752,11 +740,7 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
             throw new Error('Failed to trigger Supabase sync');
         }
 
-        // Fetch and update Marketing Metrics from Mixpanel
-        await this.displayMarketingMetrics(true);
-
-        // Display results from database (no client-side processing needed)
-        await this.displayResultsFromDatabase();
+        console.log('✅ All sync workflows completed');
     }
 
     /**
@@ -1070,45 +1054,66 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         }
 
         // Add timestamp and data scope to remaining tabs (summary, portfolio)
-        // Get the actual Mixpanel data refresh time from sync_logs
-        const mixpanelSyncTime = await window.supabaseIntegration.getMostRecentMixpanelSyncTime();
-        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+        // Each tab uses its own specific data source from sync_logs
 
-        const timestampStr = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        // Summary Stats tab: uses mixpanel_user_properties_v2
+        const summaryResultsDiv = summaryContainer.querySelector('.qda-analysis-results');
+        if (summaryResultsDiv) {
+            const summarySyncTime = await window.supabaseIntegration.getLastMixpanelSyncTime('mixpanel_user_properties_v2');
+            const summaryDisplayTime = summarySyncTime || new Date();
 
-        // Store both the display string and ISO timestamp for consistency
-        const timestampISO = displayTime.toISOString();
-        localStorage.setItem('qdaLastUpdated', timestampStr);
+            const summaryTimestampStr = summaryDisplayTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
 
-        // Add timestamp (top right) and data scope (top left) to each container
-        const tabConfigs = [
-            { container: summaryContainer, scopeText: 'All KYC approved users since 8/27' },
-            { container: portfolioContainer, scopeText: 'All KYC approved users since 8/27' }
-        ];
+            // Add timestamp (top right)
+            const summaryTimestamp = document.createElement('div');
+            summaryTimestamp.className = 'qda-timestamp';
+            summaryTimestamp.textContent = `Data as of: ${summaryTimestampStr}`;
+            summaryResultsDiv.insertBefore(summaryTimestamp, summaryResultsDiv.firstChild);
 
-        tabConfigs.forEach(({ container, scopeText }) => {
-            const resultsDiv = container.querySelector('.qda-analysis-results');
-            if (resultsDiv) {
-                // Add timestamp (top right)
-                const timestamp = document.createElement('div');
-                timestamp.className = 'qda-timestamp';
-                timestamp.textContent = `Data as of: ${timestampStr}`;
-                resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+            // Add data scope text (top left)
+            const summaryDataScope = document.createElement('div');
+            summaryDataScope.className = 'qda-data-scope';
+            summaryDataScope.textContent = 'All KYC approved users since 8/27';
+            summaryResultsDiv.insertBefore(summaryDataScope, summaryResultsDiv.firstChild);
+        }
 
-                // Add data scope text (top left)
-                const dataScope = document.createElement('div');
-                dataScope.className = 'qda-data-scope';
-                dataScope.textContent = scopeText;
-                resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
-            }
-        });
+        // Behavior Analysis tab: uses most recent of mixpanel_creator_sequences or mixpanel_portfolio_sequences
+        const portfolioResultsDiv = portfolioContainer.querySelector('.qda-analysis-results');
+        if (portfolioResultsDiv) {
+            const portfolioSyncTime = await window.supabaseIntegration.getMostRecentSyncTimeBetween([
+                'mixpanel_creator_sequences',
+                'mixpanel_portfolio_sequences'
+            ]);
+            const portfolioDisplayTime = portfolioSyncTime || new Date();
+
+            const portfolioTimestampStr = portfolioDisplayTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            // Add timestamp (top right)
+            const portfolioTimestamp = document.createElement('div');
+            portfolioTimestamp.className = 'qda-timestamp';
+            portfolioTimestamp.textContent = `Data as of: ${portfolioTimestampStr}`;
+            portfolioResultsDiv.insertBefore(portfolioTimestamp, portfolioResultsDiv.firstChild);
+
+            // Add data scope text (top left)
+            const portfolioDataScope = document.createElement('div');
+            portfolioDataScope.className = 'qda-data-scope';
+            portfolioDataScope.textContent = 'All KYC approved users since 8/27';
+            portfolioResultsDiv.insertBefore(portfolioDataScope, portfolioResultsDiv.firstChild);
+        }
 
         // Anchor links removed - using only tab anchors for simplicity
     }
@@ -1321,43 +1326,66 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         await this.displayTopCopyDrivers();
         await this.displayTopSubscriptionDrivers();
 
-        // Add timestamps
-        const cachedTime = localStorage.getItem('qdaMixpanelSyncTime');
-        const displayTime = cachedTime ? new Date(cachedTime) : new Date();
+        // Add timestamps - each tab uses its own specific data source from sync_logs
 
-        const timestampStr = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        // Summary Stats tab: uses mixpanel_user_properties_v2
+        const summaryResultsDiv2 = summaryContainer.querySelector('.qda-analysis-results');
+        if (summaryResultsDiv2) {
+            const summarySyncTime = await window.supabaseIntegration.getLastMixpanelSyncTime('mixpanel_user_properties_v2');
+            const summaryDisplayTime = summarySyncTime || new Date();
 
-        localStorage.setItem('qdaLastUpdated', timestampStr);
+            const summaryTimestampStr = summaryDisplayTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
 
-        // Add timestamp and data scope to each container
-        const tabConfigs = [
-            { container: summaryContainer, scopeText: 'All KYC approved users since 8/27' },
-            { container: portfolioContainer, scopeText: 'All KYC approved users since 8/27' }
-        ];
+            // Add timestamp (top right)
+            const summaryTimestamp = document.createElement('div');
+            summaryTimestamp.className = 'qda-timestamp';
+            summaryTimestamp.textContent = `Data as of: ${summaryTimestampStr}`;
+            summaryResultsDiv2.insertBefore(summaryTimestamp, summaryResultsDiv2.firstChild);
 
-        tabConfigs.forEach(({ container, scopeText }) => {
-            const resultsDiv = container.querySelector('.qda-analysis-results');
-            if (resultsDiv) {
-                // Add timestamp (top right)
-                const timestamp = document.createElement('div');
-                timestamp.className = 'qda-timestamp';
-                timestamp.textContent = `Data as of: ${timestampStr}`;
-                resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+            // Add data scope text (top left)
+            const summaryDataScope = document.createElement('div');
+            summaryDataScope.className = 'qda-data-scope';
+            summaryDataScope.textContent = 'All KYC approved users since 8/27';
+            summaryResultsDiv2.insertBefore(summaryDataScope, summaryResultsDiv2.firstChild);
+        }
 
-                // Add data scope text (top left)
-                const dataScope = document.createElement('div');
-                dataScope.className = 'qda-data-scope';
-                dataScope.textContent = scopeText;
-                resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
-            }
-        });
+        // Behavior Analysis tab: uses most recent of mixpanel_creator_sequences or mixpanel_portfolio_sequences
+        const portfolioResultsDiv2 = portfolioContainer.querySelector('.qda-analysis-results');
+        if (portfolioResultsDiv2) {
+            const portfolioSyncTime = await window.supabaseIntegration.getMostRecentSyncTimeBetween([
+                'mixpanel_creator_sequences',
+                'mixpanel_portfolio_sequences'
+            ]);
+            const portfolioDisplayTime = portfolioSyncTime || new Date();
+
+            const portfolioTimestampStr = portfolioDisplayTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+
+            // Add timestamp (top right)
+            const portfolioTimestamp = document.createElement('div');
+            portfolioTimestamp.className = 'qda-timestamp';
+            portfolioTimestamp.textContent = `Data as of: ${portfolioTimestampStr}`;
+            portfolioResultsDiv2.insertBefore(portfolioTimestamp, portfolioResultsDiv2.firstChild);
+
+            // Add data scope text (top left)
+            const portfolioDataScope = document.createElement('div');
+            portfolioDataScope.className = 'qda-data-scope';
+            portfolioDataScope.textContent = 'All KYC approved users since 8/27';
+            portfolioResultsDiv2.insertBefore(portfolioDataScope, portfolioResultsDiv2.firstChild);
+        }
     }
 
 

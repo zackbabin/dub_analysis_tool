@@ -154,6 +154,31 @@ class SupabaseIntegration {
     }
 
     /**
+     * Get the most recent sync time between multiple sources
+     * Used when a tab depends on data from multiple sync sources
+     * @param {string[]} sources - Array of source identifiers
+     * @returns {Promise<Date|null>}
+     */
+    async getMostRecentSyncTimeBetween(sources) {
+        try {
+            const syncTimes = await Promise.all(
+                sources.map(source => this.getLastMixpanelSyncTime(source))
+            );
+
+            // Filter out nulls and find the most recent
+            const validTimes = syncTimes.filter(time => time !== null);
+            if (validTimes.length === 0) return null;
+
+            return validTimes.reduce((latest, current) =>
+                current > latest ? current : latest
+            );
+        } catch (error) {
+            console.warn('Failed to get most recent sync time between sources:', error);
+            return null;
+        }
+    }
+
+    /**
      * Get last successful support analysis sync timestamp from sync_logs table
      * Used for displaying "Data as of:" timestamp on CX Analysis tab
      * @returns {Promise<Date|null>} - Last sync time or null if no sync found

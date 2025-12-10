@@ -202,9 +202,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         await this.loadAndDisplayPremiumCreatorAffinity();
 
         // Add data scope text (top left) and timestamp (top right)
-        // Get the actual Mixpanel data refresh time from sync_logs (same as user analysis tabs)
-        const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
-        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+        // Get the actual creator retention sync time from sync_logs
+        const creatorRetentionSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('creator_retention');
+        const displayTime = creatorRetentionSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
             month: 'numeric',
@@ -596,9 +596,9 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.querySelectorAll('.qda-timestamp').forEach(el => el.remove());
         resultsDiv.querySelectorAll('.qda-data-scope').forEach(el => el.remove());
 
-        // Get the actual Mixpanel data refresh time from sync_logs
-        const mixpanelSyncTime = await this.supabaseIntegration.getMostRecentMixpanelSyncTime();
-        const displayTime = mixpanelSyncTime || new Date(); // Fallback to current time if no sync found
+        // Get the actual creator retention sync time from sync_logs
+        const creatorRetentionSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('creator_retention');
+        const displayTime = creatorRetentionSyncTime || new Date(); // Fallback to current time if no sync found
 
         const formattedTimestamp = displayTime.toLocaleString('en-US', {
             month: 'numeric',
