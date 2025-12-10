@@ -1,8 +1,8 @@
 // Supabase Edge Function: sync-creator-sequences
-// Fetches "Viewed Creator Profile" events for users who copied at least once
+// Fetches "Viewed Creator Profile" and "Viewed Creator Card" events for users who copied at least once
 //
 // Step 1: Uses existing user_first_copies table (populated by sync-event-sequences-v2)
-// Step 2: Stream "Viewed Creator Profile" for those users (last 30 days), processing in 2500-event chunks
+// Step 2: Stream creator events for those users (last 30 days), processing in 2500-event chunks
 //
 // Streaming approach avoids CPU timeout by processing batches incrementally.
 //
@@ -239,6 +239,7 @@ serve(async (req) => {
     const supabase = initializeSupabaseClient()
 
     console.log('Starting creator sequences sync (Export API)...')
+    console.log('Fetching: "Viewed Creator Profile" and "Viewed Creator Card" events')
 
     // Create sync log entry
     const { syncLog, syncStartTime } = await createSyncLog(supabase, 'user', 'mixpanel_creator_sequences')
@@ -342,13 +343,14 @@ serve(async (req) => {
         }
       }
 
-      // STEP 2: Fetch creator profile view events - FILTERED to target users if available
-      const eventNames = ['Viewed Creator Profile']
+      // STEP 2: Fetch creator events - FILTERED to target users if available
+      // Includes both "Viewed Creator Profile" and "Viewed Creator Card" events
+      const eventNames = ['Viewed Creator Profile', 'Viewed Creator Card']
 
       if (targetUserIds.length > 0) {
-        console.log(`\n📊 Step 2: Fetching creator profile views for ${targetUserIds.length} targeted users (with both timestamps)`)
+        console.log(`\n📊 Step 2: Fetching creator events for ${targetUserIds.length} targeted users (with both timestamps)`)
       } else {
-        console.log(`\n📊 Step 2: Fetching ALL creator profile views (no user filter available)`)
+        console.log(`\n📊 Step 2: Fetching ALL creator events (no user filter available)`)
       }
 
       const fetchStartMs = Date.now()
@@ -408,7 +410,7 @@ serve(async (req) => {
         }
 
         // Insert batch to database - PostgreSQL handles deduplication via unique constraint
-        // Unique index: idx_creator_sequences_raw_unique (user_id, event_time, creator_username)
+        // Unique index: idx_creator_sequences_raw_unique (user_id, event_name, event_time, creator_username)
         try {
           if (rawEventRows.length === 0) {
             console.log(`  ✓ No events in batch`)
@@ -418,7 +420,7 @@ serve(async (req) => {
           const { error: insertError } = await supabase
             .from('creator_sequences_raw')
             .upsert(rawEventRows, {
-              onConflict: 'user_id,event_time,creator_username',
+              onConflict: 'user_id,event_name,event_time,creator_username',
               ignoreDuplicates: true
             })
 
@@ -545,7 +547,8 @@ serve(async (req) => {
         )
       }
 
-      console.log(`✅ Inserted ${totalInserted} raw events to creator_sequences_raw`)
+      console.log(`✅ Inserted ${totalInserted} creator events to creator_sequences_raw`)
+      console.log(`   (Includes both "Viewed Creator Profile" and "Viewed Creator Card" events)`)
 
       // Log skipped events summary
       if (skippedNoUserId > 0 || skippedNoCreator > 0) {
@@ -569,7 +572,7 @@ serve(async (req) => {
         : `Creator sequences ${syncMode} sync completed - ${totalInserted} events inserted to staging table`
 
       console.log(partialSync ? '⚠️ Partial sync completed' : `✅ ${syncMode} sync completed successfully`)
-      console.log(`Creator profile views: ${stats.eventsInserted}`)
+      console.log(`Creator events: ${stats.eventsInserted} (profile views + card taps)`)
       console.log('')
       console.log('📊 Next step: Call analyze-creator-sequences separately to analyze conversion patterns')
 
@@ -579,7 +582,7 @@ serve(async (req) => {
         {
           syncMode: syncMode,
           dateRange: `${fromDate} to ${toDate}`,
-          creatorProfileViews: stats.eventsInserted,
+          creatorEvents: stats.eventsInserted,
           note: 'Uses 1-day lookback with deduplication - ensures no data missed',
           partialSync: partialSync
         }
