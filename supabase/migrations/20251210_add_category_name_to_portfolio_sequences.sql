@@ -19,8 +19,10 @@ ON portfolio_sequences_raw (user_id, event_name, event_time, portfolio_ticker);
 CREATE INDEX IF NOT EXISTS idx_portfolio_sequences_raw_category_name
 ON portfolio_sequences_raw(category_name) WHERE category_name IS NOT NULL;
 
--- Update view to include category_name
-CREATE OR REPLACE VIEW portfolio_sequences AS
+-- Drop and recreate view to include category_name (CREATE OR REPLACE won't work when adding columns)
+DROP VIEW IF EXISTS portfolio_sequences;
+
+CREATE VIEW portfolio_sequences AS
 SELECT
   ps.id,
   ps.user_id,
