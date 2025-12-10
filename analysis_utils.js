@@ -152,9 +152,14 @@ async function addTimestampToResults(resultsDiv, source, supabaseIntegration) {
         syncTime = await supabaseIntegration.getLastMixpanelSyncTime(source);
     }
 
-    const displayTime = syncTime || new Date();
+    // Only show timestamp if we have actual sync data
+    // Don't fall back to current time - that would be misleading
+    if (!syncTime) {
+        console.warn(`⚠️ No sync time found for source: ${Array.isArray(source) ? source.join(', ') : source}`);
+        return null;
+    }
 
-    const timestampStr = displayTime.toLocaleString('en-US', {
+    const timestampStr = syncTime.toLocaleString('en-US', {
         month: 'numeric',
         day: 'numeric',
         year: 'numeric',
