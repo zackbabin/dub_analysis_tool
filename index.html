@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     <meta name="description" content="Advanced product analytics and user behavioral analysis for dub">
     <meta name="author" content="dub">
-    <link rel="stylesheet" href="styles.css?v=258">
+    <link rel="stylesheet" href="styles.css?v=259">
 
 </head>
 <body>
@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=258"></script>
+    <script src="csv_utils.js?v=259"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=258"></script>
+    <script src="analysis_utils.js?v=259"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=258"></script>
+    <script src="supabase_integration.js?v=259"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=258"></script>
+    <script src="user_analysis_tool.js?v=259"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=258"></script>
+    <script src="user_analysis_tool_supabase.js?v=259"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=258"></script>
+    <script src="creator_analysis_tool.js?v=259"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=258"></script>
+    <script src="creator_analysis_tool_supabase.js?v=259"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=258"></script>
+    <script src="business-model-analysis.js?v=259"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=258"></script>
+    <script src="crypto-analysis.js?v=259"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=258"></script>
+    <script src="cx-analysis.js?v=259"></script>
 
     <script>
         // Supabase Configuration
@@ -698,6 +698,14 @@
                     userTool.updateProgress(100, 'Completed');
                     console.log('\n✅ All tabs refreshed successfully\n');
 
+                    // Hide progress bar after 2 seconds
+                    setTimeout(() => {
+                        const progressSection = document.getElementById('unifiedProgressSection');
+                        if (progressSection) {
+                            progressSection.style.display = 'none';
+                        }
+                    }, 2000);
+
                     // Reset button
                     if (button) {
                         button.textContent = 'Refresh';
@@ -707,6 +715,14 @@
                 } catch (error) {
                     console.error('❌ Error refreshing tabs:', error);
                     userTool.updateProgress(100, 'Completed (with errors)');
+
+                    // Hide progress bar after 2 seconds even on error
+                    setTimeout(() => {
+                        const progressSection = document.getElementById('unifiedProgressSection');
+                        if (progressSection) {
+                            progressSection.style.display = 'none';
+                        }
+                    }, 2000);
 
                     // Reset button even on error
                     if (button) {

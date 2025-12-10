@@ -100,7 +100,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 25; // Progress bar shows target % immediately: 30-40-60-70-90-100
+    static CACHE_VERSION = 26; // Auto-hide progress bar after completion
 
     constructor() {
         super();
