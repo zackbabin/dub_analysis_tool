@@ -2637,20 +2637,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             throw new Error('Supabase not configured. Please check your configuration.');
         }
 
-        this.clearStatus();
-        this.showProgress(0);
-
-        // Track start time to ensure minimum progress bar display time
-        const workflowStartTime = Date.now();
-
         try {
             console.log('🔄 Refreshing creator data from database (no Mixpanel sync)...');
 
             // Clear query cache to ensure fresh data
             this.supabaseIntegration.invalidateCache();
             console.log('🗑️ Query cache cleared');
-
-            this.updateProgress(30, 'Loading data from database...');
 
             // Clear the output container completely
             this.outputContainer.innerHTML = '';
@@ -2666,8 +2658,6 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
                 return [];
             });
 
-            this.updateProgress(60, 'Rendering data...');
-
             // Re-render the entire creator analysis display
             console.log('Re-rendering creator analysis with fresh data...');
             await this.displayResults({ summaryStats, subscriptionDistribution });
@@ -2678,21 +2668,7 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
             // Save updated HTML to unified cache
             this.saveToUnifiedCache();
 
-            this.updateProgress(100, 'Complete!');
             console.log('✅ Creator database refresh completed');
-
-            // Ensure progress bar is visible for at least 1.5 seconds
-            const elapsedTime = Date.now() - workflowStartTime;
-            const minDisplayTime = 1500; // 1.5 seconds
-            const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
-
-            // Hide progress bar after minimum display time + 1 second
-            setTimeout(() => {
-                const progressSection = document.getElementById('unifiedProgressSection');
-                if (progressSection) {
-                    progressSection.style.display = 'none';
-                }
-            }, remainingTime + 1000);
         } catch (error) {
             console.error('Database refresh error:', error);
             this.addStatusMessage(`❌ Refresh failed: ${error.message}`, 'error');

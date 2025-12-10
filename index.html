@@ -7,7 +7,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚀</text></svg>">
     <meta name="description" content="Advanced product analytics and user behavioral analysis for dub">
     <meta name="author" content="dub">
-    <link rel="stylesheet" href="styles.css?v=255">
+    <link rel="stylesheet" href="styles.css?v=256">
 
 </head>
 <body>
@@ -84,34 +84,34 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
 
     <!-- Load CSV Utilities (shared by all analysis tools) -->
-    <script src="csv_utils.js?v=255"></script>
+    <script src="csv_utils.js?v=256"></script>
 
     <!-- Load Analysis Utilities (shared by all analysis tools) -->
-    <script src="analysis_utils.js?v=255"></script>
+    <script src="analysis_utils.js?v=256"></script>
 
     <!-- Load Supabase Integration Module -->
-    <script src="supabase_integration.js?v=255"></script>
+    <script src="supabase_integration.js?v=256"></script>
 
     <!-- Load User Analysis Tool (base class - kept intact) -->
-    <script src="user_analysis_tool.js?v=255"></script>
+    <script src="user_analysis_tool.js?v=256"></script>
 
     <!-- Load Supabase Version (extends user_analysis_tool.js) -->
-    <script src="user_analysis_tool_supabase.js?v=255"></script>
+    <script src="user_analysis_tool_supabase.js?v=256"></script>
 
     <!-- Load Creator Analysis Tool -->
-    <script src="creator_analysis_tool.js?v=255"></script>
+    <script src="creator_analysis_tool.js?v=256"></script>
 
     <!-- Load Creator Analysis Tool Supabase Version -->
-    <script src="creator_analysis_tool_supabase.js?v=255"></script>
+    <script src="creator_analysis_tool_supabase.js?v=256"></script>
 
     <!-- Load Business Model Analysis Tool -->
-    <script src="business-model-analysis.js?v=255"></script>
+    <script src="business-model-analysis.js?v=256"></script>
 
     <!-- Load Crypto Analysis Tool -->
-    <script src="crypto-analysis.js?v=255"></script>
+    <script src="crypto-analysis.js?v=256"></script>
 
     <!-- Load CX Analysis Tool -->
-    <script src="cx-analysis.js?v=255"></script>
+    <script src="cx-analysis.js?v=256"></script>
 
     <script>
         // Supabase Configuration
@@ -459,10 +459,10 @@
                 syncBtn.textContent = 'Syncing...';
 
                 try {
-                    // Step 1: Sync all data (0-80%)
+                    // Step 1: Sync all data (0-90%)
                     await userTool.runWorkflow('github');
 
-                    // Step 2: Refresh all tabs (80-100%)
+                    // Step 2: Refresh all tabs (90-100%)
                     await window.refreshAllTabs();
 
                     syncBtn.textContent = '✓ Sync Complete';
@@ -683,20 +683,19 @@
                 }
 
                 try {
-                    // Refresh tabs sequentially with progress updates (80-100%)
-                    userTool.updateProgress(80, 'Loading Summary & Behavior tabs...');
+                    // Refresh tabs sequentially with progress updates (90-100%)
+                    userTool.updateProgress(90, 'Refreshing UI...');
+
                     await userTool.refreshFromDatabaseOnly();
                     console.log('✅ Summary & Behavior tabs refreshed');
 
-                    userTool.updateProgress(90, 'Loading Premium Creator tab...');
                     await creatorTool.refreshFromDatabaseOnly();
                     console.log('✅ Premium Creator tab refreshed');
 
-                    userTool.updateProgress(95, 'Loading CX Analysis tab...');
                     await cxAnalysis.loadAndDisplayResults();
                     console.log('✅ CX Analysis tab refreshed');
 
-                    userTool.updateProgress(100, 'Complete!');
+                    userTool.updateProgress(100, 'Completed');
                     console.log('\n✅ All tabs refreshed successfully\n');
 
                     // Reset button
@@ -707,7 +706,7 @@
                     }
                 } catch (error) {
                     console.error('❌ Error refreshing tabs:', error);
-                    userTool.updateProgress(100, 'Complete (with errors)');
+                    userTool.updateProgress(100, 'Completed (with errors)');
 
                     // Reset button even on error
                     if (button) {
