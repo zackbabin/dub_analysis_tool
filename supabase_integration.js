@@ -108,16 +108,21 @@ class SupabaseIntegration {
      */
     async getLastMixpanelSyncTime(source) {
         try {
+            // Force fresh query by using a very old timestamp filter (forces new query plan)
+            const veryOldDate = new Date('2020-01-01').toISOString();
+
             const { data, error } = await this.supabase
                 .from('sync_logs')
                 .select('sync_completed_at')
                 .eq('source', source)
                 .eq('sync_status', 'completed')
+                .gte('sync_completed_at', veryOldDate) // Cache-busting filter
                 .order('sync_completed_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
             if (error || !data || !data.sync_completed_at) {
+                console.log(`No sync time found for source: ${source}`, { error, data });
                 return null;
             }
 
