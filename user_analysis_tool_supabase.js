@@ -100,7 +100,7 @@ function replaceContent(container, content) {
  */
 class UserAnalysisToolSupabase extends UserAnalysisTool {
     // Cache version - increment when cached HTML structure changes
-    static CACHE_VERSION = 26; // Auto-hide progress bar after completion
+    static CACHE_VERSION = 27; // Remove duplicate subscription conversion in Behavioral Drivers
 
     constructor() {
         super();
@@ -3221,133 +3221,8 @@ UserAnalysisToolSupabase.prototype.displayTopSubscriptionDrivers = async functio
         tableWrapper.appendChild(table);
         contentDiv.appendChild(tableWrapper);
 
-        // Also display subscription conversion paths below the drivers table
-        await this.displaySubscriptionConversionPaths();
-
     } catch (error) {
         console.error('Error in displayTopSubscriptionDrivers:', error);
-    }
-};
-
-/**
- * Display Subscription Conversion Paths
- * Shows UNIFIED creator + portfolio viewing patterns before subscription
- * Queries subscription_path_analysis table (DB combines creator & portfolio views by timestamp)
- */
-UserAnalysisToolSupabase.prototype.displaySubscriptionConversionPaths = async function() {
-    try {
-        if (!this.supabaseIntegration) {
-            console.error('Supabase not configured');
-            return;
-        }
-
-        const contentDiv = document.getElementById('subscriptions-behavioral-tab');
-        if (!contentDiv) {
-            console.warn('Subscriptions behavioral tab not found');
-            return;
-        }
-
-        // Fetch unified subscription path data
-        const { data, error } = await this.supabaseIntegration.supabase
-            .from('subscription_path_analysis')
-            .select('*')
-            .order('converter_count', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching subscription paths:', error);
-            return;
-        }
-
-        console.log(`📊 Fetched ${data?.length || 0} unified subscription paths`);
-
-        // Filter by analysis type
-        const combinations = data.filter(r => r.analysis_type === 'combinations');
-        const sequences = data.filter(r => r.analysis_type === 'full_sequence');
-
-        // Build HTML for the section
-        let html = `
-            <div style="margin-top: 2rem;">
-                <h3 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1.1rem;">Subscription Conversion Paths</h3>
-                <p style="color: #6c757d; font-size: 0.9rem; margin-bottom: 1.5rem;">
-                    Combined creator and portfolio viewing patterns before first subscription
-                </p>
-        `;
-
-        // Check if we have any data
-        if (combinations.length === 0 && sequences.length === 0) {
-            html += `
-                <p style="color: #6c757d; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                    No subscription conversion path data available. Run the subscription sequence analysis to generate this data.
-                </p>
-            `;
-        } else {
-            // Build 2-column grid layout (equal width)
-            html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">`;
-
-            // Top Creator/Portfolio Combinations Section
-            if (combinations.length > 0) {
-                html += `
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Top Creator/Portfolio Combinations</h4>
-                        <div class="combinations-list">
-                `;
-
-                combinations.forEach((item, index) => {
-                    const itemSet = item.view_sequence.join(', ');
-                    const pct = parseFloat(item.pct_of_converters);
-
-                    html += `
-                        <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
-                            <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
-                            <span style="flex: 2; color: #495057;">${itemSet}</span>
-                            <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
-                        </div>
-                    `;
-                });
-
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-
-            // Most Common Sequences Section
-            if (sequences.length > 0) {
-                html += `
-                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px;">
-                        <h4 style="margin: 0 0 12px 0; color: #333; font-size: 0.875rem; font-weight: 600;">Most Common Sequences</h4>
-                        <div class="paths-list">
-                `;
-
-                sequences.forEach((item, index) => {
-                    const pathStr = item.view_sequence.join(' → ');
-                    const pct = parseFloat(item.pct_of_converters);
-
-                    html += `
-                        <div style="display: flex; gap: 12px; padding: 6px 0; font-size: 0.875rem;">
-                            <span style="min-width: 20px; color: #6c757d;">${index + 1}.</span>
-                            <span style="flex: 2; color: #495057;">${pathStr}</span>
-                            <span style="min-width: 60px; text-align: right; font-weight: 500;">${pct}%</span>
-                        </div>
-                    `;
-                });
-
-                html += `
-                        </div>
-                    </div>
-                `;
-            }
-
-            html += `</div>`; // Close grid
-        }
-
-        html += `</div>`; // Close main container
-
-        // Append to content div (after subscription drivers table)
-        contentDiv.insertAdjacentHTML('beforeend', html);
-
-    } catch (error) {
-        console.error('Error in displaySubscriptionConversionPaths:', error);
     }
 };
 
