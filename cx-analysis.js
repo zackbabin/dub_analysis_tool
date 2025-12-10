@@ -90,33 +90,10 @@ class CXAnalysis {
         this.container.innerHTML = '';
         this.container.appendChild(resultsDiv);
 
-        // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
-        // Get the actual support analysis sync time from sync_logs (same pattern as other tabs)
-        const supportSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('support_analysis');
-
-        // Add timestamp (top right) - only if sync time exists
-        if (supportSyncTime) {
-            const formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-
-            const timestamp = document.createElement('div');
-            timestamp.className = 'qda-timestamp';
-            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-            resultsDiv.appendChild(timestamp);
-        } else {
-            console.warn('⚠️ No sync time found for support_analysis in sync_logs');
-        }
+        // Add timestamp using shared utility
+        await window.addTimestampToResults(resultsDiv, 'support_analysis', this.supabaseIntegration);
 
         // Add data scope (top left) - shows conversation count analyzed by Claude
-        const dataScope = document.createElement('div');
-        dataScope.className = 'qda-data-scope';
-
         // Format week_start_date as MM/DD/YYYY
         const weekStartDate = new Date(data.week_start_date);
         const formattedWeekStart = weekStartDate.toLocaleDateString('en-US', {
@@ -127,8 +104,10 @@ class CXAnalysis {
 
         // Get total conversations analyzed from Claude's response
         const totalAnalyzed = data.analysis_summary?.total_conversations_analyzed || data.conversation_count || 'N/A';
+        const dataScope = document.createElement('div');
+        dataScope.className = 'qda-data-scope';
         dataScope.textContent = `Analysis of ${totalAnalyzed} Zendesk tickets since ${formattedWeekStart}`;
-        resultsDiv.insertBefore(dataScope, timestamp);
+        resultsDiv.insertBefore(dataScope, resultsDiv.firstChild);
 
         // Add H1 title (using qda-result-section for consistent spacing)
         const titleSection = document.createElement('div');

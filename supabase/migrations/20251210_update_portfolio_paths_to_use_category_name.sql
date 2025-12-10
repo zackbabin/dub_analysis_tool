@@ -104,12 +104,12 @@ BEGIN
     SELECT
       'full_sequence'::TEXT as analysis_type,
       ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC) as path_rank,
-      portfolio_sequence,
+      us.portfolio_sequence,  -- Fully qualify to avoid ambiguity
       COUNT(*)::INT as converter_count,
       ROUND((COUNT(*)::NUMERIC / total_converters * 100), 2) as pct_of_converters,
       total_converters as total_converters_analyzed
-    FROM user_sequences
-    GROUP BY portfolio_sequence
+    FROM user_sequences us
+    GROUP BY us.portfolio_sequence  -- Fully qualify to avoid ambiguity
     ORDER BY COUNT(*) DESC
     LIMIT 5
   )

@@ -1059,23 +1059,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Summary Stats tab: uses mixpanel_user_properties_v2
         const summaryResultsDiv = summaryContainer.querySelector('.qda-analysis-results');
         if (summaryResultsDiv) {
-            const summarySyncTime = await window.supabaseIntegration.getLastMixpanelSyncTime('mixpanel_user_properties_v2');
-            const summaryDisplayTime = summarySyncTime || new Date();
-
-            const summaryTimestampStr = summaryDisplayTime.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-
-            // Add timestamp (top right)
-            const summaryTimestamp = document.createElement('div');
-            summaryTimestamp.className = 'qda-timestamp';
-            summaryTimestamp.textContent = `Data as of: ${summaryTimestampStr}`;
-            summaryResultsDiv.insertBefore(summaryTimestamp, summaryResultsDiv.firstChild);
+            // Add timestamp using shared utility
+            await window.addTimestampToResults(summaryResultsDiv, 'mixpanel_user_properties_v2', window.supabaseIntegration);
 
             // Add data scope text (top left)
             const summaryDataScope = document.createElement('div');
@@ -1087,26 +1072,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Behavior Analysis tab: uses most recent of mixpanel_creator_sequences or mixpanel_portfolio_sequences
         const portfolioResultsDiv = portfolioContainer.querySelector('.qda-analysis-results');
         if (portfolioResultsDiv) {
-            const portfolioSyncTime = await window.supabaseIntegration.getMostRecentSyncTimeBetween([
-                'mixpanel_creator_sequences',
-                'mixpanel_portfolio_sequences'
-            ]);
-            const portfolioDisplayTime = portfolioSyncTime || new Date();
-
-            const portfolioTimestampStr = portfolioDisplayTime.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-
-            // Add timestamp (top right)
-            const portfolioTimestamp = document.createElement('div');
-            portfolioTimestamp.className = 'qda-timestamp';
-            portfolioTimestamp.textContent = `Data as of: ${portfolioTimestampStr}`;
-            portfolioResultsDiv.insertBefore(portfolioTimestamp, portfolioResultsDiv.firstChild);
+            // Add timestamp using shared utility (array of sources)
+            await window.addTimestampToResults(
+                portfolioResultsDiv,
+                ['mixpanel_creator_sequences', 'mixpanel_portfolio_sequences'],
+                window.supabaseIntegration
+            );
 
             // Add data scope text (top left)
             const portfolioDataScope = document.createElement('div');
@@ -1331,23 +1302,8 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Summary Stats tab: uses mixpanel_user_properties_v2
         const summaryResultsDiv2 = summaryContainer.querySelector('.qda-analysis-results');
         if (summaryResultsDiv2) {
-            const summarySyncTime = await window.supabaseIntegration.getLastMixpanelSyncTime('mixpanel_user_properties_v2');
-            const summaryDisplayTime = summarySyncTime || new Date();
-
-            const summaryTimestampStr = summaryDisplayTime.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-
-            // Add timestamp (top right)
-            const summaryTimestamp = document.createElement('div');
-            summaryTimestamp.className = 'qda-timestamp';
-            summaryTimestamp.textContent = `Data as of: ${summaryTimestampStr}`;
-            summaryResultsDiv2.insertBefore(summaryTimestamp, summaryResultsDiv2.firstChild);
+            // Add timestamp using shared utility
+            await window.addTimestampToResults(summaryResultsDiv2, 'mixpanel_user_properties_v2', window.supabaseIntegration);
 
             // Add data scope text (top left)
             const summaryDataScope = document.createElement('div');
@@ -1359,26 +1315,12 @@ class UserAnalysisToolSupabase extends UserAnalysisTool {
         // Behavior Analysis tab: uses most recent of mixpanel_creator_sequences or mixpanel_portfolio_sequences
         const portfolioResultsDiv2 = portfolioContainer.querySelector('.qda-analysis-results');
         if (portfolioResultsDiv2) {
-            const portfolioSyncTime = await window.supabaseIntegration.getMostRecentSyncTimeBetween([
-                'mixpanel_creator_sequences',
-                'mixpanel_portfolio_sequences'
-            ]);
-            const portfolioDisplayTime = portfolioSyncTime || new Date();
-
-            const portfolioTimestampStr = portfolioDisplayTime.toLocaleString('en-US', {
-                month: 'numeric',
-                day: 'numeric',
-                year: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-            });
-
-            // Add timestamp (top right)
-            const portfolioTimestamp = document.createElement('div');
-            portfolioTimestamp.className = 'qda-timestamp';
-            portfolioTimestamp.textContent = `Data as of: ${portfolioTimestampStr}`;
-            portfolioResultsDiv2.insertBefore(portfolioTimestamp, portfolioResultsDiv2.firstChild);
+            // Add timestamp using shared utility (array of sources)
+            await window.addTimestampToResults(
+                portfolioResultsDiv2,
+                ['mixpanel_creator_sequences', 'mixpanel_portfolio_sequences'],
+                window.supabaseIntegration
+            );
 
             // Add data scope text (top left)
             const portfolioDataScope = document.createElement('div');

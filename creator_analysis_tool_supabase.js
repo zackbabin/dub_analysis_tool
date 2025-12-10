@@ -202,28 +202,12 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         await this.loadAndDisplayPremiumCreatorAffinity();
 
         // Add data scope text (top left) and timestamp (top right)
-        // Get the actual creator retention sync time from sync_logs
-        const creatorRetentionSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('creator_retention');
-        const displayTime = creatorRetentionSyncTime || new Date(); // Fallback to current time if no sync found
-
-        const formattedTimestamp = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-
         // Remove any existing timestamp/data-scope elements first (prevent duplicates)
         resultsDiv.querySelectorAll('.qda-timestamp').forEach(el => el.remove());
         resultsDiv.querySelectorAll('.qda-data-scope').forEach(el => el.remove());
 
-        // Add timestamp first (will be inserted at position 0)
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+        // Add timestamp using shared utility
+        await window.addTimestampToResults(resultsDiv, 'creator_retention', this.supabaseIntegration);
 
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');
@@ -596,24 +580,8 @@ class CreatorAnalysisToolSupabase extends CreatorAnalysisTool {
         resultsDiv.querySelectorAll('.qda-timestamp').forEach(el => el.remove());
         resultsDiv.querySelectorAll('.qda-data-scope').forEach(el => el.remove());
 
-        // Get the actual creator retention sync time from sync_logs
-        const creatorRetentionSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('creator_retention');
-        const displayTime = creatorRetentionSyncTime || new Date(); // Fallback to current time if no sync found
-
-        const formattedTimestamp = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-
-        // Add timestamp first (will be inserted at position 0)
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-        resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+        // Add timestamp using shared utility
+        await window.addTimestampToResults(resultsDiv, 'creator_retention', this.supabaseIntegration);
 
         // Add data scope text second (will be inserted at position 0, pushing timestamp to position 1)
         const dataScope = document.createElement('div');

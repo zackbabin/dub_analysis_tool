@@ -134,11 +134,49 @@ function shouldExcludeVariable(columnName) {
     return EXCLUDED_VARIABLES.includes(columnName);
 }
 
+/**
+ * Add timestamp to results container
+ * Shared utility to ensure consistent timestamp formatting across all tabs
+ *
+ * @param {HTMLElement} resultsDiv - The results container element
+ * @param {string|string[]} source - Single source string or array of sources
+ * @param {Object} supabaseIntegration - The supabase integration instance
+ * @returns {Promise<HTMLElement>} The created timestamp element
+ */
+async function addTimestampToResults(resultsDiv, source, supabaseIntegration) {
+    // Handle single source or array of sources
+    let syncTime;
+    if (Array.isArray(source)) {
+        syncTime = await supabaseIntegration.getMostRecentSyncTimeBetween(source);
+    } else {
+        syncTime = await supabaseIntegration.getLastMixpanelSyncTime(source);
+    }
+
+    const displayTime = syncTime || new Date();
+
+    const timestampStr = displayTime.toLocaleString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
+
+    const timestamp = document.createElement('div');
+    timestamp.className = 'qda-timestamp';
+    timestamp.textContent = `Data as of: ${timestampStr}`;
+    resultsDiv.insertBefore(timestamp, resultsDiv.firstChild);
+
+    return timestamp;
+}
+
 // Export to window for global access
 if (typeof window !== 'undefined') {
     window.calculatePredictiveStrength = calculatePredictiveStrength;
     window.getVariableLabel = getVariableLabel;
     window.shouldExcludeVariable = shouldExcludeVariable;
+    window.addTimestampToResults = addTimestampToResults;
 }
 
 console.log('✅ Analysis utilities loaded successfully!');
