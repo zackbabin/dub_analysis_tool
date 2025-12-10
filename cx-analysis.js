@@ -93,22 +93,25 @@ class CXAnalysis {
         // Format timestamp: "Data as of: MM/DD/YYYY, HH:MM PM/AM"
         // Get the actual support analysis sync time from sync_logs (same pattern as other tabs)
         const supportSyncTime = await this.supabaseIntegration.getLastMixpanelSyncTime('support_analysis');
-        const displayTime = supportSyncTime || new Date(); // Fallback to current time if no sync found
 
-        const formattedTimestamp = displayTime.toLocaleString('en-US', {
-            month: 'numeric',
-            day: 'numeric',
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
+        // Add timestamp (top right) - only if sync time exists
+        if (supportSyncTime) {
+            const formattedTimestamp = supportSyncTime.toLocaleString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
 
-        // Add timestamp (top right)
-        const timestamp = document.createElement('div');
-        timestamp.className = 'qda-timestamp';
-        timestamp.textContent = `Data as of: ${formattedTimestamp}`;
-        resultsDiv.appendChild(timestamp);
+            const timestamp = document.createElement('div');
+            timestamp.className = 'qda-timestamp';
+            timestamp.textContent = `Data as of: ${formattedTimestamp}`;
+            resultsDiv.appendChild(timestamp);
+        } else {
+            console.warn('⚠️ No sync time found for support_analysis in sync_logs');
+        }
 
         // Add data scope (top left) - shows conversation count analyzed by Claude
         const dataScope = document.createElement('div');
